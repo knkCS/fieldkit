@@ -96,6 +96,28 @@ const myPlugin: FieldTypePlugin = {
 - dnd-kit (specification editor)
 - TipTap/ProseMirror (rich text, via @knkcms/knkeditor)
 
+## Contributing
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). All commit messages must follow the format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+```
+
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+
+**Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes.
+
+**Examples:**
+```
+feat(schema): add email field type plugin
+fix(renderer): handle conditional visibility for nested groups
+docs: update README with quick start example
+refactor(table): extract cell component lookup into utility
+```
+
 ## Documentation
 
 - [Design Specification](docs/specs/2026-03-10-knkcs-fieldkit-design.md)

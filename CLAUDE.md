@@ -73,6 +73,19 @@ src/
 - **Lucide icons only**: All icons from lucide-react.
 - **displayName required**: All exported React components must have `displayName`.
 
+## Git Conventions
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). All commit messages MUST follow the format:
+
+```
+<type>(<scope>): <description>
+```
+
+- **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+- **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
+- Keep the subject line under 72 characters
+- Use imperative mood ("add feature" not "added feature")
+
 ## Peer Dependencies
 
 Consuming projects must install:
