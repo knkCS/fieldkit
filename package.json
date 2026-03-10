@@ -1,0 +1,84 @@
+{
+  "name": "@knkcs/fieldkit",
+  "version": "0.0.1",
+  "description": "Specification-driven field system for defining, rendering, and tabulating structured data",
+  "type": "module",
+  "main": "./dist/schema/index.js",
+  "types": "./dist/schema/index.d.ts",
+  "exports": {
+    "./schema": {
+      "import": "./dist/schema/index.js",
+      "types": "./dist/schema/index.d.ts"
+    },
+    "./editor": {
+      "import": "./dist/editor/index.js",
+      "types": "./dist/editor/index.d.ts"
+    },
+    "./renderer": {
+      "import": "./dist/renderer/index.js",
+      "types": "./dist/renderer/index.d.ts"
+    },
+    "./table": {
+      "import": "./dist/table/index.js",
+      "types": "./dist/table/index.d.ts"
+    },
+    "./rich-text-spec": {
+      "import": "./dist/rich-text-spec/index.js",
+      "types": "./dist/rich-text-spec/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "dev": "storybook dev -p 6007",
+    "build": "tsup",
+    "build:storybook": "storybook build",
+    "lint": "biome check src",
+    "lint:write": "biome check --write src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@knkcs/anker": "*",
+    "react": ">=18",
+    "react-dom": ">=18",
+    "@chakra-ui/react": "^3.0.0",
+    "react-hook-form": "^7.0.0",
+    "@hookform/resolvers": "^3.0.0",
+    "zod": "^3.0.0",
+    "@tanstack/react-table": "^8.0.0",
+    "@dnd-kit/core": "^6.0.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "react-router-dom": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@knkcms/knkeditor-editor": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@knkcs/anker": "file:../anker",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@chakra-ui/react": "^3.0.0",
+    "react-hook-form": "^7.54.0",
+    "@hookform/resolvers": "^3.9.0",
+    "zod": "^3.23.0",
+    "@tanstack/react-table": "^8.20.0",
+    "@dnd-kit/core": "^6.3.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "react-router-dom": "^6.28.0",
+    "lucide-react": "^0.400.0",
+    "typescript": "^5.7.0",
+    "tsup": "^8.3.0",
+    "@biomejs/biome": "^2.2.0",
+    "vitest": "^3.0.0",
+    "jsdom": "^25.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@storybook/react-vite": "^8.4.0",
+    "@storybook/addon-essentials": "^8.4.0",
+    "@storybook/addon-a11y": "^8.4.0"
+  }
+}
