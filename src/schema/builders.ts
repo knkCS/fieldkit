@@ -1,7 +1,7 @@
 // src/schema/builders.ts
 import type { Field, FieldConfig, FieldValidation } from "./types";
 
-interface BaseOptions {
+type BaseOptions = {
   name?: string;
   required?: boolean;
   instructions?: string;
@@ -11,7 +11,12 @@ interface BaseOptions {
   hidden?: boolean;
   read_only?: boolean;
   validation?: Partial<FieldValidation>;
-}
+};
+
+const BASE_OPTION_KEYS = new Set([
+  "name", "required", "instructions", "default_value",
+  "unique", "localizable", "hidden", "read_only", "validation",
+]);
 
 function buildConfig(apiAccessor: string, options?: BaseOptions): FieldConfig {
   return {
@@ -27,41 +32,66 @@ function buildConfig(apiAccessor: string, options?: BaseOptions): FieldConfig {
   };
 }
 
+function extractSettings<S>(
+  options: Record<string, unknown> | undefined,
+  settingsKeys?: string[],
+): S | null {
+  if (!options) return null;
+
+  const rest: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(options)) {
+    if (!BASE_OPTION_KEYS.has(k)) {
+      rest[k] = v;
+    }
+  }
+
+  if (settingsKeys) {
+    const picked: Record<string, unknown> = {};
+    for (const k of settingsKeys) {
+      if (k in rest) {
+        picked[k] = rest[k];
+      }
+    }
+    return Object.keys(picked).length > 0 ? (picked as S) : null;
+  }
+
+  return Object.keys(rest).length > 0 ? (rest as S) : null;
+}
+
 function buildField<S>(
   fieldType: string,
   apiAccessor: string,
   options?: BaseOptions & Record<string, unknown>,
   settingsKeys?: string[],
 ): Field<S> {
-  const {
-    name, required, instructions, default_value,
-    unique, localizable, hidden, read_only, validation,
-    ...rest
-  } = options ?? {};
-
-  const settings = settingsKeys
-    ? (Object.fromEntries(
-        settingsKeys.filter((k) => k in rest).map((k) => [k, rest[k]]),
-      ) as S)
-    : (Object.keys(rest).length > 0 ? rest as S : null);
+  const settings = extractSettings<S>(
+    options as Record<string, unknown> | undefined,
+    settingsKeys,
+  );
 
   return {
     field_type: fieldType,
     config: buildConfig(apiAccessor, options),
-    validation: validation as FieldValidation | undefined,
-    settings: settings && Object.keys(settings as object).length > 0 ? settings : null,
+    validation: options?.validation as FieldValidation | undefined,
+    settings,
     children: null,
     system: false,
   };
 }
 
-export function text(apiAccessor: string, options?: BaseOptions & { placeholder?: string; prepend?: string; append?: string }) {
+export function text(
+  apiAccessor: string,
+  options?: BaseOptions & { placeholder?: string; prepend?: string; append?: string },
+) {
   return buildField<{ placeholder?: string; prepend?: string; append?: string }>(
     "text", apiAccessor, options, ["placeholder", "prepend", "append"],
   );
 }
 
-export function number(apiAccessor: string, options?: BaseOptions & { min?: number; max?: number; step?: number; prepend?: string; append?: string }) {
+export function number(
+  apiAccessor: string,
+  options?: BaseOptions & { min?: number; max?: number; step?: number; prepend?: string; append?: string },
+) {
   return buildField("number", apiAccessor, options, ["min", "max", "step", "prepend", "append"]);
 }
 
@@ -69,7 +99,10 @@ export function boolean(apiAccessor: string, options?: BaseOptions) {
   return buildField("boolean", apiAccessor, options);
 }
 
-export function select(apiAccessor: string, options?: BaseOptions & { options?: Record<string, string>; multiple?: boolean }) {
+export function select(
+  apiAccessor: string,
+  options?: BaseOptions & { options?: Record<string, string>; multiple?: boolean },
+) {
   return buildField("select", apiAccessor, options, ["options", "multiple"]);
 }
 
