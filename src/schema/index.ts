@@ -32,7 +32,7 @@ export type { SpecDefinition } from "./define-spec";
 export { text, number, boolean, select, section } from "./builders";
 
 // Built-in field type plugins
-export { simpleFieldTypes } from "./field-types";
+export { simpleFieldTypes, selectionFieldTypes, structuralFieldTypes } from "./field-types";
 export {
   textPlugin,
   textareaPlugin,
@@ -44,6 +44,13 @@ export {
   timePlugin,
   datePlugin,
   slugPlugin,
+  selectPlugin,
+  radioPlugin,
+  checkboxesPlugin,
+  sectionPlugin,
+  groupPlugin,
+  blocksPlugin,
+  arrayPlugin,
 } from "./field-types";
 export type {
   TextSettings,
@@ -54,4 +61,11 @@ export type {
   UrlSettings,
   DateSettings,
   SlugSettings,
+  SelectSettings,
+  RadioSettings,
+  CheckboxesSettings,
+  GroupSettings,
+  BlocksSettings,
+  BlockDefinition,
+  ArraySettings,
 } from "./field-types";
