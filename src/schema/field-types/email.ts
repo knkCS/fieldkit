@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ZodTypeAny } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { Mail } from "lucide-react";
@@ -17,17 +18,13 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
   fieldComponent: () => null,
   cellComponent: undefined,
 
-  toZodType(field: Field<EmailSettings>) {
-    let schema = z.string();
-
+  toZodType(field: Field<EmailSettings>): ZodTypeAny {
     if (field.config.required) {
-      schema = schema.email(`${field.config.name} must be a valid email`);
-    } else {
-      // When optional, still validate format if a value is provided
-      schema = schema.email("Invalid email format").or(z.literal(""));
+      return z.string().email(`${field.config.name} must be a valid email`);
     }
 
-    return schema;
+    // When optional, still validate format if a value is provided
+    return z.string().email("Invalid email format").or(z.literal(""));
   },
 
   defaultSettings: { placeholder: "" },

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ZodTypeAny } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { Link as LinkIcon } from "lucide-react";
@@ -19,7 +20,7 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
   fieldComponent: () => null,
   cellComponent: undefined,
 
-  toZodType(field: Field<SlugSettings>) {
+  toZodType(field: Field<SlugSettings>): ZodTypeAny {
     const slugSchema = z
       .string()
       .regex(SLUG_PATTERN, "Must be a valid slug (lowercase letters, numbers, and hyphens)");

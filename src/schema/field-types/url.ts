@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ZodTypeAny } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { Link } from "lucide-react";
@@ -17,16 +18,12 @@ export const urlPlugin: FieldTypePlugin<UrlSettings> = {
   fieldComponent: () => null,
   cellComponent: undefined,
 
-  toZodType(field: Field<UrlSettings>) {
-    let schema = z.string();
-
+  toZodType(field: Field<UrlSettings>): ZodTypeAny {
     if (field.config.required) {
-      schema = schema.url(`${field.config.name} must be a valid URL`);
-    } else {
-      schema = schema.url("Invalid URL format").or(z.literal(""));
+      return z.string().url(`${field.config.name} must be a valid URL`);
     }
 
-    return schema;
+    return z.string().url("Invalid URL format").or(z.literal(""));
   },
 
   defaultSettings: { placeholder: "" },
