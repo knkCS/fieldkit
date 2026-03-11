@@ -1,12 +1,15 @@
-import type { CellProps } from "../../schema/plugin";
 import type { CheckboxesSettings } from "../../schema/field-types/checkboxes";
+import type { CellProps } from "../../schema/plugin";
 
-export function CheckboxesCell({ field, value }: CellProps<CheckboxesSettings>) {
-  const options = field.settings?.options ?? {};
+export function CheckboxesCell({
+	field,
+	value,
+}: CellProps<CheckboxesSettings>) {
+	const options = field.settings?.options ?? {};
 
-  if (!Array.isArray(value) || value.length === 0) return <span>—</span>;
+	if (!Array.isArray(value) || value.length === 0) return <span>—</span>;
 
-  const labels = value.map((v) => options[String(v)] ?? String(v));
-  return <span>{labels.join(", ")}</span>;
+	const labels = value.map((v) => options[String(v)] ?? String(v));
+	return <span>{labels.join(", ")}</span>;
 }
 CheckboxesCell.displayName = "CheckboxesCell";

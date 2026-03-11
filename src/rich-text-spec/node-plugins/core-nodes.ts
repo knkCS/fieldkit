@@ -1,15 +1,16 @@
 // src/rich-text-spec/node-plugins/core-nodes.ts
-import type { EditorNodePlugin } from "../types";
+
 import {
+	Code,
 	Heading,
-	Pilcrow,
-	Quote,
 	List,
 	ListOrdered,
-	Table,
 	Minus,
-	Code,
+	Pilcrow,
+	Quote,
+	Table,
 } from "lucide-react";
+import type { EditorNodePlugin } from "../types";
 
 export const headingPlugin: EditorNodePlugin = {
 	id: "heading",

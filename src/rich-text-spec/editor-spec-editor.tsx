@@ -1,12 +1,13 @@
 // src/rich-text-spec/editor-spec-editor.tsx
-import { useState, useCallback, useMemo } from "react";
+
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import type {
+	EditorNodeCategory,
 	EditorNodePlugin,
 	EditorSpec,
-	EditorNodeCategory,
 	NodeOptions,
 } from "./types";
-import { ChevronDown, ChevronRight } from "lucide-react";
 
 export interface EditorSpecEditorProps {
 	spec: EditorSpec;
@@ -51,8 +52,7 @@ function PluginToggle({
 	onSettingsChange,
 }: PluginToggleProps) {
 	const [expanded, setExpanded] = useState(false);
-	const hasSettings =
-		plugin.settingsSpec && plugin.settingsSpec.length > 0;
+	const hasSettings = plugin.settingsSpec && plugin.settingsSpec.length > 0;
 	const Icon = plugin.icon;
 
 	const handleSettingChange = useCallback(
@@ -136,11 +136,7 @@ function PluginToggle({
 						}}
 						aria-label={`${expanded ? "Hide" : "Show"} settings for ${plugin.name}`}
 					>
-						{expanded ? (
-							<ChevronDown size={16} />
-						) : (
-							<ChevronRight size={16} />
-						)}
+						{expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
 					</button>
 				)}
 			</div>
@@ -294,9 +290,7 @@ function EditorSpecEditorInner({
 							{categoryLabels[category]}
 						</h4>
 						{plugins.map((plugin) => {
-							const collection = plugin.isMark
-								? spec.marks
-								: spec.nodes;
+							const collection = plugin.isMark ? spec.marks : spec.nodes;
 							const enabled = plugin.id in collection;
 							const settings = collection[plugin.id];
 
@@ -319,5 +313,4 @@ function EditorSpecEditorInner({
 }
 
 export const EditorSpecEditor = EditorSpecEditorInner;
-(EditorSpecEditor as { displayName?: string }).displayName =
-	"EditorSpecEditor";
+(EditorSpecEditor as { displayName?: string }).displayName = "EditorSpecEditor";

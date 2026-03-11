@@ -1,29 +1,17 @@
 // src/rich-text-spec/__tests__/node-plugins.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-	builtInMarkPlugins,
-	builtInNodePlugins,
-	builtInEditorPlugins,
 	builtInCoreNodePlugins,
+	builtInEditorPlugins,
+	builtInMarkPlugins,
 	builtInMediaNodePlugins,
-	boldPlugin,
-	italicPlugin,
-	underlinePlugin,
-	strikePlugin,
-	subscriptPlugin,
-	superscriptPlugin,
-	headingPlugin,
-	paragraphPlugin,
-	blockquotePlugin,
-	bulletListPlugin,
-	orderedListPlugin,
-	tablePlugin,
-	horizontalRulePlugin,
-	codeBlockPlugin,
-	imagePlugin,
+	builtInNodePlugins,
 	contentLinkPlugin,
-	weblinkPlugin,
 	footnotePlugin,
+	headingPlugin,
+	imagePlugin,
+	paragraphPlugin,
+	weblinkPlugin,
 } from "../node-plugins";
 
 describe("Built-in mark plugins", () => {

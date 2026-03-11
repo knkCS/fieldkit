@@ -1,92 +1,85 @@
 // @knkcs/fieldkit/schema — Field types, registry, Zod generation, defineSpec()
 
-// Types
-export type {
-  Field,
-  FieldConfig,
-  FieldCondition,
-  FieldValidation,
-  Schema,
-} from "./types";
-
-// Plugin types
-export type {
-  FieldTypePlugin,
-  FieldTypeCategory,
-  FieldContext,
-  FieldProps,
-  SettingsProps,
-  CellProps,
-} from "./plugin";
-
-// Registry
-export { createRegistry } from "./registry";
-export type { PluginRegistry } from "./registry";
-
-// Zod builder
-export { specToZodSchema, getDefaultValues } from "./zod-builder";
-
+export { boolean, number, section, select, text } from "./builders";
+export type { SpecDefinition } from "./define-spec";
 // Builder API
 export { defineSpec } from "./define-spec";
-export type { SpecDefinition } from "./define-spec";
-export { text, number, boolean, select, section } from "./builders";
-
+export type {
+	ArraySettings,
+	BlockDefinition,
+	BlocksSettings,
+	CheckboxesSettings,
+	CodeSettings,
+	ColorSettings,
+	DateSettings,
+	EmailSettings,
+	GroupSettings,
+	MarkdownSettings,
+	MediaSettings,
+	NumberSettings,
+	RadioSettings,
+	ReferenceSettings,
+	RichTextSettings,
+	SelectSettings,
+	SlugSettings,
+	TextareaSettings,
+	TextSettings,
+	TocReferenceSettings,
+	UrlSettings,
+	VirtualTableSettings,
+} from "./field-types";
 // Built-in field type plugins
 export {
-  simpleFieldTypes,
-  selectionFieldTypes,
-  structuralFieldTypes,
-  complexTextFieldTypes,
-  referenceFieldTypes,
-  builtInFieldTypes,
+	arrayPlugin,
+	blocksPlugin,
+	booleanPlugin,
+	builtInFieldTypes,
+	checkboxesPlugin,
+	codePlugin,
+	colorPlugin,
+	complexTextFieldTypes,
+	datePlugin,
+	emailPlugin,
+	groupPlugin,
+	markdownPlugin,
+	mediaPlugin,
+	numberPlugin,
+	radioPlugin,
+	referenceFieldTypes,
+	referencePlugin,
+	richTextPlugin,
+	sectionPlugin,
+	selectionFieldTypes,
+	selectPlugin,
+	simpleFieldTypes,
+	slugPlugin,
+	structuralFieldTypes,
+	textareaPlugin,
+	textPlugin,
+	timePlugin,
+	tocReferencePlugin,
+	urlPlugin,
+	virtualTablePlugin,
 } from "./field-types";
-export {
-  textPlugin,
-  textareaPlugin,
-  numberPlugin,
-  booleanPlugin,
-  colorPlugin,
-  emailPlugin,
-  urlPlugin,
-  timePlugin,
-  datePlugin,
-  slugPlugin,
-  selectPlugin,
-  radioPlugin,
-  checkboxesPlugin,
-  sectionPlugin,
-  groupPlugin,
-  blocksPlugin,
-  arrayPlugin,
-  markdownPlugin,
-  codePlugin,
-  richTextPlugin,
-  referencePlugin,
-  tocReferencePlugin,
-  mediaPlugin,
-  virtualTablePlugin,
-} from "./field-types";
+// Plugin types
 export type {
-  TextSettings,
-  TextareaSettings,
-  NumberSettings,
-  ColorSettings,
-  EmailSettings,
-  UrlSettings,
-  DateSettings,
-  SlugSettings,
-  SelectSettings,
-  RadioSettings,
-  CheckboxesSettings,
-  GroupSettings,
-  BlocksSettings,
-  BlockDefinition,
-  ArraySettings,
-  MarkdownSettings,
-  CodeSettings,
-  RichTextSettings,
-  ReferenceSettings,
-  TocReferenceSettings,
-  MediaSettings,
-  VirtualTableSettings,
-} from "./field-types";
+	CellProps,
+	FieldContext,
+	FieldProps,
+	FieldTypeCategory,
+	FieldTypePlugin,
+	SettingsProps,
+} from "./plugin";
+export type { PluginRegistry } from "./registry";
+// Registry
+export { createRegistry } from "./registry";
+// Types
+export type {
+	Field,
+	FieldCondition,
+	FieldConfig,
+	FieldValidation,
+	Schema,
+} from "./types";
+// Zod builder
+export { getDefaultValues, specToZodSchema } from "./zod-builder";

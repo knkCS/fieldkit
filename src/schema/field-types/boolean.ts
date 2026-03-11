@@ -1,21 +1,21 @@
+import { ToggleLeft } from "lucide-react";
 import { z } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
-import { ToggleLeft } from "lucide-react";
 
 export const booleanPlugin: FieldTypePlugin = {
-  id: "boolean",
-  name: "Boolean",
-  description: "A true/false toggle",
-  icon: ToggleLeft,
-  category: "boolean",
+	id: "boolean",
+	name: "Boolean",
+	description: "A true/false toggle",
+	icon: ToggleLeft,
+	category: "boolean",
 
-  fieldComponent: () => null,
-  cellComponent: undefined,
+	fieldComponent: () => null,
+	cellComponent: undefined,
 
-  toZodType(_field: Field) {
-    return z.boolean();
-  },
+	toZodType(_field: Field) {
+		return z.boolean();
+	},
 
-  availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form"],
 };

@@ -1,6 +1,7 @@
 // src/rich-text-spec/node-plugins/media-nodes.ts
+
+import { ExternalLink, Image, Link, StickyNote } from "lucide-react";
 import type { EditorNodePlugin } from "../types";
-import { Image, Link, ExternalLink, StickyNote } from "lucide-react";
 
 export const imagePlugin: EditorNodePlugin = {
 	id: "image",

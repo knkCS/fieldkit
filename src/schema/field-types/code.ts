@@ -1,40 +1,40 @@
+import { Code } from "lucide-react";
 import { z } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
-import { Code } from "lucide-react";
 
 export interface CodeSettings {
-  language?: string;
+	language?: string;
 }
 
 export const codePlugin: FieldTypePlugin<CodeSettings> = {
-  id: "code",
-  name: "Code",
-  description: "Source code or preformatted text",
-  icon: Code,
-  category: "text",
+	id: "code",
+	name: "Code",
+	description: "Source code or preformatted text",
+	icon: Code,
+	category: "text",
 
-  fieldComponent: () => null,
-  cellComponent: undefined,
+	fieldComponent: () => null,
+	cellComponent: undefined,
 
-  toZodType(field: Field<CodeSettings>) {
-    let schema = z.string();
+	toZodType(field: Field<CodeSettings>) {
+		let schema = z.string();
 
-    if (field.config.required) {
-      schema = schema.min(1, `${field.config.name} is required`);
-    }
+		if (field.config.required) {
+			schema = schema.min(1, `${field.config.name} is required`);
+		}
 
-    if (field.validation?.min_length !== undefined) {
-      schema = schema.min(field.validation.min_length);
-    }
+		if (field.validation?.min_length !== undefined) {
+			schema = schema.min(field.validation.min_length);
+		}
 
-    if (field.validation?.max_length !== undefined) {
-      schema = schema.max(field.validation.max_length);
-    }
+		if (field.validation?.max_length !== undefined) {
+			schema = schema.max(field.validation.max_length);
+		}
 
-    return schema;
-  },
+		return schema;
+	},
 
-  defaultSettings: { language: undefined },
-  availableIn: ["blueprint", "task", "form"],
+	defaultSettings: { language: undefined },
+	availableIn: ["blueprint", "task", "form"],
 };

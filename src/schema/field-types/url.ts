@@ -1,31 +1,31 @@
-import { z } from "zod";
+import { Link } from "lucide-react";
 import type { ZodTypeAny } from "zod";
+import { z } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
-import { Link } from "lucide-react";
 
 export interface UrlSettings {
-  placeholder?: string;
+	placeholder?: string;
 }
 
 export const urlPlugin: FieldTypePlugin<UrlSettings> = {
-  id: "url",
-  name: "URL",
-  description: "A web address",
-  icon: Link,
-  category: "text",
+	id: "url",
+	name: "URL",
+	description: "A web address",
+	icon: Link,
+	category: "text",
 
-  fieldComponent: () => null,
-  cellComponent: undefined,
+	fieldComponent: () => null,
+	cellComponent: undefined,
 
-  toZodType(field: Field<UrlSettings>): ZodTypeAny {
-    if (field.config.required) {
-      return z.string().url(`${field.config.name} must be a valid URL`);
-    }
+	toZodType(field: Field<UrlSettings>): ZodTypeAny {
+		if (field.config.required) {
+			return z.string().url(`${field.config.name} must be a valid URL`);
+		}
 
-    return z.string().url("Invalid URL format").or(z.literal(""));
-  },
+		return z.string().url("Invalid URL format").or(z.literal(""));
+	},
 
-  defaultSettings: { placeholder: "" },
-  availableIn: ["blueprint", "task", "form"],
+	defaultSettings: { placeholder: "" },
+	availableIn: ["blueprint", "task", "form"],
 };

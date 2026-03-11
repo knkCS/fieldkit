@@ -1,37 +1,35 @@
 // src/rich-text-spec/node-plugins/index.ts
 import type { EditorNodePlugin } from "../types";
-import { builtInMarkPlugins } from "./marks";
 import { builtInCoreNodePlugins } from "./core-nodes";
+import { builtInMarkPlugins } from "./marks";
 import { builtInMediaNodePlugins } from "./media-nodes";
 
-export { builtInMarkPlugins } from "./marks";
+export {
+	blockquotePlugin,
+	builtInCoreNodePlugins,
+	bulletListPlugin,
+	codeBlockPlugin,
+	headingPlugin,
+	horizontalRulePlugin,
+	orderedListPlugin,
+	paragraphPlugin,
+	tablePlugin,
+} from "./core-nodes";
 export {
 	boldPlugin,
+	builtInMarkPlugins,
 	italicPlugin,
-	underlinePlugin,
 	strikePlugin,
 	subscriptPlugin,
 	superscriptPlugin,
+	underlinePlugin,
 } from "./marks";
-
-export { builtInCoreNodePlugins } from "./core-nodes";
 export {
-	headingPlugin,
-	paragraphPlugin,
-	blockquotePlugin,
-	bulletListPlugin,
-	orderedListPlugin,
-	tablePlugin,
-	horizontalRulePlugin,
-	codeBlockPlugin,
-} from "./core-nodes";
-
-export { builtInMediaNodePlugins } from "./media-nodes";
-export {
-	imagePlugin,
+	builtInMediaNodePlugins,
 	contentLinkPlugin,
-	weblinkPlugin,
 	footnotePlugin,
+	imagePlugin,
+	weblinkPlugin,
 } from "./media-nodes";
 
 /** All built-in node plugins (core + media). */

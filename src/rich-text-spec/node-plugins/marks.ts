@@ -1,13 +1,14 @@
 // src/rich-text-spec/node-plugins/marks.ts
-import type { EditorNodePlugin } from "../types";
+
 import {
 	Bold,
 	Italic,
-	Underline,
 	Strikethrough,
 	Subscript,
 	Superscript,
+	Underline,
 } from "lucide-react";
+import type { EditorNodePlugin } from "../types";
 
 export const boldPlugin: EditorNodePlugin = {
 	id: "bold",
