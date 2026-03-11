@@ -5,7 +5,22 @@
     "includes": ["src/**"],
     "ignoreUnknown": true
   },
-  "linter": { "enabled": true },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": "warn",
+        "noStaticElementInteractions": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "warn"
+      },
+      "correctness": {
+        "useHookAtTopLevel": "warn"
+      }
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "tab",

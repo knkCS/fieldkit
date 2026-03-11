@@ -1,12 +1,12 @@
 // src/rich-text-spec/__tests__/types.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import type { Field } from "../../schema/types";
 import type {
-	EditorNodePlugin,
 	EditorNodeCategory,
+	EditorNodePlugin,
 	EditorSpec,
 	NodeOptions,
 } from "../types";
-import type { Field } from "../../schema/types";
 
 describe("Rich text spec types", () => {
 	it("should create a valid EditorNodePlugin object", () => {
@@ -56,7 +56,7 @@ describe("Rich text spec types", () => {
 	});
 
 	it("should support optional icon property", () => {
-		const DummyIcon = ({ size }: { size?: number | string }) => null;
+		const DummyIcon = ({ size: _size }: { size?: number | string }) => null;
 
 		const plugin: EditorNodePlugin = {
 			id: "italic",

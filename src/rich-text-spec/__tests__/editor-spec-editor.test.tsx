@@ -1,11 +1,12 @@
 // src/rich-text-spec/__tests__/editor-spec-editor.test.tsx
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { Field } from "../../schema/types";
 import { EditorSpecEditor } from "../editor-spec-editor";
 import type { EditorNodePlugin, EditorSpec } from "../types";
-import type { Field } from "../../schema/types";
 
-const DummyIcon = ({ size }: { size?: number | string }) => (
+const DummyIcon = ({ size: _size }: { size?: number | string }) => (
 	<span>icon</span>
 );
 
@@ -152,9 +153,7 @@ describe("EditorSpecEditor", () => {
 		const paragraphToggle = screen.getByTestId(
 			"toggle-paragraph",
 		) as HTMLInputElement;
-		const imageToggle = screen.getByTestId(
-			"toggle-image",
-		) as HTMLInputElement;
+		const imageToggle = screen.getByTestId("toggle-image") as HTMLInputElement;
 
 		expect(boldToggle.checked).toBe(true);
 		expect(italicToggle.checked).toBe(false);
@@ -229,9 +228,7 @@ describe("EditorSpecEditor", () => {
 		);
 
 		// Heading is enabled and has settings, so the settings toggle should exist
-		expect(
-			screen.getByTestId("settings-toggle-heading"),
-		).toBeInTheDocument();
+		expect(screen.getByTestId("settings-toggle-heading")).toBeInTheDocument();
 	});
 
 	it("expands settings panel when settings toggle is clicked", () => {
@@ -246,12 +243,8 @@ describe("EditorSpecEditor", () => {
 
 		fireEvent.click(screen.getByTestId("settings-toggle-heading"));
 
-		expect(
-			screen.getByTestId("settings-panel-heading"),
-		).toBeInTheDocument();
-		expect(
-			screen.getByTestId("setting-heading-levels"),
-		).toBeInTheDocument();
+		expect(screen.getByTestId("settings-panel-heading")).toBeInTheDocument();
+		expect(screen.getByTestId("setting-heading-levels")).toBeInTheDocument();
 	});
 
 	it("calls onChange when settings are changed", () => {
@@ -308,12 +301,8 @@ describe("EditorSpecEditor", () => {
 		);
 
 		// "reference" and "special" categories have no plugins in our test data
-		expect(
-			screen.queryByTestId("category-reference"),
-		).not.toBeInTheDocument();
-		expect(
-			screen.queryByTestId("category-special"),
-		).not.toBeInTheDocument();
+		expect(screen.queryByTestId("category-reference")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("category-special")).not.toBeInTheDocument();
 	});
 
 	it("has displayName set", () => {
