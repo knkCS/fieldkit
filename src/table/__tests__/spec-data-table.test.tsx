@@ -1,6 +1,8 @@
 // src/table/__tests__/spec-data-table.test.tsx
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -11,6 +13,10 @@ import type {
 } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
 import { SpecDataTable } from "../spec-data-table";
+
+function Wrapper({ children }: { children: ReactNode }) {
+	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
+}
 
 function TestField({ field }: FieldProps) {
 	const { register } = useFormContext();
@@ -90,14 +96,18 @@ const data = [
 
 describe("SpecDataTable", () => {
 	it("should render column headers from schema", () => {
-		render(<SpecDataTable schema={schema} data={data} plugins={plugins} />);
+		render(<SpecDataTable schema={schema} data={data} plugins={plugins} />, {
+			wrapper: Wrapper,
+		});
 
 		expect(screen.getByText("Title")).toBeInTheDocument();
 		expect(screen.getByText("Count")).toBeInTheDocument();
 	});
 
 	it("should render data rows", () => {
-		render(<SpecDataTable schema={schema} data={data} plugins={plugins} />);
+		render(<SpecDataTable schema={schema} data={data} plugins={plugins} />, {
+			wrapper: Wrapper,
+		});
 
 		expect(screen.getByText("Item 1")).toBeInTheDocument();
 		expect(screen.getByText("Item 2")).toBeInTheDocument();
@@ -105,14 +115,14 @@ describe("SpecDataTable", () => {
 	});
 
 	it("should handle empty data", () => {
-		render(<SpecDataTable schema={schema} data={[]} plugins={plugins} />);
+		render(<SpecDataTable schema={schema} data={[]} plugins={plugins} />, {
+			wrapper: Wrapper,
+		});
 
 		expect(screen.getByText("Title")).toBeInTheDocument();
 		expect(screen.getByText("Count")).toBeInTheDocument();
-		// No data rows, only the header row
-		const table = screen.getByRole("table");
-		const tbody = table.querySelector("tbody");
-		expect(tbody?.children).toHaveLength(0);
+		// DataTable shows empty state text when no data
+		expect(screen.getByText("No data available")).toBeInTheDocument();
 	});
 
 	it("should call onRowClick when a row is clicked", () => {
@@ -124,6 +134,7 @@ describe("SpecDataTable", () => {
 				plugins={plugins}
 				onRowClick={onRowClick}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		const rows = screen.getAllByRole("row");
@@ -132,7 +143,7 @@ describe("SpecDataTable", () => {
 		expect(onRowClick).toHaveBeenCalledWith(0, { title: "Item 1", count: 10 });
 	});
 
-	it("should open EditDrawer when editable row is clicked", () => {
+	it("should open EditDrawer when editable row is clicked", async () => {
 		render(
 			<SpecDataTable
 				schema={schema}
@@ -141,12 +152,15 @@ describe("SpecDataTable", () => {
 				editable
 				onRowSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		const rows = screen.getAllByRole("row");
 		fireEvent.click(rows[1]);
 
-		expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
+		});
 	});
 
 	it("should apply columnOverrides", () => {
@@ -159,6 +173,7 @@ describe("SpecDataTable", () => {
 					title: { header: "Custom Title" },
 				}}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByText("Custom Title")).toBeInTheDocument();
@@ -179,6 +194,7 @@ describe("SpecDataTable", () => {
 					},
 				]}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByText("Actions")).toBeInTheDocument();
@@ -198,16 +214,13 @@ describe("SpecDataTable", () => {
 				plugins={plugins}
 				pageSize={3}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
-		// Should only show 3 rows on first page
-		const table = screen.getByRole("table");
-		const tbody = table.querySelector("tbody");
-		expect(tbody?.children).toHaveLength(3);
-
-		// Should show pagination controls
-		expect(screen.getByText("Next")).toBeInTheDocument();
-		expect(screen.getByText("Previous")).toBeInTheDocument();
+		// Should only show 3 rows on first page (header row + 3 data rows = 4 total rows)
+		const rows = screen.getAllByRole("row");
+		// Subtract 1 for header row
+		expect(rows.length - 1).toBe(3);
 	});
 
 	it("should navigate pages when pagination buttons are clicked", () => {
@@ -223,14 +236,17 @@ describe("SpecDataTable", () => {
 				plugins={plugins}
 				pageSize={3}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		// Page 1: Items 1-3
 		expect(screen.getByText("Item 1")).toBeInTheDocument();
 		expect(screen.queryByText("Item 4")).not.toBeInTheDocument();
 
-		// Go to page 2
-		fireEvent.click(screen.getByText("Next"));
+		// Find and click the next page button
+		// DataTable uses anker's Pagination component which renders page number buttons
+		const page2Button = screen.getByRole("button", { name: /2/i });
+		fireEvent.click(page2Button);
 		expect(screen.getByText("Item 4")).toBeInTheDocument();
 		expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
 	});

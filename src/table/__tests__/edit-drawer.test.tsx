@@ -1,12 +1,18 @@
 // src/table/__tests__/edit-drawer.test.tsx
 
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { FieldProps, FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
 import { EditDrawer } from "../edit-drawer";
+
+function Wrapper({ children }: { children: ReactNode }) {
+	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
+}
 
 function TestField({ field }: FieldProps) {
 	const { register } = useFormContext();
@@ -82,12 +88,13 @@ describe("EditDrawer", () => {
 				onClose={vi.fn()}
 				onSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
 	});
 
-	it("should not render when isOpen is false", () => {
+	it("should not render content when isOpen is false", () => {
 		render(
 			<EditDrawer
 				schema={schema}
@@ -96,6 +103,7 @@ describe("EditDrawer", () => {
 				onClose={vi.fn()}
 				onSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.queryByTestId("edit-drawer")).not.toBeInTheDocument();
@@ -110,6 +118,7 @@ describe("EditDrawer", () => {
 				onClose={vi.fn()}
 				onSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByText("Title")).toBeInTheDocument();
@@ -126,12 +135,13 @@ describe("EditDrawer", () => {
 				onSave={vi.fn()}
 				title="Edit Record"
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByText("Edit Record")).toBeInTheDocument();
 	});
 
-	it("should call onClose when Cancel is clicked", () => {
+	it("should call onClose when close button is clicked", async () => {
 		const onClose = vi.fn();
 		render(
 			<EditDrawer
@@ -141,10 +151,15 @@ describe("EditDrawer", () => {
 				onClose={onClose}
 				onSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
-		fireEvent.click(screen.getByText("Cancel"));
-		expect(onClose).toHaveBeenCalledOnce();
+		// DrawerRoot renders a close trigger with aria-label matching closeLabel ("Cancel")
+		const closeButton = screen.getByRole("button", { name: /cancel/i });
+		fireEvent.click(closeButton);
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledOnce();
+		});
 	});
 
 	it("should call onSave with form values when Save is clicked", async () => {
@@ -158,6 +173,7 @@ describe("EditDrawer", () => {
 				onSave={onSave}
 				initialValues={{ title: "Test", description: "Desc" }}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		fireEvent.click(screen.getByText("Save"));
@@ -170,7 +186,7 @@ describe("EditDrawer", () => {
 		);
 	});
 
-	it("should render Save and Cancel buttons", () => {
+	it("should render Save button", () => {
 		render(
 			<EditDrawer
 				schema={schema}
@@ -179,9 +195,9 @@ describe("EditDrawer", () => {
 				onClose={vi.fn()}
 				onSave={vi.fn()}
 			/>,
+			{ wrapper: Wrapper },
 		);
 
 		expect(screen.getByText("Save")).toBeInTheDocument();
-		expect(screen.getByText("Cancel")).toBeInTheDocument();
 	});
 });

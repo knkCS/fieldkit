@@ -1,13 +1,11 @@
 // src/table/spec-data-table.tsx
 
-import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	type SortingState,
-	useReactTable,
+import { DataTable } from "@knkcs/anker/components";
+import type {
+	ColumnDef,
+	OnChangeFn,
+	RowSelectionState,
+	SortingState,
 } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import type { FieldTypePlugin } from "../schema/plugin";
@@ -31,6 +29,13 @@ export interface SpecDataTableProps {
 	// Sorting
 	sorting?: SortingState;
 	onSortingChange?: (sorting: SortingState) => void;
+	// New props from DataTable
+	variant?: "line" | "striped" | "hoverable";
+	selectable?: boolean;
+	rowSelection?: RowSelectionState;
+	onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+	loading?: boolean;
+	emptyState?: React.ReactNode;
 }
 
 export function SpecDataTable({
@@ -47,6 +52,12 @@ export function SpecDataTable({
 	onPageChange,
 	sorting: controlledSorting,
 	onSortingChange,
+	variant,
+	selectable,
+	rowSelection,
+	onRowSelectionChange,
+	loading,
+	emptyState,
 }: SpecDataTableProps) {
 	const [editingRow, setEditingRow] = useState<{
 		index: number;
@@ -57,8 +68,8 @@ export function SpecDataTable({
 
 	const sorting = controlledSorting ?? internalSorting;
 
-	const handleSortingChange = useCallback(
-		(updater: SortingState | ((prev: SortingState) => SortingState)) => {
+	const handleSortingChange: OnChangeFn<SortingState> = useCallback(
+		(updater) => {
 			const newSorting =
 				typeof updater === "function" ? updater(sorting) : updater;
 			if (onSortingChange) {
@@ -96,37 +107,17 @@ export function SpecDataTable({
 		return cols;
 	}, [schema, plugins, columnOverrides, additionalColumns]);
 
-	const table = useReactTable({
-		data,
-		columns,
-		state: {
-			sorting,
-		},
-		onSortingChange: handleSortingChange,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		...(pageSize
-			? {
-					getPaginationRowModel: getPaginationRowModel(),
-					initialState: {
-						pagination: {
-							pageSize,
-							pageIndex: 0,
-						},
-					},
-				}
-			: {}),
-		...(pageCount !== undefined ? { pageCount } : {}),
-	});
+	const [internalPage, setInternalPage] = useState(1);
 
 	const handleRowClick = useCallback(
-		(index: number, row: Record<string, unknown>) => {
+		(row: Record<string, unknown>) => {
+			const index = data.indexOf(row);
 			if (editable) {
 				setEditingRow({ index, values: row });
 			}
 			onRowClick?.(index, row);
 		},
-		[editable, onRowClick],
+		[data, editable, onRowClick],
 	);
 
 	const handleDrawerClose = useCallback(() => {
@@ -145,125 +136,48 @@ export function SpecDataTable({
 
 	const isClickable = editable || !!onRowClick;
 
+	// Compute pagination for DataTable from client-side pagination params
+	const currentPage = internalPage;
+	const total = pageCount ? pageCount * (pageSize ?? 1) : data.length;
+
+	const handlePageChange = useCallback(
+		(page: number) => {
+			setInternalPage(page);
+			onPageChange?.(page);
+		},
+		[onPageChange],
+	);
+
+	// Slice data for client-side pagination
+	const paginatedData = useMemo(() => {
+		if (!pageSize) return data;
+		const start = (currentPage - 1) * pageSize;
+		return data.slice(start, start + pageSize);
+	}, [data, pageSize, currentPage]);
+
 	return (
 		<div data-testid="spec-data-table">
-			<table
-				style={{
-					width: "100%",
-					borderCollapse: "collapse",
-					fontSize: "14px",
-				}}
-			>
-				<thead>
-					{table.getHeaderGroups().map((headerGroup) => (
-						<tr key={headerGroup.id}>
-							{headerGroup.headers.map((header) => (
-								<th
-									key={header.id}
-									onClick={header.column.getToggleSortingHandler()}
-									style={{
-										textAlign: "left",
-										padding: "12px 16px",
-										borderBottom: "2px solid #e2e8f0",
-										fontWeight: 600,
-										color: "#4a5568",
-										cursor: header.column.getCanSort() ? "pointer" : "default",
-										userSelect: "none",
-									}}
-								>
-									{flexRender(
-										header.column.columnDef.header,
-										header.getContext(),
-									)}
-									{header.column.getIsSorted() === "asc"
-										? " \u2191"
-										: header.column.getIsSorted() === "desc"
-											? " \u2193"
-											: ""}
-								</th>
-							))}
-						</tr>
-					))}
-				</thead>
-				<tbody>
-					{table.getRowModel().rows.map((row) => (
-						<tr
-							key={row.id}
-							onClick={() => handleRowClick(row.index, row.original)}
-							style={{
-								cursor: isClickable ? "pointer" : "default",
-								borderBottom: "1px solid #e2e8f0",
-							}}
-						>
-							{row.getVisibleCells().map((cell) => (
-								<td
-									key={cell.id}
-									style={{
-										padding: "12px 16px",
-									}}
-								>
-									{flexRender(cell.column.columnDef.cell, cell.getContext())}
-								</td>
-							))}
-						</tr>
-					))}
-				</tbody>
-			</table>
-
-			{pageSize && (
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						padding: "12px 16px",
-						borderTop: "1px solid #e2e8f0",
-					}}
-				>
-					<span style={{ fontSize: "14px", color: "#4a5568" }}>
-						Page {table.getState().pagination.pageIndex + 1} of{" "}
-						{table.getPageCount()}
-					</span>
-					<div style={{ display: "flex", gap: "8px" }}>
-						<button
-							type="button"
-							onClick={() => {
-								table.previousPage();
-								onPageChange?.(table.getState().pagination.pageIndex - 1);
-							}}
-							disabled={!table.getCanPreviousPage()}
-							style={{
-								padding: "6px 12px",
-								border: "1px solid #e2e8f0",
-								borderRadius: "4px",
-								backgroundColor: "#fff",
-								cursor: table.getCanPreviousPage() ? "pointer" : "not-allowed",
-								opacity: table.getCanPreviousPage() ? 1 : 0.5,
-							}}
-						>
-							Previous
-						</button>
-						<button
-							type="button"
-							onClick={() => {
-								table.nextPage();
-								onPageChange?.(table.getState().pagination.pageIndex + 1);
-							}}
-							disabled={!table.getCanNextPage()}
-							style={{
-								padding: "6px 12px",
-								border: "1px solid #e2e8f0",
-								borderRadius: "4px",
-								backgroundColor: "#fff",
-								cursor: table.getCanNextPage() ? "pointer" : "not-allowed",
-								opacity: table.getCanNextPage() ? 1 : 0.5,
-							}}
-						>
-							Next
-						</button>
-					</div>
-				</div>
-			)}
+			<DataTable
+				columns={columns}
+				data={paginatedData}
+				sorting={sorting}
+				onSortingChange={handleSortingChange}
+				onRowClick={isClickable ? handleRowClick : undefined}
+				variant={variant}
+				selectable={selectable}
+				rowSelection={rowSelection}
+				onRowSelectionChange={onRowSelectionChange}
+				loading={loading}
+				emptyState={emptyState}
+				{...(pageSize
+					? {
+							total,
+							page: currentPage,
+							pageSize,
+							onPageChange: handlePageChange,
+						}
+					: {})}
+			/>
 
 			{editable && (
 				<EditDrawer

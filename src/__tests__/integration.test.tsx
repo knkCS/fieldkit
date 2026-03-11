@@ -1,5 +1,7 @@
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 import { FieldKitProvider, FieldRenderer } from "../renderer";
@@ -16,6 +18,10 @@ import {
 	text,
 } from "../schema";
 import { SpecDataTable } from "../table";
+
+function ChakraWrapper({ children }: { children: ReactNode }) {
+	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers: create test plugins that render real DOM elements
@@ -296,6 +302,7 @@ describe("Integration: Schema -> SpecDataTable", () => {
 
 		render(
 			<SpecDataTable schema={spec.fields} data={data} plugins={testPlugins} />,
+			{ wrapper: ChakraWrapper },
 		);
 
 		const table = screen.getByTestId("spec-data-table");
@@ -323,6 +330,7 @@ describe("Integration: Schema -> SpecDataTable", () => {
 
 		render(
 			<SpecDataTable schema={spec.fields} data={data} plugins={testPlugins} />,
+			{ wrapper: ChakraWrapper },
 		);
 
 		// Section header should not appear as a column
