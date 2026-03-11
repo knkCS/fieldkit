@@ -32,7 +32,14 @@ export type { SpecDefinition } from "./define-spec";
 export { text, number, boolean, select, section } from "./builders";
 
 // Built-in field type plugins
-export { simpleFieldTypes, selectionFieldTypes, structuralFieldTypes } from "./field-types";
+export {
+  simpleFieldTypes,
+  selectionFieldTypes,
+  structuralFieldTypes,
+  complexTextFieldTypes,
+  referenceFieldTypes,
+  builtInFieldTypes,
+} from "./field-types";
 export {
   textPlugin,
   textareaPlugin,
@@ -51,6 +58,13 @@ export {
   groupPlugin,
   blocksPlugin,
   arrayPlugin,
+  markdownPlugin,
+  codePlugin,
+  richTextPlugin,
+  referencePlugin,
+  tocReferencePlugin,
+  mediaPlugin,
+  virtualTablePlugin,
 } from "./field-types";
 export type {
   TextSettings,
@@ -68,4 +82,11 @@ export type {
   BlocksSettings,
   BlockDefinition,
   ArraySettings,
+  MarkdownSettings,
+  CodeSettings,
+  RichTextSettings,
+  ReferenceSettings,
+  TocReferenceSettings,
+  MediaSettings,
+  VirtualTableSettings,
 } from "./field-types";

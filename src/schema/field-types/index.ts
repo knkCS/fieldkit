@@ -15,6 +15,13 @@ import { sectionPlugin } from "./section";
 import { groupPlugin } from "./group";
 import { blocksPlugin } from "./blocks";
 import { arrayPlugin } from "./array";
+import { markdownPlugin } from "./markdown";
+import { codePlugin } from "./code";
+import { richTextPlugin } from "./rich-text";
+import { referencePlugin } from "./reference";
+import { tocReferencePlugin } from "./toc-reference";
+import { mediaPlugin } from "./media";
+import { virtualTablePlugin } from "./virtual-table";
 import type { FieldTypePlugin } from "../plugin";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous plugin array requires widening the generic
@@ -46,6 +53,31 @@ export const structuralFieldTypes: FieldTypePlugin<any>[] = [
   arrayPlugin,
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous plugin array requires widening the generic
+export const complexTextFieldTypes: FieldTypePlugin<any>[] = [
+  markdownPlugin,
+  codePlugin,
+  richTextPlugin,
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous plugin array requires widening the generic
+export const referenceFieldTypes: FieldTypePlugin<any>[] = [
+  referencePlugin,
+  tocReferencePlugin,
+  mediaPlugin,
+  virtualTablePlugin,
+];
+
+/** All built-in field type plugins. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous plugin array requires widening the generic
+export const builtInFieldTypes: FieldTypePlugin<any>[] = [
+  ...simpleFieldTypes,
+  ...selectionFieldTypes,
+  ...structuralFieldTypes,
+  ...complexTextFieldTypes,
+  ...referenceFieldTypes,
+];
+
 export {
   textPlugin,
   textareaPlugin,
@@ -64,6 +96,13 @@ export {
   groupPlugin,
   blocksPlugin,
   arrayPlugin,
+  markdownPlugin,
+  codePlugin,
+  richTextPlugin,
+  referencePlugin,
+  tocReferencePlugin,
+  mediaPlugin,
+  virtualTablePlugin,
 };
 
 // Settings types
@@ -81,3 +120,10 @@ export type { CheckboxesSettings } from "./checkboxes";
 export type { GroupSettings } from "./group";
 export type { BlocksSettings, BlockDefinition } from "./blocks";
 export type { ArraySettings } from "./array";
+export type { MarkdownSettings } from "./markdown";
+export type { CodeSettings } from "./code";
+export type { RichTextSettings } from "./rich-text";
+export type { ReferenceSettings } from "./reference";
+export type { TocReferenceSettings } from "./toc-reference";
+export type { MediaSettings } from "./media";
+export type { VirtualTableSettings } from "./virtual-table";
