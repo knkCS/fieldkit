@@ -1,0 +1,59 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./time-field.stories";
+
+<Meta of={Stories} />
+
+# Time
+
+A time input rendered via `DatePickerField` with `type="time"`. Stores the value as a plain string.
+
+## When to Use
+
+Use **Time** for time-of-day values. For date values, use [Date](?path=/docs/fields-date--docs).
+
+## Settings
+
+This field type has no configurable settings.
+
+## Validation
+
+| Rule       | Type     | Description                                               |
+|------------|----------|-----------------------------------------------------------|
+| `required` | `boolean`| When true, the string must have at least 1 character       |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Start Time is required")
+
+// Optional
+z.string()
+```
+
+## Table Cell
+
+Renders the raw string value via `TimeCell`. No time formatting is applied.
+
+## Known Limitations
+
+- No settings at all (no format, no min/max time, no step)
+- No time format validation in Zod — accepts any string, not just valid time strings
+- Cell doesn't format the value (raw string displayed)
+- Value format is undocumented (depends on browser `<input type="time">` output)
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Required
+
+Submit without entering a time to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

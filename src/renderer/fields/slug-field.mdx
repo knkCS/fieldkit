@@ -1,0 +1,75 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./slug-field.stories";
+
+<Meta of={Stories} />
+
+# Slug
+
+A URL-friendly identifier field. Optionally auto-generates from a source field using the built-in `toSlug` function. Validates against the pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
+
+## When to Use
+
+Use **Slug** for URL path segments, API identifiers, or any value that must be lowercase-alphanumeric-with-hyphens. For generic short text, use [Text](?path=/docs/fields-text--docs).
+
+## Settings
+
+| Setting        | Type     | Default | Description                                                          |
+|----------------|----------|---------|----------------------------------------------------------------------|
+| `source_field` | `string` | —       | `api_accessor` of another field to auto-generate the slug from        |
+
+## Validation
+
+| Rule       | Type     | Description                                                              |
+|------------|----------|--------------------------------------------------------------------------|
+| `required` | `boolean`| When true, must match the slug regex pattern                              |
+
+When optional, an empty string is also accepted (via `z.literal("")` union).
+
+## Zod Output
+
+```ts
+// Required
+z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be a valid slug (lowercase letters, numbers, and hyphens)")
+
+// Optional
+z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Must be a valid slug (lowercase letters, numbers, and hyphens)").or(z.literal(""))
+```
+
+## Slugify Algorithm
+
+The internal `toSlug` function performs these steps:
+1. `.toLowerCase()`
+2. `.trim()`
+3. Strip non-word characters except whitespace and hyphens
+4. Replace whitespace/underscores with hyphens
+5. Collapse consecutive hyphens
+6. Strip leading/trailing hyphens
+
+## Table Cell
+
+Renders the raw slug string via `SlugCell`.
+
+## Known Limitations
+
+- Auto-slug always overwrites the slug field — there is no lock or manual-edit mechanism to prevent overwriting user edits
+- Hardcoded placeholder `"e.g. my-page-slug"` (not configurable via settings)
+- `toSlug` strips unicode characters without transliteration (e.g. `u` instead of `ue`, or simply removed)
+- Nested source fields (dot-path accessors) are not supported
+
+## Examples
+
+### Default
+
+A standalone slug field without a source. Enter a value manually.
+
+<Canvas of={Stories.Default} />
+
+### With Source Field
+
+Type in the Title field to see the slug auto-generated below it.
+
+<Canvas of={Stories.WithSourceField} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

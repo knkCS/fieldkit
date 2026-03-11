@@ -1,0 +1,71 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./date-field.stories";
+
+<Meta of={Stories} />
+
+# Date
+
+A date input rendered via `DatePickerField` with `type="date"`. Stores the value as a plain string.
+
+## When to Use
+
+Use **Date** for calendar date values. For time-of-day values, use [Time](?path=/docs/fields-time--docs).
+
+## Settings
+
+| Setting        | Type      | Default | Description                                                    |
+|----------------|-----------|---------|----------------------------------------------------------------|
+| `enable_range` | `boolean` | `false` | Intended for date range selection — **not implemented**         |
+| `min_date`     | `string`  | —       | Minimum selectable date (passed to DatePickerField `min` prop)  |
+| `max_date`     | `string`  | —       | Maximum selectable date (passed to DatePickerField `max` prop)  |
+
+## Validation
+
+| Rule       | Type     | Description                                               |
+|------------|----------|-----------------------------------------------------------|
+| `required` | `boolean`| When true, the string must have at least 1 character       |
+
+`min_date` and `max_date` are UI-only constraints — they are **not** validated in the Zod schema.
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Publish Date is required")
+
+// Optional
+z.string()
+```
+
+## Table Cell
+
+Renders the raw string value via `DateCell`. No date formatting is applied.
+
+## Known Limitations
+
+- `enable_range` is defined in settings but not implemented — it is a dead setting
+- `min_date`/`max_date` are not validated in Zod (UI-only constraint on the picker)
+- No date format validation in Zod — accepts any string, not just valid date strings
+- Cell doesn't format the value (raw string displayed)
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### With Min / Max Date
+
+The picker constrains selection to dates within 2026.
+
+<Canvas of={Stories.WithMinMaxDate} />
+
+### Required
+
+Submit without selecting a date to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

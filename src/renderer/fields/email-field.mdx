@@ -1,0 +1,67 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./email-field.stories";
+
+<Meta of={Stories} />
+
+# Email
+
+An email address input. Uses the browser's native `type="email"` and Zod's `.email()` validator for format checking.
+
+## When to Use
+
+Use **Email** for email address values. For generic short text, use [Text](?path=/docs/fields-text--docs). For URLs, use [URL](?path=/docs/fields-url--docs).
+
+## Settings
+
+| Setting       | Type     | Default | Description                                    |
+|---------------|----------|---------|------------------------------------------------|
+| `placeholder` | `string` | `""`    | Placeholder text shown when the field is empty  |
+
+## Validation
+
+| Rule       | Type     | Description                                                     |
+|------------|----------|-----------------------------------------------------------------|
+| `required` | `boolean`| When true, the field must contain a valid email address          |
+
+When optional, an empty string is also accepted (via `z.literal("")` union).
+
+## Zod Output
+
+```ts
+// Required
+z.string().email("Email must be a valid email")
+
+// Optional
+z.string().email("Invalid email format").or(z.literal(""))
+```
+
+## Table Cell
+
+Renders the raw email string via `EmailCell`. No `mailto:` link is rendered.
+
+## Known Limitations
+
+- Cell doesn't render as a `mailto:` link — displays plain text identical to TextCell
+- Cell has no email-specific behavior
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Required
+
+Submit with an invalid email to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Optional
+
+An empty value is accepted. If a value is provided, it must be a valid email.
+
+<Canvas of={Stories.Optional} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

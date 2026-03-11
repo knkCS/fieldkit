@@ -1,0 +1,74 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./url-field.stories";
+
+<Meta of={Stories} />
+
+# URL
+
+A web address input. Uses the browser's native `type="url"` and Zod's `.url()` validator for format checking.
+
+## When to Use
+
+Use **URL** for web addresses. For email addresses, use [Email](?path=/docs/fields-email--docs). For generic short text, use [Text](?path=/docs/fields-text--docs).
+
+## Settings
+
+| Setting       | Type     | Default | Description                                    |
+|---------------|----------|---------|------------------------------------------------|
+| `placeholder` | `string` | `""`    | Placeholder text shown when the field is empty  |
+
+## Validation
+
+| Rule       | Type     | Description                                                     |
+|------------|----------|-----------------------------------------------------------------|
+| `required` | `boolean`| When true, the field must contain a valid URL                    |
+
+When optional, an empty string is also accepted (via `z.literal("")` union).
+
+## Zod Output
+
+```ts
+// Required
+z.string().url("Website must be a valid URL")
+
+// Optional
+z.string().url("Invalid URL format").or(z.literal(""))
+```
+
+## Table Cell
+
+Renders the raw URL string via `UrlCell`. No truncation or clickable link is rendered.
+
+## Known Limitations
+
+- `z.string().url()` requires a protocol prefix — values like `example.com` will fail validation; must be `https://example.com`
+- No URL truncation in cell (long URLs overflow)
+- No `prepend` setting for protocol prefix
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Required
+
+Submit with an invalid URL to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Optional
+
+An empty value is accepted. If a value is provided, it must be a valid URL.
+
+<Canvas of={Stories.Optional} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />
+
+### Cell Note
+
+Demonstrates the protocol requirement. Try submitting `example.com` without `https://` to see the validation error.
+
+<Canvas of={Stories.CellNote} />
