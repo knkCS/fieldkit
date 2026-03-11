@@ -1,14 +1,24 @@
+import { ChakraProvider } from "@chakra-ui/react";
 import type { Preview } from "@storybook/react";
-import { Provider } from "@knkcs/anker/primitives";
+import type React from "react";
+import system from "@knkcs/anker/theme";
+
+const withChakra = (Story: React.ComponentType) => (
+	<ChakraProvider value={system}>
+		<Story />
+	</ChakraProvider>
+);
 
 const preview: Preview = {
-  decorators: [
-    (Story) => (
-      <Provider>
-        <Story />
-      </Provider>
-    ),
-  ],
+	decorators: [withChakra],
+	parameters: {
+		controls: {
+			matchers: {
+				color: /(background|color)$/i,
+				date: /Date$/i,
+			},
+		},
+	},
 };
 
 export default preview;
