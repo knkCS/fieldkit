@@ -23,6 +23,10 @@ export default defineConfig({
         __dirname,
         "node_modules/@chakra-ui/react",
       ),
+      "react-hook-form": path.resolve(
+        __dirname,
+        "node_modules/react-hook-form",
+      ),
     },
   },
   test: {

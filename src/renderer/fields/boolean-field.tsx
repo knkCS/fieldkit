@@ -1,43 +1,17 @@
-import { Controller, useFormContext } from "react-hook-form";
+import { SwitchField } from "@knkcs/anker/forms";
 import type { FieldProps } from "../../schema/plugin";
 
 export function BooleanField({ field, readOnly }: FieldProps) {
-	const { control } = useFormContext();
-	const accessor = field.config.api_accessor;
+	const { config } = field;
 
 	return (
-		<div style={{ marginBottom: "1rem" }}>
-			<Controller
-				name={accessor}
-				control={control}
-				render={({ field: formField }) => (
-					<label
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: "0.5rem",
-							cursor: readOnly ? "default" : "pointer",
-						}}
-					>
-						<input
-							type="checkbox"
-							checked={!!formField.value}
-							onChange={(e) => formField.onChange(e.target.checked)}
-							disabled={readOnly}
-							id={accessor}
-						/>
-						<span style={{ fontWeight: 500 }}>{field.config.name}</span>
-					</label>
-				)}
-			/>
-			{field.config.instructions && (
-				<p
-					style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.25rem" }}
-				>
-					{field.config.instructions}
-				</p>
-			)}
-		</div>
+		<SwitchField
+			name={config.api_accessor}
+			label={config.name}
+			helperText={config.instructions || undefined}
+			required={config.required}
+			readOnly={readOnly}
+		/>
 	);
 }
 BooleanField.displayName = "BooleanField";

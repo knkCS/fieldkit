@@ -1,3 +1,4 @@
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
@@ -6,7 +7,11 @@ import { TextField } from "../text-field";
 
 function Wrapper({ children }: { children: React.ReactNode }) {
 	const methods = useForm({ defaultValues: { name: "" } });
-	return <FormProvider {...methods}>{children}</FormProvider>;
+	return (
+		<ChakraProvider value={defaultSystem}>
+			<FormProvider {...methods}>{children}</FormProvider>
+		</ChakraProvider>
+	);
 }
 
 describe("TextField", () => {
