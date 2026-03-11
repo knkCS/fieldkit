@@ -82,4 +82,5 @@ export type {
 	Schema,
 } from "./types";
 // Zod builder
+export type { ZodBuilderOptions } from "./zod-builder";
 export { getDefaultValues, specToZodSchema } from "./zod-builder";
