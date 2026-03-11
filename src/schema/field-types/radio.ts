@@ -1,5 +1,7 @@
 import { CircleDot } from "lucide-react";
 import { z } from "zod";
+import { RadioField } from "../../renderer/fields/radio-field";
+import { RadioCell } from "../../table/cells/radio-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -14,8 +16,8 @@ export const radioPlugin: FieldTypePlugin<RadioSettings> = {
 	icon: CircleDot,
 	category: "selection",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: RadioField,
+	cellComponent: RadioCell,
 
 	toZodType(field: Field<RadioSettings>) {
 		let schema = z.string();

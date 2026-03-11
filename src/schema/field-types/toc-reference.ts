@@ -1,5 +1,7 @@
 import { BookOpen } from "lucide-react";
 import { z } from "zod";
+import { TocReferenceField } from "../../renderer/fields/toc-reference-field";
+import { TocReferenceCell } from "../../table/cells/toc-reference-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -18,8 +20,8 @@ export const tocReferencePlugin: FieldTypePlugin<TocReferenceSettings> = {
 	icon: BookOpen,
 	category: "reference",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: TocReferenceField,
+	cellComponent: TocReferenceCell,
 
 	maxPerSpec: 1,
 

@@ -1,5 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { z } from "zod";
+import { SelectField } from "../../renderer/fields/select-field";
+import { SelectCell } from "../../table/cells/select-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const selectPlugin: FieldTypePlugin<SelectSettings> = {
 	icon: ChevronDown,
 	category: "selection",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: SelectField,
+	cellComponent: SelectCell,
 
 	toZodType(field: Field<SelectSettings>) {
 		const settings = field.settings ?? { options: {} };

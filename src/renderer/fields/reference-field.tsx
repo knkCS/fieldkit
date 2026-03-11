@@ -204,8 +204,7 @@ export function ReferenceField({
 												{searchResults.map((item) => (
 													<Box
 														key={item.id}
-														as="button"
-														type="button"
+														asChild
 														w="full"
 														textAlign="left"
 														px={3}
@@ -213,9 +212,10 @@ export function ReferenceField({
 														fontSize="sm"
 														cursor="pointer"
 														_hover={{ bg: "bg.muted" }}
-														onClick={() => handleAdd(item)}
 													>
+														<button type="button" onClick={() => handleAdd(item)}>
 														{item.display_name}
+													</button>
 													</Box>
 												))}
 											</Box>

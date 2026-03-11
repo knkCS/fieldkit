@@ -1,5 +1,7 @@
 import { List } from "lucide-react";
 import { z } from "zod";
+import { ArrayField } from "../../renderer/fields/array-field";
+import { ArrayCell } from "../../table/cells/array-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 	icon: List,
 	category: "structural",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: ArrayField,
+	cellComponent: ArrayCell,
 
 	toZodType(field: Field<ArraySettings>) {
 		const settings = field.settings ?? {};

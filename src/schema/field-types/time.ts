@@ -1,5 +1,7 @@
 import { Clock } from "lucide-react";
 import { z } from "zod";
+import { TimeField } from "../../renderer/fields/time-field";
+import { TimeCell } from "../../table/cells/time-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -10,8 +12,8 @@ export const timePlugin: FieldTypePlugin = {
 	icon: Clock,
 	category: "date",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: TimeField,
+	cellComponent: TimeCell,
 
 	toZodType(field: Field) {
 		let schema = z.string();

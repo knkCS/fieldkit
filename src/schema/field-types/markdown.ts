@@ -1,5 +1,7 @@
 import { FileText } from "lucide-react";
 import { z } from "zod";
+import { MarkdownField } from "../../renderer/fields/markdown-field";
+import { MarkdownCell } from "../../table/cells/markdown-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -14,8 +16,8 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 	icon: FileText,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: MarkdownField,
+	cellComponent: MarkdownCell,
 
 	toZodType(field: Field<MarkdownSettings>) {
 		let schema = z.string();

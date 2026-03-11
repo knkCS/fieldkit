@@ -1,5 +1,7 @@
 import { Palette } from "lucide-react";
 import { z } from "zod";
+import { ColorField } from "../../renderer/fields/color-field";
+import { ColorCell } from "../../table/cells/color-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -14,8 +16,8 @@ export const colorPlugin: FieldTypePlugin<ColorSettings> = {
 	icon: Palette,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: ColorField,
+	cellComponent: ColorCell,
 
 	toZodType(field: Field<ColorSettings>) {
 		let schema = z.string();

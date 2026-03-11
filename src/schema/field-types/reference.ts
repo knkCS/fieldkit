@@ -1,5 +1,7 @@
 import { Link2 } from "lucide-react";
 import { z } from "zod";
+import { ReferenceField } from "../../renderer/fields/reference-field";
+import { ReferenceCell } from "../../table/cells/reference-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -18,8 +20,8 @@ export const referencePlugin: FieldTypePlugin<ReferenceSettings> = {
 	icon: Link2,
 	category: "reference",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: ReferenceField,
+	cellComponent: ReferenceCell,
 
 	toZodType(field: Field<ReferenceSettings>) {
 		const settings = field.settings ?? {};

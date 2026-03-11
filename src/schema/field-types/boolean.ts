@@ -1,5 +1,7 @@
 import { ToggleLeft } from "lucide-react";
 import { z } from "zod";
+import { BooleanField } from "../../renderer/fields/boolean-field";
+import { BooleanCell } from "../../table/cells/boolean-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -10,8 +12,8 @@ export const booleanPlugin: FieldTypePlugin = {
 	icon: ToggleLeft,
 	category: "boolean",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: BooleanField,
+	cellComponent: BooleanCell,
 
 	toZodType(_field: Field) {
 		return z.boolean();

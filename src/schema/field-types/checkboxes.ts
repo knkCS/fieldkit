@@ -1,5 +1,7 @@
 import { CheckSquare } from "lucide-react";
 import { z } from "zod";
+import { CheckboxesField } from "../../renderer/fields/checkboxes-field";
+import { CheckboxesCell } from "../../table/cells/checkboxes-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -14,8 +16,8 @@ export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
 	icon: CheckSquare,
 	category: "selection",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: CheckboxesField,
+	cellComponent: CheckboxesCell,
 
 	toZodType(field: Field<CheckboxesSettings>) {
 		let schema = z.array(z.string());

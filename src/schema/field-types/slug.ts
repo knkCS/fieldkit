@@ -1,6 +1,8 @@
 import { Link as LinkIcon } from "lucide-react";
 import type { ZodTypeAny } from "zod";
 import { z } from "zod";
+import { SlugField } from "../../renderer/fields/slug-field";
+import { SlugCell } from "../../table/cells/slug-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -17,8 +19,8 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
 	icon: LinkIcon,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: SlugField,
+	cellComponent: SlugCell,
 
 	toZodType(field: Field<SlugSettings>): ZodTypeAny {
 		const slugSchema = z

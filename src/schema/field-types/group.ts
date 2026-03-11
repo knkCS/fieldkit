@@ -1,5 +1,7 @@
 import { Layers } from "lucide-react";
 import { z } from "zod";
+import { GroupField } from "../../renderer/fields/group-field";
+import { GroupCell } from "../../table/cells/group-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 	icon: Layers,
 	category: "structural",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: GroupField,
+	cellComponent: GroupCell,
 
 	toZodType(field: Field<GroupSettings>) {
 		const settings = field.settings ?? {};

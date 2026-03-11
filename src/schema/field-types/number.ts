@@ -1,5 +1,7 @@
 import { Hash } from "lucide-react";
 import { z } from "zod";
+import { NumberField } from "../../renderer/fields/number-field";
+import { NumberCell } from "../../table/cells/number-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -18,8 +20,8 @@ export const numberPlugin: FieldTypePlugin<NumberSettings> = {
 	icon: Hash,
 	category: "number",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: NumberField,
+	cellComponent: NumberCell,
 
 	toZodType(field: Field<NumberSettings>) {
 		let schema = z.number();

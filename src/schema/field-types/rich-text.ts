@@ -1,5 +1,7 @@
 import { PenLine } from "lucide-react";
 import { z } from "zod";
+import { RichTextField } from "../../renderer/fields/rich-text-field";
+import { RichTextCell } from "../../table/cells/rich-text-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 	icon: PenLine,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: RichTextField,
+	cellComponent: RichTextCell,
 
 	toZodType(_field: Field<RichTextSettings>) {
 		// Rich text content is stored as JSON (ProseMirror document structure)

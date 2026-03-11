@@ -1,5 +1,7 @@
 import { Calendar } from "lucide-react";
 import { z } from "zod";
+import { DateField } from "../../renderer/fields/date-field";
+import { DateCell } from "../../table/cells/date-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -16,8 +18,8 @@ export const datePlugin: FieldTypePlugin<DateSettings> = {
 	icon: Calendar,
 	category: "date",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: DateField,
+	cellComponent: DateCell,
 
 	toZodType(field: Field<DateSettings>) {
 		let schema = z.string();

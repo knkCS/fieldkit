@@ -1,5 +1,7 @@
 import { Table2 } from "lucide-react";
 import { z } from "zod";
+import { VirtualTableField } from "../../renderer/fields/virtual-table-field";
+import { VirtualTableCell } from "../../table/cells/virtual-table-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -16,8 +18,8 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	icon: Table2,
 	category: "reference",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: VirtualTableField,
+	cellComponent: VirtualTableCell,
 
 	toZodType(_field: Field<VirtualTableSettings>) {
 		return z.array(z.record(z.unknown()));

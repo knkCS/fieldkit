@@ -1,5 +1,7 @@
 import { Type as TypeIcon } from "lucide-react";
 import { z } from "zod";
+import { TextField } from "../../renderer/fields/text-field";
+import { TextCell } from "../../table/cells/text-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -16,8 +18,8 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 	icon: TypeIcon,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: TextField,
+	cellComponent: TextCell,
 
 	toZodType(field: Field<TextSettings>) {
 		let schema = z.string();

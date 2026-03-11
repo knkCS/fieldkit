@@ -1,6 +1,8 @@
 import { Mail } from "lucide-react";
 import type { ZodTypeAny } from "zod";
 import { z } from "zod";
+import { EmailField } from "../../renderer/fields/email-field";
+import { EmailCell } from "../../table/cells/email-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 	icon: Mail,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: EmailField,
+	cellComponent: EmailCell,
 
 	toZodType(field: Field<EmailSettings>): ZodTypeAny {
 		if (field.config.required) {

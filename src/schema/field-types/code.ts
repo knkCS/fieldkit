@@ -1,5 +1,7 @@
 import { Code } from "lucide-react";
 import { z } from "zod";
+import { CodeField } from "../../renderer/fields/code-field";
+import { CodeCell } from "../../table/cells/code-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -14,8 +16,8 @@ export const codePlugin: FieldTypePlugin<CodeSettings> = {
 	icon: Code,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: CodeField,
+	cellComponent: CodeCell,
 
 	toZodType(field: Field<CodeSettings>) {
 		let schema = z.string();

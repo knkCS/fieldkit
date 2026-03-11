@@ -1,5 +1,7 @@
 import { Image } from "lucide-react";
 import { z } from "zod";
+import { MediaField } from "../../renderer/fields/media-field";
+import { MediaCell } from "../../table/cells/media-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 	icon: Image,
 	category: "media",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: MediaField,
+	cellComponent: MediaCell,
 
 	toZodType(field: Field<MediaSettings>) {
 		let schema = z.array(z.string());

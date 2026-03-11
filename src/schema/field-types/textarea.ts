@@ -1,5 +1,7 @@
 import { AlignLeft } from "lucide-react";
 import { z } from "zod";
+import { TextareaField } from "../../renderer/fields/textarea-field";
+import { TextareaCell } from "../../table/cells/textarea-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const textareaPlugin: FieldTypePlugin<TextareaSettings> = {
 	icon: AlignLeft,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: TextareaField,
+	cellComponent: TextareaCell,
 
 	toZodType(field: Field<TextareaSettings>) {
 		let schema = z.string();

@@ -176,8 +176,7 @@ export function TocReferenceField({
 												{searchResults.map((item) => (
 													<Box
 														key={item.id}
-														as="button"
-														type="button"
+														asChild
 														w="full"
 														textAlign="left"
 														px={3}
@@ -185,9 +184,10 @@ export function TocReferenceField({
 														fontSize="sm"
 														cursor="pointer"
 														_hover={{ bg: "bg.muted" }}
-														onClick={() => handleSelect(item)}
 													>
+														<button type="button" onClick={() => handleSelect(item)}>
 														{item.display_name}
+													</button>
 													</Box>
 												))}
 											</Box>

@@ -1,6 +1,8 @@
 import { Link } from "lucide-react";
 import type { ZodTypeAny } from "zod";
 import { z } from "zod";
+import { UrlField } from "../../renderer/fields/url-field";
+import { UrlCell } from "../../table/cells/url-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -15,8 +17,8 @@ export const urlPlugin: FieldTypePlugin<UrlSettings> = {
 	icon: Link,
 	category: "text",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: UrlField,
+	cellComponent: UrlCell,
 
 	toZodType(field: Field<UrlSettings>): ZodTypeAny {
 		if (field.config.required) {

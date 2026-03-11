@@ -1,5 +1,7 @@
 import { Boxes } from "lucide-react";
 import { z } from "zod";
+import { BlocksField } from "../../renderer/fields/blocks-field";
+import { BlocksCell } from "../../table/cells/blocks-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -20,8 +22,8 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 	icon: Boxes,
 	category: "structural",
 
-	fieldComponent: () => null,
-	cellComponent: undefined,
+	fieldComponent: BlocksField,
+	cellComponent: BlocksCell,
 
 	toZodType(_field: Field<BlocksSettings>) {
 		return z.array(z.object({ _type: z.string() }).passthrough());
