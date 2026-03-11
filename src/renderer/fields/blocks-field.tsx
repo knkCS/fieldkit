@@ -1,3 +1,6 @@
+import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
+import { FormField } from "@knkcs/anker/forms";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { BlocksSettings } from "../../schema/field-types/blocks";
@@ -6,9 +9,9 @@ import { FieldRenderer } from "../field-renderer";
 
 export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 	const { control } = useFormContext();
-	const accessor = field.config.api_accessor;
-	const settings = field.settings ?? { allowed_blocks: [] };
-	const allowedBlocks = settings.allowed_blocks ?? [];
+	const { config, settings } = field;
+	const accessor = config.api_accessor;
+	const allowedBlocks = settings?.allowed_blocks ?? [];
 
 	const {
 		fields: items,
@@ -31,181 +34,133 @@ export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 		allowedBlocks.find((b) => b.type === type);
 
 	return (
-		<div style={{ marginBottom: "1rem" }}>
-			<div
-				style={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					marginBottom: "0.5rem",
-				}}
-			>
-				<label style={{ fontWeight: 500 }}>
-					{field.config.name}
-					{field.config.required && <span style={{ color: "red" }}> *</span>}
-				</label>
-				{!readOnly && (
-					<button
-						type="button"
-						onClick={() => setShowTypePicker(!showTypePicker)}
-						style={{
-							padding: "0.25rem 0.75rem",
-							border: "1px solid #ccc",
-							borderRadius: "4px",
-							background: "white",
-							cursor: "pointer",
-						}}
-					>
-						Add block
-					</button>
-				)}
-			</div>
-			{field.config.instructions && (
-				<p
-					style={{
-						fontSize: "0.875rem",
-						color: "#666",
-						marginBottom: "0.5rem",
-					}}
-				>
-					{field.config.instructions}
-				</p>
-			)}
-			{showTypePicker && (
-				<div
-					style={{
-						border: "1px solid #e0e0e0",
-						borderRadius: "4px",
-						padding: "0.5rem",
-						marginBottom: "0.5rem",
-						display: "flex",
-						gap: "0.5rem",
-						flexWrap: "wrap",
-					}}
-				>
-					{allowedBlocks.map((block) => (
-						<button
-							key={block.type}
-							type="button"
-							onClick={() => addBlock(block.type)}
-							style={{
-								padding: "0.25rem 0.75rem",
-								border: "1px solid #ccc",
-								borderRadius: "4px",
-								background: "white",
-								cursor: "pointer",
-							}}
-						>
-							{block.name}
-						</button>
-					))}
-					{allowedBlocks.length === 0 && (
-						<span style={{ fontSize: "0.875rem", color: "#999" }}>
-							No block types configured
-						</span>
+		<FormField
+			name={accessor}
+			label={config.name}
+			helperText={config.instructions || undefined}
+			required={config.required}
+			readOnly={readOnly}
+		>
+			{() => (
+				<Box>
+					{!readOnly && (
+						<Flex justify="flex-end" mb={2}>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => setShowTypePicker(!showTypePicker)}
+							>
+								<Plus size={16} />
+								Add block
+							</Button>
+						</Flex>
 					)}
-				</div>
-			)}
-			{items.map((item, index) => {
-				const blockType = (item as Record<string, unknown>)._type as
-					| string
-					| undefined;
-				const blockDef = blockType ? getBlockDef(blockType) : undefined;
-				const blockFields = blockDef?.fields ?? [];
 
-				return (
-					<div
-						key={item.id}
-						style={{
-							border: "1px solid #e0e0e0",
-							borderRadius: "4px",
-							padding: "1rem",
-							marginBottom: "0.5rem",
-						}}
-					>
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								alignItems: "center",
-								marginBottom: "0.5rem",
-							}}
+					{showTypePicker && (
+						<Flex
+							borderWidth="1px"
+							borderColor="border"
+							borderRadius="md"
+							p={2}
+							mb={2}
+							gap={2}
+							flexWrap="wrap"
 						>
-							<span style={{ fontSize: "0.875rem", fontWeight: 500 }}>
-								{blockDef?.name ?? blockType ?? "Unknown block"}
-							</span>
-							{!readOnly && (
-								<div style={{ display: "flex", gap: "0.25rem" }}>
-									{index > 0 && (
-										<button
-											type="button"
-											onClick={() => move(index, index - 1)}
-											style={{
-												padding: "0.125rem 0.5rem",
-												border: "1px solid #ccc",
-												borderRadius: "4px",
-												background: "white",
-												cursor: "pointer",
-												fontSize: "0.75rem",
-											}}
-										>
-											Up
-										</button>
-									)}
-									{index < items.length - 1 && (
-										<button
-											type="button"
-											onClick={() => move(index, index + 1)}
-											style={{
-												padding: "0.125rem 0.5rem",
-												border: "1px solid #ccc",
-												borderRadius: "4px",
-												background: "white",
-												cursor: "pointer",
-												fontSize: "0.75rem",
-											}}
-										>
-											Down
-										</button>
-									)}
-									<button
-										type="button"
-										onClick={() => remove(index)}
-										style={{
-											padding: "0.125rem 0.5rem",
-											border: "1px solid #ccc",
-											borderRadius: "4px",
-											background: "white",
-											cursor: "pointer",
-											fontSize: "0.75rem",
-										}}
-									>
-										Remove
-									</button>
-								</div>
+							{allowedBlocks.map((block) => (
+								<Button
+									key={block.type}
+									size="sm"
+									variant="outline"
+									onClick={() => addBlock(block.type)}
+								>
+									{block.name}
+								</Button>
+							))}
+							{allowedBlocks.length === 0 && (
+								<Text fontSize="sm" color="fg.muted">
+									No block types configured
+								</Text>
 							)}
-						</div>
-						{blockFields.length > 0 && (
-							<FieldRenderer
-								schema={blockFields.map((child) => ({
-									...child,
-									config: {
-										...child.config,
-										api_accessor: `${accessor}.${index}.${child.config.api_accessor}`,
-									},
-								}))}
-								readOnly={readOnly}
-							/>
-						)}
-					</div>
-				);
-			})}
-			{items.length === 0 && (
-				<p style={{ fontSize: "0.875rem", color: "#999", fontStyle: "italic" }}>
-					No blocks added yet.
-				</p>
+						</Flex>
+					)}
+
+					{items.map((item, index) => {
+						const blockType = (item as Record<string, unknown>)._type as
+							| string
+							| undefined;
+						const blockDef = blockType ? getBlockDef(blockType) : undefined;
+						const blockFields = blockDef?.fields ?? [];
+
+						return (
+							<Box
+								key={item.id}
+								borderWidth="1px"
+								borderColor="border"
+								borderRadius="md"
+								p={4}
+								mb={2}
+							>
+								<Flex justify="space-between" align="center" mb={2}>
+									<Text fontSize="sm" fontWeight="medium">
+										{blockDef?.name ?? blockType ?? "Unknown block"}
+									</Text>
+									{!readOnly && (
+										<Flex gap={1}>
+											{index > 0 && (
+												<IconButton
+													aria-label="Move up"
+													size="xs"
+													variant="ghost"
+													onClick={() => move(index, index - 1)}
+												>
+													<ArrowUp size={14} />
+												</IconButton>
+											)}
+											{index < items.length - 1 && (
+												<IconButton
+													aria-label="Move down"
+													size="xs"
+													variant="ghost"
+													onClick={() => move(index, index + 1)}
+												>
+													<ArrowDown size={14} />
+												</IconButton>
+											)}
+											<IconButton
+												aria-label={`Remove block ${index + 1}`}
+												size="xs"
+												variant="ghost"
+												onClick={() => remove(index)}
+											>
+												<Trash2 size={14} />
+											</IconButton>
+										</Flex>
+									)}
+								</Flex>
+								{blockFields.length > 0 && (
+									<FieldRenderer
+										schema={blockFields.map((child) => ({
+											...child,
+											config: {
+												...child.config,
+												api_accessor: `${accessor}.${index}.${child.config.api_accessor}`,
+											},
+										}))}
+										readOnly={readOnly}
+									/>
+								)}
+							</Box>
+						);
+					})}
+
+					{items.length === 0 && (
+						<Text fontSize="sm" color="fg.muted" fontStyle="italic">
+							No blocks added yet.
+						</Text>
+					)}
+				</Box>
 			)}
-		</div>
+		</FormField>
 	);
 }
 BlocksField.displayName = "BlocksField";

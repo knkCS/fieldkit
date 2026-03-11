@@ -1,3 +1,6 @@
+import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
+import { FormField } from "@knkcs/anker/forms";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
@@ -11,9 +14,9 @@ export function ReferenceField({
 }: FieldProps<ReferenceSettings>) {
 	const { control } = useFormContext();
 	const { adapters } = useFieldKit();
-	const accessor = field.config.api_accessor;
-	const settings = field.settings ?? {};
-	const isSingle = settings.max_items === 1;
+	const { config, settings } = field;
+	const accessor = config.api_accessor;
+	const isSingle = settings?.max_items === 1;
 	const refAdapter = adapters.reference;
 
 	const [searchQuery, setSearchQuery] = useState("");
@@ -28,7 +31,7 @@ export function ReferenceField({
 				const items = await refAdapter.fetch(ids);
 				setResolvedItems(items);
 			} catch {
-				// silently fail — IDs will be shown as fallback
+				// silently fail -- IDs will be shown as fallback
 			}
 		},
 		[refAdapter],
@@ -43,7 +46,7 @@ export function ReferenceField({
 			setSearching(true);
 			try {
 				const results = await refAdapter.search(
-					settings.blueprints ?? [],
+					settings?.blueprints ?? [],
 					query,
 				);
 				setSearchResults(results);
@@ -53,219 +56,178 @@ export function ReferenceField({
 				setSearching(false);
 			}
 		},
-		[refAdapter, settings.blueprints],
+		[refAdapter, settings?.blueprints],
 	);
 
 	if (!refAdapter) {
 		return (
-			<div style={{ marginBottom: "1rem" }}>
-				<label
-					style={{ display: "block", marginBottom: "0.25rem", fontWeight: 500 }}
-				>
-					{field.config.name}
-				</label>
-				<p style={{ color: "#999", fontSize: "0.875rem" }}>
-					Reference adapter not configured
-				</p>
-			</div>
+			<FormField name={accessor} label={config.name} readOnly={readOnly}>
+				{() => (
+					<Text color="fg.muted" fontSize="sm">
+						Reference adapter not configured
+					</Text>
+				)}
+			</FormField>
 		);
 	}
 
 	return (
-		<div style={{ marginBottom: "1rem" }}>
-			<label
-				htmlFor={accessor}
-				style={{ display: "block", marginBottom: "0.25rem", fontWeight: 500 }}
-			>
-				{field.config.name}
-				{field.config.required && <span style={{ color: "red" }}> *</span>}
-			</label>
-			<Controller
-				name={accessor}
-				control={control}
-				render={({ field: formField, fieldState }) => {
-					const currentValue = formField.value;
-					const currentIds: string[] = isSingle
-						? currentValue
-							? [currentValue]
-							: []
-						: Array.isArray(currentValue)
+		<FormField
+			name={accessor}
+			label={config.name}
+			helperText={config.instructions || undefined}
+			required={config.required}
+			readOnly={readOnly}
+		>
+			{() => (
+				<Controller
+					name={accessor}
+					control={control}
+					render={({ field: formField }) => {
+						const currentValue = formField.value;
+						const currentIds: string[] = isSingle
 							? currentValue
-							: [];
-
-					// Resolve display names on mount / value change
-					// eslint-disable-next-line react-hooks/rules-of-hooks
-					useEffect(() => {
-						resolveIds(currentIds);
-					}, [currentIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-					const getDisplayName = (id: string) => {
-						const item = resolvedItems.find((r) => r.id === id);
-						return item?.display_name ?? id;
-					};
-
-					const handleAdd = (item: ReferenceItem) => {
-						if (isSingle) {
-							formField.onChange(item.id);
-						} else {
-							const arr = Array.isArray(formField.value)
-								? [...formField.value]
+								? [currentValue]
+								: []
+							: Array.isArray(currentValue)
+								? currentValue
 								: [];
-							if (!arr.includes(item.id)) {
-								arr.push(item.id);
+
+						// Resolve display names on mount / value change
+						// eslint-disable-next-line react-hooks/rules-of-hooks
+						useEffect(() => {
+							resolveIds(currentIds);
+						}, [currentIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
+						const getDisplayName = (id: string) => {
+							const item = resolvedItems.find((r) => r.id === id);
+							return item?.display_name ?? id;
+						};
+
+						const handleAdd = (item: ReferenceItem) => {
+							if (isSingle) {
+								formField.onChange(item.id);
+							} else {
+								const arr = Array.isArray(formField.value)
+									? [...formField.value]
+									: [];
+								if (!arr.includes(item.id)) {
+									arr.push(item.id);
+									formField.onChange(arr);
+								}
+							}
+							setSearchQuery("");
+							setSearchResults([]);
+						};
+
+						const handleRemove = (id: string) => {
+							if (isSingle) {
+								formField.onChange("");
+							} else {
+								const arr = Array.isArray(formField.value)
+									? formField.value.filter((v: string) => v !== id)
+									: [];
 								formField.onChange(arr);
 							}
-						}
-						setSearchQuery("");
-						setSearchResults([]);
-					};
+						};
 
-					const handleRemove = (id: string) => {
-						if (isSingle) {
-							formField.onChange("");
-						} else {
-							const arr = Array.isArray(formField.value)
-								? formField.value.filter((v: string) => v !== id)
-								: [];
-							formField.onChange(arr);
-						}
-					};
+						return (
+							<Box>
+								{/* Selected items */}
+								{currentIds.length > 0 && (
+									<Flex gap={1} flexWrap="wrap" mb={2}>
+										{currentIds.map((id) => (
+											<Flex
+												key={id}
+												align="center"
+												gap={1}
+												px={2}
+												py={1}
+												bg="bg.muted"
+												borderRadius="md"
+												fontSize="sm"
+											>
+												<Text>{getDisplayName(id)}</Text>
+												{!readOnly && (
+													<IconButton
+														aria-label={`Remove ${getDisplayName(id)}`}
+														size="2xs"
+														variant="ghost"
+														onClick={() => handleRemove(id)}
+													>
+														<X size={12} />
+													</IconButton>
+												)}
+											</Flex>
+										))}
+									</Flex>
+								)}
 
-					return (
-						<>
-							{/* Selected items */}
-							{currentIds.length > 0 && (
-								<div style={{ marginBottom: "0.5rem" }}>
-									{currentIds.map((id) => (
-										<span
-											key={id}
-											style={{
-												display: "inline-flex",
-												alignItems: "center",
-												gap: "0.25rem",
-												padding: "0.25rem 0.5rem",
-												marginRight: "0.25rem",
-												marginBottom: "0.25rem",
-												backgroundColor: "#f0f0f0",
-												borderRadius: "4px",
-												fontSize: "0.875rem",
+								{/* Search input */}
+								{!readOnly && (
+									<Box position="relative">
+										<Input
+											value={searchQuery}
+											onChange={(e) => {
+												setSearchQuery(e.target.value);
+												handleSearch(e.target.value);
 											}}
-										>
-											{getDisplayName(id)}
-											{!readOnly && (
-												<button
-													type="button"
-													onClick={() => handleRemove(id)}
-													style={{
-														border: "none",
-														background: "none",
-														cursor: "pointer",
-														padding: "0 2px",
-														fontSize: "1rem",
-														lineHeight: 1,
-													}}
-													aria-label={`Remove ${getDisplayName(id)}`}
-												>
-													x
-												</button>
-											)}
-										</span>
-									))}
-								</div>
-							)}
-
-							{/* Search input */}
-							{!readOnly && (
-								<div style={{ position: "relative" }}>
-									<input
-										type="text"
-										value={searchQuery}
-										onChange={(e) => {
-											setSearchQuery(e.target.value);
-											handleSearch(e.target.value);
-										}}
-										placeholder="Search references..."
-										style={{
-											width: "100%",
-											padding: "0.5rem",
-											border: fieldState.error
-												? "1px solid red"
-												: "1px solid #ccc",
-											borderRadius: "4px",
-										}}
-									/>
-									{searching && (
-										<span
-											style={{
-												position: "absolute",
-												right: "0.5rem",
-												top: "0.5rem",
-												color: "#999",
-												fontSize: "0.75rem",
-											}}
-										>
-											Searching...
-										</span>
-									)}
-									{searchResults.length > 0 && (
-										<ul
-											style={{
-												position: "absolute",
-												top: "100%",
-												left: 0,
-												right: 0,
-												backgroundColor: "white",
-												border: "1px solid #ccc",
-												borderTop: "none",
-												borderRadius: "0 0 4px 4px",
-												listStyle: "none",
-												margin: 0,
-												padding: 0,
-												maxHeight: "200px",
-												overflowY: "auto",
-												zIndex: 10,
-											}}
-										>
-											{searchResults.map((item) => (
-												<li key={item.id}>
-													<button
+											placeholder="Search references..."
+										/>
+										{searching && (
+											<Text
+												position="absolute"
+												right={2}
+												top="50%"
+												transform="translateY(-50%)"
+												color="fg.muted"
+												fontSize="xs"
+											>
+												Searching...
+											</Text>
+										)}
+										{searchResults.length > 0 && (
+											<Box
+												position="absolute"
+												top="100%"
+												left={0}
+												right={0}
+												bg="bg.panel"
+												borderWidth="1px"
+												borderColor="border"
+												borderTopWidth={0}
+												borderBottomRadius="md"
+												maxH="200px"
+												overflowY="auto"
+												zIndex={10}
+											>
+												{searchResults.map((item) => (
+													<Box
+														key={item.id}
+														as="button"
 														type="button"
+														w="full"
+														textAlign="left"
+														px={3}
+														py={2}
+														fontSize="sm"
+														cursor="pointer"
+														_hover={{ bg: "bg.muted" }}
 														onClick={() => handleAdd(item)}
-														style={{
-															width: "100%",
-															textAlign: "left",
-															padding: "0.5rem",
-															border: "none",
-															background: "none",
-															cursor: "pointer",
-														}}
 													>
 														{item.display_name}
-													</button>
-												</li>
-											))}
-										</ul>
-									)}
-								</div>
-							)}
-
-							{fieldState.error && (
-								<span style={{ color: "red", fontSize: "0.875rem" }}>
-									{fieldState.error.message}
-								</span>
-							)}
-						</>
-					);
-				}}
-			/>
-			{field.config.instructions && (
-				<p
-					style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.25rem" }}
-				>
-					{field.config.instructions}
-				</p>
+													</Box>
+												))}
+											</Box>
+										)}
+									</Box>
+								)}
+							</Box>
+						);
+					}}
+				/>
 			)}
-		</div>
+		</FormField>
 	);
 }
 ReferenceField.displayName = "ReferenceField";

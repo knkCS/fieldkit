@@ -1,3 +1,6 @@
+import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
+import { FormField } from "@knkcs/anker/forms";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { TocReferenceSettings } from "../../schema/field-types/toc-reference";
@@ -11,8 +14,8 @@ export function TocReferenceField({
 }: FieldProps<TocReferenceSettings>) {
 	const { control } = useFormContext();
 	const { adapters } = useFieldKit();
-	const accessor = field.config.api_accessor;
-	const settings = field.settings ?? {};
+	const { config, settings } = field;
+	const accessor = config.api_accessor;
 	const refAdapter = adapters.reference;
 
 	const [searchQuery, setSearchQuery] = useState("");
@@ -45,7 +48,7 @@ export function TocReferenceField({
 			setSearching(true);
 			try {
 				const results = await refAdapter.search(
-					settings.blueprints ?? [],
+					settings?.blueprints ?? [],
 					query,
 				);
 				setSearchResults(results);
@@ -55,187 +58,148 @@ export function TocReferenceField({
 				setSearching(false);
 			}
 		},
-		[refAdapter, settings.blueprints],
+		[refAdapter, settings?.blueprints],
 	);
 
 	if (!refAdapter) {
 		return (
-			<div style={{ marginBottom: "1rem" }}>
-				<label
-					style={{ display: "block", marginBottom: "0.25rem", fontWeight: 500 }}
-				>
-					{field.config.name}
-				</label>
-				<p style={{ color: "#999", fontSize: "0.875rem" }}>
-					Reference adapter not configured
-				</p>
-			</div>
+			<FormField name={accessor} label={config.name} readOnly={readOnly}>
+				{() => (
+					<Text color="fg.muted" fontSize="sm">
+						Reference adapter not configured
+					</Text>
+				)}
+			</FormField>
 		);
 	}
 
 	return (
-		<div style={{ marginBottom: "1rem" }}>
-			<label
-				htmlFor={accessor}
-				style={{ display: "block", marginBottom: "0.25rem", fontWeight: 500 }}
-			>
-				{field.config.name}
-				{field.config.required && <span style={{ color: "red" }}> *</span>}
-			</label>
-			<Controller
-				name={accessor}
-				control={control}
-				render={({ field: formField, fieldState }) => {
-					const currentId =
-						typeof formField.value === "string" ? formField.value : "";
+		<FormField
+			name={accessor}
+			label={config.name}
+			helperText={config.instructions || undefined}
+			required={config.required}
+			readOnly={readOnly}
+		>
+			{() => (
+				<Controller
+					name={accessor}
+					control={control}
+					render={({ field: formField }) => {
+						const currentId =
+							typeof formField.value === "string" ? formField.value : "";
 
-					// Resolve display name on mount / value change
-					// eslint-disable-next-line react-hooks/rules-of-hooks
-					useEffect(() => {
-						resolveId(currentId);
-					}, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
+						// Resolve display name on mount / value change
+						// eslint-disable-next-line react-hooks/rules-of-hooks
+						useEffect(() => {
+							resolveId(currentId);
+						}, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-					const handleSelect = (item: ReferenceItem) => {
-						formField.onChange(item.id);
-						setSearchQuery("");
-						setSearchResults([]);
-					};
+						const handleSelect = (item: ReferenceItem) => {
+							formField.onChange(item.id);
+							setSearchQuery("");
+							setSearchResults([]);
+						};
 
-					const handleClear = () => {
-						formField.onChange("");
-						setResolvedItem(null);
-					};
+						const handleClear = () => {
+							formField.onChange("");
+							setResolvedItem(null);
+						};
 
-					return (
-						<>
-							{/* Selected item */}
-							{currentId && (
-								<div style={{ marginBottom: "0.5rem" }}>
-									<span
-										style={{
-											display: "inline-flex",
-											alignItems: "center",
-											gap: "0.25rem",
-											padding: "0.25rem 0.5rem",
-											backgroundColor: "#f0f0f0",
-											borderRadius: "4px",
-											fontSize: "0.875rem",
-										}}
-									>
-										{resolvedItem?.display_name ?? currentId}
-										{!readOnly && (
-											<button
-												type="button"
-												onClick={handleClear}
-												style={{
-													border: "none",
-													background: "none",
-													cursor: "pointer",
-													padding: "0 2px",
-													fontSize: "1rem",
-													lineHeight: 1,
-												}}
-												aria-label={`Remove ${resolvedItem?.display_name ?? currentId}`}
+						return (
+							<Box>
+								{/* Selected item */}
+								{currentId && (
+									<Flex gap={1} mb={2}>
+										<Flex
+											align="center"
+											gap={1}
+											px={2}
+											py={1}
+											bg="bg.muted"
+											borderRadius="md"
+											fontSize="sm"
+										>
+											<Text>{resolvedItem?.display_name ?? currentId}</Text>
+											{!readOnly && (
+												<IconButton
+													aria-label={`Remove ${resolvedItem?.display_name ?? currentId}`}
+													size="2xs"
+													variant="ghost"
+													onClick={handleClear}
+												>
+													<X size={12} />
+												</IconButton>
+											)}
+										</Flex>
+									</Flex>
+								)}
+
+								{/* Search input */}
+								{!readOnly && !currentId && (
+									<Box position="relative">
+										<Input
+											value={searchQuery}
+											onChange={(e) => {
+												setSearchQuery(e.target.value);
+												handleSearch(e.target.value);
+											}}
+											placeholder="Search TOC reference..."
+										/>
+										{searching && (
+											<Text
+												position="absolute"
+												right={2}
+												top="50%"
+												transform="translateY(-50%)"
+												color="fg.muted"
+												fontSize="xs"
 											>
-												x
-											</button>
+												Searching...
+											</Text>
 										)}
-									</span>
-								</div>
-							)}
-
-							{/* Search input */}
-							{!readOnly && !currentId && (
-								<div style={{ position: "relative" }}>
-									<input
-										type="text"
-										value={searchQuery}
-										onChange={(e) => {
-											setSearchQuery(e.target.value);
-											handleSearch(e.target.value);
-										}}
-										placeholder="Search TOC reference..."
-										style={{
-											width: "100%",
-											padding: "0.5rem",
-											border: fieldState.error
-												? "1px solid red"
-												: "1px solid #ccc",
-											borderRadius: "4px",
-										}}
-									/>
-									{searching && (
-										<span
-											style={{
-												position: "absolute",
-												right: "0.5rem",
-												top: "0.5rem",
-												color: "#999",
-												fontSize: "0.75rem",
-											}}
-										>
-											Searching...
-										</span>
-									)}
-									{searchResults.length > 0 && (
-										<ul
-											style={{
-												position: "absolute",
-												top: "100%",
-												left: 0,
-												right: 0,
-												backgroundColor: "white",
-												border: "1px solid #ccc",
-												borderTop: "none",
-												borderRadius: "0 0 4px 4px",
-												listStyle: "none",
-												margin: 0,
-												padding: 0,
-												maxHeight: "200px",
-												overflowY: "auto",
-												zIndex: 10,
-											}}
-										>
-											{searchResults.map((item) => (
-												<li key={item.id}>
-													<button
+										{searchResults.length > 0 && (
+											<Box
+												position="absolute"
+												top="100%"
+												left={0}
+												right={0}
+												bg="bg.panel"
+												borderWidth="1px"
+												borderColor="border"
+												borderTopWidth={0}
+												borderBottomRadius="md"
+												maxH="200px"
+												overflowY="auto"
+												zIndex={10}
+											>
+												{searchResults.map((item) => (
+													<Box
+														key={item.id}
+														as="button"
 														type="button"
+														w="full"
+														textAlign="left"
+														px={3}
+														py={2}
+														fontSize="sm"
+														cursor="pointer"
+														_hover={{ bg: "bg.muted" }}
 														onClick={() => handleSelect(item)}
-														style={{
-															width: "100%",
-															textAlign: "left",
-															padding: "0.5rem",
-															border: "none",
-															background: "none",
-															cursor: "pointer",
-														}}
 													>
 														{item.display_name}
-													</button>
-												</li>
-											))}
-										</ul>
-									)}
-								</div>
-							)}
-
-							{fieldState.error && (
-								<span style={{ color: "red", fontSize: "0.875rem" }}>
-									{fieldState.error.message}
-								</span>
-							)}
-						</>
-					);
-				}}
-			/>
-			{field.config.instructions && (
-				<p
-					style={{ fontSize: "0.875rem", color: "#666", marginTop: "0.25rem" }}
-				>
-					{field.config.instructions}
-				</p>
+													</Box>
+												))}
+											</Box>
+										)}
+									</Box>
+								)}
+							</Box>
+						);
+					}}
+				/>
 			)}
-		</div>
+		</FormField>
 	);
 }
 TocReferenceField.displayName = "TocReferenceField";
