@@ -1,0 +1,66 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./array-field.stories";
+
+<Meta of={Stories} />
+
+# Array
+
+A list of key-value pairs or keyed values. Supports two modes: **dynamic** (user adds/removes pairs) and **keyed** (fixed keys with editable values). Wraps anker's `ArrayField` component.
+
+## When to Use
+
+Use **Array** for simple key-value data (metadata, social links, environment variables). For repeating structured fields, use [Group](?path=/docs/fields-group--docs). For heterogeneous content blocks, use [Blocks](?path=/docs/fields-blocks--docs).
+
+## Settings
+
+| Setting | Type                   | Default     | Description                                    |
+|---------|------------------------|-------------|------------------------------------------------|
+| `mode`  | `"dynamic" \| "keyed"` | `"dynamic"` | Dynamic: add/remove pairs. Keyed: fixed keys.   |
+| `keys`  | `string[]`             | —           | List of fixed keys (only used in keyed mode)     |
+
+## Validation
+
+The Zod schema depends on the mode:
+
+- **Dynamic mode**: `z.array(z.object({ key: z.string(), value: z.string() }))`
+- **Keyed mode**: `z.record(z.string())`
+
+## Zod Output
+
+```ts
+// Dynamic mode
+z.array(z.object({ key: z.string(), value: z.string() }))
+
+// Keyed mode
+z.record(z.string())
+```
+
+## Table Cell
+
+Renders the item count or key count via `ArrayCell`.
+
+## Known Limitations
+
+- `keys` mapping may not match anker's `ArrayField` prop shape — the component maps keys to `{ key, value: "" }` objects
+- No `required` validation in Zod — neither mode has a minimum items check
+- Values are always strings (no other types supported)
+- Keyed mode doesn't restrict to configured keys in Zod — `z.record(z.string())` accepts any keys
+- No min/max item limits
+
+## Examples
+
+### Dynamic Mode
+
+Users can add and remove key-value pairs freely.
+
+<Canvas of={Stories.DynamicMode} />
+
+### Keyed Mode
+
+Fixed keys (twitter, github, linkedin, website) with editable values.
+
+<Canvas of={Stories.KeyedMode} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

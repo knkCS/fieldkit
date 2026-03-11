@@ -1,0 +1,73 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./blocks-field.stories";
+
+<Meta of={Stories} />
+
+# Blocks
+
+Dynamic content zones with different block types. Each block has a `_type` discriminator and its own set of fields defined via `BlockDefinition`. Uses React Hook Form's `useFieldArray` for add/remove/reorder.
+
+## When to Use
+
+Use **Blocks** when content is heterogeneous — different items have different field structures (e.g., a page builder with text blocks, image blocks, and CTA blocks). For homogeneous repeating fields, use [Group](?path=/docs/fields-group--docs). For simple key-value pairs, use [Array](?path=/docs/fields-array--docs).
+
+## Settings
+
+| Setting          | Type                | Default | Description                        |
+|------------------|---------------------|---------|------------------------------------|
+| `allowed_blocks` | `BlockDefinition[]` | `[]`    | The block types available for use   |
+
+### BlockDefinition
+
+```ts
+interface BlockDefinition {
+  type: string;     // Unique block type identifier (stored as _type)
+  name: string;     // Display name shown in the block picker
+  fields: Field[];  // Child fields within this block type
+}
+```
+
+## Validation
+
+The Zod schema validates the array structure but does not validate per-block-type fields:
+
+```ts
+z.array(z.object({ _type: z.string() }).passthrough())
+```
+
+## Zod Output
+
+```ts
+// Always (regardless of settings)
+z.array(z.object({ _type: z.string() }).passthrough())
+```
+
+## Table Cell
+
+Renders the block count via `BlocksCell`.
+
+## Known Limitations
+
+- No per-block-type Zod validation — all blocks use a passthrough object schema
+- No drag-to-reorder — uses arrow buttons for moving blocks up/down
+- No min/max block limits
+- No per-block-type limits (e.g., max 1 hero block)
+- New blocks start without child field defaults (`append({ _type: blockType })` only)
+
+## Examples
+
+### Default
+
+A blocks field with no block types configured. The "Add block" picker shows an empty state.
+
+<Canvas of={Stories.Default} />
+
+### With Block Types
+
+Three block types available: Text Block, Image Block, and Call to Action. Click "Add block" to select a type.
+
+<Canvas of={Stories.WithBlockTypes} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

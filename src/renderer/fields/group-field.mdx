@@ -1,0 +1,73 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./group-field.stories";
+
+<Meta of={Stories} />
+
+# Group
+
+A repeating group of child fields. Each item in the group contains the same set of fields. Uses React Hook Form's `useFieldArray` for dynamic add/remove.
+
+## When to Use
+
+Use **Group** when you need a repeating set of structured fields (e.g., links with label+URL, team members with name+email+role). For unstructured key-value pairs, use [Array](?path=/docs/fields-array--docs). For heterogeneous content, use [Blocks](?path=/docs/fields-blocks--docs).
+
+## Settings
+
+| Setting     | Type     | Default | Description                                    |
+|-------------|----------|---------|------------------------------------------------|
+| `min_items` | `number` | —       | Minimum number of items (enforced in Zod and UI) |
+| `max_items` | `number` | —       | Maximum number of items (enforced in Zod and UI) |
+
+## Children
+
+The `children: Field[]` property on the field definition defines the child fields rendered within each group item. Each child field uses the standard `Field` interface.
+
+## Validation
+
+The Zod schema validates the array length via `min_items`/`max_items`. However, individual child fields within each item are **not** validated — the array items use `z.record(z.unknown())`.
+
+## Zod Output
+
+```ts
+// No constraints
+z.array(z.record(z.unknown()))
+
+// With min/max
+z.array(z.record(z.unknown())).min(1).max(5)
+```
+
+## Table Cell
+
+Renders the item count via `GroupCell`.
+
+## Known Limitations
+
+- Child fields are not validated in Zod — items use `z.record(z.unknown())` instead of composing child field schemas
+- No drag-to-reorder (the plan specified dnd-kit integration)
+- `append({})` ignores child field defaults — new items start with empty objects
+- No collapse/expand per item
+- "Add item" button is above the list instead of below
+
+## Examples
+
+### Default
+
+An empty group with two child fields (Label + URL). Click "Add item" to add entries.
+
+<Canvas of={Stories.Default} />
+
+### With Children
+
+A group with three child fields (Name, Email, Role).
+
+<Canvas of={Stories.WithChildren} />
+
+### With Min / Max
+
+Constrained to between 1 and 5 items. The "Add item" button disappears at 5, and the delete button disappears at 1.
+
+<Canvas of={Stories.WithMinMax} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

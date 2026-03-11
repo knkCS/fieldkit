@@ -1,0 +1,45 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./section-field.stories";
+
+<Meta of={Stories} />
+
+# Section
+
+A structural divider intended to organize fields into tabbed groups. **This field type is currently non-functional.**
+
+## When to Use
+
+Section is meant to create tabbed layouts in the form renderer. However, since the implementation is missing, it currently has no effect. Fields before and after a section field are rendered in the same flat list.
+
+## Settings
+
+This field type has no configurable settings.
+
+## Validation
+
+The Zod schema returns `z.never()` — section fields should never appear in form data.
+
+## Zod Output
+
+```ts
+z.never()
+```
+
+## Table Cell
+
+No cell component — section fields are not data-bearing.
+
+## Known Limitations
+
+- **Completely non-functional.** The `fieldComponent` returns `null`. No visual rendering occurs.
+- No tabbed layout — the plan specified: tabbed layout when sections detected, fields grouped by section, default tab for fields before first section. None of this is implemented.
+- FieldRenderer ignores section fields entirely — they produce no DOM output
+- Zod schema uses `z.never()` which may cause issues if the accessor appears in form data
+
+## Examples
+
+### Default
+
+This story renders a section field. Notice that nothing visible appears — this documents the current gap.
+
+<Canvas of={Stories.Default} />
