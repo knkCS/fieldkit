@@ -1,0 +1,102 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./media-field.stories";
+
+<Meta of={Stories} />
+
+# Media
+
+Upload or select media files. Provides a file upload button and displays selected media items as a list. Requires a `media` adapter to be configured via `FieldKitProvider`.
+
+## When to Use
+
+Use **Media** for file uploads such as images, documents, or other attachments. The field stores an array of media IDs that are resolved through the adapter.
+
+## Settings
+
+| Setting     | Type       | Default     | Description                                    |
+|-------------|------------|-------------|------------------------------------------------|
+| `accept`    | `string[]` | `undefined` | Allowed MIME types (e.g. `["image/jpeg", "image/png"]`). Filters the file picker and is passed to the `browse` adapter method. |
+| `max_items` | `number`   | `undefined` | Maximum number of files allowed. When the limit is reached, the upload button is hidden. |
+
+## Adapter Interface
+
+The media field requires a `media` adapter injected via `FieldKitProvider`:
+
+```ts
+media: {
+  upload: (file: File) => Promise<MediaItem>;
+  browse: (filter: MediaFilter) => Promise<MediaItem[]>;
+}
+```
+
+Where `MediaItem` and `MediaFilter` are:
+```ts
+interface MediaItem {
+  id: string;
+  filename: string;
+  url: string;
+  mime_type: string;
+  size: number;
+  [key: string]: unknown;
+}
+
+interface MediaFilter {
+  mime_types?: string[];
+  query?: string;
+}
+```
+
+## Validation
+
+| Rule       | Type     | Description                                     |
+|------------|----------|-------------------------------------------------|
+| `required` | `boolean`| When true, at least one file must be uploaded    |
+
+## Zod Output
+
+```ts
+// Required
+z.array(z.string()).min(1, "Attachments is required")
+
+// Optional
+z.array(z.string())
+```
+
+## Table Cell
+
+Renders a file count via `MediaCell` (e.g. "3 files", "1 file"). Shows an em-dash for null/empty values.
+
+## Known Limitations
+
+- No browse/select-existing UI — only upload is supported
+- No image preview (`MediaItem.url` is unused)
+- No drag-and-drop upload
+- Upload errors are silently swallowed
+- `max_items` is not reflected in the Zod schema
+- No file size limit setting
+- No single-item mode (always stores an array)
+- Cell shows only the count (no filenames or thumbnails)
+
+## Examples
+
+### Default With Mock Adapter
+
+Click "Upload file" to simulate uploading. The mock adapter returns a new `MediaItem` after a brief delay.
+
+<Canvas of={Stories.DefaultWithMockAdapter} />
+
+### With Accept Filter
+
+Restricted to image files (JPEG, PNG, WebP) with `max_items: 1`. The file picker dialog will filter by accepted types.
+
+<Canvas of={Stories.WithAcceptFilter} />
+
+### No Adapter
+
+When no media adapter is configured, the field shows a "Media adapter not configured" message.
+
+<Canvas of={Stories.NoAdapter} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

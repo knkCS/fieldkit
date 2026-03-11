@@ -1,0 +1,108 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./reference-field.stories";
+
+<Meta of={Stories} />
+
+# Reference
+
+Link to other content items. Provides a search interface to find and select references from other blueprints. Requires a `reference` adapter to be configured via `FieldKitProvider`.
+
+## When to Use
+
+Use **Reference** when a field should link to one or more content items from other blueprints (e.g., "Related Posts", "Author", "Category"). For a single table-of-contents reference limited to one per spec, use [TOC Reference](?path=/docs/fields-toc-reference--docs).
+
+## Settings
+
+| Setting         | Type       | Default     | Description                                    |
+|-----------------|------------|-------------|------------------------------------------------|
+| `blueprints`    | `string[]` | —           | Blueprint IDs to search within                  |
+| `always_latest` | `boolean`  | —           | Always resolve to the latest version (currently unused) |
+| `max_items`     | `number`   | `undefined` | Maximum number of references. When `1`, stores a single string instead of an array |
+| `max_depth`     | `number`   | —           | Maximum reference depth (currently unused)       |
+| `attributes`    | `string[]` | —           | Attributes to include in the reference (currently unused) |
+
+## Adapter Interface
+
+The reference field requires a `reference` adapter injected via `FieldKitProvider`:
+
+```ts
+reference: {
+  search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+  fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+}
+```
+
+Where `ReferenceItem` is:
+```ts
+interface ReferenceItem {
+  id: string;
+  display_name: string;
+  blueprint_id?: string;
+  [key: string]: unknown;
+}
+```
+
+## Validation
+
+| Rule       | Type     | Description                                     |
+|------------|----------|-------------------------------------------------|
+| `required` | `boolean`| When true, at least one reference must be selected (min 1 for arrays, non-empty string for single) |
+
+## Zod Output
+
+```ts
+// Single mode (max_items: 1) — required
+z.string().min(1, "Author is required")
+
+// Single mode — optional
+z.string()
+
+// Multi mode — required
+z.array(z.string()).min(1, "Related Posts is required")
+
+// Multi mode — optional
+z.array(z.string())
+```
+
+## Table Cell
+
+Renders reference IDs as a comma-separated string via `ReferenceCell`. If the value contains objects with `display_name`, those are shown; otherwise raw IDs are displayed. Shows an em-dash for null/empty values. Truncated at 100 characters.
+
+## Known Limitations
+
+- `useEffect` inside Controller render function (React hooks rules violation)
+- `always_latest`, `max_depth`, `attributes` settings are defined but unused
+- No search debounce — every keystroke triggers a search
+- `max_items` is not enforced in the UI (except single mode which replaces instead of appending)
+- No keyboard accessibility on the search dropdown
+- Cell does not resolve IDs to display names (no adapter context in table cells)
+
+## Examples
+
+### Default With Mock Adapter
+
+Search for references by typing in the search box. Try searching "Getting" or "About".
+
+<Canvas of={Stories.DefaultWithMockAdapter} />
+
+### Single Mode
+
+With `max_items: 1`, the field stores a single string and replaces the previous selection.
+
+<Canvas of={Stories.SingleMode} />
+
+### Multi Mode
+
+Pre-populated with two references. Additional items can be added up to the `max_items` limit (though the limit is not enforced in the UI).
+
+<Canvas of={Stories.MultiMode} />
+
+### No Adapter
+
+When no reference adapter is configured, the field shows a "Reference adapter not configured" message.
+
+<Canvas of={Stories.NoAdapter} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

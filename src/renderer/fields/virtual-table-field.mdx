@@ -1,0 +1,95 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./virtual-table-field.stories";
+
+<Meta of={Stories} />
+
+# Virtual Table
+
+Embedded table of records from another blueprint. Displays data in a read-oriented table layout using column definitions fetched from the referenced blueprint's schema. Requires a `blueprint` adapter to be configured via `FieldKitProvider`.
+
+## When to Use
+
+Use **Virtual Table** when you want to embed a read-only view of records from another blueprint directly within a form (e.g., showing order line items, product variants, or related records). This field is only available in blueprints (`availableIn: ["blueprint"]`).
+
+## Settings
+
+| Setting                | Type     | Default | Description                                    |
+|------------------------|----------|---------|------------------------------------------------|
+| `blueprint`            | `string` | —       | ID of the blueprint whose schema defines the table columns |
+| `always_latest`        | `boolean`| —       | Always fetch the latest schema version (currently unused) |
+| `max_records_per_page` | `number` | `25`    | Maximum records per page (currently unused — no pagination) |
+
+## Adapter Interface
+
+The virtual table field requires a `blueprint` adapter injected via `FieldKitProvider`:
+
+```ts
+blueprint: {
+  getSchema: (blueprintId: string) => Promise<Field[]>;
+  getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
+}
+```
+
+Where `DataQuery` and `DataPage` are:
+```ts
+interface DataQuery {
+  page?: number;
+  page_size?: number;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
+}
+
+interface DataPage<T = Record<string, unknown>> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+```
+
+**Note:** Only `getSchema` is called. `getData` is defined in the adapter interface but never invoked by the component — data comes from the form value, not the adapter.
+
+## Validation
+
+The Zod schema is `z.array(z.record(z.unknown()))`. No further validation is applied.
+
+## Zod Output
+
+```ts
+// Always
+z.array(z.record(z.unknown()))
+```
+
+## Table Cell
+
+Renders a row count via `VirtualTableCell` (e.g. "5 rows", "1 row", "0 rows"). Shows an em-dash for null values.
+
+## Known Limitations
+
+- Never fetches data from the adapter (`getData` is unused) — data must be provided as the form value
+- `max_records_per_page` is unused (no pagination implemented)
+- `always_latest` is unused
+- Hardcoded 5-column limit — only the first 5 non-hidden fields from the schema are shown
+- Uses raw Chakra `Table` instead of anker's `DataTable` (no sorting, selection, or pagination)
+- No column type-aware rendering — all cell values are stringified with `String()`
+- `availableIn: ["blueprint"]` only — not available in tasks or forms
+
+## Examples
+
+### Default With Mock Adapter
+
+A product catalog table with 5 rows of sample data. Column headers are fetched from the mock adapter's schema.
+
+<Canvas of={Stories.DefaultWithMockAdapter} />
+
+### Empty Table
+
+A table with no records, showing the "No records" placeholder row.
+
+<Canvas of={Stories.EmptyTable} />
+
+### No Adapter
+
+When no blueprint adapter is configured, the field shows a "Blueprint adapter not configured" message.
+
+<Canvas of={Stories.NoAdapter} />

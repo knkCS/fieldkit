@@ -1,0 +1,89 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./toc-reference-field.stories";
+
+<Meta of={Stories} />
+
+# TOC Reference
+
+Table of contents reference to a single content item. A specialized variant of [Reference](?path=/docs/fields-reference--docs) that is limited to one instance per specification and is only available in blueprints.
+
+## When to Use
+
+Use **TOC Reference** when a blueprint needs a single hierarchical parent reference (e.g., "Parent Chapter", "Parent Category"). This creates a tree structure across entries of the same blueprint. For linking to multiple items, use [Reference](?path=/docs/fields-reference--docs).
+
+## Difference from Reference
+
+| Aspect         | Reference                       | TOC Reference                  |
+|----------------|--------------------------------|--------------------------------|
+| `maxPerSpec`   | No limit                       | `1` — only one per blueprint    |
+| `availableIn`  | `["blueprint", "task", "form"]` | `["blueprint"]` only            |
+| Zod output     | `z.string()` or `z.array(z.string())` | Always `z.string()`      |
+| Selection mode | Single or multi                 | Always single                   |
+
+## Settings
+
+| Setting         | Type       | Default     | Description                                    |
+|-----------------|------------|-------------|------------------------------------------------|
+| `blueprints`    | `string[]` | —           | Blueprint IDs to search within                  |
+| `always_latest` | `boolean`  | —           | Always resolve to the latest version (currently unused) |
+| `max_items`     | `number`   | —           | Maximum references (currently unused — always single) |
+| `max_depth`     | `number`   | —           | Maximum reference depth (currently unused)       |
+| `attributes`    | `string[]` | —           | Attributes to include (currently unused)         |
+
+## Adapter Interface
+
+Uses the same `reference` adapter as the Reference field:
+
+```ts
+reference: {
+  search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+  fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+}
+```
+
+## Validation
+
+| Rule       | Type     | Description                                     |
+|------------|----------|-------------------------------------------------|
+| `required` | `boolean`| When true, a reference must be selected          |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Parent Chapter is required")
+
+// Optional
+z.string()
+```
+
+## Table Cell
+
+Renders the display name of the referenced item via `TocReferenceCell`. If the value is an object with `display_name`, that is shown; otherwise the raw string value is displayed. Shows an em-dash for null/empty values.
+
+## Known Limitations
+
+- Same as Reference: `useEffect` inside Controller render (React hooks violation)
+- `always_latest`, `max_depth`, `attributes` settings are defined but unused
+- No search debounce
+- No keyboard accessibility on the search dropdown
+- Near-duplicate of Reference — should share a base component
+- Cell does not resolve IDs to display names (no adapter context in table cells)
+
+## Examples
+
+### Default With Mock Adapter
+
+Search for a parent chapter by typing in the search box. Try searching "Getting" or "Core".
+
+<Canvas of={Stories.DefaultWithMockAdapter} />
+
+### No Adapter
+
+When no reference adapter is configured, the field shows a "Reference adapter not configured" message.
+
+<Canvas of={Stories.NoAdapter} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />
