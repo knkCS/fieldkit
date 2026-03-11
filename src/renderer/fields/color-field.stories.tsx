@@ -33,6 +33,21 @@ const requiredColorField: Field = {
 	system: false,
 };
 
+const withDefaultColorField: Field = {
+	field_type: "color",
+	config: {
+		name: "Accent Color",
+		api_accessor: "accent_color",
+		required: false,
+		instructions: "Uses default_color setting (currently unused by component)",
+	},
+	settings: {
+		default_color: "#8B5CF6",
+	},
+	children: null,
+	system: false,
+};
+
 const readOnlyField: Field = {
 	field_type: "color",
 	config: {
@@ -69,6 +84,15 @@ export const Required: Story = {
 		<FieldStoryWrapper
 			fields={[requiredColorField]}
 			defaultValues={{ primary_color: "" }}
+		/>
+	),
+};
+
+export const WithDefaultColor: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[withDefaultColorField]}
+			defaultValues={{ accent_color: "" }}
 		/>
 	),
 };

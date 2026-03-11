@@ -36,6 +36,21 @@ const keyedModeField: Field = {
 	system: false,
 };
 
+const prePopulatedField: Field = {
+	field_type: "array",
+	config: {
+		name: "Environment Variables",
+		api_accessor: "env_vars",
+		required: false,
+		instructions: "Pre-populated with common variables",
+	},
+	settings: {
+		mode: "dynamic",
+	},
+	children: null,
+	system: false,
+};
+
 const readOnlyField: Field = {
 	field_type: "array",
 	config: {
@@ -74,6 +89,21 @@ export const KeyedMode: Story = {
 		<FieldStoryWrapper
 			fields={[keyedModeField]}
 			defaultValues={{ social_links: {} }}
+		/>
+	),
+};
+
+export const PrePopulated: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[prePopulatedField]}
+			defaultValues={{
+				env_vars: [
+					{ key: "NODE_ENV", value: "production" },
+					{ key: "API_URL", value: "https://api.example.com" },
+					{ key: "LOG_LEVEL", value: "info" },
+				],
+			}}
 		/>
 	),
 };

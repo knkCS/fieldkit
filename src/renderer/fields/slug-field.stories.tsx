@@ -48,6 +48,19 @@ const slugWithSourceField: Field = {
 	system: false,
 };
 
+const requiredSlugField: Field = {
+	field_type: "slug",
+	config: {
+		name: "Page Slug",
+		api_accessor: "page_slug",
+		required: true,
+		instructions: "Required — submit empty to see the validation error",
+	},
+	settings: {},
+	children: null,
+	system: false,
+};
+
 const readOnlyField: Field = {
 	field_type: "slug",
 	config: {
@@ -84,6 +97,15 @@ export const WithSourceField: Story = {
 		<FieldStoryWrapper
 			fields={[sourceTextField, slugWithSourceField]}
 			defaultValues={{ title: "", slug: "" }}
+		/>
+	),
+};
+
+export const WithValidation: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[requiredSlugField]}
+			defaultValues={{ page_slug: "" }}
 		/>
 	),
 };

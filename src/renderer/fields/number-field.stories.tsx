@@ -51,6 +51,23 @@ const stepField: Field = {
 	system: false,
 };
 
+const prependAppendField: Field = {
+	field_type: "number",
+	config: {
+		name: "Weight",
+		api_accessor: "weight",
+		required: false,
+		instructions: "Enter the product weight",
+	},
+	settings: {
+		min: 0,
+		prepend: "~",
+		append: "kg",
+	},
+	children: null,
+	system: false,
+};
+
 const readOnlyField: Field = {
 	field_type: "number",
 	config: {
@@ -96,6 +113,15 @@ export const WithStep: Story = {
 		<FieldStoryWrapper
 			fields={[stepField]}
 			defaultValues={{ price: 9.99 }}
+		/>
+	),
+};
+
+export const WithPrependAppend: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[prependAppendField]}
+			defaultValues={{ weight: 1.5 }}
 		/>
 	),
 };

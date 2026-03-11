@@ -12,7 +12,7 @@ export interface FieldStoryWrapperProps {
 	fields: Field[];
 	defaultValues?: Record<string, unknown>;
 	readOnly?: boolean;
-	adapters?: Partial<FieldKitAdapters>;
+	adapters?: FieldKitAdapters;
 }
 
 export function FieldStoryWrapper({
@@ -36,7 +36,7 @@ export function FieldStoryWrapper({
 	return (
 		<FieldKitProvider
 			plugins={builtInFieldTypes}
-			adapters={adapters as FieldKitAdapters | undefined}
+			adapters={adapters}
 		>
 			<FormProvider {...methods}>
 				<form

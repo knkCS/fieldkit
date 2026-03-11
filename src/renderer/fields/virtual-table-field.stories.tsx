@@ -127,6 +127,31 @@ const noAdapterField: Field = {
 	system: false,
 };
 
+const slowBlueprintAdapter: FieldKitAdapters["blueprint"] = {
+	getSchema: async (_blueprintId: string) => {
+		await new Promise((resolve) => setTimeout(resolve, 60000));
+		return [];
+	},
+	getData: async (_blueprintId: string, _query) => {
+		return { items: [], total: 0, page: 1, page_size: 25 };
+	},
+};
+
+const loadingField: Field = {
+	field_type: "virtual_table",
+	config: {
+		name: "Slow Table",
+		api_accessor: "slow_table",
+		required: false,
+		instructions: "This table's adapter never resolves, showing the loading state",
+	},
+	settings: {
+		blueprint: "products",
+	},
+	children: null,
+	system: false,
+};
+
 const meta = {
 	title: "Fields/Virtual Table",
 	component: FieldStoryWrapper,
@@ -160,6 +185,16 @@ export const EmptyTable: Story = {
 			fields={[emptyTableField]}
 			defaultValues={{ order_items: [] }}
 			adapters={{ blueprint: mockBlueprintAdapter }}
+		/>
+	),
+};
+
+export const Loading: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[loadingField]}
+			defaultValues={{ slow_table: [] }}
+			adapters={{ blueprint: slowBlueprintAdapter }}
 		/>
 	),
 };

@@ -88,6 +88,12 @@ A table with no records, showing the "No records" placeholder row.
 
 <Canvas of={Stories.EmptyTable} />
 
+### Loading
+
+When the adapter's `getSchema` is slow or pending, the table shows its loading state.
+
+<Canvas of={Stories.Loading} />
+
 ### No Adapter
 
 When no blueprint adapter is configured, the field shows a "Blueprint adapter not configured" message.
