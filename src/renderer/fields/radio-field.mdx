@@ -1,0 +1,65 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./radio-field.stories";
+
+<Meta of={Stories} />
+
+# Radio
+
+A set of radio buttons for single selection. Options are defined as a `Record<string, string>` mapping value keys to display labels. Uses anker's `RadioGroupField` component.
+
+## When to Use
+
+Use **Radio** when you have 2-5 options and want all choices visible at once. For longer option lists, use [Select](?path=/docs/fields-select--docs). For multi-selection, use [Checkboxes](?path=/docs/fields-checkboxes--docs).
+
+## Settings
+
+| Setting   | Type                     | Default | Description                         |
+|-----------|--------------------------|---------|-------------------------------------|
+| `options` | `Record<string, string>` | `{}`    | Map of option values to display labels |
+
+## Validation
+
+| Rule       | Type     | Description                                               |
+|------------|----------|-----------------------------------------------------------|
+| `required` | `boolean`| When true, the string must have at least 1 character       |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Plan is required")
+
+// Optional
+z.string()
+```
+
+## Table Cell
+
+Renders the selected value as plain text via `RadioCell`.
+
+## Known Limitations
+
+- No orientation/layout setting (horizontal vs vertical) — always renders vertically
+- No option validation in Zod — any string is accepted, not just defined option keys
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Many Options
+
+A radio group with 8 options.
+
+<Canvas of={Stories.ManyOptions} />
+
+### Required
+
+Submit without selecting a value to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

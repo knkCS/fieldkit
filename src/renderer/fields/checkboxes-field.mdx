@@ -1,0 +1,69 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./checkboxes-field.stories";
+
+<Meta of={Stories} />
+
+# Checkboxes
+
+A set of checkboxes for multiple selection. Options are defined as a `Record<string, string>` mapping value keys to display labels. The value is stored as a `string[]` array.
+
+## When to Use
+
+Use **Checkboxes** when users can select zero or more options from a small set. For single-select with visible options, use [Radio](?path=/docs/fields-radio--docs). For multi-select from a long list, use [Select](?path=/docs/fields-select--docs) with `multiple: true`.
+
+## Settings
+
+| Setting   | Type                     | Default | Description                         |
+|-----------|--------------------------|---------|-------------------------------------|
+| `options` | `Record<string, string>` | `{}`    | Map of option values to display labels |
+
+## Validation
+
+| Rule       | Type     | Description                                               |
+|------------|----------|-----------------------------------------------------------|
+| `required` | `boolean`| When true, the array must have at least 1 item             |
+
+## Zod Output
+
+```ts
+// Required
+z.array(z.string()).min(1, "Terms is required")
+
+// Optional
+z.array(z.string())
+```
+
+## Table Cell
+
+Renders the selected values as plain text via `CheckboxesCell`.
+
+## Known Limitations
+
+- Uses `disabled` instead of `readOnly` for read-only state — this is inconsistent with other field types
+- No columns/layout setting for arranging checkboxes in a grid
+- No option validation in Zod — any string values are accepted in the array, not just defined option keys
+- No min/max selection count settings
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Pre-Selected
+
+Checkboxes with default values already selected.
+
+<Canvas of={Stories.PreSelected} />
+
+### Required
+
+Submit without selecting any checkbox to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+Checkboxes are rendered as `disabled` (not `readOnly`) in read-only mode.
+
+<Canvas of={Stories.ReadOnly} />

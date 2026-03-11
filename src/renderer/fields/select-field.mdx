@@ -1,0 +1,80 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./select-field.stories";
+
+<Meta of={Stories} />
+
+# Select
+
+A dropdown selection field. Supports single and multiple selection modes. Options are defined as a `Record<string, string>` mapping value keys to display labels.
+
+## When to Use
+
+Use **Select** for choosing from a predefined list. For small option sets (2-5 items), consider [Radio](?path=/docs/fields-radio--docs) for single-select or [Checkboxes](?path=/docs/fields-checkboxes--docs) for multi-select.
+
+## Settings
+
+| Setting    | Type                     | Default | Description                                    |
+|------------|--------------------------|---------|------------------------------------------------|
+| `options`  | `Record<string, string>` | `{}`    | Map of option values to display labels          |
+| `multiple` | `boolean`                | —       | When true, enables multi-select mode            |
+
+## Validation
+
+| Rule       | Type     | Description                                               |
+|------------|----------|-----------------------------------------------------------|
+| `required` | `boolean`| Single: string min 1 character. Multi: array min 1 item.   |
+
+## Zod Output
+
+```ts
+// Single — required
+z.string().min(1, "Category is required")
+
+// Single — optional
+z.string()
+
+// Multiple — required
+z.array(z.string()).min(1, "Tags is required")
+
+// Multiple — optional
+z.array(z.string())
+```
+
+## Table Cell
+
+Renders the selected value(s) as plain text via `SelectCell`.
+
+## Known Limitations
+
+- Multi-select uses raw HTML `<select multiple>` instead of anker's BaseSelect (chakra-react-select) — no searchable, creatable, or proper tag UI
+- No option validation in Zod — any string is accepted, not just defined option keys
+- Hardcoded placeholder `"Select..."` (not configurable)
+- No BaseSelect integration for single-select either (uses anker's SelectField which wraps a native `<select>`)
+
+## Examples
+
+### Default (Single)
+
+<Canvas of={Stories.DefaultSingle} />
+
+### Multi-Select
+
+Hold Ctrl/Cmd to select multiple options. Note the raw `<select multiple>` UI.
+
+<Canvas of={Stories.MultiSelect} />
+
+### Many Options
+
+A select with 15 options demonstrating scroll behavior.
+
+<Canvas of={Stories.ManyOptions} />
+
+### Required
+
+Submit without selecting a value to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />
