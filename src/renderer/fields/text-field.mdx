@@ -1,0 +1,75 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./text-field.stories";
+
+<Meta of={Stories} />
+
+# Text
+
+A single line of text input. The most common field type for short-form content such as titles, names, and labels.
+
+## When to Use
+
+Use **Text** for short, single-line values. For multi-line content, use [Textarea](?path=/docs/fields-textarea--docs). For formatted content, use [Markdown](?path=/docs/fields-markdown--docs) or [Rich Text](?path=/docs/fields-rich-text--docs).
+
+## Settings
+
+| Setting       | Type     | Default | Description                                    |
+|---------------|----------|---------|------------------------------------------------|
+| `placeholder` | `string` | `""`    | Placeholder text shown when the field is empty  |
+| `prepend`     | `string` | —       | Text or icon displayed before the input          |
+| `append`      | `string` | —       | Text or icon displayed after the input           |
+
+## Validation
+
+| Rule         | Type     | Description                                               |
+|--------------|----------|-----------------------------------------------------------|
+| `required`   | `boolean`| When true, the field must have at least 1 character        |
+| `min_length` | `number` | Minimum number of characters                               |
+| `max_length` | `number` | Maximum number of characters (validated on submit, not input) |
+| `pattern`    | `string` | Regex pattern the value must match                         |
+| `pattern_message` | `string` | Custom error message when pattern fails              |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Title is required")
+
+// Optional
+z.string().optional()
+
+// With validation
+z.string()
+  .min(3)
+  .max(20)
+  .regex(/^[a-zA-Z0-9]+$/, "Only letters and numbers are allowed")
+```
+
+## Table Cell
+
+Renders the raw string value via `TextCell`. No truncation or formatting applied.
+
+## Known Limitations
+
+- No `maxLength` HTML attribute — Zod catches on submit, not during input
+- TextCell doesn't truncate (no `text-overflow: ellipsis`)
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### With Prepend / Append
+
+<Canvas of={Stories.WithPrependAppend} />
+
+### With Validation
+
+Submit with fewer than 3 characters or special characters to see validation errors.
+
+<Canvas of={Stories.WithValidation} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

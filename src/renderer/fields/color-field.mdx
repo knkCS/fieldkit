@@ -1,0 +1,60 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./color-field.stories";
+
+<Meta of={Stories} />
+
+# Color
+
+A color picker field. Allows users to select a color value via a visual picker or hex input.
+
+## When to Use
+
+Use **Color** when you need a hex color value, such as brand colors, theme accents, or category colors.
+
+## Settings
+
+| Setting         | Type     | Default     | Description                                    |
+|-----------------|----------|-------------|------------------------------------------------|
+| `default_color` | `string` | `"#000000"` | Default color value (currently unused by the component) |
+
+## Validation
+
+| Rule       | Type     | Description                                     |
+|------------|----------|-------------------------------------------------|
+| `required` | `boolean`| When true, the string must have at least 1 character |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Primary Color is required")
+
+// Optional
+z.string().optional()
+```
+
+## Table Cell
+
+Renders a color swatch next to the hex value via `ColorCell`.
+
+## Known Limitations
+
+- `default_color` setting is defined but unused by the component — it does not pre-fill the picker
+- No hex format validation in Zod (accepts any string, not just valid hex colors)
+- Plugin category is `"text"` instead of a dedicated `"color"` category
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Required
+
+Submit without selecting a color to see the validation error.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

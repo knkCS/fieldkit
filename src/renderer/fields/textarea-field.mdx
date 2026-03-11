@@ -1,0 +1,71 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./textarea-field.stories";
+
+<Meta of={Stories} />
+
+# Textarea
+
+Multiple lines of plain text. Used for descriptions, notes, and other longer-form content that does not require formatting.
+
+## When to Use
+
+Use **Textarea** when you need multi-line plain text input. For single-line values, use [Text](?path=/docs/fields-text--docs). For formatted multi-line content, use [Markdown](?path=/docs/fields-markdown--docs) or [Rich Text](?path=/docs/fields-rich-text--docs).
+
+## Settings
+
+| Setting       | Type     | Default | Description                                    |
+|---------------|----------|---------|------------------------------------------------|
+| `placeholder` | `string` | `""`    | Placeholder text shown when the field is empty  |
+| `rows`        | `number` | `4`     | Number of visible text rows                      |
+
+## Validation
+
+| Rule         | Type     | Description                                               |
+|--------------|----------|-----------------------------------------------------------|
+| `required`   | `boolean`| When true, the field must have at least 1 character        |
+| `min_length` | `number` | Minimum number of characters                               |
+| `max_length` | `number` | Maximum number of characters (validated on submit, not input) |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Description is required")
+
+// Optional
+z.string().optional()
+
+// With max length
+z.string().min(1, "Summary is required").max(200)
+```
+
+## Table Cell
+
+Renders the raw string value via `TextareaCell`. No truncation or formatting applied.
+
+## Known Limitations
+
+- No `pattern` validation (unlike text)
+- No auto-resize / resize setting
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### Custom Rows
+
+A textarea configured with 8 rows for longer content.
+
+<Canvas of={Stories.CustomRows} />
+
+### With Max Length
+
+Submit with more than 200 characters to see the validation error.
+
+<Canvas of={Stories.WithMaxLength} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

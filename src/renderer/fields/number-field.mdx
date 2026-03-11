@@ -1,0 +1,77 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./number-field.stories";
+
+<Meta of={Stories} />
+
+# Number
+
+A numeric input field. Supports minimum/maximum bounds, step increments, and optional prepend/append labels.
+
+## When to Use
+
+Use **Number** for any numeric value (integers or decimals). For currency, set `step: 0.01` and use `prepend` or `append` for the currency symbol.
+
+## Settings
+
+| Setting   | Type     | Default | Description                                    |
+|-----------|----------|---------|------------------------------------------------|
+| `min`     | `number` | —       | Minimum allowed value                            |
+| `max`     | `number` | —       | Maximum allowed value                            |
+| `step`    | `number` | —       | Step increment for the input spinner             |
+| `prepend` | `string` | —       | Text displayed before the input                  |
+| `append`  | `string` | —       | Text displayed after the input                   |
+
+## Validation
+
+`min` and `max` from settings are applied as Zod constraints. There is no separate validation object for number fields — bounds are inferred from settings.
+
+| Rule       | Source   | Description                                     |
+|------------|----------|-------------------------------------------------|
+| `min`      | settings | Minimum value (`z.number().min(...)`)             |
+| `max`      | settings | Maximum value (`z.number().max(...)`)             |
+
+## Zod Output
+
+```ts
+// No constraints
+z.number().optional()
+
+// With min/max
+z.number().min(0).max(150)
+
+// Required field — note: required is NOT checked in Zod for numbers
+z.number().min(0).max(150)
+```
+
+## Table Cell
+
+Renders the numeric value via `NumberCell`. No formatting (no thousand separators, no currency symbols).
+
+## Known Limitations
+
+- `required` not checked in Zod schema — a number field marked `required` has no `.min(1)` or similar check
+- `prepend`/`append` settings are defined in the schema but not passed to the `NumberField` component
+- No integer vs decimal distinction
+- `step` is not validated in Zod (UI-only constraint on the spinner)
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### With Min / Max
+
+The field value is constrained between 0 and 150. Submit an out-of-range value to see validation.
+
+<Canvas of={Stories.WithMinMax} />
+
+### With Step
+
+Price field with `step: 0.01` and a `prepend` label. Note that `prepend` is defined in settings but not passed through to the component.
+
+<Canvas of={Stories.WithStep} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

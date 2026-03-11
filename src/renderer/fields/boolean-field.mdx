@@ -1,0 +1,56 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./boolean-field.stories";
+
+<Meta of={Stories} />
+
+# Boolean
+
+A true/false toggle rendered as a switch. Used for binary settings such as "Published", "Active", or "Featured".
+
+## When to Use
+
+Use **Boolean** for any on/off, yes/no, or true/false value. For selecting from a set of options, use [Select](?path=/docs/fields-select--docs), [Radio](?path=/docs/fields-radio--docs), or [Checkboxes](?path=/docs/fields-checkboxes--docs).
+
+## Settings
+
+This field type has no configurable settings.
+
+## Validation
+
+The Zod schema is always `z.boolean()`. There is no `required` validation — a boolean always has a value (`true` or `false`).
+
+## Zod Output
+
+```ts
+// Always
+z.boolean().optional()
+```
+
+## Table Cell
+
+Renders "Yes" or "No" via `BooleanCell`.
+
+## Known Limitations
+
+- Hardcoded "Yes"/"No" cell text (no custom labels, no icons)
+- No explicit `defaultValue` setting — consumers must set the default via `defaultValues` on the form
+
+## Examples
+
+### Default Off
+
+<Canvas of={Stories.DefaultOff} />
+
+### Default On
+
+<Canvas of={Stories.DefaultOn} />
+
+### With Helper Text
+
+The `instructions` field config is used to provide additional context below the toggle.
+
+<Canvas of={Stories.WithHelperText} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />
