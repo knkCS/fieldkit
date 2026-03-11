@@ -1,0 +1,72 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./markdown-field.stories";
+
+<Meta of={Stories} />
+
+# Markdown
+
+Markdown-formatted text content. Renders an editor powered by anker's `MarkdownField` component with toolbar controls for common formatting.
+
+## When to Use
+
+Use **Markdown** when content needs formatting (headings, bold, links, lists, code) but you want a lightweight syntax instead of a full WYSIWYG editor. For plain multi-line text, use [Textarea](?path=/docs/fields-textarea--docs). For full rich text editing, use [Rich Text](?path=/docs/fields-rich-text--docs).
+
+## Settings
+
+| Setting       | Type     | Default | Description                                    |
+|---------------|----------|---------|------------------------------------------------|
+| `placeholder` | `string` | `""`    | Placeholder text shown when the field is empty (currently not passed to the component) |
+
+## Validation
+
+| Rule         | Type     | Description                                               |
+|--------------|----------|-----------------------------------------------------------|
+| `required`   | `boolean`| When true, the field must have at least 1 character        |
+| `min_length` | `number` | Minimum number of characters                               |
+| `max_length` | `number` | Maximum number of characters (validated on submit, not input) |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Body is required")
+
+// Optional
+z.string().optional()
+
+// With validation
+z.string().min(10).max(500)
+```
+
+## Table Cell
+
+Renders a plain-text preview via `MarkdownCell`. Basic markdown formatting (headings, bold, italic, inline code, links, images) is stripped. Truncated at 100 characters with a `title` attribute showing the full text.
+
+## Known Limitations
+
+- `placeholder` setting is defined in the schema but not passed to the component
+- `stripMarkdown` in the cell does not handle code blocks, blockquotes, tables, or strikethrough
+- No toolbar configuration setting
+- No preview mode
+
+## Examples
+
+### Default
+
+<Canvas of={Stories.Default} />
+
+### With Content
+
+Pre-populated with various Markdown features: headings, bold, italic, lists, blockquotes, code blocks, and links.
+
+<Canvas of={Stories.WithContent} />
+
+### With Validation
+
+Required field with min/max character length. Submit with fewer than 10 characters to see the validation error.
+
+<Canvas of={Stories.WithValidation} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

@@ -1,0 +1,63 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./rich-text-field.stories";
+
+<Meta of={Stories} />
+
+# Rich Text
+
+Rich text content with formatting. Intended for full WYSIWYG editing via TipTap/ProseMirror, but currently renders as a **JSON textarea placeholder**.
+
+## When to Use
+
+Use **Rich Text** when you need structured, formatted content with a WYSIWYG editing experience. For lightweight formatting, use [Markdown](?path=/docs/fields-markdown--docs). For plain text, use [Textarea](?path=/docs/fields-textarea--docs).
+
+**Important:** The current implementation is a placeholder. It renders a `<textarea>` that accepts raw JSON (ProseMirror document structure). A real TipTap editor integration depends on `@knkcms/knkeditor` (optional peer dependency), but no conditional rendering exists yet.
+
+## Settings
+
+| Setting       | Type                   | Default  | Description                                    |
+|---------------|------------------------|----------|------------------------------------------------|
+| `editor_spec` | `string`               | —        | ID of the editor specification to use (currently unused) |
+| `view_mode`   | `"full" \| "compact"`  | `"full"` | Display mode for the editor (currently unused)  |
+
+## Validation
+
+The Zod schema uses `z.any()`, providing zero validation. Any value (string, object, null) is accepted.
+
+## Zod Output
+
+```ts
+// Always
+z.any()
+```
+
+## Table Cell
+
+Renders a plain-text extraction via `RichTextCell`. Attempts to extract text from ProseMirror-like JSON documents by walking the `content` tree. Falls back to `"[Rich text content]"` for unrecognized structures. Truncated at 100 characters.
+
+## Known Limitations
+
+- **No actual rich text editor.** Renders a JSON textarea placeholder. Real TipTap integration depends on `@knkcms/knkeditor` (optional peer dep) but no conditional rendering exists.
+- `editor_spec` setting is defined but unused
+- `view_mode` setting is defined but unused
+- `z.any()` provides zero validation
+- No adapter integration (`textType` adapter is unused)
+- JSON editing UX is unusable for end users
+
+## Examples
+
+### Default
+
+The field renders as a plain `<textarea>` with the placeholder "Rich text content...". Content is stored as raw JSON or a plain string.
+
+<Canvas of={Stories.Default} />
+
+### With JSON Content
+
+Pre-populated with a ProseMirror document structure. The textarea shows the JSON representation.
+
+<Canvas of={Stories.WithJSONContent} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />

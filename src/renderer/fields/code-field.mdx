@@ -1,0 +1,73 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./code-field.stories";
+
+<Meta of={Stories} />
+
+# Code
+
+Source code or preformatted text. Renders a code editor powered by anker's `CodeField` component with optional language-specific syntax highlighting.
+
+## When to Use
+
+Use **Code** for source code snippets, configuration files (JSON, YAML), or any preformatted text that should display in a monospace font. For plain text, use [Textarea](?path=/docs/fields-textarea--docs). For Markdown content, use [Markdown](?path=/docs/fields-markdown--docs).
+
+## Settings
+
+| Setting    | Type     | Default     | Description                                    |
+|------------|----------|-------------|------------------------------------------------|
+| `language` | `string` | `undefined` | Programming language for syntax highlighting (e.g. `"javascript"`, `"css"`, `"json"`, `"python"`) |
+
+## Validation
+
+| Rule         | Type     | Description                                               |
+|--------------|----------|-----------------------------------------------------------|
+| `required`   | `boolean`| When true, the field must have at least 1 character        |
+| `min_length` | `number` | Minimum number of characters                               |
+| `max_length` | `number` | Maximum number of characters (validated on submit, not input) |
+
+## Zod Output
+
+```ts
+// Required
+z.string().min(1, "Code Snippet is required")
+
+// Optional
+z.string().optional()
+
+// With validation
+z.string().min(1).max(10000)
+```
+
+## Table Cell
+
+Renders a truncated code preview via `CodeCell` in a monospace `<code>` element. Truncated at 80 characters.
+
+## Known Limitations
+
+- Cell uses hardcoded `#f5f5f5` background instead of semantic tokens (dark mode incompatible)
+- No `lineNumbers` setting
+- No `height` / `maxHeight` setting
+
+## Examples
+
+### Default
+
+A code field with no language specified.
+
+<Canvas of={Stories.Default} />
+
+### With Language
+
+A code field configured with `language: "javascript"` for syntax highlighting.
+
+<Canvas of={Stories.WithLanguage} />
+
+### With Content
+
+Pre-populated CSS code demonstrating multi-line content.
+
+<Canvas of={Stories.WithContent} />
+
+### Read Only
+
+<Canvas of={Stories.ReadOnly} />
