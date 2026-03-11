@@ -65,7 +65,7 @@
     "@dnd-kit/core": "^6.3.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@hookform/resolvers": "^3.9.0",
-    "@knkcs/anker": "file:../anker",
+    "@knkcs/anker": "0.0.1",
     "@storybook/addon-a11y": "^8.4.0",
     "@storybook/addon-essentials": "^8.4.0",
     "@storybook/react-vite": "^8.4.0",
@@ -81,9 +81,8 @@
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^3.23.0"
   },
-  "dependencies": {
-    "remark-gfm": "^4.0.1"
-  }
+  "dependencies": {}
 }
