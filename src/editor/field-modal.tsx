@@ -26,13 +26,13 @@ const labelStyle: React.CSSProperties = {
 	fontSize: "13px",
 	fontWeight: 500,
 	marginBottom: "4px",
-	color: "#333",
+	color: "var(--chakra-colors-fg-default)",
 };
 
 const inputStyle: React.CSSProperties = {
 	width: "100%",
 	padding: "8px",
-	border: "1px solid #ddd",
+	border: "1px solid var(--chakra-colors-border)",
 	borderRadius: "4px",
 	fontSize: "14px",
 	boxSizing: "border-box",
@@ -43,8 +43,8 @@ const sectionHeaderStyle: React.CSSProperties = {
 	fontWeight: 600,
 	margin: "16px 0 12px 0",
 	paddingBottom: "6px",
-	borderBottom: "1px solid #eee",
-	color: "#333",
+	borderBottom: "1px solid var(--chakra-colors-border)",
+	color: "var(--chakra-colors-fg-default)",
 };
 
 const fieldGroupStyle: React.CSSProperties = {
@@ -225,7 +225,7 @@ function FieldModalInner({
 			style={{
 				position: "fixed",
 				inset: 0,
-				background: "rgba(0, 0, 0, 0.5)",
+				background: "var(--chakra-colors-black-alpha-500)",
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
@@ -243,7 +243,7 @@ function FieldModalInner({
 				role="dialog"
 				aria-label={field ? `Edit ${field.config.name}` : "Add field"}
 				style={{
-					background: "#fff",
+					background: "var(--chakra-colors-bg-surface)",
 					borderRadius: "8px",
 					width: "560px",
 					maxHeight: "85vh",
@@ -264,7 +264,11 @@ function FieldModalInner({
 						{field ? "Edit Field" : "Add Field"}
 						{plugin && (
 							<span
-								style={{ fontWeight: 400, color: "#666", marginLeft: "8px" }}
+								style={{
+									fontWeight: 400,
+									color: "var(--chakra-colors-fg-muted)",
+									marginLeft: "8px",
+								}}
 							>
 								({plugin.name})
 							</span>
@@ -313,14 +317,19 @@ function FieldModalInner({
 							data-testid="field-accessor-input"
 							style={{
 								...inputStyle,
-								borderColor: accessorError ? "#e53e3e" : "#ddd",
+								borderColor: accessorError
+									? "var(--chakra-colors-red-500)"
+									: "var(--chakra-colors-border)",
 							}}
 						/>
 					</label>
 					{accessorError && (
 						<span
 							data-testid="accessor-error"
-							style={{ color: "#e53e3e", fontSize: "12px" }}
+							style={{
+								color: "var(--chakra-colors-red-500)",
+								fontSize: "12px",
+							}}
 						>
 							{accessorError}
 						</span>
@@ -490,7 +499,12 @@ function FieldModalInner({
 				{SettingsComponent ? (
 					<SettingsComponent settings={settings} onChange={setSettings} />
 				) : (
-					<p style={{ color: "#888", fontSize: "14px" }}>
+					<p
+						style={{
+							color: "var(--chakra-colors-fg-subtle)",
+							fontSize: "14px",
+						}}
+					>
 						No additional settings
 					</p>
 				)}
@@ -503,7 +517,7 @@ function FieldModalInner({
 						gap: "8px",
 						marginTop: "24px",
 						paddingTop: "16px",
-						borderTop: "1px solid #eee",
+						borderTop: "1px solid var(--chakra-colors-border)",
 					}}
 				>
 					<button
@@ -511,9 +525,9 @@ function FieldModalInner({
 						onClick={onClose}
 						style={{
 							padding: "8px 16px",
-							border: "1px solid #ddd",
+							border: "1px solid var(--chakra-colors-border)",
 							borderRadius: "6px",
-							background: "#fff",
+							background: "var(--chakra-colors-bg-surface)",
 							cursor: "pointer",
 							fontSize: "14px",
 						}}
@@ -529,8 +543,10 @@ function FieldModalInner({
 							padding: "8px 16px",
 							border: "none",
 							borderRadius: "6px",
-							background: canSave ? "#2563eb" : "#93c5fd",
-							color: "#fff",
+							background: canSave
+								? "var(--chakra-colors-accent)"
+								: "var(--chakra-colors-blue-200)",
+							color: "var(--chakra-colors-bg-surface)",
 							cursor: canSave ? "pointer" : "not-allowed",
 							fontSize: "14px",
 							fontWeight: 500,
