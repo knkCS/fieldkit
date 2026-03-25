@@ -1,13 +1,8 @@
+import { UrlCell as AnkerUrlCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function UrlCell({ value }: CellProps) {
-	const url = value != null ? String(value) : "";
-	if (!url) return <span>—</span>;
-
-	return (
-		<a href={url} target="_blank" rel="noopener noreferrer" title={url}>
-			{url}
-		</a>
-	);
+	const url = value != null ? String(value) : null;
+	return <AnkerUrlCell value={url || null} />;
 }
 UrlCell.displayName = "UrlCell";
