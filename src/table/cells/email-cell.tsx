@@ -1,7 +1,7 @@
+import { TruncatedTextCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function EmailCell({ value }: CellProps) {
-	const text = value != null ? String(value) : "";
-	return <span title={text}>{text}</span>;
+	return <TruncatedTextCell value={value != null ? String(value) : null} />;
 }
 EmailCell.displayName = "EmailCell";
