@@ -34,10 +34,7 @@ export function FieldStoryWrapper({
 	});
 
 	return (
-		<FieldKitProvider
-			plugins={builtInFieldTypes}
-			adapters={adapters}
-		>
+		<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
 			<FormProvider {...methods}>
 				<form
 					onSubmit={methods.handleSubmit((data) => {

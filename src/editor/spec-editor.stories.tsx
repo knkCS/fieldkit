@@ -70,7 +70,11 @@ export const WithExistingFields: Story = {
 				boolean("active", { name: "Active" }),
 				select("status", {
 					name: "Status",
-					options: { draft: "Draft", published: "Published", archived: "Archived" },
+					options: {
+						draft: "Draft",
+						published: "Published",
+						archived: "Archived",
+					},
 				}),
 			]}
 		/>

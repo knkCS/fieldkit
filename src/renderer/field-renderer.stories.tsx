@@ -14,7 +14,11 @@ import { FieldKitProvider } from "./provider";
 /* ------------------------------------------------------------------ */
 
 const mixedSpec = defineSpec([
-	text("title", { name: "Title", required: true, instructions: "Enter a title" }),
+	text("title", {
+		name: "Title",
+		required: true,
+		instructions: "Enter a title",
+	}),
 	number("price", { name: "Price", min: 0, append: "EUR" }),
 	boolean("published", { name: "Published" }),
 	select("category", {

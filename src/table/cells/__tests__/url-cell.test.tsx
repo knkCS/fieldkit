@@ -9,16 +9,26 @@ function Wrapper({ children }: { children: ReactNode }) {
 	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
 }
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "url",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });
 
 describe("UrlCell", () => {
 	it("renders a link", () => {
-		render(<UrlCell field={makeField()} value="https://example.com" />, { wrapper: Wrapper });
+		render(<UrlCell field={makeField()} value="https://example.com" />, {
+			wrapper: Wrapper,
+		});
 		const link = screen.getByRole("link");
 		expect(link.getAttribute("href")).toBe("https://example.com");
 		expect(link.getAttribute("target")).toBe("_blank");

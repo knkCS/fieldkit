@@ -115,10 +115,7 @@ export const ManyOptions: Story = {
 
 export const Required: Story = {
 	render: () => (
-		<FieldStoryWrapper
-			fields={[requiredField]}
-			defaultValues={{ plan: "" }}
-		/>
+		<FieldStoryWrapper fields={[requiredField]} defaultValues={{ plan: "" }} />
 	),
 };
 

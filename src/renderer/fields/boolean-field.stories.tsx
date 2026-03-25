@@ -24,7 +24,8 @@ const withHelperTextField: Field = {
 		name: "Send Notifications",
 		api_accessor: "send_notifications",
 		required: false,
-		instructions: "When enabled, subscribers will receive an email notification when this entry is published.",
+		instructions:
+			"When enabled, subscribers will receive an email notification when this entry is published.",
 	},
 	settings: null,
 	children: null,

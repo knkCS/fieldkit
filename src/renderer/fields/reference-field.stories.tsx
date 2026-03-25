@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import type { FieldKitAdapters } from "../adapters";
 import type { Field } from "../../schema/types";
+import type { FieldKitAdapters } from "../adapters";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,
@@ -9,14 +9,30 @@ import {
 const mockReferenceAdapter: FieldKitAdapters["reference"] = {
 	search: async (_blueprintIds: string[], query: string) => {
 		const allItems = [
-			{ id: "post-1", display_name: "Getting Started with FieldKit", blueprint_id: "blog_post" },
-			{ id: "post-2", display_name: "Advanced Schema Design", blueprint_id: "blog_post" },
-			{ id: "post-3", display_name: "Building Custom Field Types", blueprint_id: "blog_post" },
+			{
+				id: "post-1",
+				display_name: "Getting Started with FieldKit",
+				blueprint_id: "blog_post",
+			},
+			{
+				id: "post-2",
+				display_name: "Advanced Schema Design",
+				blueprint_id: "blog_post",
+			},
+			{
+				id: "post-3",
+				display_name: "Building Custom Field Types",
+				blueprint_id: "blog_post",
+			},
 			{ id: "page-1", display_name: "About Us", blueprint_id: "page" },
 			{ id: "page-2", display_name: "Contact", blueprint_id: "page" },
 			{ id: "page-3", display_name: "Terms of Service", blueprint_id: "page" },
 			{ id: "product-1", display_name: "Pro Plan", blueprint_id: "product" },
-			{ id: "product-2", display_name: "Enterprise Plan", blueprint_id: "product" },
+			{
+				id: "product-2",
+				display_name: "Enterprise Plan",
+				blueprint_id: "product",
+			},
 		];
 		const lower = query.toLowerCase();
 		return allItems.filter((item) =>
@@ -25,14 +41,30 @@ const mockReferenceAdapter: FieldKitAdapters["reference"] = {
 	},
 	fetch: async (ids: string[]) => {
 		const allItems = [
-			{ id: "post-1", display_name: "Getting Started with FieldKit", blueprint_id: "blog_post" },
-			{ id: "post-2", display_name: "Advanced Schema Design", blueprint_id: "blog_post" },
-			{ id: "post-3", display_name: "Building Custom Field Types", blueprint_id: "blog_post" },
+			{
+				id: "post-1",
+				display_name: "Getting Started with FieldKit",
+				blueprint_id: "blog_post",
+			},
+			{
+				id: "post-2",
+				display_name: "Advanced Schema Design",
+				blueprint_id: "blog_post",
+			},
+			{
+				id: "post-3",
+				display_name: "Building Custom Field Types",
+				blueprint_id: "blog_post",
+			},
 			{ id: "page-1", display_name: "About Us", blueprint_id: "page" },
 			{ id: "page-2", display_name: "Contact", blueprint_id: "page" },
 			{ id: "page-3", display_name: "Terms of Service", blueprint_id: "page" },
 			{ id: "product-1", display_name: "Pro Plan", blueprint_id: "product" },
-			{ id: "product-2", display_name: "Enterprise Plan", blueprint_id: "product" },
+			{
+				id: "product-2",
+				display_name: "Enterprise Plan",
+				blueprint_id: "product",
+			},
 		];
 		return allItems.filter((item) => ids.includes(item.id));
 	},

@@ -1,5 +1,5 @@
+import { SelectField as AnkerSelectField, FormField } from "@knkcs/anker/forms";
 import { Controller, useFormContext } from "react-hook-form";
-import { FormField, SelectField as AnkerSelectField } from "@knkcs/anker/forms";
 import type { SelectSettings } from "../../schema/field-types/select";
 import type { FieldProps } from "../../schema/plugin";
 

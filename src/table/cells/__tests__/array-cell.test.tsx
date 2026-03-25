@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { Field } from "../../../schema/types";
 import type { ArraySettings } from "../../../schema/field-types/array";
+import type { Field } from "../../../schema/types";
 import { ArrayCell } from "../array-cell";
 
 const makeField = (overrides?: {
@@ -9,7 +9,13 @@ const makeField = (overrides?: {
 	config?: Partial<Field["config"]>;
 }): Field<ArraySettings> => ({
 	field_type: "array",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: overrides?.settings ?? null,
 	system: false,
 });

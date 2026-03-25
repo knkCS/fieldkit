@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import type { FieldKitAdapters, MediaItem } from "../adapters";
 import type { Field } from "../../schema/types";
+import type { FieldKitAdapters, MediaItem } from "../adapters";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,

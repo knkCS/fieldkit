@@ -101,19 +101,13 @@ export const Default: Story = {
 
 export const WithMinMax: Story = {
 	render: () => (
-		<FieldStoryWrapper
-			fields={[minMaxField]}
-			defaultValues={{ age: 25 }}
-		/>
+		<FieldStoryWrapper fields={[minMaxField]} defaultValues={{ age: 25 }} />
 	),
 };
 
 export const WithStep: Story = {
 	render: () => (
-		<FieldStoryWrapper
-			fields={[stepField]}
-			defaultValues={{ price: 9.99 }}
-		/>
+		<FieldStoryWrapper fields={[stepField]} defaultValues={{ price: 9.99 }} />
 	),
 };
 

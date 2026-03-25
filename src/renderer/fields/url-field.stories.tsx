@@ -69,7 +69,8 @@ const cellNoteField: Field = {
 		name: "Documentation",
 		api_accessor: "documentation",
 		required: false,
-		instructions: "Note: z.string().url() requires a protocol prefix (e.g. https://)",
+		instructions:
+			"Note: z.string().url() requires a protocol prefix (e.g. https://)",
 	},
 	settings: {
 		placeholder: "https://docs.example.com/very/long/path/to/resource",
