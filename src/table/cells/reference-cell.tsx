@@ -1,22 +1,20 @@
+import { TruncatedTextCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function ReferenceCell({ value }: CellProps) {
-	if (value == null) return <span>—</span>;
+	if (value == null) return <TruncatedTextCell value={null} />;
 
 	if (Array.isArray(value)) {
-		if (value.length === 0) return <span>—</span>;
+		if (value.length === 0) return <TruncatedTextCell value={null} />;
 		const display = value.map((v) => {
 			if (typeof v === "object" && v !== null && "display_name" in v) {
 				return String((v as Record<string, unknown>).display_name);
 			}
 			return String(v);
 		});
-		const text = display.join(", ");
-		const truncated = text.length > 100 ? `${text.slice(0, 100)}...` : text;
-		return <span title={text}>{truncated}</span>;
+		return <TruncatedTextCell value={display.join(", ")} maxLength={100} />;
 	}
 
-	const text = String(value);
-	return <span>{text}</span>;
+	return <TruncatedTextCell value={String(value)} />;
 }
 ReferenceCell.displayName = "ReferenceCell";
