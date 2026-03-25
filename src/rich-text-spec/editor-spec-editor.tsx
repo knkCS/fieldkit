@@ -70,11 +70,13 @@ function PluginToggle({
 		<div
 			data-testid={`plugin-toggle-${plugin.id}`}
 			style={{
-				border: "1px solid #e2e8f0",
+				border: "1px solid var(--chakra-colors-border)",
 				borderRadius: "6px",
 				padding: "8px 12px",
 				marginBottom: "4px",
-				background: enabled ? "#f7fafc" : "#fff",
+				background: enabled
+					? "var(--chakra-colors-bg-subtle)"
+					: "var(--chakra-colors-bg-surface)",
 			}}
 		>
 			<div
@@ -103,7 +105,7 @@ function PluginToggle({
 				{Icon && (
 					<span
 						style={{
-							color: "#718096",
+							color: "var(--chakra-colors-fg-subtle)",
 							display: "flex",
 							alignItems: "center",
 						}}
@@ -116,7 +118,13 @@ function PluginToggle({
 					{plugin.name}
 				</span>
 
-				<span style={{ color: "#a0aec0", fontSize: "12px", flex: 2 }}>
+				<span
+					style={{
+						color: "var(--chakra-colors-fg-subtle)",
+						fontSize: "12px",
+						flex: 2,
+					}}
+				>
 					{plugin.description}
 				</span>
 
@@ -132,7 +140,7 @@ function PluginToggle({
 							padding: "2px",
 							display: "flex",
 							alignItems: "center",
-							color: "#718096",
+							color: "var(--chakra-colors-fg-subtle)",
 						}}
 						aria-label={`${expanded ? "Hide" : "Show"} settings for ${plugin.name}`}
 					>
@@ -147,7 +155,7 @@ function PluginToggle({
 					style={{
 						marginTop: "8px",
 						paddingTop: "8px",
-						borderTop: "1px solid #e2e8f0",
+						borderTop: "1px solid var(--chakra-colors-border)",
 					}}
 				>
 					{plugin.settingsSpec?.map((field) => {
@@ -188,7 +196,7 @@ function PluginToggle({
 									style={{
 										flex: 1,
 										padding: "4px 8px",
-										border: "1px solid #e2e8f0",
+										border: "1px solid var(--chakra-colors-border)",
 										borderRadius: "4px",
 										fontSize: "13px",
 									}}
@@ -282,7 +290,7 @@ function EditorSpecEditorInner({
 								fontWeight: 600,
 								textTransform: "uppercase",
 								letterSpacing: "0.05em",
-								color: "#718096",
+								color: "var(--chakra-colors-fg-subtle)",
 								marginBottom: "8px",
 								marginTop: 0,
 							}}

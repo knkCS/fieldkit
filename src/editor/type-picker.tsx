@@ -79,7 +79,7 @@ function TypePickerInner({
 						left: "8px",
 						top: "50%",
 						transform: "translateY(-50%)",
-						color: "#888",
+						color: "var(--chakra-colors-fg-subtle)",
 						pointerEvents: "none",
 					}}
 				/>
@@ -92,7 +92,7 @@ function TypePickerInner({
 					style={{
 						width: "100%",
 						padding: "8px 8px 8px 32px",
-						border: "1px solid #ddd",
+						border: "1px solid var(--chakra-colors-border)",
 						borderRadius: "6px",
 						fontSize: "14px",
 						boxSizing: "border-box",
@@ -109,7 +109,7 @@ function TypePickerInner({
 							fontWeight: 600,
 							textTransform: "uppercase",
 							letterSpacing: "0.05em",
-							color: "#666",
+							color: "var(--chakra-colors-fg-muted)",
 						}}
 					>
 						{category}
@@ -139,9 +139,11 @@ function TypePickerInner({
 										alignItems: "flex-start",
 										gap: "8px",
 										padding: "10px",
-										border: "1px solid #ddd",
+										border: "1px solid var(--chakra-colors-border)",
 										borderRadius: "6px",
-										background: isAtMax ? "#f5f5f5" : "#fff",
+										background: isAtMax
+											? "var(--chakra-colors-bg-subtle)"
+											: "var(--chakra-colors-bg-surface)",
 										cursor: isAtMax ? "not-allowed" : "pointer",
 										opacity: isAtMax ? 0.5 : 1,
 										textAlign: "left",
@@ -161,7 +163,12 @@ function TypePickerInner({
 										<span style={{ fontWeight: 500, fontSize: "14px" }}>
 											{plugin.name}
 										</span>
-										<span style={{ fontSize: "12px", color: "#666" }}>
+										<span
+											style={{
+												fontSize: "12px",
+												color: "var(--chakra-colors-fg-muted)",
+											}}
+										>
 											{plugin.description}
 										</span>
 									</span>
@@ -173,7 +180,13 @@ function TypePickerInner({
 			))}
 
 			{grouped.size === 0 && (
-				<p style={{ color: "#888", textAlign: "center", padding: "16px" }}>
+				<p
+					style={{
+						color: "var(--chakra-colors-fg-subtle)",
+						textAlign: "center",
+						padding: "16px",
+					}}
+				>
 					No matching field types
 				</p>
 			)}
