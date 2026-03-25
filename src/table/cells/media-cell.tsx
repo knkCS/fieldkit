@@ -1,17 +1,14 @@
+import { CountCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function MediaCell({ value }: CellProps) {
-	if (value == null) return <span>—</span>;
+	if (value == null) return <CountCell value={null} singular="file" plural="files" />;
 
 	if (Array.isArray(value)) {
-		if (value.length === 0) return <span>—</span>;
-		return (
-			<span>
-				{value.length} file{value.length !== 1 ? "s" : ""}
-			</span>
-		);
+		if (value.length === 0) return <CountCell value={null} singular="file" plural="files" />;
+		return <CountCell value={value} singular="file" plural="files" />;
 	}
 
-	return <span>1 file</span>;
+	return <CountCell value={1} singular="file" plural="files" />;
 }
 MediaCell.displayName = "MediaCell";
