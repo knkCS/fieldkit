@@ -22,20 +22,13 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
 	fieldComponent: SlugField,
 	cellComponent: SlugCell,
 
-	toZodType(field: Field<SlugSettings>): ZodTypeAny {
-		const slugSchema = z
+	toZodType(_field: Field<SlugSettings>): ZodTypeAny {
+		return z
 			.string()
 			.regex(
 				SLUG_PATTERN,
 				"Must be a valid slug (lowercase letters, numbers, and hyphens)",
 			);
-
-		if (field.config.required) {
-			return slugSchema;
-		}
-
-		// When optional, allow empty strings
-		return slugSchema.or(z.literal(""));
 	},
 
 	defaultSettings: {},

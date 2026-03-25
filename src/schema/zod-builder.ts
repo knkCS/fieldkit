@@ -28,7 +28,17 @@ export function specToZodSchema(
 		let zodType = plugin.toZodType(field as Field<unknown>);
 
 		if (!field.config.required) {
-			zodType = zodType.optional() as ZodTypeAny;
+			// For string-validated types (email, url, slug), allow empty string
+			// so forms can submit with an empty optional field.
+			// Note: Zod's .email(), .url(), .regex() return ZodString instances
+			// (not ZodEffects), so this check is safe for all current plugins.
+			// If a plugin uses .transform()/.refine() on a string, it would
+			// return ZodEffects and skip this branch — add handling if needed.
+			if (zodType._def.typeName === z.ZodFirstPartyTypeKind.ZodString) {
+				zodType = zodType.or(z.literal("")).optional() as ZodTypeAny;
+			} else {
+				zodType = zodType.optional() as ZodTypeAny;
+			}
 		}
 
 		if (options?.overrides?.[field.config.api_accessor]) {
