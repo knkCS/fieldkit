@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
-export const sectionPlugin: FieldTypePlugin = {
+export const sectionPlugin: FieldTypePlugin<null> = {
 	id: "section",
 	name: "Section",
 	description: "A structural section divider for organizing fields",
@@ -13,7 +13,7 @@ export const sectionPlugin: FieldTypePlugin = {
 	fieldComponent: () => null,
 	cellComponent: undefined,
 
-	toZodType(_field: Field) {
+	toZodType(_field: Field<null>) {
 		return z.never();
 	},
 

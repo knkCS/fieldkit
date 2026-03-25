@@ -5,7 +5,7 @@ import { BooleanCell } from "../../table/cells/boolean-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
-export const booleanPlugin: FieldTypePlugin = {
+export const booleanPlugin: FieldTypePlugin<null> = {
 	id: "boolean",
 	name: "Boolean",
 	description: "A true/false toggle",
@@ -15,7 +15,7 @@ export const booleanPlugin: FieldTypePlugin = {
 	fieldComponent: BooleanField,
 	cellComponent: BooleanCell,
 
-	toZodType(_field: Field) {
+	toZodType(_field: Field<null>) {
 		return z.boolean();
 	},
 
