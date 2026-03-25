@@ -196,6 +196,71 @@ describe("specToZodSchema", () => {
 		const schema = specToZodSchema(fields, plugins);
 		expect(Object.keys(schema.shape)).toHaveLength(0);
 	});
+
+	it("should allow empty string for optional string fields without constraints", () => {
+		const fields: Field[] = [
+			{
+				field_type: "text",
+				config: {
+					name: "Title",
+					api_accessor: "title",
+					required: false,
+					instructions: "",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		];
+		const schema = specToZodSchema(fields, plugins);
+		expect(schema.safeParse({ title: "" }).success).toBe(true);
+		expect(schema.safeParse({ title: undefined }).success).toBe(true);
+	});
+
+	it("should NOT allow empty string bypass for optional string fields WITH constraints", () => {
+		const constrainedPlugin = mockPlugin("text", z.string().min(2));
+		const fields: Field[] = [
+			{
+				field_type: "text",
+				config: {
+					name: "Title",
+					api_accessor: "title",
+					required: false,
+					instructions: "",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		];
+		const schema = specToZodSchema(fields, [constrainedPlugin]);
+		// undefined should be allowed (optional)
+		expect(schema.safeParse({ title: undefined }).success).toBe(true);
+		// empty string should NOT pass — it must respect min(2)
+		expect(schema.safeParse({ title: "" }).success).toBe(false);
+		// valid value should pass
+		expect(schema.safeParse({ title: "ab" }).success).toBe(true);
+	});
+
+	it("should use plain optional for non-string types", () => {
+		const fields: Field[] = [
+			{
+				field_type: "number",
+				config: {
+					name: "Count",
+					api_accessor: "count",
+					required: false,
+					instructions: "",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		];
+		const schema = specToZodSchema(fields, plugins);
+		expect(schema.safeParse({ count: undefined }).success).toBe(true);
+		expect(schema.safeParse({ count: "" }).success).toBe(false);
+	});
 });
 
 describe("getDefaultValues", () => {
