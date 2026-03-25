@@ -1,7 +1,7 @@
+import { TruncatedTextCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function TimeCell({ value }: CellProps) {
-	const text = value != null ? String(value) : "";
-	return <span>{text}</span>;
+	return <TruncatedTextCell value={value != null ? String(value) : null} />;
 }
 TimeCell.displayName = "TimeCell";
