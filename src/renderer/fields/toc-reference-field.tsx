@@ -1,11 +1,12 @@
 import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import type { TocReferenceSettings } from "../../schema/field-types/toc-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { ReferenceItem } from "../adapters";
+import { useResolvedReferences } from "../hooks/use-resolved-references";
 import { useFieldKit } from "../provider";
 
 export function TocReferenceField({
@@ -19,47 +20,26 @@ export function TocReferenceField({
 	const refAdapter = adapters.reference;
 
 	const [searchQuery, setSearchQuery] = useState("");
-	const [searchResults, setSearchResults] = useState<ReferenceItem[]>([]);
-	const [resolvedItem, setResolvedItem] = useState<ReferenceItem | null>(null);
-	const [searching, setSearching] = useState(false);
 
-	const resolveId = useCallback(
-		async (id: string) => {
-			if (!refAdapter || !id) {
-				setResolvedItem(null);
-				return;
-			}
-			try {
-				const items = await refAdapter.fetch([id]);
-				setResolvedItem(items[0] ?? null);
-			} catch {
-				setResolvedItem(null);
-			}
-		},
-		[refAdapter],
-	);
+	const {
+		resolved,
+		error,
+		search,
+		searchResults,
+		searching,
+		clearSearch,
+		resolveIds,
+	} = useResolvedReferences({
+		adapter: refAdapter,
+		blueprints: settings?.blueprints ?? [],
+	});
 
-	const handleSearch = useCallback(
-		async (query: string) => {
-			if (!refAdapter || query.length === 0) {
-				setSearchResults([]);
-				return;
-			}
-			setSearching(true);
-			try {
-				const results = await refAdapter.search(
-					settings?.blueprints ?? [],
-					query,
-				);
-				setSearchResults(results);
-			} catch {
-				setSearchResults([]);
-			} finally {
-				setSearching(false);
-			}
-		},
-		[refAdapter, settings?.blueprints],
-	);
+	const watchedValue = useWatch({ name: accessor, control });
+	const currentId = typeof watchedValue === "string" ? watchedValue : "";
+
+	useEffect(() => {
+		resolveIds(currentId ? [currentId] : []);
+	}, [currentId, resolveIds]);
 
 	if (!refAdapter) {
 		return (
@@ -72,6 +52,8 @@ export function TocReferenceField({
 			</FormField>
 		);
 	}
+
+	const resolvedItem = resolved[0] ?? null;
 
 	return (
 		<FormField
@@ -86,24 +68,14 @@ export function TocReferenceField({
 					name={accessor}
 					control={control}
 					render={({ field: formField }) => {
-						const currentId =
-							typeof formField.value === "string" ? formField.value : "";
-
-						// Resolve display name on mount / value change
-						// eslint-disable-next-line react-hooks/rules-of-hooks
-						useEffect(() => {
-							resolveId(currentId);
-						}, [currentId]); // eslint-disable-line react-hooks/exhaustive-deps
-
 						const handleSelect = (item: ReferenceItem) => {
 							formField.onChange(item.id);
 							setSearchQuery("");
-							setSearchResults([]);
+							clearSearch();
 						};
 
 						const handleClear = () => {
 							formField.onChange("");
-							setResolvedItem(null);
 						};
 
 						return (
@@ -135,6 +107,13 @@ export function TocReferenceField({
 									</Flex>
 								)}
 
+								{/* Error display */}
+								{error && (
+									<Text color="fg.error" fontSize="sm" mb={2}>
+										{error}
+									</Text>
+								)}
+
 								{/* Search input */}
 								{!readOnly && !currentId && (
 									<Box position="relative">
@@ -142,7 +121,7 @@ export function TocReferenceField({
 											value={searchQuery}
 											onChange={(e) => {
 												setSearchQuery(e.target.value);
-												handleSearch(e.target.value);
+												search(e.target.value);
 											}}
 											placeholder="Search TOC reference..."
 										/>
@@ -185,9 +164,12 @@ export function TocReferenceField({
 														cursor="pointer"
 														_hover={{ bg: "bg.muted" }}
 													>
-														<button type="button" onClick={() => handleSelect(item)}>
-														{item.display_name}
-													</button>
+														<button
+															type="button"
+															onClick={() => handleSelect(item)}
+														>
+															{item.display_name}
+														</button>
 													</Box>
 												))}
 											</Box>
