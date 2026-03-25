@@ -1,3 +1,4 @@
+import { TruncatedTextCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 /** Strip basic markdown formatting for plain text display. */
@@ -18,7 +19,6 @@ function stripMarkdown(text: string): string {
 export function MarkdownCell({ value }: CellProps) {
 	const raw = value != null ? String(value) : "";
 	const text = stripMarkdown(raw);
-	const truncated = text.length > 100 ? `${text.slice(0, 100)}...` : text;
-	return <span title={text}>{truncated}</span>;
+	return <TruncatedTextCell value={text || null} maxLength={100} />;
 }
 MarkdownCell.displayName = "MarkdownCell";
