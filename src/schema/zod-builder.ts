@@ -45,6 +45,7 @@ export function getDefaultValues(fields: Field[]): Record<string, unknown> {
 	const defaults: Record<string, unknown> = {};
 
 	for (const field of fields) {
+		if (field.config.hidden) continue;
 		if (field.config.default_value !== undefined) {
 			defaults[field.config.api_accessor] = field.config.default_value;
 		}

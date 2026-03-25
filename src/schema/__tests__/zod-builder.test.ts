@@ -261,4 +261,39 @@ describe("getDefaultValues", () => {
 		];
 		expect(getDefaultValues(fields)).toEqual({});
 	});
+
+	it("should skip hidden fields even if they have a default_value", () => {
+		const fields: Field[] = [
+			{
+				field_type: "text",
+				config: {
+					name: "Hidden Field",
+					api_accessor: "hidden_field",
+					required: false,
+					instructions: "",
+					hidden: true,
+					default_value: "should be ignored",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+			{
+				field_type: "text",
+				config: {
+					name: "Visible Field",
+					api_accessor: "visible_field",
+					required: true,
+					instructions: "",
+					default_value: "kept",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		];
+		const defaults = getDefaultValues(fields);
+		expect(defaults).not.toHaveProperty("hidden_field");
+		expect(defaults).toEqual({ visible_field: "kept" });
+	});
 });
