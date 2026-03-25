@@ -73,6 +73,38 @@ src/
 - **Lucide icons only**: All icons from lucide-react.
 - **displayName required**: All exported React components must have `displayName`.
 
+## Patterns
+
+### Adding a New Field Type Plugin
+
+1. Create `src/schema/field-types/<name>.ts`:
+   - Export a `FieldTypePlugin` with `id`, `name`, `icon` (Lucide), `toZodType()`, `defaultConfig`
+   - Define a `<Name>Settings` interface if the field has configurable settings
+   - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
+2. Register the plugin in `src/schema/field-types/index.ts`
+3. Create renderer component: `src/renderer/fields/<name>-field.tsx`
+   - Use anker form components for simple inputs (see `docs/anker-reference.md`)
+   - Use `Controller` for complex values (see `docs/react-hook-form-reference.md`)
+   - Set `displayName` on the exported component
+   - Add Storybook story (`.stories.tsx`) and MDX documentation (`.mdx`)
+4. Create table cell: `src/table/cells/<name>-cell.tsx`
+   - Set `displayName` on the exported component
+5. Register the cell in `src/table/get-cell-for-type.tsx`
+6. Register the renderer in `src/renderer/field-component.tsx`
+
+### Adding a Renderer Field Component
+
+- Prefer delegating to `@knkcs/anker/forms` components for simple inputs (Pattern A in `docs/react-hook-form-reference.md`)
+- For complex values, use `Controller` from react-hook-form (Pattern B)
+- Destructure the Controller render prop as `{ field: formField }` to avoid shadowing fieldkit's `field` prop
+- Never call `useForm()` — always use `useFormContext()`
+- Pass `readOnly` from `FieldProps`, not `disabled` (anker applies different opacity for each)
+- Set `displayName` on every exported React component
+
+### Adapter Pattern
+
+Backend-dependent features (reference lookup, media upload, blueprint data, textType data) are injected through the `FieldKitProvider` `adapters` prop. Never import from service codebases — use the adapter interfaces defined in `src/renderer/adapters.ts`.
+
 ## Git Conventions
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/). All commit messages MUST follow the format:
@@ -85,6 +117,21 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 - **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
 - Keep the subject line under 72 characters
 - Use imperative mood ("add feature" not "added feature")
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start Storybook on localhost:6007 |
+| `npm run build` | Build ESM + type declarations to `/dist` (via tsup) |
+| `npm run build:storybook` | Build static Storybook site |
+| `npm run lint` | Check linting and formatting (Biome) |
+| `npm run lint:write` | Auto-fix lint and format issues |
+| `npm run typecheck` | TypeScript type checking (`tsc --noEmit`) |
+| `npm run test` | Run tests once (Vitest, jsdom environment) |
+| `npm run test:watch` | Run tests in watch mode |
+
+Always run `npm run typecheck` and `npm run lint` before committing. Tests use Vitest with jsdom environment and `@testing-library/react`. Test files are colocated with source in `__tests__/` directories.
 
 ## Peer Dependencies
 
@@ -105,3 +152,12 @@ Optional:
 - **@knkcs/anker** — Shared UI component library (peer dependency)
 - **@knkcms/knkeditor** — TipTap-based rich text editor (optional peer dependency)
 - **knkCMS Core** — Primary consumer; monolith being decomposed into microservices
+
+## Reference Docs
+
+Read these before working on the corresponding area:
+
+- **`docs/anker-reference.md`** — All anker form component APIs, DataTable, DrawerRoot, semantic tokens. Read before creating or modifying any field component or table component.
+- **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
+- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying SpecEditor or adding drag-and-drop.
+- **`docs/knkeditor-reference.md`** — EditorSpec types, plugin ID alignment, planned integration contract. Read before modifying rich-text-spec or RichTextField.
