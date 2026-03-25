@@ -1,7 +1,7 @@
+import { SlugCell as AnkerSlugCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 export function SlugCell({ value }: CellProps) {
-	const text = value != null ? String(value) : "";
-	return <span style={{ fontFamily: "monospace" }}>{text}</span>;
+	return <AnkerSlugCell value={value != null ? String(value) : null} />;
 }
 SlugCell.displayName = "SlugCell";
