@@ -1,3 +1,4 @@
+import { TruncatedTextCell } from "@knkcs/anker/components";
 import type { CellProps } from "../../schema/plugin";
 
 /** Attempt to extract plain text from a ProseMirror-like JSON document. */
@@ -17,7 +18,6 @@ function extractText(value: unknown): string {
 
 export function RichTextCell({ value }: CellProps) {
 	const text = extractText(value);
-	const truncated = text.length > 100 ? `${text.slice(0, 100)}...` : text;
-	return <span title={text}>{truncated}</span>;
+	return <TruncatedTextCell value={text || null} maxLength={100} />;
 }
 RichTextCell.displayName = "RichTextCell";
