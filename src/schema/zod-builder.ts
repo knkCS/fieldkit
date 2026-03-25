@@ -20,6 +20,7 @@ export function specToZodSchema(
 
 	for (const field of fields) {
 		if (STRUCTURAL_TYPES.has(field.field_type)) continue;
+		if (field.config.hidden) continue;
 
 		const plugin = pluginMap.get(field.field_type);
 		if (!plugin) continue;

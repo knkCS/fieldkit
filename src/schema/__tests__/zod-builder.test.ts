@@ -105,7 +105,10 @@ describe("specToZodSchema", () => {
 			},
 		];
 		const schema = specToZodSchema(fields, plugins);
-		const result = schema.safeParse({ name: "test", title: "Mr" });
+		expect(schema.shape).not.toHaveProperty("name");
+		expect(schema.shape).toHaveProperty("title");
+		// Hidden field should not cause validation failure when omitted
+		const result = schema.safeParse({ title: "Mr" });
 		expect(result.success).toBe(true);
 	});
 
