@@ -7,12 +7,14 @@ import { FieldKitContext, type FieldKitContextValue } from "./context";
 export interface FieldKitProviderProps {
 	plugins: FieldTypePlugin[];
 	adapters?: FieldKitAdapters;
+	onError?: (error: Error, fieldId: string) => void;
 	children: ReactNode;
 }
 
 export function FieldKitProvider({
 	plugins,
 	adapters = {},
+	onError,
 	children,
 }: FieldKitProviderProps) {
 	const value = useMemo<FieldKitContextValue>(() => {
@@ -22,8 +24,9 @@ export function FieldKitProvider({
 			getPlugin: (id) => pluginMap.get(id),
 			getAllPlugins: () => plugins,
 			adapters,
+			onError,
 		};
-	}, [plugins, adapters]);
+	}, [plugins, adapters, onError]);
 
 	return (
 		<FieldKitContext.Provider value={value}>
