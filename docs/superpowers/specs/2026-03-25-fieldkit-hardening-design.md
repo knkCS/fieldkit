@@ -30,8 +30,9 @@ Five independent workstreams grouped by cross-cutting concern. Each workstream p
 
 **Fix:**
 - Create `src/renderer/hooks/use-resolved-references.ts`
-- Hook signature: `useResolvedReferences(ids: string[], adapter: ReferenceAdapter, blueprints: string[])`
-- Returns: `{ resolved: ResolvedReference[], loading: boolean, search: (query: string) => void, searchResults: SearchResult[] }`
+- Hook signature: `useResolvedReferences(ids: string[], adapter: FieldKitAdapters['reference'], blueprints: string[])`
+- Returns: `{ resolved: ReferenceItem[], loading: boolean, search: (query: string) => void, searchResults: ReferenceItem[] }`
+- The `blueprints` parameter is for the `search` call only; `fetch` resolves by IDs directly
 - Both `ReferenceField` and `TocReferenceField` call the hook above Controller, passing resolved data into the render function
 - Controller's render function becomes pure rendering — no hooks inside
 
@@ -40,8 +41,9 @@ Five independent workstreams grouped by cross-cutting concern. Each workstream p
 **Problem:** `email.ts`, `slug.ts`, `url.ts` use `.or(z.literal(""))` inside the plugin, while all other plugins rely on `zod-builder.ts` to apply `.optional()`. This creates inconsistent double-wrapping (`union.optional()`) for these three types.
 
 **Fix:**
-- Remove `.or(z.literal(""))` from `email.ts`, `slug.ts`, `url.ts` — plugins return the base validated type only
-- In `zod-builder.ts`, when `validation.required` is false and the Zod type is a string-based type, wrap with `.or(z.literal("")).optional()` — one place, one pattern
+- Remove `.or(z.literal(""))` from `email.ts`, `slug.ts`, `url.ts` — plugins return the base validated type only (e.g. `z.string().email(msg)`)
+- Also remove the internal `if (field.config.required)` branching from these three plugins — they should return the same base schema unconditionally, since `zod-builder.ts` handles both `.optional()` and empty-string logic centrally
+- In `zod-builder.ts`, when `config.required` is false and the Zod type is a string-based type, wrap with `.or(z.literal("")).optional()` — one place, one pattern
 - Update tests to verify the normalized behavior
 
 ## WS2: Type Safety & Validation
@@ -56,14 +58,14 @@ Five independent workstreams grouped by cross-cutting concern. Each workstream p
 
 **Problem:** `blocks.ts` uses `.passthrough()` without checking against `allowed_blocks` from settings.
 
-**Fix:** When `settings.allowed_blocks` is defined, generate `z.array(z.discriminatedUnion("_type", [...]))` with one entry per allowed block type (each using `.passthrough()`). When no constraint exists, keep current `z.array(z.object({ _type: z.string() }).passthrough())` behavior.
+**Fix:** When `settings.allowed_blocks` is defined and has 2+ entries, generate `z.array(z.discriminatedUnion("_type", [...]))` with one entry per allowed block type (each using `.passthrough()`). When `allowed_blocks` has exactly 1 entry, use `z.array(z.object({ _type: z.literal(type) }).passthrough())` (Zod's `discriminatedUnion` requires at least 2 members). When no constraint exists, keep current `z.array(z.object({ _type: z.string() }).passthrough())` behavior.
 
 ### 2.3 `maxPerSpec` Enforcement
 
 **Problem:** `toc-reference.ts` declares `maxPerSpec: 1` but nothing enforces it at runtime.
 
 **Fix:**
-- Create `src/schema/validate-spec.ts` with `validateSpec(fields: Field[], plugins: Map)` function
+- Create `src/schema/validate-spec.ts` with `validateSpec(fields: Field[], plugins: Map<string, FieldTypePlugin>)` function
 - Checks constraints: `maxPerSpec` counts per field type
 - Call from `SpecEditor` on field add/save
 - `TypePicker` already disables types at the limit — this adds the runtime safety net
@@ -84,7 +86,7 @@ Five independent workstreams grouped by cross-cutting concern. Each workstream p
 **Fix:**
 - Create `src/renderer/field-error-boundary.tsx` — a React error boundary component
 - Fallback: subtle inline error state showing field name + "failed to render" using anker semantic tokens
-- Wrap each field in `FieldComponent` dispatch
+- Inside `FieldComponentInner` (in `field-component.tsx`), wrap the plugin's `<Component field={field} readOnly={...} />` call in the error boundary — this preserves `memo` behavior on the outer `FieldComponent`
 - Wrap each cell in `getCellForFieldType`
 - Wrap each field in `SpecEditor`'s field list
 - Expose optional `onError?: (error: Error, fieldId: string) => void` callback via `FieldKitProvider` for consumer logging
@@ -108,22 +110,24 @@ Five independent workstreams grouped by cross-cutting concern. Each workstream p
 
 - `src/editor/spec-editor.tsx` — ~15 hardcoded color values
 - `src/editor/field-modal.tsx` — ~12 hardcoded color values
+- `src/editor/type-picker.tsx` — ~7 hardcoded color values
 - `src/rich-text-spec/editor-spec-editor.tsx` — ~6 hardcoded color values
 
 ### Token Mapping
 
-| Hardcoded | Semantic Token |
-|-----------|---------------|
-| `#ddd`, `#ccc`, `#e2e8f0` | `border.subtle` / `border.muted` |
-| `#f0f4ff`, `#fafafa`, `#f7fafc` | `bg.subtle` / `bg.muted` |
-| `#333`, `#555`, `#666` | `fg.default` / `fg.muted` |
-| `#999`, `#888`, `#718096`, `#a0aec0` | `fg.subtle` |
-| `#e53e3e` | `fg.error` |
-| `#2563eb`, `#93c5fd` | `colorPalette.solid` / `colorPalette.muted` |
-| `rgba(0,0,0,0.5)` | `bg.overlay` |
-| `#fff` | `bg.panel` |
+| Hardcoded | Anker Semantic Token | CSS Variable |
+|-----------|---------------------|-------------|
+| `#ddd`, `#ccc`, `#e2e8f0` | `border` | `var(--chakra-colors-border)` |
+| `#f0f4ff`, `#fafafa`, `#f7fafc` | `bg.subtle` / `bg.muted` | `var(--chakra-colors-bg-subtle)` |
+| `#333`, `#555`, `#666` | `fg.default` / `fg.muted` | `var(--chakra-colors-fg-default)` |
+| `#999`, `#888`, `#718096`, `#a0aec0` | `fg.subtle` | `var(--chakra-colors-fg-subtle)` |
+| `#e53e3e` | `red.500` (error context) | `var(--chakra-colors-red-500)` |
+| `#2563eb`, `#93c5fd` | `accent` / `blue.200` | `var(--chakra-colors-accent)` |
+| `rgba(0,0,0,0.5)` | `blackAlpha.500` | `var(--chakra-colors-black-alpha-500)` |
+| `#fff` | `bg.surface` | `var(--chakra-colors-bg-surface)` |
+| `#f5f5f5` | `bg.subtle` | `var(--chakra-colors-bg-subtle)` |
 
-Exact token names to be verified against `docs/anker-reference.md` during implementation. Inline `style={{}}` stays — values are swapped to `var(--chakra-colors-<token>)`.
+Token names verified against `docs/anker-reference.md` (lines 320-331). Inline `style={{}}` stays — hex values are swapped to CSS variables.
 
 ## WS5: Test Coverage & Conventions
 
@@ -148,8 +152,9 @@ Single `it.each` block iterating over all 23 field types. Each iteration renders
 
 ### 5.3 `readOnly` / `disabled` Fix
 
-- `SelectField`: change native `<select>`'s `disabled={readOnly}` to `readOnly={readOnly}`
-- `CheckboxesField`: change `disabled={readOnly}` to `readOnly={readOnly}`
+- `SelectField` single-select path: already uses anker's `SelectField` with `readOnly` — no change needed
+- `SelectField` multi-select path: native `<select>` does not support `readOnly` attribute. Fix by adding `pointer-events: none` and matching anker's readOnly opacity (`opacity: 0.6`) when `readOnly` is true, keeping `disabled` for the actual HTML attribute
+- `CheckboxesField`: change `disabled={readOnly}` to `readOnly={readOnly}` (anker's `CheckboxField` supports `readOnly`)
 - Covered by new tests from 5.1
 
 ### 5.4 Prop Pattern Standardization
@@ -158,6 +163,8 @@ Establish one convention across all 23 field components:
 - Destructure `field` into `{ config, settings }` at the top of the component
 - Use nullish coalesce for settings with defaults: `const { options = {} } = settings ?? {}`
 - Apply consistently across all field components
+- This is mechanical find-and-replace refactoring — no judgment calls per component
+- Commit separately from test changes for clean git history
 
 ### 5.5 Fix Failing Tests
 
