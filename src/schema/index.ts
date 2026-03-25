@@ -81,6 +81,9 @@ export type {
 	FieldValidation,
 	Schema,
 } from "./types";
+// Spec validation
+export type { SpecValidationResult } from "./validate-spec";
+export { validateSpec } from "./validate-spec";
 // Zod builder
 export type { ZodBuilderOptions } from "./zod-builder";
 export { getDefaultValues, specToZodSchema } from "./zod-builder";

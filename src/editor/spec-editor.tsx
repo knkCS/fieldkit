@@ -21,6 +21,7 @@ import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
+import { validateSpec } from "../schema/validate-spec";
 import { FieldModal } from "./field-modal";
 import { TypePicker } from "./type-picker";
 
@@ -244,15 +245,22 @@ function SpecEditorInner({
 					),
 				);
 			} else {
+				// Validate before adding new field
+				const candidateSchema = [...schema, savedField];
+				const validation = validateSpec(candidateSchema, pluginMap);
+				if (!validation.valid) {
+					alert(validation.errors[0]);
+					return;
+				}
 				// Add new field
-				onChange([...schema, savedField]);
+				onChange(candidateSchema);
 			}
 
 			setIsModalOpen(false);
 			setEditingField(null);
 			setEditingPlugin(null);
 		},
-		[editingField, schema, onChange],
+		[editingField, schema, pluginMap, onChange],
 	);
 
 	const handleModalClose = useCallback(() => {
