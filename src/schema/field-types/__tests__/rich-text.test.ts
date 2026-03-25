@@ -1,33 +1,29 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import type { Field } from "../../types";
 import type { RichTextSettings } from "../rich-text";
 import { richTextPlugin } from "../rich-text";
+
+const createField = (
+	overrides: Partial<Field<RichTextSettings>["config"]> = {},
+): Field<RichTextSettings> => ({
+	field_type: "rich_text",
+	config: {
+		name: "Content",
+		api_accessor: "content",
+		required: false,
+		instructions: "",
+		...overrides,
+	},
+	settings: null,
+	children: null,
+	system: false,
+});
 
 describe("richTextPlugin", () => {
 	it("should have correct metadata", () => {
 		expect(richTextPlugin.id).toBe("rich_text");
 		expect(richTextPlugin.category).toBe("text");
-	});
-
-	it("should generate z.any() Zod type", () => {
-		const field: Field<RichTextSettings> = {
-			field_type: "rich_text",
-			config: {
-				name: "Content",
-				api_accessor: "content",
-				required: false,
-				instructions: "",
-			},
-			settings: null,
-			children: null,
-			system: false,
-		};
-		const zodType = richTextPlugin.toZodType(field);
-		// z.any() accepts anything
-		expect(zodType.safeParse("string content").success).toBe(true);
-		expect(zodType.safeParse({ type: "doc", content: [] }).success).toBe(true);
-		expect(zodType.safeParse(null).success).toBe(true);
-		expect(zodType.safeParse(42).success).toBe(true);
 	});
 
 	it("should accept JSON document content", () => {
@@ -58,5 +54,21 @@ describe("richTextPlugin", () => {
 
 	it("should have default settings", () => {
 		expect(richTextPlugin.defaultSettings).toEqual({ view_mode: "full" });
+	});
+
+	it("should reject non-object values", () => {
+		const field = createField({ required: true });
+		const schema = z.object({ content: richTextPlugin.toZodType(field) });
+		expect(schema.safeParse({ content: "plain string" }).success).toBe(false);
+		expect(schema.safeParse({ content: 123 }).success).toBe(false);
+		expect(schema.safeParse({ content: [1, 2] }).success).toBe(false);
+	});
+
+	it("should accept ProseMirror-like document objects", () => {
+		const field = createField({ required: true });
+		const schema = z.object({ content: richTextPlugin.toZodType(field) });
+		expect(
+			schema.safeParse({ content: { type: "doc", content: [] } }).success,
+		).toBe(true);
 	});
 });

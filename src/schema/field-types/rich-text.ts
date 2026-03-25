@@ -22,7 +22,7 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 
 	toZodType(_field: Field<RichTextSettings>) {
 		// Rich text content is stored as JSON (ProseMirror document structure)
-		return z.any();
+		return z.record(z.unknown());
 	},
 
 	defaultSettings: { view_mode: "full" },
