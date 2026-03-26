@@ -137,9 +137,10 @@ describe("SpecDataTable", () => {
 			{ wrapper: Wrapper },
 		);
 
-		const rows = screen.getAllByRole("row");
-		// rows[0] is the header row, rows[1] is the first data row
-		fireEvent.click(rows[1]);
+		// When onRowClick is provided, DataTable renders data rows as role="button".
+		// Column header sort buttons are also role="button", so target by cell text content.
+		const firstDataRow = screen.getByRole("button", { name: /Item 1/ });
+		fireEvent.click(firstDataRow);
 		expect(onRowClick).toHaveBeenCalledWith(0, { title: "Item 1", count: 10 });
 	});
 
@@ -155,8 +156,10 @@ describe("SpecDataTable", () => {
 			{ wrapper: Wrapper },
 		);
 
-		const rows = screen.getAllByRole("row");
-		fireEvent.click(rows[1]);
+		// When editable, DataTable renders data rows as role="button".
+		// Column header sort buttons are also role="button", so target by cell text content.
+		const firstDataRow = screen.getByRole("button", { name: /Item 1/ });
+		fireEvent.click(firstDataRow);
 
 		await waitFor(() => {
 			expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
