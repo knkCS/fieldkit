@@ -5,11 +5,10 @@ import type { FieldProps } from "../../schema/plugin";
 
 export function SelectField({ field, readOnly }: FieldProps<SelectSettings>) {
 	const { control } = useFormContext();
-	const { config } = field;
-	const settings = field.settings ?? { options: {} };
-	const options = settings.options ?? {};
+	const { config, settings } = field;
+	const { options = {}, multiple } = settings ?? { options: {} };
 
-	if (settings.multiple) {
+	if (multiple) {
 		return (
 			<FormField
 				name={config.api_accessor}

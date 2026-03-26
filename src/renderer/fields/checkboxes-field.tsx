@@ -7,9 +7,8 @@ export function CheckboxesField({
 	field,
 	readOnly,
 }: FieldProps<CheckboxesSettings>) {
-	const { config } = field;
-	const settings = field.settings ?? { options: {} };
-	const options = settings.options ?? {};
+	const { config, settings } = field;
+	const { options = {} } = settings ?? {};
 
 	return (
 		<FormField
