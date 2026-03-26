@@ -5,7 +5,7 @@ import { TimeCell } from "../../table/cells/time-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
-export const timePlugin: FieldTypePlugin = {
+export const timePlugin: FieldTypePlugin<null> = {
 	id: "time",
 	name: "Time",
 	description: "A time value",
@@ -15,7 +15,7 @@ export const timePlugin: FieldTypePlugin = {
 	fieldComponent: TimeField,
 	cellComponent: TimeCell,
 
-	toZodType(field: Field) {
+	toZodType(field: Field<null>) {
 		let schema = z.string();
 
 		if (field.config.required) {

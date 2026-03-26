@@ -13,6 +13,7 @@ export type {
 } from "./adapters";
 export type { FieldComponentProps } from "./field-component";
 export { FieldComponent } from "./field-component";
+export { FieldErrorBoundary } from "./field-error-boundary";
 export type { FieldRendererProps } from "./field-renderer";
 // Components
 export { FieldRenderer } from "./field-renderer";

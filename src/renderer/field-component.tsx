@@ -1,6 +1,7 @@
 // src/renderer/field-component.tsx
 import { memo } from "react";
 import type { Field } from "../schema/types";
+import { FieldErrorBoundary } from "./field-error-boundary";
 import { useFieldKit } from "./provider";
 
 export interface FieldComponentProps {
@@ -9,7 +10,7 @@ export interface FieldComponentProps {
 }
 
 function FieldComponentInner({ field, readOnly }: FieldComponentProps) {
-	const { getPlugin } = useFieldKit();
+	const { getPlugin, onError } = useFieldKit();
 
 	if (field.config.hidden) return null;
 
@@ -34,7 +35,13 @@ function FieldComponentInner({ field, readOnly }: FieldComponentProps) {
 	const Component = plugin.fieldComponent;
 
 	return (
-		<Component field={field} readOnly={readOnly || field.config.read_only} />
+		<FieldErrorBoundary
+			fieldId={field.config.api_accessor}
+			fieldName={field.config.name}
+			onError={onError}
+		>
+			<Component field={field} readOnly={readOnly || field.config.read_only} />
+		</FieldErrorBoundary>
 	);
 }
 

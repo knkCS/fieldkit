@@ -21,11 +21,7 @@ export const urlPlugin: FieldTypePlugin<UrlSettings> = {
 	cellComponent: UrlCell,
 
 	toZodType(field: Field<UrlSettings>): ZodTypeAny {
-		if (field.config.required) {
-			return z.string().url(`${field.config.name} must be a valid URL`);
-		}
-
-		return z.string().url("Invalid URL format").or(z.literal(""));
+		return z.string().url(`${field.config.name} must be a valid URL`);
 	},
 
 	defaultSettings: { placeholder: "" },

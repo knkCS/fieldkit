@@ -21,6 +21,7 @@ import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
+import { validateSpec } from "../schema/validate-spec";
 import { FieldModal } from "./field-modal";
 import { TypePicker } from "./type-picker";
 
@@ -60,9 +61,11 @@ function SortableFieldItem({
 		alignItems: "center",
 		gap: "8px",
 		padding: "10px 12px",
-		border: "1px solid #ddd",
+		border: "1px solid var(--chakra-colors-border)",
 		borderRadius: "6px",
-		background: isDragging ? "#f0f4ff" : "#fff",
+		background: isDragging
+			? "var(--chakra-colors-bg-subtle)"
+			: "var(--chakra-colors-bg-surface)",
 		opacity: isDragging ? 0.8 : 1,
 		marginBottom: "4px",
 	};
@@ -87,14 +90,20 @@ function SortableFieldItem({
 					padding: "2px",
 					display: "flex",
 					alignItems: "center",
-					color: "#999",
+					color: "var(--chakra-colors-fg-subtle)",
 				}}
 			>
 				<GripVertical size={16} />
 			</button>
 
 			{Icon && (
-				<span style={{ color: "#666", display: "flex", alignItems: "center" }}>
+				<span
+					style={{
+						color: "var(--chakra-colors-fg-muted)",
+						display: "flex",
+						alignItems: "center",
+					}}
+				>
 					<Icon size={16} />
 				</span>
 			)}
@@ -104,7 +113,11 @@ function SortableFieldItem({
 			</span>
 
 			<span
-				style={{ color: "#999", fontSize: "12px", fontFamily: "monospace" }}
+				style={{
+					color: "var(--chakra-colors-fg-subtle)",
+					fontSize: "12px",
+					fontFamily: "monospace",
+				}}
 			>
 				{field.config.api_accessor}
 			</span>
@@ -121,7 +134,7 @@ function SortableFieldItem({
 					padding: "4px",
 					display: "flex",
 					alignItems: "center",
-					color: "#666",
+					color: "var(--chakra-colors-fg-muted)",
 				}}
 			>
 				<Pencil size={14} />
@@ -139,7 +152,7 @@ function SortableFieldItem({
 					padding: "4px",
 					display: "flex",
 					alignItems: "center",
-					color: "#e53e3e",
+					color: "var(--chakra-colors-red-500)",
 				}}
 			>
 				<Trash2 size={14} />
@@ -244,15 +257,22 @@ function SpecEditorInner({
 					),
 				);
 			} else {
+				// Validate before adding new field
+				const candidateSchema = [...schema, savedField];
+				const validation = validateSpec(candidateSchema, pluginMap);
+				if (!validation.valid) {
+					alert(validation.errors[0]);
+					return;
+				}
 				// Add new field
-				onChange([...schema, savedField]);
+				onChange(candidateSchema);
 			}
 
 			setIsModalOpen(false);
 			setEditingField(null);
 			setEditingPlugin(null);
 		},
-		[editingField, schema, onChange],
+		[editingField, schema, pluginMap, onChange],
 	);
 
 	const handleModalClose = useCallback(() => {
@@ -289,7 +309,7 @@ function SpecEditorInner({
 			{schema.length === 0 && !showTypePicker && (
 				<p
 					style={{
-						color: "#888",
+						color: "var(--chakra-colors-fg-subtle)",
 						textAlign: "center",
 						padding: "24px",
 						fontSize: "14px",
@@ -303,10 +323,10 @@ function SpecEditorInner({
 				{showTypePicker ? (
 					<div
 						style={{
-							border: "1px solid #ddd",
+							border: "1px solid var(--chakra-colors-border)",
 							borderRadius: "8px",
 							padding: "16px",
-							background: "#fafafa",
+							background: "var(--chakra-colors-bg-subtle)",
 						}}
 					>
 						<div
@@ -328,7 +348,7 @@ function SpecEditorInner({
 									background: "none",
 									cursor: "pointer",
 									fontSize: "13px",
-									color: "#666",
+									color: "var(--chakra-colors-fg-muted)",
 								}}
 							>
 								Cancel
@@ -351,12 +371,12 @@ function SpecEditorInner({
 							alignItems: "center",
 							gap: "6px",
 							padding: "8px 16px",
-							border: "1px dashed #ccc",
+							border: "1px dashed var(--chakra-colors-border)",
 							borderRadius: "6px",
-							background: "#fff",
+							background: "var(--chakra-colors-bg-surface)",
 							cursor: "pointer",
 							fontSize: "14px",
-							color: "#555",
+							color: "var(--chakra-colors-fg-muted)",
 							width: "100%",
 							justifyContent: "center",
 						}}

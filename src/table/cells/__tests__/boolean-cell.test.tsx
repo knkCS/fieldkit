@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest";
 import type { Field } from "../../../schema/types";
 import { BooleanCell } from "../boolean-cell";
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "boolean",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });

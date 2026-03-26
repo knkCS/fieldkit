@@ -3,8 +3,8 @@ import type { ArraySettings } from "../../schema/field-types/array";
 import type { FieldProps } from "../../schema/plugin";
 
 export function ArrayField({ field, readOnly }: FieldProps<ArraySettings>) {
-	const { config } = field;
-	const settings = field.settings ?? {};
+	const { config, settings } = field;
+	const { mode = "dynamic", keys } = settings ?? {};
 
 	return (
 		<AnkerArrayField
@@ -13,8 +13,8 @@ export function ArrayField({ field, readOnly }: FieldProps<ArraySettings>) {
 			helperText={config.instructions || undefined}
 			required={config.required}
 			readOnly={readOnly}
-			mode={settings.mode ?? "dynamic"}
-			keys={settings.keys?.map((k) => ({ key: k, value: "" }))}
+			mode={mode}
+			keys={keys?.map((k) => ({ key: k, value: "" }))}
 		/>
 	);
 }

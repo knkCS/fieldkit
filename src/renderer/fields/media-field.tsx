@@ -17,6 +17,7 @@ export function MediaField({ field, readOnly }: FieldProps<MediaSettings>) {
 
 	const [resolvedItems, setResolvedItems] = useState<MediaItem[]>([]);
 	const [uploading, setUploading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const browseItems = useCallback(async () => {
@@ -25,8 +26,9 @@ export function MediaField({ field, readOnly }: FieldProps<MediaSettings>) {
 			const mimeTypes = settings?.accept?.length ? settings.accept : undefined;
 			const items = await mediaAdapter.browse({ mime_types: mimeTypes });
 			setResolvedItems(items);
-		} catch {
-			// silently fail
+		} catch (e) {
+			console.error("Media operation failed:", e);
+			setError("Failed to load media");
 		}
 	}, [mediaAdapter, settings?.accept]);
 
@@ -73,14 +75,16 @@ export function MediaField({ field, readOnly }: FieldProps<MediaSettings>) {
 
 						const handleUpload = async (file: File) => {
 							if (!mediaAdapter) return;
+							setError(null);
 							setUploading(true);
 							try {
 								const item = await mediaAdapter.upload(file);
 								const newIds = [...currentIds, item.id];
 								formField.onChange(newIds);
 								setResolvedItems((prev) => [...prev, item]);
-							} catch {
-								// upload failed silently
+							} catch (e) {
+								console.error("Media operation failed:", e);
+								setError("Failed to load media");
 							} finally {
 								setUploading(false);
 							}
@@ -148,13 +152,21 @@ export function MediaField({ field, readOnly }: FieldProps<MediaSettings>) {
 										<Button
 											size="sm"
 											variant="outline"
-											onClick={() => fileInputRef.current?.click()}
+											onClick={() => {
+												setError(null);
+												fileInputRef.current?.click();
+											}}
 											disabled={uploading}
 										>
 											<Upload size={16} />
 											{uploading ? "Uploading..." : "Upload file"}
 										</Button>
 									</Box>
+								)}
+								{error && (
+									<Text color="fg.muted" fontSize="sm">
+										{error}
+									</Text>
 								)}
 							</Box>
 						);

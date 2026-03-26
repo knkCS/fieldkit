@@ -3,9 +3,8 @@ import type { RadioSettings } from "../../schema/field-types/radio";
 import type { FieldProps } from "../../schema/plugin";
 
 export function RadioField({ field, readOnly }: FieldProps<RadioSettings>) {
-	const { config } = field;
-	const settings = field.settings ?? { options: {} };
-	const options = settings.options ?? {};
+	const { config, settings } = field;
+	const { options = {} } = settings ?? {};
 
 	return (
 		<RadioGroupField

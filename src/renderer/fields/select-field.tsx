@@ -1,15 +1,14 @@
+import { SelectField as AnkerSelectField, FormField } from "@knkcs/anker/forms";
 import { Controller, useFormContext } from "react-hook-form";
-import { FormField, SelectField as AnkerSelectField } from "@knkcs/anker/forms";
 import type { SelectSettings } from "../../schema/field-types/select";
 import type { FieldProps } from "../../schema/plugin";
 
 export function SelectField({ field, readOnly }: FieldProps<SelectSettings>) {
 	const { control } = useFormContext();
-	const { config } = field;
-	const settings = field.settings ?? { options: {} };
-	const options = settings.options ?? {};
+	const { config, settings } = field;
+	const { options = {}, multiple } = settings ?? { options: {} };
 
-	if (settings.multiple) {
+	if (multiple) {
 		return (
 			<FormField
 				name={config.api_accessor}
@@ -25,6 +24,11 @@ export function SelectField({ field, readOnly }: FieldProps<SelectSettings>) {
 							<select
 								multiple
 								disabled={readOnly}
+								style={
+									readOnly
+										? { pointerEvents: "none" as const, opacity: 0.6 }
+										: undefined
+								}
 								value={Array.isArray(formField.value) ? formField.value : []}
 								onChange={(e) => {
 									const selected = Array.from(

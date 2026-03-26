@@ -11,7 +11,8 @@ const sectionField: Field = {
 		name: "General Settings",
 		api_accessor: "general_settings",
 		required: false,
-		instructions: "This section should group related fields — but rendering is not implemented",
+		instructions:
+			"This section should group related fields — but rendering is not implemented",
 	},
 	settings: null,
 	children: null,
@@ -29,9 +30,6 @@ type Story = StoryObj<FieldStoryWrapperProps>;
 
 export const Default: Story = {
 	render: () => (
-		<FieldStoryWrapper
-			fields={[sectionField]}
-			defaultValues={{}}
-		/>
+		<FieldStoryWrapper fields={[sectionField]} defaultValues={{}} />
 	),
 };

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import type { EditorSpec } from "./types";
 import { EditorSpecEditor } from "./editor-spec-editor";
 import { builtInMarkPlugins, builtInNodePlugins } from "./node-plugins";
+import type { EditorSpec } from "./types";
 
 /* ------------------------------------------------------------------ */
 /*  Wrapper                                                            */

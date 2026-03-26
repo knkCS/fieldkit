@@ -21,12 +21,7 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 	cellComponent: EmailCell,
 
 	toZodType(field: Field<EmailSettings>): ZodTypeAny {
-		if (field.config.required) {
-			return z.string().email(`${field.config.name} must be a valid email`);
-		}
-
-		// When optional, still validate format if a value is provided
-		return z.string().email("Invalid email format").or(z.literal(""));
+		return z.string().email(`${field.config.name} must be a valid email`);
 	},
 
 	defaultSettings: { placeholder: "" },

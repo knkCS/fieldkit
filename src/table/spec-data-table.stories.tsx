@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
+import { FieldKitProvider } from "../renderer/provider";
 import { boolean, number, select, text } from "../schema/builders";
 import { builtInFieldTypes } from "../schema/field-types";
 import type { Schema } from "../schema/types";
-import { FieldKitProvider } from "../renderer/provider";
 import { SpecDataTable } from "./spec-data-table";
 
 /* ------------------------------------------------------------------ */

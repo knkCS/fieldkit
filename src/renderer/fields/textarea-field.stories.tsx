@@ -107,7 +107,10 @@ export const ReadOnly: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[readOnlyField]}
-			defaultValues={{ description: "This is a read-only textarea value.\n\nIt spans multiple lines." }}
+			defaultValues={{
+				description:
+					"This is a read-only textarea value.\n\nIt spans multiple lines.",
+			}}
 			readOnly
 		/>
 	),

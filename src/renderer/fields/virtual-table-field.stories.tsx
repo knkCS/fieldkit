@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import type { FieldKitAdapters } from "../adapters";
 import type { Field } from "../../schema/types";
+import type { FieldKitAdapters } from "../adapters";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,
@@ -143,7 +143,8 @@ const loadingField: Field = {
 		name: "Slow Table",
 		api_accessor: "slow_table",
 		required: false,
-		instructions: "This table's adapter never resolves, showing the loading state",
+		instructions:
+			"This table's adapter never resolves, showing the loading state",
 	},
 	settings: {
 		blueprint: "products",
@@ -167,11 +168,41 @@ export const DefaultWithMockAdapter: Story = {
 			fields={[defaultVirtualTableField]}
 			defaultValues={{
 				product_catalog: [
-					{ product_name: "Wireless Keyboard", price: 79.99, sku: "KB-001", in_stock: true, category: "Peripherals" },
-					{ product_name: "USB-C Hub", price: 49.99, sku: "HB-012", in_stock: true, category: "Accessories" },
-					{ product_name: "Ergonomic Mouse", price: 59.99, sku: "MS-003", in_stock: false, category: "Peripherals" },
-					{ product_name: "Monitor Stand", price: 129.00, sku: "ST-007", in_stock: true, category: "Furniture" },
-					{ product_name: "Webcam HD", price: 89.95, sku: "WC-021", in_stock: true, category: "Peripherals" },
+					{
+						product_name: "Wireless Keyboard",
+						price: 79.99,
+						sku: "KB-001",
+						in_stock: true,
+						category: "Peripherals",
+					},
+					{
+						product_name: "USB-C Hub",
+						price: 49.99,
+						sku: "HB-012",
+						in_stock: true,
+						category: "Accessories",
+					},
+					{
+						product_name: "Ergonomic Mouse",
+						price: 59.99,
+						sku: "MS-003",
+						in_stock: false,
+						category: "Peripherals",
+					},
+					{
+						product_name: "Monitor Stand",
+						price: 129.0,
+						sku: "ST-007",
+						in_stock: true,
+						category: "Furniture",
+					},
+					{
+						product_name: "Webcam HD",
+						price: 89.95,
+						sku: "WC-021",
+						in_stock: true,
+						category: "Peripherals",
+					},
 				],
 			}}
 			adapters={{ blueprint: mockBlueprintAdapter }}

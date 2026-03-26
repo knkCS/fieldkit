@@ -9,16 +9,26 @@ function Wrapper({ children }: { children: ReactNode }) {
 	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
 }
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "slug",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });
 
 describe("SlugCell", () => {
 	it("renders slug text", () => {
-		render(<SlugCell field={makeField()} value="my-page-slug" />, { wrapper: Wrapper });
+		render(<SlugCell field={makeField()} value="my-page-slug" />, {
+			wrapper: Wrapper,
+		});
 		expect(screen.getByText("my-page-slug")).toBeDefined();
 	});
 

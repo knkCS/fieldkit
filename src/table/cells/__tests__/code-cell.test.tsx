@@ -9,16 +9,26 @@ function Wrapper({ children }: { children: ReactNode }) {
 	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
 }
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "code",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });
 
 describe("CodeCell", () => {
 	it("renders code text", () => {
-		render(<CodeCell field={makeField()} value="const x = 1;" />, { wrapper: Wrapper });
+		render(<CodeCell field={makeField()} value="const x = 1;" />, {
+			wrapper: Wrapper,
+		});
 		expect(screen.getByText("const x = 1;")).toBeDefined();
 	});
 

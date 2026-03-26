@@ -1,5 +1,5 @@
-import { CheckboxField, FormField } from "@knkcs/anker/forms";
 import { Stack } from "@chakra-ui/react";
+import { CheckboxField, FormField } from "@knkcs/anker/forms";
 import type { CheckboxesSettings } from "../../schema/field-types/checkboxes";
 import type { FieldProps } from "../../schema/plugin";
 
@@ -7,9 +7,8 @@ export function CheckboxesField({
 	field,
 	readOnly,
 }: FieldProps<CheckboxesSettings>) {
-	const { config } = field;
-	const settings = field.settings ?? { options: {} };
-	const options = settings.options ?? {};
+	const { config, settings } = field;
+	const { options = {} } = settings ?? {};
 
 	return (
 		<FormField

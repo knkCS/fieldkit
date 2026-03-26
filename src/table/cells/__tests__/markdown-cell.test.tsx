@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest";
 import type { Field } from "../../../schema/types";
 import { MarkdownCell } from "../markdown-cell";
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "markdown",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });
@@ -17,7 +25,12 @@ describe("MarkdownCell", () => {
 	});
 
 	it("strips links", () => {
-		render(<MarkdownCell field={makeField()} value="[click here](http://example.com)" />);
+		render(
+			<MarkdownCell
+				field={makeField()}
+				value="[click here](http://example.com)"
+			/>,
+		);
 		expect(screen.getByText("click here")).toBeDefined();
 	});
 

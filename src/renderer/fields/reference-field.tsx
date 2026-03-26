@@ -1,11 +1,12 @@
 import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { ReferenceItem } from "../adapters";
+import { useResolvedReferences } from "../hooks/use-resolved-references";
 import { useFieldKit } from "../provider";
 
 export function ReferenceField({
@@ -20,44 +21,34 @@ export function ReferenceField({
 	const refAdapter = adapters.reference;
 
 	const [searchQuery, setSearchQuery] = useState("");
-	const [searchResults, setSearchResults] = useState<ReferenceItem[]>([]);
-	const [resolvedItems, setResolvedItems] = useState<ReferenceItem[]>([]);
-	const [searching, setSearching] = useState(false);
 
-	const resolveIds = useCallback(
-		async (ids: string[]) => {
-			if (!refAdapter || ids.length === 0) return;
-			try {
-				const items = await refAdapter.fetch(ids);
-				setResolvedItems(items);
-			} catch {
-				// silently fail -- IDs will be shown as fallback
-			}
-		},
-		[refAdapter],
-	);
+	const {
+		resolved,
+		error,
+		search,
+		searchResults,
+		searching,
+		clearSearch,
+		resolveIds,
+	} = useResolvedReferences({
+		adapter: refAdapter,
+		blueprints: settings?.blueprints ?? [],
+	});
 
-	const handleSearch = useCallback(
-		async (query: string) => {
-			if (!refAdapter || query.length === 0) {
-				setSearchResults([]);
-				return;
-			}
-			setSearching(true);
-			try {
-				const results = await refAdapter.search(
-					settings?.blueprints ?? [],
-					query,
-				);
-				setSearchResults(results);
-			} catch {
-				setSearchResults([]);
-			} finally {
-				setSearching(false);
-			}
-		},
-		[refAdapter, settings?.blueprints],
-	);
+	const watchedValue = useWatch({ name: accessor, control });
+	const currentIds: string[] = isSingle
+		? watchedValue
+			? [watchedValue]
+			: []
+		: Array.isArray(watchedValue)
+			? watchedValue
+			: [];
+	const idsKey = JSON.stringify(currentIds);
+
+	useEffect(() => {
+		const ids: string[] = JSON.parse(idsKey);
+		resolveIds(ids);
+	}, [idsKey, resolveIds]);
 
 	if (!refAdapter) {
 		return (
@@ -70,6 +61,11 @@ export function ReferenceField({
 			</FormField>
 		);
 	}
+
+	const getDisplayName = (id: string) => {
+		const item = resolved.find((r) => r.id === id);
+		return item?.display_name ?? id;
+	};
 
 	return (
 		<FormField
@@ -84,26 +80,6 @@ export function ReferenceField({
 					name={accessor}
 					control={control}
 					render={({ field: formField }) => {
-						const currentValue = formField.value;
-						const currentIds: string[] = isSingle
-							? currentValue
-								? [currentValue]
-								: []
-							: Array.isArray(currentValue)
-								? currentValue
-								: [];
-
-						// Resolve display names on mount / value change
-						// eslint-disable-next-line react-hooks/rules-of-hooks
-						useEffect(() => {
-							resolveIds(currentIds);
-						}, [currentIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-						const getDisplayName = (id: string) => {
-							const item = resolvedItems.find((r) => r.id === id);
-							return item?.display_name ?? id;
-						};
-
 						const handleAdd = (item: ReferenceItem) => {
 							if (isSingle) {
 								formField.onChange(item.id);
@@ -117,7 +93,7 @@ export function ReferenceField({
 								}
 							}
 							setSearchQuery("");
-							setSearchResults([]);
+							clearSearch();
 						};
 
 						const handleRemove = (id: string) => {
@@ -163,6 +139,13 @@ export function ReferenceField({
 									</Flex>
 								)}
 
+								{/* Error display */}
+								{error && (
+									<Text color="fg.error" fontSize="sm" mb={2}>
+										{error}
+									</Text>
+								)}
+
 								{/* Search input */}
 								{!readOnly && (
 									<Box position="relative">
@@ -170,7 +153,7 @@ export function ReferenceField({
 											value={searchQuery}
 											onChange={(e) => {
 												setSearchQuery(e.target.value);
-												handleSearch(e.target.value);
+												search(e.target.value);
 											}}
 											placeholder="Search references..."
 										/>
@@ -213,9 +196,12 @@ export function ReferenceField({
 														cursor="pointer"
 														_hover={{ bg: "bg.muted" }}
 													>
-														<button type="button" onClick={() => handleAdd(item)}>
-														{item.display_name}
-													</button>
+														<button
+															type="button"
+															onClick={() => handleAdd(item)}
+														>
+															{item.display_name}
+														</button>
 													</Box>
 												))}
 											</Box>

@@ -19,6 +19,7 @@ export function VirtualTableField({
 
 	const [schema, setSchema] = useState<FieldDef[]>([]);
 	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	const fetchSchema = useCallback(async () => {
 		if (!blueprintAdapter || !settings?.blueprint) return;
@@ -26,7 +27,9 @@ export function VirtualTableField({
 		try {
 			const fields = await blueprintAdapter.getSchema(settings.blueprint);
 			setSchema(fields);
-		} catch {
+		} catch (e) {
+			console.error("Blueprint schema fetch failed:", e);
+			setError("Failed to load schema");
 			setSchema([]);
 		} finally {
 			setLoading(false);
@@ -72,6 +75,14 @@ export function VirtualTableField({
 							return (
 								<Text color="fg.muted" fontSize="sm">
 									Loading table schema...
+								</Text>
+							);
+						}
+
+						if (error) {
+							return (
+								<Text color="fg.muted" fontSize="sm">
+									{error}
 								</Text>
 							);
 						}

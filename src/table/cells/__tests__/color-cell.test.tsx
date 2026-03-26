@@ -9,16 +9,26 @@ function Wrapper({ children }: { children: ReactNode }) {
 	return <ChakraProvider value={defaultSystem}>{children}</ChakraProvider>;
 }
 
-const makeField = (overrides?: { config?: Partial<Field["config"]> }): Field => ({
+const makeField = (overrides?: {
+	config?: Partial<Field["config"]>;
+}): Field => ({
 	field_type: "color",
-	config: { name: "Test", api_accessor: "test", required: false, instructions: "", ...overrides?.config },
+	config: {
+		name: "Test",
+		api_accessor: "test",
+		required: false,
+		instructions: "",
+		...overrides?.config,
+	},
 	settings: null,
 	system: false,
 });
 
 describe("ColorCell", () => {
 	it("renders the color value text", () => {
-		render(<ColorCell field={makeField()} value="#ff0000" />, { wrapper: Wrapper });
+		render(<ColorCell field={makeField()} value="#ff0000" />, {
+			wrapper: Wrapper,
+		});
 		expect(screen.getByText("#ff0000")).toBeDefined();
 	});
 

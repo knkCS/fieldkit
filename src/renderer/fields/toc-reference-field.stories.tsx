@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import type { FieldKitAdapters } from "../adapters";
 import type { Field } from "../../schema/types";
+import type { FieldKitAdapters } from "../adapters";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,
@@ -9,12 +9,36 @@ import {
 const mockReferenceAdapter: FieldKitAdapters["reference"] = {
 	search: async (_blueprintIds: string[], query: string) => {
 		const allItems = [
-			{ id: "chapter-1", display_name: "1. Introduction", blueprint_id: "chapter" },
-			{ id: "chapter-2", display_name: "2. Getting Started", blueprint_id: "chapter" },
-			{ id: "chapter-3", display_name: "3. Core Concepts", blueprint_id: "chapter" },
-			{ id: "chapter-4", display_name: "4. Advanced Usage", blueprint_id: "chapter" },
-			{ id: "chapter-5", display_name: "5. API Reference", blueprint_id: "chapter" },
-			{ id: "chapter-6", display_name: "6. Troubleshooting", blueprint_id: "chapter" },
+			{
+				id: "chapter-1",
+				display_name: "1. Introduction",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-2",
+				display_name: "2. Getting Started",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-3",
+				display_name: "3. Core Concepts",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-4",
+				display_name: "4. Advanced Usage",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-5",
+				display_name: "5. API Reference",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-6",
+				display_name: "6. Troubleshooting",
+				blueprint_id: "chapter",
+			},
 		];
 		const lower = query.toLowerCase();
 		return allItems.filter((item) =>
@@ -23,12 +47,36 @@ const mockReferenceAdapter: FieldKitAdapters["reference"] = {
 	},
 	fetch: async (ids: string[]) => {
 		const allItems = [
-			{ id: "chapter-1", display_name: "1. Introduction", blueprint_id: "chapter" },
-			{ id: "chapter-2", display_name: "2. Getting Started", blueprint_id: "chapter" },
-			{ id: "chapter-3", display_name: "3. Core Concepts", blueprint_id: "chapter" },
-			{ id: "chapter-4", display_name: "4. Advanced Usage", blueprint_id: "chapter" },
-			{ id: "chapter-5", display_name: "5. API Reference", blueprint_id: "chapter" },
-			{ id: "chapter-6", display_name: "6. Troubleshooting", blueprint_id: "chapter" },
+			{
+				id: "chapter-1",
+				display_name: "1. Introduction",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-2",
+				display_name: "2. Getting Started",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-3",
+				display_name: "3. Core Concepts",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-4",
+				display_name: "4. Advanced Usage",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-5",
+				display_name: "5. API Reference",
+				blueprint_id: "chapter",
+			},
+			{
+				id: "chapter-6",
+				display_name: "6. Troubleshooting",
+				blueprint_id: "chapter",
+			},
 		];
 		return allItems.filter((item) => ids.includes(item.id));
 	},

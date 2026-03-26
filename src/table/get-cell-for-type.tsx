@@ -1,5 +1,6 @@
 // src/table/get-cell-for-type.tsx
 import type { ColumnDef } from "@tanstack/react-table";
+import { FieldErrorBoundary } from "../renderer/field-error-boundary";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
 
@@ -35,7 +36,11 @@ export function getCellForFieldType(
 				cell: CellComponent
 					? ({ getValue }) => {
 							const value = getValue();
-							return <CellComponent field={field} value={value} />;
+							return (
+								<FieldErrorBoundary fieldId={field.config.api_accessor}>
+									<CellComponent field={field} value={value} />
+								</FieldErrorBoundary>
+							);
 						}
 					: ({ getValue }) => {
 							const value = getValue();
