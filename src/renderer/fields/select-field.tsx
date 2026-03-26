@@ -25,6 +25,11 @@ export function SelectField({ field, readOnly }: FieldProps<SelectSettings>) {
 							<select
 								multiple
 								disabled={readOnly}
+								style={
+									readOnly
+										? { pointerEvents: "none" as const, opacity: 0.6 }
+										: undefined
+								}
 								value={Array.isArray(formField.value) ? formField.value : []}
 								onChange={(e) => {
 									const selected = Array.from(
