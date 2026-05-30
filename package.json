@@ -7,24 +7,29 @@
   "types": "./dist/schema/index.d.ts",
   "exports": {
     "./schema": {
+      "types": "./dist/schema/index.d.ts",
       "import": "./dist/schema/index.js",
-      "types": "./dist/schema/index.d.ts"
+      "default": "./dist/schema/index.js"
     },
     "./editor": {
+      "types": "./dist/editor/index.d.ts",
       "import": "./dist/editor/index.js",
-      "types": "./dist/editor/index.d.ts"
+      "default": "./dist/editor/index.js"
     },
     "./renderer": {
+      "types": "./dist/renderer/index.d.ts",
       "import": "./dist/renderer/index.js",
-      "types": "./dist/renderer/index.d.ts"
+      "default": "./dist/renderer/index.js"
     },
     "./table": {
+      "types": "./dist/table/index.d.ts",
       "import": "./dist/table/index.js",
-      "types": "./dist/table/index.d.ts"
+      "default": "./dist/table/index.js"
     },
     "./rich-text-spec": {
+      "types": "./dist/rich-text-spec/index.d.ts",
       "import": "./dist/rich-text-spec/index.js",
-      "types": "./dist/rich-text-spec/index.d.ts"
+      "default": "./dist/rich-text-spec/index.js"
     }
   },
   "files": [
