@@ -97,6 +97,107 @@ git commit -m "build: add verify-exports script (ported from anker)"
 
 ---
 
+## Task 1b: Narrow the rich-text-spec barrel to mirror its public API
+
+> Added after Task 1: porting `verify-exports` surfaced a real export-surface mismatch.
+> The `rich-text-spec` entry exposes only 3 aggregate collections, but imports them from a
+> barrel (`node-plugins/index.ts`) that also re-exports 20 individual plugins — which the
+> script's barrel-widening heuristic then expects in the built `.d.ts` (they're absent).
+> Decision (confirmed with maintainer): individual plugins stay **internal**; only the 3
+> aggregates are public. Narrow the barrel so it mirrors the public API. This keeps
+> `verify-exports.ts` unmodified and changes nothing for published consumers (the
+> individuals were never in the published `.d.ts`). Must land before Task 2 so CI is green.
+
+**Files:**
+- Modify: `src/rich-text-spec/node-plugins/index.ts`
+- Modify: `src/rich-text-spec/__tests__/node-plugins.test.ts`
+
+- [ ] **Step 1: Narrow the barrel to the 3 public aggregates**
+
+Replace the entire contents of `src/rich-text-spec/node-plugins/index.ts` with:
+
+```ts
+// src/rich-text-spec/node-plugins/index.ts
+import type { EditorNodePlugin } from "../types";
+import { builtInCoreNodePlugins } from "./core-nodes";
+import { builtInMarkPlugins } from "./marks";
+import { builtInMediaNodePlugins } from "./media-nodes";
+
+// Public API: only the aggregate collections are re-exported here. Individual
+// node/mark plugins remain internal to their leaf modules (core-nodes.ts,
+// marks.ts, media-nodes.ts) — importing them across the module must reference
+// those files directly. Keeping this barrel a 1:1 mirror of the public surface
+// is what verify-exports asserts against the built .d.ts.
+export { builtInMarkPlugins } from "./marks";
+
+/** All built-in node plugins (core + media). */
+export const builtInNodePlugins: EditorNodePlugin[] = [
+	...builtInCoreNodePlugins,
+	...builtInMediaNodePlugins,
+];
+
+/** All built-in editor plugins (marks + nodes). */
+export const builtInEditorPlugins: EditorNodePlugin[] = [
+	...builtInMarkPlugins,
+	...builtInNodePlugins,
+];
+```
+
+- [ ] **Step 2: Run the rich-text-spec tests to verify they now FAIL (barrel no longer exports individuals)**
+
+Run: `npm test -- src/rich-text-spec/__tests__/node-plugins.test.ts`
+Expected: FAIL — the test still imports `builtInCoreNodePlugins`, `builtInMediaNodePlugins`, `contentLinkPlugin`, `footnotePlugin`, `headingPlugin`, `imagePlugin`, `paragraphPlugin`, `weblinkPlugin` from `../node-plugins`, which no longer exports them (import resolves to `undefined`, assertions throw).
+
+- [ ] **Step 3: Update the test to import individuals from the leaf files**
+
+In `src/rich-text-spec/__tests__/node-plugins.test.ts`, replace the single import block (currently lines 3-15, importing everything from `"../node-plugins"`) with three imports — aggregates from the barrel, individuals from their leaves:
+
+```ts
+import {
+	builtInEditorPlugins,
+	builtInMarkPlugins,
+	builtInNodePlugins,
+} from "../node-plugins";
+import {
+	builtInCoreNodePlugins,
+	headingPlugin,
+	paragraphPlugin,
+} from "../node-plugins/core-nodes";
+import {
+	builtInMediaNodePlugins,
+	contentLinkPlugin,
+	footnotePlugin,
+	imagePlugin,
+	weblinkPlugin,
+} from "../node-plugins/media-nodes";
+```
+
+(Leaf membership: `headingPlugin`, `paragraphPlugin`, `builtInCoreNodePlugins` → `core-nodes.ts`; `contentLinkPlugin`, `footnotePlugin`, `imagePlugin`, `weblinkPlugin`, `builtInMediaNodePlugins` → `media-nodes.ts`. `builtInEditorPlugins`, `builtInMarkPlugins`, `builtInNodePlugins` stay on the barrel.)
+
+- [ ] **Step 4: Run the rich-text-spec tests to verify they PASS**
+
+Run: `npm test -- src/rich-text-spec/__tests__/node-plugins.test.ts`
+Expected: PASS (all assertions green).
+
+- [ ] **Step 5: Rebuild and run verify-exports — must now pass**
+
+Run: `npm run build && npm run verify-exports`
+Expected: `verify-exports: ok — 5 tsup entries match their built .d.ts`, exit code 0.
+
+- [ ] **Step 6: Full check sweep**
+
+Run: `npm run lint && npm run typecheck && npm test`
+Expected: all pass (no new errors; pre-existing warnings are fine).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/rich-text-spec/node-plugins/index.ts src/rich-text-spec/__tests__/node-plugins.test.ts
+git commit -m "refactor(rich-text-spec): narrow node-plugins barrel to public aggregates"
+```
+
+---
+
 ## Task 2: Add the `verify-exports` step to CI
 
 **Files:**
@@ -205,7 +306,9 @@ jobs:
         run: npm test
 
       - name: Publish to npmjs.org
-        run: npm publish --provenance --access public
+        # --ignore-scripts: skip the prepublishOnly rebuild so we publish the exact
+        # dist/ that lint/typecheck/verify-exports/test validated above (not a fresh build).
+        run: npm publish --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -216,7 +319,8 @@ jobs:
           scope: "@knkcs"
 
       - name: Publish to GitHub Packages
-        run: npm publish
+        # --ignore-scripts: same dist/ as the npmjs publish above; no rebuild.
+        run: npm publish --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```

@@ -1,18 +1,22 @@
 // src/rich-text-spec/__tests__/node-plugins.test.ts
 import { describe, expect, it } from "vitest";
 import {
-	builtInCoreNodePlugins,
 	builtInEditorPlugins,
 	builtInMarkPlugins,
-	builtInMediaNodePlugins,
 	builtInNodePlugins,
+} from "../node-plugins";
+import {
+	builtInCoreNodePlugins,
+	headingPlugin,
+	paragraphPlugin,
+} from "../node-plugins/core-nodes";
+import {
+	builtInMediaNodePlugins,
 	contentLinkPlugin,
 	footnotePlugin,
-	headingPlugin,
 	imagePlugin,
-	paragraphPlugin,
 	weblinkPlugin,
-} from "../node-plugins";
+} from "../node-plugins/media-nodes";
 
 describe("Built-in mark plugins", () => {
 	it("has 6 mark plugins", () => {
