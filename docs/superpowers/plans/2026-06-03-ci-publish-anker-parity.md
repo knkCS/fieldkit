@@ -306,7 +306,9 @@ jobs:
         run: npm test
 
       - name: Publish to npmjs.org
-        run: npm publish --provenance --access public
+        # --ignore-scripts: skip the prepublishOnly rebuild so we publish the exact
+        # dist/ that lint/typecheck/verify-exports/test validated above (not a fresh build).
+        run: npm publish --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -317,7 +319,8 @@ jobs:
           scope: "@knkcs"
 
       - name: Publish to GitHub Packages
-        run: npm publish
+        # --ignore-scripts: same dist/ as the npmjs publish above; no rebuild.
+        run: npm publish --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
