@@ -121,6 +121,31 @@ No change.
 - Publish workflow cannot be fully exercised without pushing a `v*` tag; validate the YAML
   and the bash version-check logic by inspection.
 
+## Addendum (2026-06-03): rich-text-spec export-surface fix
+
+Porting `verify-exports` immediately surfaced a real finding: the `rich-text-spec`
+entry (`src/rich-text-spec/index.ts`) intentionally exposes only three aggregate
+collections (`builtInEditorPlugins`, `builtInMarkPlugins`, `builtInNodePlugins`), but
+imports them from `node-plugins/index.ts` — a **barrel** that also re-exports 20 individual
+plugins (`paragraphPlugin`, `boldPlugin`, `imagePlugin`, `builtInCoreNodePlugins`, …).
+The script's barrel-widening heuristic (a barrel is assumed to be a 1:1 mirror of its
+public API) therefore expects those 20 in the built `.d.ts`, where they are absent.
+
+**Decision:** Keep the individual plugins **internal** — only the 3 aggregates are public.
+Resolve by **narrowing the barrel to mirror the public API** (Approach A), which keeps
+`verify-exports.ts` unmodified (preserving it as a shared oracle with anker) and changes
+nothing for published consumers (the individuals were never in the published `.d.ts`):
+
+- `src/rich-text-spec/node-plugins/index.ts` re-exports only the 3 public aggregates;
+  individual plugins remain exported from their leaf files (`core-nodes.ts`, `marks.ts`,
+  `media-nodes.ts`) for internal use.
+- `src/rich-text-spec/__tests__/node-plugins.test.ts` imports individual/sub-aggregate
+  plugins directly from the leaf files instead of the barrel.
+- `editor-spec-editor.stories.tsx` is unaffected (it imports only aggregates).
+
+This is implemented as Task 1b in the plan, sequenced before the CI wiring (Task 2) so CI
+stays green.
+
 ## Out of scope
 
 - Bumping the package version or actually cutting a release.
