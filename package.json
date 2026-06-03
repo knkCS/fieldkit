@@ -2,6 +2,10 @@
   "name": "@knkcs/fieldkit",
   "version": "0.0.1",
   "description": "Specification-driven field system for defining, rendering, and tabulating structured data",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knkCS/fieldkit.git"
+  },
   "type": "module",
   "main": "./dist/schema/index.js",
   "types": "./dist/schema/index.d.ts",
