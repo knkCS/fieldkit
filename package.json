@@ -1,6 +1,6 @@
 {
   "name": "@knkcs/fieldkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Specification-driven field system for defining, rendering, and tabulating structured data",
   "repository": {
     "type": "git",
@@ -61,7 +61,7 @@
     "react": ">=18",
     "react-dom": ">=18",
     "react-hook-form": "^7.0.0",
-    "react-router-dom": "^6.0.0",
+    "react-router-dom": "^6.0.0 || ^7.0.0",
     "zod": "^3.0.0"
   },
   "peerDependenciesMeta": {
