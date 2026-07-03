@@ -4,8 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { DrawerRoot } from "@knkcs/anker/components";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { FieldRenderer } from "../renderer/field-renderer";
 import { FieldKitProvider } from "../renderer/provider";
+import { SpecForm } from "../renderer/spec-form/spec-form";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
 import { getDefaultValues, specToZodSchema } from "../schema/zod-builder";
@@ -75,7 +75,7 @@ export function EditDrawer({
 				<FormProvider {...methods}>
 					<form ref={formRef} onSubmit={methods.handleSubmit(handleSave)}>
 						<FieldKitProvider plugins={plugins}>
-							<FieldRenderer schema={schema} />
+							<SpecForm schema={schema} />
 						</FieldKitProvider>
 					</form>
 				</FormProvider>
