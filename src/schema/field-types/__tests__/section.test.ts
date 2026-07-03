@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../types";
+import type { SectionSettings } from "../section";
 import { sectionPlugin } from "../section";
 
 describe("sectionPlugin", () => {
@@ -26,5 +27,16 @@ describe("sectionPlugin", () => {
 		expect(zodType.safeParse("anything").success).toBe(false);
 		expect(zodType.safeParse(undefined).success).toBe(false);
 		expect(zodType.safeParse(null).success).toBe(false);
+	});
+});
+
+describe("SectionSettings", () => {
+	it("accepts an orientation setting", () => {
+		const settings: SectionSettings = { orientation: "vertical" };
+		expect(settings.orientation).toBe("vertical");
+	});
+
+	it("has empty defaultSettings", () => {
+		expect(sectionPlugin.defaultSettings).toEqual({});
 	});
 });
