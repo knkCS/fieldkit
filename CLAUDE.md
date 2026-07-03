@@ -14,8 +14,8 @@ Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five la
 
 1. **`/schema`** — Zero React dependency. Field types, plugin registry, Zod schema generation, `defineSpec()` builder API. Core types: `Field<T>`, `FieldConfig`, `FieldValidation`, `FieldTypePlugin`, `Schema`.
 2. **`/editor`** — Drag-and-drop specification editor. `SpecEditor`, `FieldModal`, `TypePicker`. Uses dnd-kit for reordering.
-3. **`/renderer`** — Form renderer from specifications. `FieldRenderer`, `FieldComponent`, `FieldKitProvider`. Consumes external React Hook Form `FormProvider`.
-4. **`/table`** — Spec-driven data table. `SpecDataTable` extends anker's `DataTable`. Auto-generates columns from spec. `EditDrawer` uses `FieldRenderer` for row editing.
+3. **`/renderer`** — Form renderer from specifications. `FieldRenderer`, `SpecForm` (section tabs, field search, read mode), `FieldComponent`, `FieldKitProvider`. Consumes external React Hook Form `FormProvider`.
+4. **`/table`** — Spec-driven data table. `SpecDataTable` extends anker's `DataTable`. Auto-generates columns from spec. `EditDrawer` uses `SpecForm` for row editing.
 5. **`/rich-text-spec`** — Rich text editor specification. `EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`. Configures which TipTap nodes/marks are available.
 
 ### Key Technology Choices

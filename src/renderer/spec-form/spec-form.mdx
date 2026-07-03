@@ -1,0 +1,148 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./spec-form.stories";
+
+<Meta of={Stories} />
+
+# SpecForm
+
+Renders a full specification as a form, automatically splitting it into
+section tabs when the schema contains `section` fields. Wraps
+[FieldRenderer](?path=/story/renderer-fieldrenderer--default) and adds
+tabbed navigation, cross-tab field search, per-tab dirty/error indicators,
+submit-jump-to-error, a loading skeleton, and a form-free read mode.
+
+## When to Use
+
+`FieldRenderer` stays public for flat embedding (groups use it internally to
+render each item's child fields); embed `SpecForm` unless you know why not.
+It is the entry point consumers should reach for when rendering a
+specification end to end — including specs with no sections at all, where it
+behaves identically to `FieldRenderer`.
+
+## Props
+
+| Prop       | Type                       | Default  | Description                                                        |
+|------------|----------------------------|----------|---------------------------------------------------------------------|
+| `schema`   | `Schema`                   | —        | The field specification to render.                                  |
+| `mode`     | `"edit" \| "read"`         | `"edit"` | `"read"` renders values via table cell components instead of inputs. |
+| `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
+| `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
+| `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
+| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, and no-results text. |
+
+`SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`) are
+all optional and merge over `DEFAULT_LABELS`.
+
+## Section Partitioning
+
+`partitionSchemaBySections` (pure, shared with the spec editor) splits the
+flat `schema` array at each `section` field:
+
+- Fields before the first `section` field form an **implicit first tab**,
+  labeled with `labels.defaultTab` (default `"General"`).
+- Each `section` field opens a new tab named after the section's `name`.
+- A schema with **no** `section` fields is "sectionless" — `SpecForm` skips
+  tabs entirely and renders `FieldRenderer` directly against the flat field
+  list.
+- Tab orientation (`"horizontal" | "vertical"`) is a whole-form setting read
+  from the **first** section's `settings.orientation` only; later sections
+  cannot override it.
+
+## Mounted-Hidden Panels
+
+All tab panels stay mounted in the DOM at all times (`Tabs.Root` is never
+given `lazyMount`/`unmountOnExit`) — only the active panel is visible.
+React Hook Form registers every field via `useFormContext`, so unmounting an
+inactive tab would unregister its fields and drop their values. This also
+means validation, dirty state, and errors are always live for every tab, not
+just the one currently in view.
+
+## Search
+
+A search box (`/` keyboard shortcut, unless focus is already in a text
+input/textarea/content-editable element) filters fields by name or accessor
+across every tab. Use `ArrowUp`/`ArrowDown` to move the highlight, `Enter` to
+jump to the highlighted result, `Esc` to clear the query. Jumping switches to
+the target tab, then — one frame later, once the panel is visible — focuses
+the field (edit mode) or scrolls to and briefly highlights its row (read
+mode). The search box is hidden when the schema has fewer than one
+searchable field.
+
+## Read Mode
+
+`mode="read"` takes a `values` object directly and needs **no**
+`FormProvider` in the tree — it never calls `useFormContext`/`useFormState`.
+Each field's value is resolved in this order:
+
+1. Empty values (`undefined`, `null`, `""`, or an empty array) render an
+   em dash (`—`).
+2. Otherwise, the field type's registered `cellComponent` (the same one used
+   by `SpecDataTable`) renders the value.
+3. If no `cellComponent` is registered for the field type, the raw value is
+   coerced with `String(value)`.
+
+Because read mode has no form state, there are no dirty dots or error
+badges on its tabs, and no submit-jump behavior.
+
+## Degrading Orientation
+
+Vertical tabs need a side nav column, which doesn't fit in narrow
+containers (drawers, modals). `SpecForm` observes its own container width
+via `ResizeObserver` and **auto-degrades a `vertical` orientation to
+`horizontal` below ~560px container width** — this applies whether the
+narrow container is a drawer, a modal, or just a small browser window.
+
+## Loading
+
+`loading` renders `SpecFormSkeleton` — a placeholder tab strip (shown only
+when the schema has sections) plus up to 8 skeleton rows — instead of the
+schema. Useful while a spec or its data is still being fetched.
+
+## In a Drawer
+
+`SpecDataTable`'s `EditDrawer` renders row edits through `SpecForm`. See the
+[SpecDataTable "Editable" story](?path=/story/table-specdatatable--editable)
+for that flow rather than duplicating it here.
+
+## Known Limitations
+
+- No required/optional marker convention beyond the asterisk anker's
+  `FormField` already renders — blocked on an `optionalText`-equivalent prop
+  in `@knkcs/anker`.
+
+## Examples
+
+### Horizontal
+
+Three tabs: the implicit "General" tab, then "SEO" and "Advanced" — both
+explicit sections, both defaulting to horizontal orientation.
+
+<Canvas of={Stories.Horizontal} />
+
+### Vertical
+
+The first section ("Profile") sets `orientation: "vertical"`, so the whole
+form's tabs render as a side nav. Shrink the canvas below ~560px to see it
+degrade to horizontal.
+
+<Canvas of={Stories.Vertical} />
+
+### Sectionless
+
+No `section` fields — `SpecForm` renders `FieldRenderer` directly with no
+tab strip.
+
+<Canvas of={Stories.Sectionless} />
+
+### Read Mode
+
+A form-free render from a `values` object. The subtitle is omitted from
+`values` and renders as an em dash.
+
+<Canvas of={Stories.ReadMode} />
+
+### Loading
+
+The skeleton state, shown while a schema or its data is still loading.
+
+<Canvas of={Stories.Loading} />

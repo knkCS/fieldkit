@@ -5,15 +5,19 @@ import * as Stories from "./section-field.stories";
 
 # Section
 
-A structural divider intended to organize fields into tabbed groups. **This field type is currently non-functional.**
+A structural divider that splits a specification into tabs. **Rendering the tabs is [SpecForm](?path=/docs/renderer-specform--docs)'s job, not `FieldRenderer`'s** — this field type's own `fieldComponent` returns `null` and produces no visual output by itself.
 
 ## When to Use
 
-Section is meant to create tabbed layouts in the form renderer. However, since the implementation is missing, it currently has no effect. Fields before and after a section field are rendered in the same flat list.
+Insert a `section` field wherever a new tab should start. Fields before the first `section` field land on an implicit first tab (labeled `"General"` by default); every `section` field after that opens a new tab named after it. If a schema has no `section` fields at all, `SpecForm` renders it flat with no tab strip.
+
+`FieldRenderer` itself does not special-case `section` fields — passing a schema with sections directly to `FieldRenderer` (bypassing `SpecForm`) renders every field in a flat list with no visible divider, since the section's `fieldComponent` returns `null`. Use `SpecForm` when a schema may contain sections.
 
 ## Settings
 
-This field type has no configurable settings.
+| Setting       | Type                         | Default        | Description                                                                 |
+|---------------|------------------------------|----------------|-------------------------------------------------------------------------------|
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` | Whole-form tab orientation. Only the **first** section's value is read; later sections cannot override it. `SpecForm` auto-degrades `vertical` to `horizontal` below ~560px container width. |
 
 ## Validation
 
@@ -31,15 +35,13 @@ No cell component — section fields are not data-bearing.
 
 ## Known Limitations
 
-- **Completely non-functional.** The `fieldComponent` returns `null`. No visual rendering occurs.
-- No tabbed layout — the plan specified: tabbed layout when sections detected, fields grouped by section, default tab for fields before first section. None of this is implemented.
-- FieldRenderer ignores section fields entirely — they produce no DOM output
-- Zod schema uses `z.never()` which may cause issues if the accessor appears in form data
+- The `fieldComponent` returns `null` — the field itself renders nothing; the tab UI comes entirely from `SpecForm`, so a schema with sections rendered through bare `FieldRenderer` shows no divider and no tabs.
+- Zod schema uses `z.never()` which may cause issues if the accessor appears in form data.
 
 ## Examples
 
 ### Default
 
-This story renders a section field. Notice that nothing visible appears — this documents the current gap.
+This story renders a section field through `FieldRenderer` directly (not `SpecForm`), so nothing visible appears — see [SpecForm](?path=/docs/renderer-specform--docs) for the tabbed rendering.
 
 <Canvas of={Stories.Default} />
