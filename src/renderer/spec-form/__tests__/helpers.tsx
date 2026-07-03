@@ -1,6 +1,6 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import type { ReactNode } from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import type { FieldProps, FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
@@ -29,11 +29,12 @@ export function makeSection(
 }
 
 function TestField({ field }: FieldProps) {
+	const { register } = useFormContext();
 	return (
 		<input
 			data-testid={`field-${field.config.api_accessor}`}
-			name={field.config.api_accessor}
 			aria-label={field.config.name}
+			{...register(field.config.api_accessor)}
 		/>
 	);
 }
