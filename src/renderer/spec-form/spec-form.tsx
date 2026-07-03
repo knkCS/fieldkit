@@ -1,6 +1,6 @@
 import { Box } from "@chakra-ui/react";
 import { Tabs } from "@knkcs/anker/primitives";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
@@ -45,9 +45,7 @@ export function SpecForm({
 	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
 	const [activeTab, setActiveTab] = useState("tab-0");
-	const containerRef = useRef<HTMLDivElement>(null);
-	const orientation = useContainerOrientation(
-		containerRef,
+	const { orientation, containerRef } = useContainerOrientation(
 		partition.orientation,
 	);
 
