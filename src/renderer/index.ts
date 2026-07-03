@@ -20,6 +20,7 @@ export { FieldRenderer } from "./field-renderer";
 export type { FieldKitProviderProps } from "./provider";
 // Provider
 export { FieldKitProvider, useFieldKit } from "./provider";
+// SpecForm
 export {
 	SpecForm,
 	type SpecFormLabels,

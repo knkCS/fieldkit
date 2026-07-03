@@ -12,7 +12,7 @@ const sectionField: Field = {
 		api_accessor: "general_settings",
 		required: false,
 		instructions:
-			"This section should group related fields — but rendering is not implemented",
+			"Sections render as tabs via SpecForm; the section marker itself renders nothing inline",
 	},
 	settings: null,
 	children: null,
