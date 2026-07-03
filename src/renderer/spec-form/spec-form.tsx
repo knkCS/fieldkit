@@ -8,6 +8,7 @@ import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
 import { FieldSearch } from "./field-search";
+import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
 import { buildSearchIndex } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
@@ -215,12 +216,116 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 }
 SpecFormTabs.displayName = "SpecFormTabs";
 
+interface SpecFormReadTabsProps {
+	partition: SpecPartition;
+	values: Record<string, unknown>;
+	labels: Required<SpecFormLabels>;
+}
+
+// Mirrors SpecFormTabs minus form hooks: no useTabIndicators (no RHF
+// dirty/error state exists in read mode), no submit-jump effect, no
+// setFocus/"/" shortcut. The search jump scrolls+flashes the target row
+// instead of focusing a form control.
+function SpecFormReadTabs({
+	partition,
+	values,
+	labels,
+}: SpecFormReadTabsProps) {
+	const [activeTab, setActiveTab] = useState("tab-0");
+	const { orientation, containerRef } = useContainerOrientation(
+		partition.orientation,
+	);
+	const searchIndex = useMemo(
+		() => buildSearchIndex(partition.tabs, labels.defaultTab),
+		[partition, labels.defaultTab],
+	);
+
+	// Reset to the first tab when the partition identity changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
+	useEffect(() => {
+		setActiveTab("tab-0");
+	}, [partition]);
+
+	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
+		setActiveTab(`tab-${tabIndex}`);
+		// Wait one frame so the target panel is visible before scrolling.
+		requestAnimationFrame(() => {
+			const el = document.querySelector<HTMLElement>(
+				`[data-field-row="${accessor}"]`,
+			);
+			el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+			if (el) {
+				el.style.transition = "box-shadow 1.5s ease";
+				el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
+				setTimeout(() => {
+					el.style.boxShadow = "none";
+				}, 1500);
+			}
+		});
+	}, []);
+
+	const searchNode = searchIndex.length > 0 && (
+		<FieldSearch
+			index={searchIndex}
+			placeholder={labels.searchPlaceholder}
+			noResultsLabel={labels.noResults}
+			onJump={(result: FieldSearchResult) =>
+				jumpTo(result.accessor, result.tabIndex)
+			}
+		/>
+	);
+
+	const tabTriggers = partition.tabs.map((tab, i) => (
+		<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
+			{tab.section?.config.name ?? labels.defaultTab}
+		</Tabs.Trigger>
+	));
+
+	return (
+		<Box ref={containerRef}>
+			{/* Vertical Tabs.Root is a row-flex container (nav column beside
+			    content), so the search must live OUTSIDE it to span the full
+			    width above nav+content instead of becoming a row item. */}
+			{orientation === "vertical" && searchNode && (
+				<Box mb="3">{searchNode}</Box>
+			)}
+			<Tabs.Root
+				value={activeTab}
+				onValueChange={(e) => setActiveTab(e.value)}
+				orientation={orientation}
+			>
+				{orientation === "horizontal" ? (
+					<Box
+						display="flex"
+						alignItems="center"
+						justifyContent="space-between"
+						gap="4"
+					>
+						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
+						{searchNode}
+					</Box>
+				) : (
+					<Tabs.List>{tabTriggers}</Tabs.List>
+				)}
+				{partition.tabs.map((tab, i) => (
+					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+						<Box pt="4">
+							<ReadTab tab={tab} values={values} />
+						</Box>
+					</Tabs.Content>
+				))}
+			</Tabs.Root>
+		</Box>
+	);
+}
+SpecFormReadTabs.displayName = "SpecFormReadTabs";
+
 export function SpecForm({
 	schema,
-	mode: _mode = "edit",
+	mode = "edit",
 	readOnly,
 	loading,
-	values: _values,
+	values,
 	labels,
 }: SpecFormProps) {
 	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
@@ -233,6 +338,23 @@ export function SpecForm({
 			<SpecFormSkeleton
 				fieldCount={schema.length}
 				showTabStrip={partition.hasSections}
+			/>
+		);
+	}
+
+	// Read mode never touches react-hook-form hooks — it must render without
+	// a FormProvider in the tree, so this branch runs before any edit-mode
+	// path that calls useFormContext/useFormState.
+	if (mode === "read") {
+		const readValues = values ?? {};
+		if (!partition.hasSections) {
+			return <ReadTab tab={partition.tabs[0]} values={readValues} />;
+		}
+		return (
+			<SpecFormReadTabs
+				partition={partition}
+				values={readValues}
+				labels={resolvedLabels}
 			/>
 		);
 	}
