@@ -1,8 +1,15 @@
-import { useMemo } from "react";
+import { Box } from "@chakra-ui/react";
+import { Tabs } from "@knkcs/anker/primitives";
+import { useEffect, useMemo, useState } from "react";
+import type { SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
+
+function tabKey(tab: SpecTab, index: number): string {
+	return tab.section?.config.api_accessor ?? `implicit-${index}`;
+}
 
 export interface SpecFormLabels {
 	defaultTab?: string;
@@ -32,9 +39,17 @@ export function SpecForm({
 	readOnly,
 	loading,
 	values: _values,
-	labels: _labels,
+	labels,
 }: SpecFormProps) {
+	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
+	const [activeTab, setActiveTab] = useState("tab-0");
+
+	// Reset to the first tab when the schema identity changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: schema is a reset trigger, not read in the effect body
+	useEffect(() => {
+		setActiveTab("tab-0");
+	}, [schema]);
 
 	if (partition.tabs.length === 0) return null;
 
@@ -53,7 +68,27 @@ export function SpecForm({
 		);
 	}
 
-	// Tabbed rendering added in Task 6.
-	return <FieldRenderer schema={schema} readOnly={readOnly} />;
+	return (
+		<Tabs.Root
+			value={activeTab}
+			onValueChange={(e) => setActiveTab(e.value)}
+			// NEVER pass lazyMount/unmountOnExit: RHF needs all panels in the DOM.
+		>
+			<Tabs.List>
+				{partition.tabs.map((tab, i) => (
+					<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
+						{tab.section?.config.name ?? resolvedLabels.defaultTab}
+					</Tabs.Trigger>
+				))}
+			</Tabs.List>
+			{partition.tabs.map((tab, i) => (
+				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+					<Box pt="4">
+						<FieldRenderer schema={tab.fields} readOnly={readOnly} />
+					</Box>
+				</Tabs.Content>
+			))}
+		</Tabs.Root>
+	);
 }
 SpecForm.displayName = "SpecForm";
