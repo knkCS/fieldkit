@@ -1,12 +1,15 @@
 import { Box } from "@chakra-ui/react";
 import { DirtyDot } from "@knkcs/anker/atoms";
 import { Tabs } from "@knkcs/anker/primitives";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext, useFormState } from "react-hook-form";
 import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
+import { FieldSearch } from "./field-search";
+import type { FieldSearchResult } from "./search-index";
+import { buildSearchIndex } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { useContainerOrientation } from "./use-container-orientation";
 import { useTabIndicators } from "./use-tab-indicators";
@@ -48,16 +51,38 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	const { orientation, containerRef } = useContainerOrientation(
 		partition.orientation,
 	);
+	const rootRef = useRef<HTMLDivElement>(null);
 	const indicators = useTabIndicators(partition.tabs);
 	const { setFocus } = useFormContext();
 	const { submitCount, errors } = useFormState();
 	const lastHandledSubmit = useRef(0);
+	const searchIndex = useMemo(
+		() => buildSearchIndex(partition.tabs, labels.defaultTab),
+		[partition, labels.defaultTab],
+	);
 
 	// Reset to the first tab when the partition identity changes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
 	useEffect(() => {
 		setActiveTab("tab-0");
 	}, [partition]);
+
+	// Switch to `tabIndex` and focus/scroll `accessor` once its panel is
+	// mounted-visible. Shared by the submit-jump effect below and by
+	// FieldSearch's cross-tab jump so there is one focus/scroll implementation.
+	const jumpTo = useCallback(
+		(accessor: string, tabIndex: number) => {
+			setActiveTab(`tab-${tabIndex}`);
+			// Wait one frame so the target panel is visible before focusing.
+			requestAnimationFrame(() => {
+				setFocus(accessor);
+				document
+					.getElementsByName(accessor)[0]
+					?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+			});
+		},
+		[setFocus],
+	);
 
 	// After a failed submit, jump to the tab holding the first errored field
 	// and focus it. `useTabIndicators` (Task 8) also subscribes to
@@ -72,55 +97,108 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 				(f) => errors[f.config.api_accessor],
 			);
 			if (errored) {
-				const accessor = errored.config.api_accessor;
-				setActiveTab(`tab-${i}`);
-				// Wait one frame so the target panel is visible before focusing.
-				requestAnimationFrame(() => {
-					setFocus(accessor);
-					document
-						.getElementsByName(accessor)[0]
-						?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-				});
+				jumpTo(errored.config.api_accessor, i);
 				return;
 			}
 		}
-	}, [submitCount, errors, partition, setFocus]);
+	}, [submitCount, errors, partition, jumpTo]);
+
+	// "/" focuses the search unless the user is typing in a field.
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "/") return;
+			const active = document.activeElement;
+			if (
+				active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				(active instanceof HTMLElement && active.isContentEditable)
+			)
+				return;
+			const input = rootRef.current?.querySelector<HTMLInputElement>(
+				"[data-field-search-input]",
+			);
+			if (input) {
+				e.preventDefault();
+				input.focus();
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, []);
+
+	const searchNode = searchIndex.length > 0 && (
+		<FieldSearch
+			index={searchIndex}
+			placeholder={labels.searchPlaceholder}
+			noResultsLabel={labels.noResults}
+			onJump={(result: FieldSearchResult) =>
+				jumpTo(result.accessor, result.tabIndex)
+			}
+		/>
+	);
+
+	// Merge the callback ref from useContainerOrientation with a plain
+	// RefObject the "/" shortcut effect can query synchronously. Memoized so
+	// its identity is stable across renders — otherwise React would detach
+	// and reattach containerRef (and its ResizeObserver) on every render.
+	const setRoot = useCallback(
+		(node: HTMLDivElement | null) => {
+			rootRef.current = node;
+			containerRef(node);
+		},
+		[containerRef],
+	);
+
+	const tabTriggers = partition.tabs.map((tab, i) => (
+		<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
+			{tab.section?.config.name ?? labels.defaultTab}
+			{indicators[i].errorCount > 0 ? (
+				<Box
+					as="span"
+					data-testid={`tab-errors-${i}`}
+					bg="danger.600"
+					color="white"
+					borderRadius="full"
+					fontSize="xs"
+					px="1.5"
+					ml="1.5"
+				>
+					{indicators[i].errorCount}
+				</Box>
+			) : (
+				indicators[i].dirty && (
+					<Box as="span" data-testid={`tab-dirty-${i}`} ml="1.5">
+						<DirtyDot />
+					</Box>
+				)
+			)}
+		</Tabs.Trigger>
+	));
 
 	return (
-		<Box ref={containerRef}>
+		<Box ref={setRoot}>
 			<Tabs.Root
 				value={activeTab}
 				onValueChange={(e) => setActiveTab(e.value)}
 				orientation={orientation}
 				// NEVER pass lazyMount/unmountOnExit: RHF needs all panels in the DOM.
 			>
-				<Tabs.List>
-					{partition.tabs.map((tab, i) => (
-						<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
-							{tab.section?.config.name ?? labels.defaultTab}
-							{indicators[i].errorCount > 0 ? (
-								<Box
-									as="span"
-									data-testid={`tab-errors-${i}`}
-									bg="danger.600"
-									color="white"
-									borderRadius="full"
-									fontSize="xs"
-									px="1.5"
-									ml="1.5"
-								>
-									{indicators[i].errorCount}
-								</Box>
-							) : (
-								indicators[i].dirty && (
-									<Box as="span" data-testid={`tab-dirty-${i}`} ml="1.5">
-										<DirtyDot />
-									</Box>
-								)
-							)}
-						</Tabs.Trigger>
-					))}
-				</Tabs.List>
+				{orientation === "horizontal" ? (
+					<Box
+						display="flex"
+						alignItems="center"
+						justifyContent="space-between"
+						gap="4"
+					>
+						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
+						{searchNode}
+					</Box>
+				) : (
+					<>
+						{searchNode && <Box mb="3">{searchNode}</Box>}
+						<Tabs.List>{tabTriggers}</Tabs.List>
+					</>
+				)}
 				{partition.tabs.map((tab, i) => (
 					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
 						<Box pt="4">
