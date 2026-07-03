@@ -30,7 +30,7 @@ export interface SpecFormProps {
 	mode?: "edit" | "read";
 	readOnly?: boolean;
 	loading?: boolean;
-	/** Read-mode data source (Task 11); ignored in edit mode. */
+	/** Read-mode data source; ignored in edit mode. */
 	values?: Record<string, unknown>;
 	labels?: SpecFormLabels;
 }
@@ -90,6 +90,13 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// `useFormState` for the same render — RHF supports multiple
 	// subscriptions to the same form, so both hooks stay independent.
 	useEffect(() => {
+		// RHF's reset() (e.g. EditDrawer resetting on a new row's defaults)
+		// restarts submitCount at 0 without resetting this ref, so a
+		// post-reset submitCount can collide with a pre-reset value already
+		// recorded here. Detect the rewind and re-baseline before the
+		// early-return check below, or a post-reset failing submit whose
+		// count collides with the old one would be silently skipped.
+		if (submitCount < lastHandledSubmit.current) lastHandledSubmit.current = 0;
 		if (submitCount === 0 || submitCount === lastHandledSubmit.current) return;
 		lastHandledSubmit.current = submitCount;
 
@@ -331,8 +338,9 @@ export function SpecForm({
 	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
 
-	if (partition.tabs.length === 0) return null;
-
+	// `loading` must win over the empty-schema short-circuit below: a
+	// consumer fetching the spec itself passes `schema={[]} loading` until
+	// the real spec arrives, and needs the skeleton rather than nothing.
 	if (loading) {
 		return (
 			<SpecFormSkeleton
@@ -341,6 +349,8 @@ export function SpecForm({
 			/>
 		);
 	}
+
+	if (partition.tabs.length === 0) return null;
 
 	// Read mode never touches react-hook-form hooks — it must render without
 	// a FormProvider in the tree, so this branch runs before any edit-mode

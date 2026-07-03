@@ -41,6 +41,33 @@ function Harness() {
 	);
 }
 
+function ResetHarness() {
+	const methods = useForm({
+		resolver: zodResolver(
+			z.object({ title: z.string(), meta: z.string().min(1) }),
+		),
+		defaultValues: { title: "ok", meta: "" },
+	});
+	return (
+		<Provider>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={testPlugins}>
+					<form onSubmit={methods.handleSubmit(() => {})}>
+						<SpecForm schema={schema} />
+						<button type="submit">Save</button>
+						<button
+							type="button"
+							onClick={() => methods.reset({ title: "ok", meta: "" })}
+						>
+							Reset
+						</button>
+					</form>
+				</FieldKitProvider>
+			</FormProvider>
+		</Provider>
+	);
+}
+
 function PrecedenceHarness() {
 	const methods = useForm({
 		resolver: zodResolver(
@@ -97,5 +124,48 @@ describe("SpecForm — submit jump", () => {
 			expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
 		});
 		expect(screen.queryByTestId("tab-dirty-1")).not.toBeInTheDocument();
+	});
+
+	// Regression test: RHF's reset() (EditDrawer calls it whenever the row
+	// being edited changes) restarts submitCount at 0 without touching
+	// lastHandledSubmit.current, so a post-reset failing submit whose count
+	// collides with the pre-reset one must still trigger a jump.
+	it("jumps to the error tab again after a reset restarts submitCount", async () => {
+		render(<ResetHarness />);
+
+		// Assert via the tab trigger's aria-selected rather than the field's
+		// focus/visibility: RHF's own `shouldFocusError` default focuses the
+		// invalid field on every failed submit regardless of our jump effect,
+		// so focus alone can't tell whether *our* setActiveTab call fired.
+		fireEvent.click(screen.getByText("Save"));
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+		});
+
+		// Move back to General so the next assertion can tell whether the
+		// second failed submit actually re-jumps, rather than the tab simply
+		// having stayed on SEO from the first jump.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "General" }));
+		});
+		expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByText("Reset"));
+		});
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+		});
 	});
 });

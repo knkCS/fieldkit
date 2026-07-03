@@ -1,7 +1,7 @@
 // src/renderer/spec-form/field-search.tsx
 import { Box, Text } from "@chakra-ui/react";
 import { SearchInput } from "@knkcs/anker/forms";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { FieldSearchResult } from "./search-index";
 import { searchFields } from "./search-index";
 
@@ -20,7 +20,6 @@ export function FieldSearch({
 }: FieldSearchProps) {
 	const [query, setQuery] = useState("");
 	const [highlighted, setHighlighted] = useState(0);
-	const rootRef = useRef<HTMLDivElement>(null);
 	const results = searchFields(index, query);
 	const open = query.trim().length > 0;
 
@@ -41,13 +40,17 @@ export function FieldSearch({
 			e.preventDefault();
 			if (results[highlighted]) jump(results[highlighted]);
 		} else if (e.key === "Escape") {
+			// Contain the key inside the dropdown: without this, Escape also
+			// bubbles to ancestors — inside EditDrawer, Chakra's drawer closes
+			// on Escape too, so dismissing search results would also lose
+			// the drawer's in-progress edits.
+			e.stopPropagation();
 			setQuery("");
 		}
 	};
 
 	return (
 		<Box
-			ref={rootRef}
 			position="relative"
 			maxWidth="64"
 			data-testid="field-search"

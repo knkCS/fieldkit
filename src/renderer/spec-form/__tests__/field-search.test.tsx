@@ -5,7 +5,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SpecForm } from "../spec-form";
 import { makeField, makeSection, Wrapper } from "./helpers";
 
@@ -110,5 +110,47 @@ describe("SpecForm — field search", () => {
 		await waitFor(() => {
 			expect(screen.getByPlaceholderText("Find field…")).toHaveFocus();
 		});
+	});
+
+	// Inside EditDrawer, Chakra's drawer also closes on Escape. Without
+	// containment, dismissing an open dropdown would bubble Escape up and
+	// close the drawer too, losing in-progress edits.
+	it("contains Escape inside the dropdown: clears the query without letting it bubble", async () => {
+		const onWrapperKeyDown = vi.fn();
+		render(
+			// biome-ignore lint/a11y/noStaticElementInteractions: test-only listener standing in for a real ancestor (e.g. Chakra's drawer) that closes on Escape
+			<div onKeyDown={onWrapperKeyDown}>
+				<Wrapper>
+					<SpecForm schema={schema} />
+				</Wrapper>
+			</div>,
+		);
+		const input = screen.getByPlaceholderText("Find field…");
+		fireEvent.change(input, { target: { value: "meta" } });
+		// SearchInput debounces onSearch, so the dropdown appears asynchronously.
+		await screen.findByRole("listbox");
+
+		fireEvent.keyDown(input, { key: "Escape" });
+
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(onWrapperKeyDown).not.toHaveBeenCalled();
+	});
+
+	it("lets Escape propagate to ancestors when the dropdown is already closed", () => {
+		const onWrapperKeyDown = vi.fn();
+		render(
+			// biome-ignore lint/a11y/noStaticElementInteractions: test-only listener standing in for a real ancestor (e.g. Chakra's drawer) that closes on Escape
+			<div onKeyDown={onWrapperKeyDown}>
+				<Wrapper>
+					<SpecForm schema={schema} />
+				</Wrapper>
+			</div>,
+		);
+		const input = screen.getByPlaceholderText("Find field…");
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+		fireEvent.keyDown(input, { key: "Escape" });
+
+		expect(onWrapperKeyDown).toHaveBeenCalledTimes(1);
 	});
 });

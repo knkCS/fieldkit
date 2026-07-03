@@ -37,6 +37,19 @@ describe("SpecForm — core", () => {
 		expect(screen.queryByTestId("field-a")).not.toBeInTheDocument();
 	});
 
+	// A consumer fetching the spec itself passes an empty schema alongside
+	// `loading` until the real spec arrives — loading must win over the
+	// "no tabs yet" empty-schema short-circuit, or the consumer sees nothing
+	// instead of a skeleton.
+	it("renders a skeleton when loading with an empty schema", () => {
+		render(
+			<Wrapper>
+				<SpecForm schema={[]} loading />
+			</Wrapper>,
+		);
+		expect(screen.getByTestId("spec-form-skeleton")).toBeInTheDocument();
+	});
+
 	it("passes readOnly through to fields", () => {
 		// TestField ignores readOnly; assert via FieldRenderer contract instead:
 		// the real field components receive it. Here we only assert no crash.
