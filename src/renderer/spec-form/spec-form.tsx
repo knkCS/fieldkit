@@ -177,6 +177,12 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 
 	return (
 		<Box ref={setRoot}>
+			{/* Vertical Tabs.Root is a row-flex container (nav column beside
+			    content), so the search must live OUTSIDE it to span the full
+			    width above nav+content instead of becoming a row item. */}
+			{orientation === "vertical" && searchNode && (
+				<Box mb="3">{searchNode}</Box>
+			)}
 			<Tabs.Root
 				value={activeTab}
 				onValueChange={(e) => setActiveTab(e.value)}
@@ -194,10 +200,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 						{searchNode}
 					</Box>
 				) : (
-					<>
-						{searchNode && <Box mb="3">{searchNode}</Box>}
-						<Tabs.List>{tabTriggers}</Tabs.List>
-					</>
+					<Tabs.List>{tabTriggers}</Tabs.List>
 				)}
 				{partition.tabs.map((tab, i) => (
 					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>

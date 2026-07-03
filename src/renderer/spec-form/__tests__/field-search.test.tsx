@@ -73,6 +73,33 @@ describe("SpecForm — field search", () => {
 		});
 	});
 
+	// Chakra's vertical tabs recipe makes Tabs.Root a row-flex container, so
+	// anything rendered inside it becomes a row item beside the nav column.
+	// The search box must therefore live OUTSIDE Tabs.Root in vertical mode
+	// (a full-width block above nav+content). jsdom cannot assert flex
+	// layout, but it can assert DOM structure.
+	it("places the search outside Tabs.Root for vertical orientation", () => {
+		render(
+			<Wrapper>
+				<SpecForm
+					schema={[
+						makeSection("seo", "SEO", "vertical"),
+						makeField("meta", "Meta description"),
+					]}
+				/>
+			</Wrapper>,
+		);
+		expect(screen.getByRole("tablist")).toHaveAttribute(
+			"aria-orientation",
+			"vertical",
+		);
+		expect(
+			screen
+				.getByTestId("field-search")
+				.closest('[data-scope="tabs"][data-part="root"]'),
+		).toBeNull();
+	});
+
 	it("focuses search on '/' when no input is focused", async () => {
 		render(
 			<Wrapper>
