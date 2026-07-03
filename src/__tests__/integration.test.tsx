@@ -225,7 +225,7 @@ describe("Integration: Schema -> FieldRenderer", () => {
 			);
 		}
 
-		render(<TestForm />);
+		render(<TestForm />, { wrapper: ChakraWrapper });
 
 		const alert = screen.getByRole("alert");
 		expect(alert).toBeInTheDocument();

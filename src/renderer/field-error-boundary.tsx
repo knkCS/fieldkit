@@ -1,4 +1,5 @@
 // src/renderer/field-error-boundary.tsx
+import { Alert } from "@knkcs/anker/primitives";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface Props {
@@ -29,19 +30,11 @@ export class FieldErrorBoundary extends Component<Props, State> {
 	render() {
 		if (this.state.hasError) {
 			return (
-				<div
+				<Alert
 					role="alert"
-					style={{
-						padding: "8px 12px",
-						fontSize: "14px",
-						color: "var(--chakra-colors-fg-muted)",
-						border: "1px solid var(--chakra-colors-border)",
-						borderRadius: "6px",
-						background: "var(--chakra-colors-bg-subtle)",
-					}}
-				>
-					{this.props.fieldName ?? this.props.fieldId}: failed to render
-				</div>
+					status="warning"
+					title={`${this.props.fieldName ?? this.props.fieldId}: failed to render`}
+				/>
 			);
 		}
 

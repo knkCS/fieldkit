@@ -1,4 +1,5 @@
 // src/renderer/field-component.tsx
+import { Alert } from "@knkcs/anker/primitives";
 import { memo } from "react";
 import type { Field } from "../schema/types";
 import { FieldErrorBoundary } from "./field-error-boundary";
@@ -18,17 +19,9 @@ function FieldComponentInner({ field, readOnly }: FieldComponentProps) {
 
 	if (!plugin) {
 		return (
-			<div
-				role="alert"
-				style={{
-					color: "red",
-					padding: "8px",
-					border: "1px solid red",
-					borderRadius: "4px",
-				}}
-			>
-				Unknown field type: <code>{field.field_type}</code>
-			</div>
+			<Alert role="alert" status="error" title="Unknown field type">
+				<code>{field.field_type}</code>
+			</Alert>
 		);
 	}
 
