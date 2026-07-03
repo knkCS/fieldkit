@@ -61,6 +61,13 @@ export {
 	urlPlugin,
 	virtualTablePlugin,
 } from "./field-types";
+export type { SectionSettings } from "./field-types/section";
+// Partition
+export {
+	partitionSchemaBySections,
+	type SpecPartition,
+	type SpecTab,
+} from "./partition";
 // Plugin types
 export type {
 	CellProps,
