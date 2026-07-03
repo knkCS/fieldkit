@@ -1,7 +1,8 @@
 import { Box } from "@chakra-ui/react";
 import { DirtyDot } from "@knkcs/anker/atoms";
 import { Tabs } from "@knkcs/anker/primitives";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFormContext, useFormState } from "react-hook-form";
 import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
@@ -48,12 +49,42 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		partition.orientation,
 	);
 	const indicators = useTabIndicators(partition.tabs);
+	const { setFocus } = useFormContext();
+	const { submitCount, errors } = useFormState();
+	const lastHandledSubmit = useRef(0);
 
 	// Reset to the first tab when the partition identity changes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
 	useEffect(() => {
 		setActiveTab("tab-0");
 	}, [partition]);
+
+	// After a failed submit, jump to the tab holding the first errored field
+	// and focus it. `useTabIndicators` (Task 8) also subscribes to
+	// `useFormState` for the same render — RHF supports multiple
+	// subscriptions to the same form, so both hooks stay independent.
+	useEffect(() => {
+		if (submitCount === 0 || submitCount === lastHandledSubmit.current) return;
+		lastHandledSubmit.current = submitCount;
+
+		for (let i = 0; i < partition.tabs.length; i++) {
+			const errored = partition.tabs[i].fields.find(
+				(f) => errors[f.config.api_accessor],
+			);
+			if (errored) {
+				const accessor = errored.config.api_accessor;
+				setActiveTab(`tab-${i}`);
+				// Wait one frame so the target panel is visible before focusing.
+				requestAnimationFrame(() => {
+					setFocus(accessor);
+					document
+						.getElementsByName(accessor)[0]
+						?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+				});
+				return;
+			}
+		}
+	}, [submitCount, errors, partition, setFocus]);
 
 	return (
 		<Box ref={containerRef}>
