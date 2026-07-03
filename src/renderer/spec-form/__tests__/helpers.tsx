@@ -1,0 +1,77 @@
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import type { ReactNode } from "react";
+import { FormProvider, useForm } from "react-hook-form";
+import { z } from "zod";
+import type { FieldProps, FieldTypePlugin } from "../../../schema/plugin";
+import type { Field } from "../../../schema/types";
+import { FieldKitProvider } from "../../provider";
+
+export function makeField(accessor: string, name = accessor): Field {
+	return {
+		field_type: "text",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: null,
+		system: false,
+	};
+}
+
+export function makeSection(
+	accessor: string,
+	name = accessor,
+	orientation?: "horizontal" | "vertical",
+): Field {
+	return {
+		field_type: "section",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: orientation ? { orientation } : {},
+		system: false,
+	};
+}
+
+function TestField({ field }: FieldProps) {
+	return (
+		<input
+			data-testid={`field-${field.config.api_accessor}`}
+			name={field.config.api_accessor}
+			aria-label={field.config.name}
+		/>
+	);
+}
+
+export const testPlugins: FieldTypePlugin[] = [
+	{
+		id: "text",
+		name: "Text",
+		description: "",
+		icon: () => null,
+		category: "text",
+		fieldComponent: TestField,
+		toZodType: () => z.string(),
+	},
+	{
+		id: "section",
+		name: "Section",
+		description: "",
+		icon: () => null,
+		category: "structural",
+		fieldComponent: () => null,
+		toZodType: () => z.never(),
+	},
+];
+
+export function Wrapper({
+	children,
+	defaultValues = {},
+}: {
+	children: ReactNode;
+	defaultValues?: Record<string, unknown>;
+}) {
+	const methods = useForm({ defaultValues });
+	return (
+		<ChakraProvider value={defaultSystem}>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={testPlugins}>{children}</FieldKitProvider>
+			</FormProvider>
+		</ChakraProvider>
+	);
+}
