@@ -1,6 +1,8 @@
 import { Provider } from "@knkcs/anker/primitives";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
 import { SpecForm } from "../spec-form";
 import { makeField, makeSection, testPlugins } from "./helpers";
@@ -50,6 +52,66 @@ describe("SpecForm — read mode", () => {
 		);
 		expect(screen.getByText("Alpha")).toBeInTheDocument();
 		expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+	});
+
+	it("renders group items as per-item rows, not the group's cell component", () => {
+		// Mirrors production: the group plugin ships a cellComponent (GroupCell →
+		// CountCell, "N items") for table density. Read mode must bypass it and
+		// show the actual per-item rows instead.
+		const groupPlugins = [
+			...testPlugins,
+			{
+				id: "group",
+				name: "Group",
+				description: "",
+				icon: () => null,
+				category: "structural" as const,
+				fieldComponent: () => null,
+				cellComponent: ({ value }: { value: unknown }) => (
+					<span>{Array.isArray(value) ? value.length : 0} items</span>
+				),
+				toZodType: () => z.array(z.record(z.unknown())),
+			},
+		];
+		const hiddenChild = makeField("secret", "Secret");
+		hiddenChild.config.hidden = true;
+		const groupField: Field = {
+			field_type: "group",
+			config: {
+				name: "Authors",
+				api_accessor: "authors",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: [makeField("name", "Name"), hiddenChild],
+			system: false,
+		};
+		render(
+			<Provider>
+				<FieldKitProvider plugins={groupPlugins}>
+					<SpecForm
+						schema={[groupField]}
+						mode="read"
+						values={{
+							authors: [
+								{ name: "One", secret: "s1" },
+								{ name: "Two", secret: "s2" },
+							],
+						}}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		// (a) per-item DescriptionLists: each item's child label + value appear.
+		expect(screen.getAllByText("Name")).toHaveLength(2);
+		expect(screen.getByText("One")).toBeInTheDocument();
+		expect(screen.getByText("Two")).toBeInTheDocument();
+		// (b) the group's cell component is bypassed.
+		expect(screen.queryByText("2 items")).not.toBeInTheDocument();
+		// (c) hidden children are excluded from per-item rows.
+		expect(screen.queryByText("Secret")).not.toBeInTheDocument();
+		expect(screen.queryByText("s1")).not.toBeInTheDocument();
 	});
 
 	it("uses the plugin cell component when available", () => {

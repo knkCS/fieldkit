@@ -20,16 +20,18 @@ function ReadValue({ field, value }: { field: Field; value: unknown }) {
 	const { getPlugin } = useFieldKit();
 	if (isEmpty(value)) return <Text color="fg.muted">{EMPTY}</Text>;
 
-	const Cell = getPlugin(field.field_type)?.cellComponent;
-	if (Cell) return <Cell field={field} value={value} />;
-
+	// Groups bypass their cellComponent: the cell is table-density ("N items"),
+	// read mode shows the actual per-item rows.
 	if (field.field_type === "group" && Array.isArray(value)) {
-		const children = field.children ?? [];
+		const children = (field.children ?? []).filter(
+			(child) => !child.config.hidden,
+		);
 		return (
 			<Box display="flex" flexDirection="column" gap="3">
 				{value.map((item, index) => (
 					<Box
-						key={`${field.config.api_accessor}-${index as number}`}
+						// biome-ignore lint/suspicious/noArrayIndexKey: group items are positional; repeating-group values carry no stable id
+						key={`${field.config.api_accessor}-${index}`}
 						borderLeftWidth="2px"
 						borderColor="border"
 						pl="3"
@@ -56,6 +58,9 @@ function ReadValue({ field, value }: { field: Field; value: unknown }) {
 			</Box>
 		);
 	}
+
+	const Cell = getPlugin(field.field_type)?.cellComponent;
+	if (Cell) return <Cell field={field} value={value} />;
 
 	return <Text>{String(value)}</Text>;
 }
