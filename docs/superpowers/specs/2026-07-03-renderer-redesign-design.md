@@ -114,10 +114,19 @@ horizontal — fully backward compatible. `toZodType` stays `z.never()`.
 
 ## Runtime behavior
 
+### Field rhythm
+
+`FieldRenderer` wraps its field list in a 20px vertical stack (`Stack
+gap="5"`), giving every form — tabs, flat, groups, EditDrawer — the anker
+§10 rhythm. (Amended 2026-07-04: this was the spec's motivating gap but
+was missing from the original behavior list.)
+
 ### Tabs
 
 - Horizontal: anker `Tabs` strip above the form.
-- Vertical: nav-list column (anker sub-nav pattern), auto-degrading to
+- Vertical: Chakra `Tabs` with `orientation="vertical"` (amended
+  2026-07-04: shipped as native vertical tabs rather than the nav-list
+  sub-nav pattern — semantically they are tabs), auto-degrading to
   horizontal when the container is narrower than ~560px (container query
   via `useContainerOrientation` hook) so drawers/modals never break.
 - **All tab panels stay mounted; inactive panels are CSS-hidden.**
