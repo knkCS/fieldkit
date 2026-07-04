@@ -152,6 +152,29 @@ describe("SpecEditor", () => {
 		expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 	});
 
+	it("the dirty dot appears with the labels-provided aria-label once dirty", () => {
+		render(
+			<EditorWrap>
+				<SpecEditor
+					schema={[makeField("title", "Title")]}
+					onCommit={vi.fn()}
+					plugins={testPlugins}
+					labels={{ dirty: "You have unsaved edits" }}
+				/>
+			</EditorWrap>,
+		);
+
+		// Clean draft: DirtyDot renders nothing at all (active=false).
+		expect(screen.queryByLabelText("You have unsaved edits")).toBeNull();
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		expect(screen.getByLabelText("You have unsaved edits")).toBeInTheDocument();
+	});
+
 	it("an async onCommit rejection keeps Save enabled and dirty, and shows an error toast", async () => {
 		const onCommit = vi.fn().mockRejectedValue(new Error("api down"));
 		renderEditor([makeField("title", "Title")], onCommit);

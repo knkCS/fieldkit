@@ -36,12 +36,14 @@ const sectionlessSpec: Schema = [
 	boolean("inStock", { name: "In Stock" }),
 ];
 
-// Both fields share the "duplicate" accessor — validateSpec flags each with a
-// duplicate_accessor error, so both shells outline red, the tab carries an
-// error badge, and Save/Try-it stay disabled until one is renamed.
+// A duplicate accessor SPANNING two tabs (one field on the implicit General
+// tab, one inside the "Details" section) — validateSpec flags each with a
+// duplicate_accessor error, so both shells outline red, BOTH tab triggers
+// carry an error-count badge, and Save/Try-it stay disabled until one field
+// is renamed. Mirrors the cross-tab badge case in validation-surfacing.test.tsx.
 const invalidSpec: Schema = [
 	text("duplicate", { name: "First Name", required: true }),
-	text("duplicate", { name: "Last Name" }),
+	...section("Details", [text("duplicate", { name: "Last Name" })]),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -181,9 +183,10 @@ export const InvalidDraft: Story = {
 			initialSchema={invalidSpec}
 			note={
 				<>
-					Both fields are authored with the accessor <code>duplicate</code>.
-					Select either one to see the red "already in use" message and the
-					danger-colored shell outline; the tab strip's error badge counts both.{" "}
+					Two fields on <em>different tabs</em> ("General" and "Details") share
+					the accessor <code>duplicate</code>. Both tab triggers carry an
+					error-count badge, both shells outline in the danger color, and
+					selecting either field shows the inline duplicate-accessor message.{" "}
 					<strong>Save</strong> and <strong>Try it</strong> stay disabled until
 					the collision is resolved.
 				</>

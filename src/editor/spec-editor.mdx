@@ -75,8 +75,8 @@ moment ago."
 
 ### Schema-prop stability contract
 
-`schema` is compared to `baseline` on every render, by reference first and
-then (if the reference changed) by content (`JSON.stringify` equality):
+`schema` is compared to `baseline` whenever the schema prop's reference
+changes, by content (`JSON.stringify` equality):
 
 - **Same reference, or a new array with equal content** — ignored. This is
   the common case of a consumer re-rendering with a schema built fresh each
@@ -256,6 +256,7 @@ are shown.
 | `tryIt` | `"Try it"` | Header Try-it-mode toggle |
 | `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on a disabled Try-it button |
 | `saveFailed` | `"Save failed"` | Error toast title on a rejected `onCommit` |
+| `dirty` | `"Unsaved changes"` | Header dirty-dot indicator's aria-label |
 | `testSubmit` | `"Test submit"` | Try-it's submit button |
 | `testSubmitSuccess` | `"Form submitted successfully"` | Try-it's success toast |
 | `addSection` | `"+ Section"` | Add-section button |
@@ -323,9 +324,9 @@ every edit) is replaced by the draft session described above:
   (drill-in only) lets you *edit* an existing child field's config, but
   there is no in-editor way to add or remove a group's children — author
   those via `defineSpec()` / hand-authored `Field[]` up front.
-- **`DirtyDot` announces in German** until `@knkcs/anker`#148 (a `label`
-  prop) lands — its current accessible name is not yet overridable from
-  here.
+- **The dirty dot's default label is English.** The header's dirty
+  indicator announces `labels.dirty` (default `"Unsaved changes"`) to
+  screen readers — override it via `labels` like any other string.
 - **`TypePicker`'s internal strings aren't label-routed yet** — its search
   placeholder and "No matching field types" text are hardcoded English, not
   wired through `EditorLabels`.
@@ -369,8 +370,9 @@ hover) so there's always an obvious way to add the first field.
 
 ### Invalid Draft
 
-Two fields authored with the same accessor. Both shells outline red, the
-containing tab carries an error-count badge, and Save/Try-it stay disabled
-until the collision is resolved.
+Two fields on *different tabs* share the same accessor. Both shells outline
+red, **both** tab triggers carry an error-count badge (a duplicate-accessor
+error badges every tab containing a field with that accessor), and
+Save/Try-it stay disabled until the collision is resolved.
 
 <Canvas of={Stories.InvalidDraft} />

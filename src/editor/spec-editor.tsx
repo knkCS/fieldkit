@@ -34,6 +34,7 @@ export interface EditorLabels {
 	tryIt?: string;
 	fixValidationFirst?: string;
 	saveFailed?: string;
+	dirty?: string; // aria-label for the header's dirty indicator dot
 	// try-it
 	testSubmit?: string;
 	testSubmitSuccess?: string;
@@ -100,6 +101,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	tryIt: "Try it",
 	fixValidationFirst: "Fix validation errors before trying the form",
 	saveFailed: "Save failed",
+	dirty: "Unsaved changes",
 
 	testSubmit: "Test submit",
 	testSubmitSuccess: "Form submitted successfully",
@@ -174,7 +176,9 @@ function collectAccessorsRecursively(fields: Schema, into: Set<string>): void {
 
 export interface SpecEditorProps {
 	schema: Schema;
-	onCommit: (schema: Schema) => void;
+	/** Called with the draft on Save. May return a Promise — a rejection
+	 * keeps the draft dirty and surfaces a `saveFailed` toast. */
+	onCommit: (schema: Schema) => void | Promise<void>;
 	onDirtyChange?: (dirty: boolean) => void;
 	plugins: FieldTypePlugin[];
 	context?: FieldContext;
@@ -390,7 +394,7 @@ export function SpecEditor({
 				>
 					<Flex align="center" gap="2">
 						{title}
-						<DirtyDot active={spec.dirty} />
+						<DirtyDot active={spec.dirty} label={mergedLabels.dirty} />
 					</Flex>
 					<Flex align="center" gap="2">
 						<Button
