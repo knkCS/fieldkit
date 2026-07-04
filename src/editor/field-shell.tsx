@@ -76,6 +76,10 @@ export function FieldShell({
 			data-testid={`shell-${accessor}`}
 			onClick={() => onSelect(accessor)}
 			onKeyDown={(e) => {
+				// Only react to keys targeted at the shell itself; keys from
+				// toolbar buttons must neither select the shell nor be blocked
+				// from reaching dnd-kit's document-level keyboard listener.
+				if (e.target !== e.currentTarget) return;
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
 					onSelect(accessor);
@@ -95,7 +99,6 @@ export function FieldShell({
 					boxShadow="sm"
 					zIndex="docked"
 					onClick={(e) => e.stopPropagation()}
-					onKeyDown={(e) => e.stopPropagation()}
 				>
 					{field.system && (
 						<Box
@@ -108,7 +111,10 @@ export function FieldShell({
 							<Lock size={12} />
 						</Box>
 					)}
-					<Tooltip content={labels.drag}>
+					{/* closeOnEscape=false: the open tooltip's Escape handler stops
+					    propagation at the document (capture phase), which would
+					    swallow the Escape that cancels a keyboard drag. */}
+					<Tooltip content={labels.drag} closeOnEscape={false}>
 						<IconButton
 							aria-label={labels.drag}
 							size="2xs"

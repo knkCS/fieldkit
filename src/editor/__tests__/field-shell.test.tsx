@@ -140,6 +140,57 @@ describe("FieldShell", () => {
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 
+	it("keyboard drag lifecycle works from the toolbar drag handle", async () => {
+		const onDragStart = vi.fn();
+		const onDragCancel = vi.fn();
+		const second: Field = {
+			...field,
+			config: { ...field.config, name: "Body", api_accessor: "body" },
+		};
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<DndContext onDragStart={onDragStart} onDragCancel={onDragCancel}>
+					<SortableContext items={["title", "body"]}>
+						<FieldShell
+							field={field}
+							selected
+							onSelect={noop}
+							onEdit={noop}
+							onDuplicate={noop}
+							onDelete={noop}
+							labels={shellLabels}
+						>
+							<span>x</span>
+						</FieldShell>
+						<FieldShell
+							field={second}
+							selected={false}
+							onSelect={noop}
+							onEdit={noop}
+							onDuplicate={noop}
+							onDelete={noop}
+							labels={shellLabels}
+						>
+							<span>y</span>
+						</FieldShell>
+					</SortableContext>
+				</DndContext>
+			</ChakraProvider>,
+		);
+		const handle = screen.getByLabelText("Drag to reorder");
+		handle.focus();
+		fireEvent.keyDown(handle, { key: "Enter", code: "Enter" });
+		expect(onDragStart).toHaveBeenCalledTimes(1);
+		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
+		// setTimeout after activation — yield a macrotask before the cancel key.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		fireEvent.keyDown(document.activeElement ?? handle, {
+			key: "Escape",
+			code: "Escape",
+		});
+		expect(onDragCancel).toHaveBeenCalledTimes(1);
+	});
+
 	it("is keyboard-selectable (Enter and Space)", () => {
 		const onSelect = vi.fn();
 		render(
