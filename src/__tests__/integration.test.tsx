@@ -167,7 +167,7 @@ describe("Integration: Schema -> FieldRenderer", () => {
 			);
 		}
 
-		render(<TestForm />);
+		render(<TestForm />, { wrapper: ChakraWrapper });
 
 		expect(screen.getByTestId("field-title")).toBeInTheDocument();
 		expect(screen.getByTestId("field-count")).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe("Integration: Schema -> FieldRenderer", () => {
 			);
 		}
 
-		render(<TestForm />);
+		render(<TestForm />, { wrapper: ChakraWrapper });
 
 		expect(screen.getByTestId("field-visible_field")).toBeInTheDocument();
 		expect(screen.queryByTestId("field-hidden_field")).not.toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("Integration: Schema -> FieldRenderer", () => {
 			);
 		}
 
-		render(<TestForm />);
+		render(<TestForm />, { wrapper: ChakraWrapper });
 
 		expect(screen.getByTestId("field-email")).toBeInTheDocument();
 		expect(screen.getByTestId("field-agree")).toBeInTheDocument();
@@ -276,7 +276,7 @@ describe("Integration: Schema -> FieldRenderer", () => {
 			);
 		}
 
-		render(<TestForm />);
+		render(<TestForm />, { wrapper: ChakraWrapper });
 		expect(screen.getByTestId("field-renderer-loading")).toBeInTheDocument();
 	});
 });

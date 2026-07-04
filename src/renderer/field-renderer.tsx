@@ -1,4 +1,5 @@
 // src/renderer/field-renderer.tsx
+import { Stack } from "@chakra-ui/react";
 import { memo } from "react";
 import type { Schema } from "../schema/types";
 import { FieldComponent } from "./field-component";
@@ -16,7 +17,8 @@ function FieldRendererInner({ schema, readOnly, loading }: FieldRendererProps) {
 	}
 
 	return (
-		<div data-testid="field-renderer">
+		// gap="5" = 20px — the anker §10 vertical rhythm between field rows
+		<Stack gap="5" data-testid="field-renderer">
 			{schema.map((field) => (
 				<FieldComponent
 					key={field.config.api_accessor}
@@ -24,7 +26,7 @@ function FieldRendererInner({ schema, readOnly, loading }: FieldRendererProps) {
 					readOnly={readOnly}
 				/>
 			))}
-		</div>
+		</Stack>
 	);
 }
 

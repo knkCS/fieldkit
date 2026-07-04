@@ -1,5 +1,6 @@
 // src/renderer/__tests__/field-renderer.test.tsx
 
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
@@ -41,9 +42,11 @@ const plugins: FieldTypePlugin[] = [
 function Wrapper({ children }: { children: React.ReactNode }) {
 	const methods = useForm({ defaultValues: {} });
 	return (
-		<FormProvider {...methods}>
-			<FieldKitProvider plugins={plugins}>{children}</FieldKitProvider>
-		</FormProvider>
+		<ChakraProvider value={defaultSystem}>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={plugins}>{children}</FieldKitProvider>
+			</FormProvider>
+		</ChakraProvider>
 	);
 }
 
