@@ -39,7 +39,7 @@ const shellLabels = {
 };
 
 describe("FieldShell", () => {
-	it("renders children inert (aria-hidden wrapper)", () => {
+	it("renders children inert (inert wrapper blocks focus and hides from AT)", () => {
 		render(
 			<Wrap>
 				<FieldShell
@@ -56,7 +56,7 @@ describe("FieldShell", () => {
 			</Wrap>,
 		);
 		const inner = screen.getByTestId("inner");
-		expect(inner.closest("[aria-hidden='true']")).not.toBeNull();
+		expect(inner.closest("[inert]")).not.toBeNull();
 	});
 
 	it("click selects", () => {
@@ -116,6 +116,27 @@ describe("FieldShell", () => {
 		);
 		fireEvent.click(screen.getByLabelText("Delete field"));
 		expect(onDelete).toHaveBeenCalledWith("title");
+		expect(onSelect).not.toHaveBeenCalled();
+	});
+
+	it("keyboard toolbar actions do not leak to shell selection", () => {
+		const onSelect = vi.fn();
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected
+					onSelect={onSelect}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		fireEvent.keyDown(screen.getByLabelText("Delete field"), { key: "Enter" });
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 

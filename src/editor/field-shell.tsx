@@ -95,6 +95,7 @@ export function FieldShell({
 					boxShadow="sm"
 					zIndex="docked"
 					onClick={(e) => e.stopPropagation()}
+					onKeyDown={(e) => e.stopPropagation()}
 				>
 					{field.system && (
 						<Box
@@ -154,7 +155,7 @@ export function FieldShell({
 					)}
 				</Flex>
 			)}
-			<Box aria-hidden="true" pointerEvents="none" userSelect="none">
+			<Box inert pointerEvents="none" userSelect="none">
 				{children}
 			</Box>
 		</Box>
