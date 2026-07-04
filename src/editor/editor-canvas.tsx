@@ -24,6 +24,7 @@ import {
 	MenuRoot,
 	MenuTrigger,
 	Tabs,
+	Tooltip,
 } from "@knkcs/anker/primitives";
 import { FolderInput } from "lucide-react";
 import {
@@ -71,7 +72,11 @@ function TabDropZone({
 	children: ReactNode;
 }) {
 	const { setNodeRef } = useDroppable({ id: `tabdrop-${tabIndex}` });
-	return <Box ref={setNodeRef}>{children}</Box>;
+	return (
+		<Box ref={setNodeRef} data-testid={`tabdrop-${tabIndex}`}>
+			{children}
+		</Box>
+	);
 }
 TabDropZone.displayName = "TabDropZone";
 
@@ -288,6 +293,13 @@ export function EditorCanvas({
 
 		if (overId.startsWith("tabdrop-")) {
 			const tabIndex = Number(overId.slice("tabdrop-".length));
+			// Releasing over the field's OWN tab trigger must be a no-op:
+			// moveFieldToSection appends to the target tab, so an unguarded
+			// self-drop would silently jump the field to its tab's end.
+			const sourceTabIndex = partition.tabs.findIndex((tab) =>
+				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
+			);
+			if (sourceTabIndex === tabIndex) return;
 			apply(moveFieldToSection(draft, activeAccessor, tabIndex));
 			return;
 		}
@@ -302,21 +314,28 @@ export function EditorCanvas({
 	};
 
 	// Built per-field so the canvas (not FieldShell) owns the cross-section
-	// move logic; undefined when there's nowhere else to move a field to.
+	// move logic; undefined when there's nowhere else to move a field to
+	// (no sections, or a single tab — the menu would be empty).
 	const buildMoveMenu = (field: Field, tabIndex: number) => {
-		if (!partition.hasSections) return undefined;
+		if (!partition.hasSections || partition.tabs.length < 2) return undefined;
 		const accessor = field.config.api_accessor;
 		return (
 			<MenuRoot>
-				<MenuTrigger asChild>
-					<IconButton
-						aria-label={labels.moveToSection}
-						size="2xs"
-						variant="ghost"
-					>
-						<FolderInput size={14} />
-					</IconButton>
-				</MenuTrigger>
+				{/* Tooltip outermost: its Trigger (asChild) clones onto MenuTrigger,
+				    which forwards to the IconButton — both behaviors merge onto one
+				    button. The reverse nesting breaks: MenuTrigger asChild would
+				    spread its props onto Tooltip.Root instead of the button. */}
+				<Tooltip content={labels.moveToSection}>
+					<MenuTrigger asChild>
+						<IconButton
+							aria-label={labels.moveToSection}
+							size="2xs"
+							variant="ghost"
+						>
+							<FolderInput size={14} />
+						</IconButton>
+					</MenuTrigger>
+				</Tooltip>
 				<MenuContent>
 					{partition.tabs.map((tab, i) => {
 						if (i === tabIndex) return null;

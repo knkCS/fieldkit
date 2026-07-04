@@ -189,4 +189,92 @@ describe("EditorCanvas drag & drop", () => {
 
 		rectSpy.mockRestore();
 	});
+
+	it("dropping a field on its OWN tab's trigger does not reorder it", async () => {
+		// Fake layout for a sectioned canvas: tab-trigger drop zones sit in a
+		// row along the top (y=0, spread horizontally), shells stack below.
+		// Lifting shell-a and pressing ArrowUp therefore resolves to the
+		// nearest drop zone above it — tabdrop-0, shell-a's OWN tab.
+		const rectSpy = vi
+			.spyOn(Element.prototype, "getBoundingClientRect")
+			.mockImplementation(function (this: Element) {
+				const rect = (
+					top: number,
+					left: number,
+					width: number,
+					height: number,
+				) =>
+					({
+						top,
+						left,
+						width,
+						height,
+						bottom: top + height,
+						right: left + width,
+						x: left,
+						y: top,
+						toJSON() {
+							return this;
+						},
+					}) as DOMRect;
+				const testId = this.getAttribute("data-testid") ?? "";
+				if (testId.startsWith("tabdrop-")) {
+					const index = Number(testId.slice("tabdrop-".length));
+					return rect(0, index * 200, 100, 40);
+				}
+				if (testId.startsWith("shell-")) {
+					const shells = Array.from(
+						document.querySelectorAll('[data-testid^="shell-"]'),
+					);
+					return rect(100 + shells.indexOf(this) * 60, 0, 200, 50);
+				}
+				return rect(0, 0, 0, 0);
+			});
+
+		const { container } = render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("a"),
+						makeField("x"),
+						makeSection("s1", "SEO"),
+						makeField("b"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-a"));
+		const handle = screen.getByLabelText("Drag to reorder");
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
+		// setTimeout after activation — yield a macrotask before the next key.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
+
+		// Releasing over the field's own tab must be a no-op — without the
+		// guard, moveFieldToSection would append shell-a to its tab's END.
+		const order = Array.from(
+			container.querySelectorAll('[data-testid^="shell-"]'),
+		).map((el) => el.getAttribute("data-testid"));
+		expect(order).toEqual(["shell-a", "shell-x", "shell-b"]);
+
+		rectSpy.mockRestore();
+	});
+
+	it("hides the Move to section trigger when only one tab exists", async () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeSection("s1", "SEO"), makeField("b")]} />
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-b"));
+		// Toolbar is up (duplicate button proves it), but with a single tab
+		// there is nowhere to move to — the menu trigger must not render.
+		expect(screen.getByLabelText("Duplicate field")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Move to section")).not.toBeInTheDocument();
+	});
 });
