@@ -66,3 +66,44 @@ describe("validateSpec", () => {
 		expect(result.valid).toBe(true);
 	});
 });
+
+describe("validateSpec — accessor checks", () => {
+	const plugins = new Map([["text", mockPlugin("text")]]);
+
+	function f(accessor: string, name = accessor): Field {
+		return {
+			field_type: "text",
+			config: {
+				name,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: null,
+			system: false,
+		};
+	}
+
+	it("reports duplicate accessors with fieldErrors", () => {
+		const result = validateSpec([f("a"), f("a")], plugins);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "a",
+			code: "duplicate_accessor",
+			message: 'Duplicate accessor "a"',
+		});
+	});
+
+	it("reports empty name and empty accessor", () => {
+		const result = validateSpec([f("", "")], plugins);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors.length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("keeps fieldErrors empty for a valid spec", () => {
+		const result = validateSpec([f("a"), f("b")], plugins);
+		expect(result.valid).toBe(true);
+		expect(result.fieldErrors).toEqual([]);
+	});
+});
