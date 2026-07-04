@@ -298,21 +298,59 @@ describe("SpecEditor", () => {
 	});
 
 	it("inserting a field via the ⊕ selects it and focuses the panel's Name input", async () => {
+		// This test exercises the REAL anker Popover (zag-js) around the ⊕
+		// trigger, whose own close transition schedules a single
+		// `requestAnimationFrame` to restore focus to the trigger button
+		// (@zag-js/popover's setFinalFocus). The panel's rising-edge autofocus
+		// effect now waits two animation frames before focusing the Name
+		// input (see field-config-panel.tsx) specifically so it outlasts that
+		// restore in a real browser — verified live in Storybook via
+		// Playwright, where a synchronous/single-rAF focus lost the race and
+		// left focus on the "Add field" trigger button.
+		//
+		// jsdom has no real animation-frame timing, so the two independent
+		// `requestAnimationFrame` chains (ours and zag's) don't reliably
+		// interleave the same way a real browser's frame batching would.
+		// Stubbing rAF as a macrotask and draining it with fake timers makes
+		// the ordering deterministic: `vi.runAllTimers()` executes every
+		// pending timer in registration order, including ones newly
+		// scheduled while draining — which is exactly what guarantees our
+		// SECOND frame (the actual focus() call) runs after zag's single
+		// frame (its restore), regardless of which of the two frame chains
+		// was registered first. This doesn't reproduce the real race itself
+		// (jsdom timing isn't real frame timing); it verifies the double-rAF
+		// ordering guarantee the fix depends on.
+		//
+		// The stub is only switched in right before the option click below —
+		// opening the popover still runs on real timers/rAF (floating-ui
+		// positioning relies on it), and only the CLOSE transition (which
+		// races zag's focus restore against our autofocus effect) needs the
+		// deterministic fake-timer drain.
 		renderEditor([makeField("a")]);
 
 		await act(async () => {
 			fireEvent.click(screen.getAllByLabelText(L.addField)[0]);
 		});
 		const option = await screen.findByTestId("type-option-text");
-		// Synchronous act (not awaited): the panel mounts and its autofocus
-		// effect runs within this same flush. Checked immediately, before any
-		// later macrotask — anker's Popover asynchronously (rAF) restores focus
-		// to its own trigger on close, which would otherwise race and win
-		// against this assertion.
-		act(() => {
+
+		vi.useFakeTimers();
+		vi.stubGlobal(
+			"requestAnimationFrame",
+			(cb: FrameRequestCallback) =>
+				setTimeout(() => cb(0), 0) as unknown as number,
+		);
+		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+
+		await act(async () => {
 			fireEvent.click(option);
+		});
+		act(() => {
+			vi.runAllTimers();
 		});
 
 		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
+
+		// rAF/cAF stubs are cleared by the file's afterEach (vi.unstubAllGlobals()).
+		vi.useRealTimers();
 	});
 });

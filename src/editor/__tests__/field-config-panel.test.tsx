@@ -1,6 +1,6 @@
 // src/editor/__tests__/field-config-panel.test.tsx
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -362,6 +362,22 @@ describe("FieldConfigPanel", () => {
 	});
 
 	it("autoFocusLabel focuses the name input on its rising edge only — typing elsewhere keeps focus", () => {
+		// The rising-edge effect now waits two animation frames before
+		// focusing (see field-config-panel.tsx) so that, in a real browser,
+		// it outlasts zag-js Popover's single-rAF focus-restore-to-trigger on
+		// close (verified live in Storybook via Playwright). That specific
+		// race can't be reproduced in jsdom — there's no real frame timing
+		// and no live Popover here to restore focus — so this stubs rAF as a
+		// macrotask and drains it with fake timers to deterministically
+		// flush both scheduled frames before asserting.
+		vi.useFakeTimers();
+		vi.stubGlobal(
+			"requestAnimationFrame",
+			(cb: FrameRequestCallback) =>
+				setTimeout(() => cb(0), 0) as unknown as number,
+		);
+		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+
 		const field = makeField("my_field", "My Field");
 		render(
 			<EditorWrap>
@@ -369,8 +385,15 @@ describe("FieldConfigPanel", () => {
 			</EditorWrap>,
 		);
 
-		// Rising edge (mount with autoFocusLabel=true) focuses the name input.
+		// Rising edge (mount with autoFocusLabel=true) focuses the name input
+		// once both frames drain.
+		act(() => {
+			vi.runAllTimers();
+		});
 		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
+
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
 
 		// Editing another control must NOT re-trigger the focus effect even
 		// though the field object changes identity on every applied edit.

@@ -184,6 +184,11 @@ export function FieldConfigPanel({
 		field?.config.api_accessor ?? null,
 	);
 	const prevAutoFocusRef = useRef(false);
+	const focusChainRef = useRef<{
+		accessor: string | null;
+		raf1: number;
+		raf2?: number;
+	} | null>(null);
 
 	// Selecting a different top-level field resets any open drill-in — the
 	// child path belongs to the previously selected group, not the new field.
@@ -200,15 +205,71 @@ export function FieldConfigPanel({
 	// would steal focus back to the name input on each keystroke in any other
 	// panel control. T12 resets autoFocusLabel to false on plain select and
 	// sets it true on Edit — each Edit produces a fresh rising edge.
+	//
+	// DOUBLE requestAnimationFrame: the ⊕ popover (zag-js Popover) restores
+	// focus to its trigger button on close via a SINGLE rAF. If this effect
+	// focused the name input synchronously (or after only one rAF), zag's
+	// restore — scheduled afterward on close — would still win the race and
+	// steal focus back to the "Add field" trigger, verified live in Storybook
+	// via Playwright (activeElement ended up on the trigger button, not the
+	// name input). Waiting two frames guarantees this focus call runs strictly
+	// after zag's single-rAF restore, regardless of whether autoFocusLabel
+	// rose from an insertion or a toolbar Edit click.
+	//
+	// The chain is deliberately NOT cancelled by a RETURNED cleanup tied to
+	// [autoFocusLabel]. spec-editor.tsx's "pulse" resets autoFocusLabel back
+	// to false immediately after setting it true (so the NEXT Edit also gets
+	// a fresh rising edge) — that reset lands in the SAME passive-effect
+	// flush, before either scheduled frame has had a chance to fire. A
+	// cleanup keyed to the dependency change would cancel the chain on that
+	// falling edge and autofocus would never happen. Instead: a NEW rising
+	// edge cancels any still-pending chain from a previous one (guarded
+	// below), true unmount cancels via the ref-cleanup effect right after,
+	// and the final callback re-checks the accessor in case the selected
+	// field genuinely changed while the two frames were in flight.
 	useEffect(() => {
 		const rising = Boolean(autoFocusLabel) && !prevAutoFocusRef.current;
 		prevAutoFocusRef.current = Boolean(autoFocusLabel);
 		if (!rising) return;
-		const input = containerRef.current?.querySelector<HTMLInputElement>(
-			'[data-testid="panel-name-input"]',
-		);
-		input?.focus();
+
+		if (focusChainRef.current) {
+			cancelAnimationFrame(focusChainRef.current.raf1);
+			if (focusChainRef.current.raf2 !== undefined) {
+				cancelAnimationFrame(focusChainRef.current.raf2);
+			}
+		}
+
+		const accessor = topAccessorRef.current;
+		const focusChain: { accessor: string | null; raf1: number; raf2?: number } =
+			{ accessor, raf1: 0 };
+		focusChain.raf1 = requestAnimationFrame(() => {
+			focusChain.raf2 = requestAnimationFrame(() => {
+				focusChainRef.current = null;
+				// The selected field may have changed in the two frames since
+				// this chain was scheduled — only focus if the panel is still
+				// showing the field the chain was scheduled for.
+				if (topAccessorRef.current !== accessor) return;
+				const input = containerRef.current?.querySelector<HTMLInputElement>(
+					'[data-testid="panel-name-input"]',
+				);
+				input?.focus();
+			});
+		});
+		focusChainRef.current = focusChain;
 	}, [autoFocusLabel]);
+
+	// Cancel any still-pending focus chain on unmount (e.g. the panel closes
+	// entirely — field becomes null — while a chain is in flight).
+	useEffect(() => {
+		return () => {
+			if (focusChainRef.current) {
+				cancelAnimationFrame(focusChainRef.current.raf1);
+				if (focusChainRef.current.raf2 !== undefined) {
+					cancelAnimationFrame(focusChainRef.current.raf2);
+				}
+			}
+		};
+	}, []);
 
 	if (!field) return null;
 
