@@ -106,6 +106,16 @@ export interface EditorCanvasProps {
 	onSelect: (accessor: string | null) => void;
 	onEdit: (accessor: string) => void;
 	labels: CanvasLabels;
+	/**
+	 * Notified with the field and its flat-schema index right before it's
+	 * removed from the draft — lets a host (SpecEditor) capture enough to
+	 * offer an undo, without owning the deletion itself (removal always
+	 * happens here, via `apply(removeField(...))`, regardless of whether a
+	 * listener is supplied). Addition beyond T5's original EditorCanvasProps:
+	 * T12 (binding) requires the delete undo toast to be composed by
+	 * SpecEditor, which has no other way to observe a canvas-initiated delete.
+	 */
+	onDeleteField?: (field: Field, flatIndex: number) => void;
 }
 
 function ShellContent({
@@ -155,6 +165,7 @@ export function EditorCanvas({
 	onSelect,
 	onEdit,
 	labels,
+	onDeleteField,
 }: EditorCanvasProps) {
 	const { partition, draft, apply } = spec;
 	const [activeTab, setActiveTab] = useState("tab-0");
@@ -238,6 +249,11 @@ export function EditorCanvas({
 
 	const handleDelete = (accessor: string) => {
 		if (selectedAccessor === accessor) onSelect(null);
+		const flatIndex = draft.findIndex(
+			(f) => f.config.api_accessor === accessor,
+		);
+		const target = draft[flatIndex];
+		if (target) onDeleteField?.(target, flatIndex);
 		apply(removeField(draft, accessor));
 	};
 	const handleDuplicate = (accessor: string) =>
