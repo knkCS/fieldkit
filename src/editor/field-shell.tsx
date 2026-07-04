@@ -1,0 +1,163 @@
+import { Box, Flex } from "@chakra-ui/react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { IconButton } from "@knkcs/anker/atoms";
+import { Tooltip } from "@knkcs/anker/primitives";
+import { Copy, GripVertical, Lock, Pencil, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
+import type { Field } from "../schema/types";
+
+export interface FieldShellToolbarLabels {
+	drag: string;
+	edit: string;
+	duplicate: string;
+	delete: string;
+	systemLocked: string;
+}
+
+export interface FieldShellProps {
+	field: Field;
+	selected: boolean;
+	invalid?: boolean;
+	onSelect: (accessor: string) => void;
+	onEdit: (accessor: string) => void;
+	onDuplicate: (accessor: string) => void;
+	onDelete: (accessor: string) => void;
+	moveMenu?: ReactNode;
+	labels: FieldShellToolbarLabels;
+	children: ReactNode;
+}
+
+export function FieldShell({
+	field,
+	selected,
+	invalid,
+	onSelect,
+	onEdit,
+	onDuplicate,
+	onDelete,
+	moveMenu,
+	labels,
+	children,
+}: FieldShellProps) {
+	const accessor = field.config.api_accessor;
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({
+		id: accessor,
+	});
+
+	const borderColor = invalid
+		? "danger.600"
+		: selected
+			? "accent"
+			: "transparent";
+
+	return (
+		<Box
+			ref={setNodeRef}
+			style={{ transform: CSS.Transform.toString(transform), transition }}
+			position="relative"
+			borderWidth="2px"
+			borderColor={borderColor}
+			borderRadius="md"
+			bg={selected ? "bg-subtle" : undefined}
+			opacity={isDragging ? 0.6 : 1}
+			p="2"
+			cursor="pointer"
+			role="button"
+			tabIndex={0}
+			aria-label={field.config.name}
+			data-testid={`shell-${accessor}`}
+			onClick={() => onSelect(accessor)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onSelect(accessor);
+				}
+			}}
+		>
+			{selected && (
+				<Flex
+					position="absolute"
+					top="-4"
+					right="2"
+					gap="0.5"
+					bg="bg-surface"
+					borderWidth="1px"
+					borderColor="border"
+					borderRadius="md"
+					boxShadow="sm"
+					zIndex="docked"
+					onClick={(e) => e.stopPropagation()}
+				>
+					{field.system && (
+						<Box
+							as="span"
+							color="fg.muted"
+							px="1"
+							aria-label={labels.systemLocked}
+							role="img"
+						>
+							<Lock size={12} />
+						</Box>
+					)}
+					<Tooltip content={labels.drag}>
+						<IconButton
+							aria-label={labels.drag}
+							size="2xs"
+							variant="ghost"
+							{...attributes}
+							{...listeners}
+						>
+							<GripVertical size={14} />
+						</IconButton>
+					</Tooltip>
+					<Tooltip content={labels.edit}>
+						<IconButton
+							aria-label={labels.edit}
+							size="2xs"
+							variant="ghost"
+							onClick={() => onEdit(accessor)}
+						>
+							<Pencil size={14} />
+						</IconButton>
+					</Tooltip>
+					<Tooltip content={labels.duplicate}>
+						<IconButton
+							aria-label={labels.duplicate}
+							size="2xs"
+							variant="ghost"
+							onClick={() => onDuplicate(accessor)}
+						>
+							<Copy size={14} />
+						</IconButton>
+					</Tooltip>
+					{moveMenu}
+					{!field.system && (
+						<Tooltip content={labels.delete}>
+							<IconButton
+								aria-label={labels.delete}
+								size="2xs"
+								variant="ghost"
+								colorPalette="red"
+								onClick={() => onDelete(accessor)}
+							>
+								<Trash2 size={14} />
+							</IconButton>
+						</Tooltip>
+					)}
+				</Flex>
+			)}
+			<Box aria-hidden="true" pointerEvents="none" userSelect="none">
+				{children}
+			</Box>
+		</Box>
+	);
+}
+FieldShell.displayName = "FieldShell";
