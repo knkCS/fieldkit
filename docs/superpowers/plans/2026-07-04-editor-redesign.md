@@ -15,7 +15,9 @@
 - Conventional Commits: `<type>(<scope>): <description>`, imperative, ≤ 72 chars. Scope `editor` (or `schema` for Task 1).
 - No new dependencies. Every exported React component sets `displayName`.
 - anker tokens/components only — this project deletes the editor's inline CSS; do not add any (`style={{…}}` only for dnd transform strings, which are not styling).
-- Dependency direction: `/editor` imports from `/renderer` and `/schema`, never the reverse. `/renderer` and `/schema` files are read-only for this plan except `src/schema/validate-spec.ts` (Task 1).
+- Dependency direction: `/editor` imports from `/renderer` and `/schema`, never the reverse. `/renderer` and `/schema` files are read-only for this plan except `src/schema/validate-spec.ts` (Task 1) and one sanctioned change to `src/renderer/field-component.tsx`'s memo comparator (Task 5 — live preview depends on it).
+- Every author-facing string (tooltips, aria-labels, empty states, confirm texts, panel headings) goes through `EditorLabels` with an English default — no hardcoded UI copy outside the `DEFAULT_EDITOR_LABELS` object (Task 12 defines it; earlier tasks take the strings they need as props and their tests pass English values).
+- System fields (`field.system === true`): no delete button, accessor read-only in the panel, lock indicator on the shell. `duplicateField` always forces `system: false` on the copy.
 - `onCommit` may only ever receive a spec for which `validateSpec(...).valid === true`.
 - Run `npm run test && npm run typecheck && npm run lint` before every commit; all must pass.
 - Test env facts: `src/test/setup.ts` already stubs `window.matchMedia`; wrap Chakra-rendering tests in `ChakraProvider value={defaultSystem}` (see `src/renderer/spec-form/__tests__/helpers.tsx`); tab clicks need `await act(async () => { fireEvent.click(...) })`; jsdom has no `scrollIntoView` (guard with `?.scrollIntoView?.()`); `@testing-library/user-event` is NOT installed — use `fireEvent`.
@@ -57,7 +59,12 @@ src/editor/
 - Produces (used by T3/T10): same signature; additionally reports duplicate `api_accessor`s and empty `name`/`api_accessor`. New export:
 
 ```ts
-export interface SpecFieldError { accessor: string; message: string }
+export type SpecFieldErrorCode = "duplicate_accessor" | "empty_name" | "empty_accessor";
+export interface SpecFieldError {
+	accessor: string;
+	code: SpecFieldErrorCode; // stable — the editor maps codes to translated messages
+	message: string;          // English default
+}
 export interface SpecValidationResult {
 	valid: boolean;
 	errors: string[];              // unchanged, message list
@@ -85,6 +92,7 @@ describe("validateSpec — accessor checks", () => {
 		expect(result.valid).toBe(false);
 		expect(result.fieldErrors).toContainEqual({
 			accessor: "a",
+			code: "duplicate_accessor",
 			message: 'Duplicate accessor "a"',
 		});
 	});
@@ -116,17 +124,21 @@ Expected: FAIL — `fieldErrors` undefined.
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
 		if (!field.config.name.trim()) {
-			fieldErrors.push({ accessor, message: "Name must not be empty" });
+			fieldErrors.push({ accessor, code: "empty_name", message: "Name must not be empty" });
 		}
 		if (!accessor.trim()) {
-			fieldErrors.push({ accessor, message: "Accessor must not be empty" });
+			fieldErrors.push({ accessor, code: "empty_accessor", message: "Accessor must not be empty" });
 		} else {
 			seen.set(accessor, (seen.get(accessor) ?? 0) + 1);
 		}
 	}
 	for (const [accessor, count] of seen) {
 		if (count > 1) {
-			fieldErrors.push({ accessor, message: `Duplicate accessor "${accessor}"` });
+			fieldErrors.push({
+				accessor,
+				code: "duplicate_accessor",
+				message: `Duplicate accessor "${accessor}"`,
+			});
 		}
 	}
 	for (const fe of fieldErrors) {
@@ -165,7 +177,8 @@ export function insertFieldAt(schema: Schema, field: Field, index: number): Sche
 export function updateField(schema: Schema, accessor: string, next: Field): Schema;
 export function removeField(schema: Schema, accessor: string): Schema;
 export function moveField(schema: Schema, fromIndex: number, toIndex: number): Schema;
-export function uniquifyAccessor(schema: Schema, base: string): string; // base, base_copy, base_copy2…
+export function uniquifyAccessor(schema: Schema, base: string): string; // base, base_copy, base_copy2… (duplicates)
+export function nextAccessor(schema: Schema, base: string): string;      // base, base_2, base_3… (fresh inserts)
 export function duplicateField(schema: Schema, accessor: string): Schema; // copy inserted directly after
 export function addSection(schema: Schema, name: string): Schema; // appends section marker at end
 export function renameSection(schema: Schema, sectionAccessor: string, name: string): Schema;
@@ -195,8 +208,8 @@ import { describe, expect, it } from "vitest";
 import type { Field, Schema } from "../../schema/types";
 import {
 	addSection, deleteSection, duplicateField, insertFieldAt, moveField,
-	moveFieldToSection, moveSection, removeField, renameSection,
-	setOrientation, uniquifyAccessor, updateField,
+	moveFieldToSection, moveSection, nextAccessor, removeField,
+	renameSection, setOrientation, uniquifyAccessor, updateField,
 } from "../draft-ops";
 
 function f(accessor: string, type = "text"): Field {
@@ -241,6 +254,18 @@ describe("field ops", () => {
 		expect(out.map((x) => x.config.api_accessor)).toEqual(["a", "a_copy", "b"]);
 		expect(out[1].config.name).toBe("a");
 	});
+
+	it("duplicateField forces system: false on the copy", () => {
+		const sys = { ...f("a"), system: true };
+		const out = duplicateField([sys], "a");
+		expect(out[1].system).toBe(false);
+	});
+
+	it("nextAccessor uses numeric suffixes for fresh inserts", () => {
+		expect(nextAccessor([f("text")], "text")).toBe("text_2");
+		expect(nextAccessor([f("text"), f("text_2")], "text")).toBe("text_3");
+		expect(nextAccessor([], "text")).toBe("text");
+	});
 });
 
 describe("section ops", () => {
@@ -261,6 +286,22 @@ describe("section ops", () => {
 		// [a][s1 b][s2 c] — move s2 left → [a][s2 c][s1 b]
 		const out = moveSection([f("a"), s("s1"), f("b"), s("s2"), f("c")], "s2", -1);
 		expect(out.map((x) => x.config.api_accessor)).toEqual(["a", "s2", "c", "s1", "b"]);
+	});
+
+	it("moveSection left on the FIRST section is a no-op (implicit tab is fixed)", () => {
+		const schema = [f("a"), s("s1"), f("b")];
+		expect(moveSection(schema, "s1", -1)).toBe(schema);
+	});
+
+	it("moveSection right on the last section is a no-op", () => {
+		const schema = [s("s1"), f("a"), s("s2"), f("b")];
+		expect(moveSection(schema, "s2", 1)).toBe(schema);
+	});
+
+	it("moveSection on a single-section schema is a no-op in both directions", () => {
+		const schema = [f("a"), s("s1"), f("b")];
+		expect(moveSection(schema, "s1", 1)).toBe(schema);
+		expect(moveSection(schema, "s1", -1)).toBe(schema);
 	});
 
 	it("deleteSection removes only the marker (fields merge left)", () => {
@@ -332,9 +373,19 @@ export function duplicateField(schema: Schema, accessor: string): Schema {
 	const original = schema[index];
 	const copy: Field = {
 		...original,
+		system: false, // a copy is always user-created, even when the original is a system field
 		config: { ...original.config, api_accessor: uniquifyAccessor(schema, accessor) },
 	};
 	return insertFieldAt(schema, copy, index + 1);
+}
+
+/** Accessor for a freshly inserted field: base, base_2, base_3… (no "_copy" — it isn't a copy). */
+export function nextAccessor(schema: Schema, base: string): string {
+	const taken = new Set(schema.map((f) => f.config.api_accessor));
+	if (!taken.has(base)) return base;
+	let n = 2;
+	while (taken.has(`${base}_${n}`)) n++;
+	return `${base}_${n}`;
 }
 
 export function addSection(schema: Schema, name: string): Schema {
@@ -390,12 +441,9 @@ export function moveSection(schema: Schema, sectionAccessor: string, direction: 
 	// Where does the block currently begin among sections? Count markers before `start`.
 	const precedingMarkers = schema.slice(0, start).filter((f) => f.field_type === "section").length;
 	const targetMarkerIndex = precedingMarkers + (direction === -1 ? -1 : 1);
-	if (direction === -1 && targetMarkerIndex < 0) {
-		// Move before leading fields is not meaningful; insert at position of previous marker
-		// or at the very front when there is no previous section.
-		const insertAt = markers[0] && precedingMarkers === 0 ? 0 : (markers[targetMarkerIndex]?.i ?? 0);
-		return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
-	}
+	// Moving the first section left is a NO-OP: the implicit tab (leading fields)
+	// cannot be displaced — swapping past it would absorb those fields.
+	if (direction === -1 && targetMarkerIndex < 0) return schema;
 	if (direction === 1 && targetMarkerIndex >= markers.length) return schema; // already last
 	const target = markers[targetMarkerIndex];
 	if (!target) return schema;
@@ -473,18 +521,20 @@ export interface SpecDraft {
 	validation: SpecValidationResult;  // derived, memoized
 	dirty: boolean;
 	apply: (next: Schema) => void;     // set draft (draft-ops results)
-	save: () => void;                  // onCommit(draft); resets dirty baseline
-	discard: () => void;               // reset to the schema prop
+	save: () => Promise<void>;         // awaits onCommit; baseline advances ONLY on success
+	saving: boolean;                   // true while an async onCommit is in flight
+	saveError: unknown | null;         // last rejection; cleared on next save/apply
+	discard: () => void;               // reset to the baseline
 }
 export function useSpecDraft(
 	schema: Schema,
 	plugins: FieldTypePlugin[],
-	onCommit: (schema: Schema) => void,
+	onCommit: (schema: Schema) => void | Promise<void>,
 	onDirtyChange?: (dirty: boolean) => void,
 ): SpecDraft;
 ```
 
-Semantics: seeds from `schema`; external `schema` identity change resets the draft; `save()` calls `onCommit(draft)` and makes the current draft the new baseline (dirty=false) — do NOT wait for the prop to change; `dirty` = `draft !== baseline` reference inequality is insufficient — compare with `JSON.stringify` on save-relevant content? No: keep it simple and correct — `dirty` is true iff `draft` is not reference-equal to `baseline`, and every `apply()` sets a new array, so an apply that produces identical content still counts dirty; that is acceptable (Discard fixes it) and documented. `onDirtyChange` fires in an effect whenever `dirty` changes. `save()` is a no-op while `validation.valid === false`.
+Semantics: seeds from `schema`. **Reset guard (data-loss protection):** when the `schema` prop's identity changes, compare content (`JSON.stringify`) against the current *baseline* — content-equal ⇒ ignore (consumers may build fresh arrays every render); content different ⇒ adopt the new schema as baseline, and reset the draft ONLY if it was clean — a dirty draft is kept (the author's work survives a background refetch; the consumer sees `dirty` stay true). `save()` awaits `onCommit(draft)`: on success the baseline advances to the draft (dirty=false); on rejection the baseline is untouched (still dirty), `saveError` is set. `dirty` is reference inequality `draft !== baseline` (an apply producing identical content counts dirty; acceptable, Discard fixes it). `onDirtyChange` fires in an effect when `dirty` changes. `save()` is a no-op while `validation.valid === false` or `saving`.
 
 - [ ] **Step 1: Write the failing tests** — `src/editor/__tests__/use-spec-draft.test.tsx`:
 
@@ -519,16 +569,27 @@ describe("useSpecDraft", () => {
 		expect(result.current.dirty).toBe(false);
 	});
 
-	it("apply makes it dirty; save commits and resets dirty", () => {
+	it("apply makes it dirty; save commits and resets dirty", async () => {
 		const onCommit = vi.fn();
 		const { result } = renderHook(() =>
 			useSpecDraft([f("a"), f("b")], [textPlugin], onCommit),
 		);
 		act(() => result.current.apply(removeField(result.current.draft, "b")));
 		expect(result.current.dirty).toBe(true);
-		act(() => result.current.save());
+		await act(async () => result.current.save());
 		expect(onCommit).toHaveBeenCalledWith([expect.objectContaining({ config: expect.objectContaining({ api_accessor: "a" }) })]);
 		expect(result.current.dirty).toBe(false);
+	});
+
+	it("stays dirty and exposes saveError when async onCommit rejects", async () => {
+		const onCommit = vi.fn().mockRejectedValue(new Error("api down"));
+		const { result } = renderHook(() =>
+			useSpecDraft([f("a")], [textPlugin], onCommit),
+		);
+		act(() => result.current.apply([]));
+		await act(async () => result.current.save());
+		expect(result.current.dirty).toBe(true);
+		expect(result.current.saveError).toBeInstanceOf(Error);
 	});
 
 	it("discard restores the schema prop", () => {
@@ -541,16 +602,36 @@ describe("useSpecDraft", () => {
 		expect(result.current.dirty).toBe(false);
 	});
 
-	it("external schema identity change resets the draft", () => {
-		const first: Schema = [f("a")];
+	it("content-equal schema with new identity does NOT reset a dirty draft", () => {
 		const { result, rerender } = renderHook(
 			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
-			{ initialProps: { schema: first } },
+			{ initialProps: { schema: [f("a")] as Schema } },
 		);
-		act(() => result.current.apply(removeField(result.current.draft, "a")));
+		act(() => result.current.apply([]));
+		rerender({ schema: [f("a")] }); // fresh array, same content
+		expect(result.current.draft).toHaveLength(0);
+		expect(result.current.dirty).toBe(true);
+	});
+
+	it("content-changed schema resets a CLEAN draft", () => {
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
+			{ initialProps: { schema: [f("a")] as Schema } },
+		);
 		rerender({ schema: [f("x")] });
 		expect(result.current.draft[0].config.api_accessor).toBe("x");
 		expect(result.current.dirty).toBe(false);
+	});
+
+	it("content-changed schema KEEPS a dirty draft (work survives a refetch)", () => {
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
+			{ initialProps: { schema: [f("a")] as Schema } },
+		);
+		act(() => result.current.apply([f("a"), f("mine")]));
+		rerender({ schema: [f("x")] });
+		expect(result.current.draft.map((x) => x.config.api_accessor)).toEqual(["a", "mine"]);
+		expect(result.current.dirty).toBe(true);
 	});
 
 	it("save is a no-op while the draft is invalid", () => {
@@ -581,7 +662,7 @@ describe("useSpecDraft", () => {
 
 ```ts
 // src/editor/use-spec-draft.ts
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { partitionSchemaBySections, type SpecPartition } from "../schema/partition";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
@@ -593,73 +674,75 @@ export interface SpecDraft {
 	validation: SpecValidationResult;
 	dirty: boolean;
 	apply: (next: Schema) => void;
-	save: () => void;
+	save: () => Promise<void>;
+	saving: boolean;
+	saveError: unknown | null;
 	discard: () => void;
 }
 
 export function useSpecDraft(
 	schema: Schema,
 	plugins: FieldTypePlugin[],
-	onCommit: (schema: Schema) => void,
+	onCommit: (schema: Schema) => void | Promise<void>,
 	onDirtyChange?: (dirty: boolean) => void,
 ): SpecDraft {
+	const [baseline, setBaseline] = useState<Schema>(schema);
 	const [draft, setDraft] = useState<Schema>(schema);
-	const baselineRef = useRef<Schema>(schema);
+	const [saving, setSaving] = useState(false);
+	const [saveError, setSaveError] = useState<unknown | null>(null);
 
-	// External schema identity change resets the session.
+	// Reset guard: a new prop identity with EQUAL content is ignored
+	// (consumers may build fresh arrays every render). Genuinely new
+	// content adopts the new baseline, but a dirty draft is KEPT — an
+	// author's in-progress work must survive a background refetch.
 	useEffect(() => {
-		baselineRef.current = schema;
-		setDraft(schema);
+		if (schema === baseline) return;
+		if (JSON.stringify(schema) === JSON.stringify(baseline)) return;
+		const wasDirty = draft !== baseline;
+		setBaseline(schema);
+		if (!wasDirty) setDraft(schema);
+		// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	}, [schema]);
 
 	const partition = useMemo(() => partitionSchemaBySections(draft), [draft]);
 	const pluginMap = useMemo(() => new Map(plugins.map((p) => [p.id, p])), [plugins]);
 	const validation = useMemo(() => validateSpec(draft, pluginMap), [draft, pluginMap]);
 
-	const dirty = draft !== baselineRef.current;
+	const dirty = draft !== baseline;
 
 	useEffect(() => {
 		onDirtyChange?.(dirty);
 	}, [dirty, onDirtyChange]);
 
-	const apply = useCallback((next: Schema) => setDraft(next), []);
-
-	const save = useCallback(() => {
-		if (!validation.valid) return;
-		baselineRef.current = draft;
-		onCommit(draft);
-		// Re-render so `dirty` recomputes against the new baseline.
-		setDraft(draft);
-	}, [draft, validation.valid, onCommit]);
-
-	const discard = useCallback(() => {
-		setDraft(baselineRef.current);
+	const apply = useCallback((next: Schema) => {
+		setSaveError(null);
+		setDraft(next);
 	}, []);
 
-	return { draft, partition, validation, dirty, apply, save, discard };
+	const save = useCallback(async () => {
+		if (!validation.valid || saving) return;
+		setSaving(true);
+		setSaveError(null);
+		try {
+			await onCommit(draft);
+			setBaseline(draft); // advance ONLY on success
+		} catch (error) {
+			setSaveError(error);
+		} finally {
+			setSaving(false);
+		}
+	}, [draft, validation.valid, saving, onCommit]);
+
+	const discard = useCallback(() => {
+		setSaveError(null);
+		setDraft(baseline);
+	}, [baseline]);
+
+	return { draft, partition, validation, dirty, apply, save, saving, saveError, discard };
 }
 ```
 
-Note: `setDraft(draft)` with the same reference does not re-render in React — after `baselineRef.current = draft` the memo `dirty` would be stale until the next render. Fix: track baseline in state instead of a ref:
-
-```ts
-	const [baseline, setBaseline] = useState<Schema>(schema);
-	useEffect(() => {
-		setBaseline(schema);
-		setDraft(schema);
-	}, [schema]);
-	const dirty = draft !== baseline;
-	const save = useCallback(() => {
-		if (!validation.valid) return;
-		setBaseline(draft);
-		onCommit(draft);
-	}, [draft, validation.valid, onCommit]);
-	const discard = useCallback(() => setDraft(baseline), [baseline]);
-```
-
-Use the state-based version (delete the ref approach) — the tests cover this exact behavior.
-
-- [ ] **Step 4: Run tests** — `npx vitest run src/editor/__tests__/use-spec-draft.test.tsx` → 6 PASS.
+- [ ] **Step 4: Run tests** — `npx vitest run src/editor/__tests__/use-spec-draft.test.tsx` → 9 PASS.
 
 - [ ] **Step 5: Full gate + commit**
 
@@ -682,6 +765,9 @@ git commit -m "feat(editor): useSpecDraft session hook"
 - Produces (used by T5):
 
 ```tsx
+export interface FieldShellToolbarLabels {
+	drag: string; edit: string; duplicate: string; delete: string; systemLocked: string;
+}
 export interface FieldShellProps {
 	field: Field;
 	selected: boolean;
@@ -690,12 +776,14 @@ export interface FieldShellProps {
 	onEdit: (accessor: string) => void;      // select + focus panel label
 	onDuplicate: (accessor: string) => void;
 	onDelete: (accessor: string) => void;
+	moveMenu?: ReactNode;           // "Move to section…" node, injected by the canvas (T8)
+	labels: FieldShellToolbarLabels;
 	children: ReactNode;            // the real field component, rendered inert
 }
 export function FieldShell(props: FieldShellProps): JSX.Element;
 ```
 
-Behavior: root `Box` is clickable (`onClick={() => onSelect(accessor)}`), `data-testid={"shell-" + accessor}`; the children wrapper gets `pointerEvents="none"` + `aria-hidden` + `tabIndex={-1}` (via a wrapping Box with `inert`-like treatment); when `selected`, root gets `borderColor="accent"` 2px outline, `bg="bg-subtle"`, and a floating toolbar (absolute, top-right) with the four IconButtons (drag handle carries `{...attributes} {...listeners}` from `useSortable`); when `invalid`, border uses `danger.600` (invalid wins over selected). Toolbar buttons `size="2xs"` `variant="ghost"`, each in a `Tooltip content=…`; clicks call their callback with the accessor and `stopPropagation()`.
+Behavior: root `Box` is **keyboard-selectable** — `role="button"`, `tabIndex={0}`, `onKeyDown` handling Enter/Space → `onSelect(accessor)` (preventDefault on Space), plus `onClick`; `data-testid={"shell-" + accessor}`; the children wrapper gets `pointerEvents="none"` + `aria-hidden` (content is display-only); when `selected`, root gets `borderColor="accent"` 2px outline, `bg="bg-subtle"`, and a floating toolbar (absolute, top-right) with the IconButtons (drag handle carries `{...attributes} {...listeners}` from `useSortable`); when `invalid`, border uses `danger.600` (invalid wins over selected). **System fields** (`field.system`): no delete button; a lucide `Lock` icon (aria-label `labels.systemLocked`) renders before the toolbar buttons. Toolbar buttons `size="2xs"` `variant="ghost"`, each in a `Tooltip content=…` using the `labels` strings for both tooltip content and `aria-label`; clicks call their callback with the accessor and `stopPropagation()`.
 
 - [ ] **Step 1: Write the failing tests** — `src/editor/__tests__/field-shell.test.tsx` (wrap renders in `ChakraProvider value={defaultSystem}` + a `DndContext`/`SortableContext` from dnd-kit — `useSortable` needs the contexts):
 
@@ -726,12 +814,16 @@ function Wrap({ children }: { children: ReactNode }) {
 }
 
 const noop = () => {};
+const shellLabels = {
+	drag: "Drag to reorder", edit: "Edit field", duplicate: "Duplicate field",
+	delete: "Delete field", systemLocked: "System field",
+};
 
 describe("FieldShell", () => {
 	it("renders children inert (aria-hidden wrapper)", () => {
 		render(
 			<Wrap>
-				<FieldShell field={field} selected={false} onSelect={noop} onEdit={noop} onDuplicate={noop} onDelete={noop}>
+				<FieldShell field={field} selected={false} onSelect={noop} onEdit={noop} onDuplicate={noop} onDelete={noop} labels={shellLabels}>
 					<input data-testid="inner" />
 				</FieldShell>
 			</Wrap>,
@@ -744,7 +836,7 @@ describe("FieldShell", () => {
 		const onSelect = vi.fn();
 		render(
 			<Wrap>
-				<FieldShell field={field} selected={false} onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={noop}>
+				<FieldShell field={field} selected={false} onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={noop} labels={shellLabels}>
 					<span>x</span>
 				</FieldShell>
 			</Wrap>,
@@ -758,7 +850,7 @@ describe("FieldShell", () => {
 		const onSelect = vi.fn();
 		const { rerender } = render(
 			<Wrap>
-				<FieldShell field={field} selected={false} onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={onDelete}>
+				<FieldShell field={field} selected={false} onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={onDelete} labels={shellLabels}>
 					<span>x</span>
 				</FieldShell>
 			</Wrap>,
@@ -766,7 +858,7 @@ describe("FieldShell", () => {
 		expect(screen.queryByLabelText("Delete field")).not.toBeInTheDocument();
 		rerender(
 			<Wrap>
-				<FieldShell field={field} selected onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={onDelete}>
+				<FieldShell field={field} selected onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={onDelete} labels={shellLabels}>
 					<span>x</span>
 				</FieldShell>
 			</Wrap>,
@@ -774,6 +866,34 @@ describe("FieldShell", () => {
 		fireEvent.click(screen.getByLabelText("Delete field"));
 		expect(onDelete).toHaveBeenCalledWith("title");
 		expect(onSelect).not.toHaveBeenCalled();
+	});
+
+	it("is keyboard-selectable (Enter and Space)", () => {
+		const onSelect = vi.fn();
+		render(
+			<Wrap>
+				<FieldShell field={field} selected={false} onSelect={onSelect} onEdit={noop} onDuplicate={noop} onDelete={noop} labels={shellLabels}>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		const shell = screen.getByTestId("shell-title");
+		expect(shell).toHaveAttribute("tabindex", "0");
+		fireEvent.keyDown(shell, { key: "Enter" });
+		fireEvent.keyDown(shell, { key: " " });
+		expect(onSelect).toHaveBeenCalledTimes(2);
+	});
+
+	it("system fields show a lock and no delete button", () => {
+		render(
+			<Wrap>
+				<FieldShell field={{ ...field, system: true }} selected onSelect={noop} onEdit={noop} onDuplicate={noop} onDelete={noop} labels={shellLabels}>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		expect(screen.getByLabelText("System field")).toBeInTheDocument();
+		expect(screen.queryByLabelText("Delete field")).not.toBeInTheDocument();
 	});
 });
 ```
@@ -789,9 +909,17 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconButton } from "@knkcs/anker/atoms";
 import { Tooltip } from "@knkcs/anker/primitives";
-import { Copy, GripVertical, Pencil, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Lock, Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Field } from "../schema/types";
+
+export interface FieldShellToolbarLabels {
+	drag: string;
+	edit: string;
+	duplicate: string;
+	delete: string;
+	systemLocked: string;
+}
 
 export interface FieldShellProps {
 	field: Field;
@@ -801,6 +929,8 @@ export interface FieldShellProps {
 	onEdit: (accessor: string) => void;
 	onDuplicate: (accessor: string) => void;
 	onDelete: (accessor: string) => void;
+	moveMenu?: ReactNode;
+	labels: FieldShellToolbarLabels;
 	children: ReactNode;
 }
 
@@ -812,6 +942,8 @@ export function FieldShell({
 	onEdit,
 	onDuplicate,
 	onDelete,
+	moveMenu,
+	labels,
 	children,
 }: FieldShellProps) {
 	const accessor = field.config.api_accessor;
@@ -832,8 +964,17 @@ export function FieldShell({
 			opacity={isDragging ? 0.6 : 1}
 			p="2"
 			cursor="pointer"
+			role="button"
+			tabIndex={0}
+			aria-label={field.config.name}
 			data-testid={`shell-${accessor}`}
 			onClick={() => onSelect(accessor)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onSelect(accessor);
+				}
+			}}
 		>
 			{selected && (
 				<Flex
@@ -849,26 +990,34 @@ export function FieldShell({
 					zIndex="docked"
 					onClick={(e) => e.stopPropagation()}
 				>
-					<Tooltip content="Drag to reorder">
-						<IconButton aria-label="Drag to reorder" size="2xs" variant="ghost" {...attributes} {...listeners}>
+					{field.system && (
+						<Box as="span" color="fg.muted" px="1" aria-label={labels.systemLocked} role="img">
+							<Lock size={12} />
+						</Box>
+					)}
+					<Tooltip content={labels.drag}>
+						<IconButton aria-label={labels.drag} size="2xs" variant="ghost" {...attributes} {...listeners}>
 							<GripVertical size={14} />
 						</IconButton>
 					</Tooltip>
-					<Tooltip content="Edit field">
-						<IconButton aria-label="Edit field" size="2xs" variant="ghost" onClick={() => onEdit(accessor)}>
+					<Tooltip content={labels.edit}>
+						<IconButton aria-label={labels.edit} size="2xs" variant="ghost" onClick={() => onEdit(accessor)}>
 							<Pencil size={14} />
 						</IconButton>
 					</Tooltip>
-					<Tooltip content="Duplicate field">
-						<IconButton aria-label="Duplicate field" size="2xs" variant="ghost" onClick={() => onDuplicate(accessor)}>
+					<Tooltip content={labels.duplicate}>
+						<IconButton aria-label={labels.duplicate} size="2xs" variant="ghost" onClick={() => onDuplicate(accessor)}>
 							<Copy size={14} />
 						</IconButton>
 					</Tooltip>
-					<Tooltip content="Delete field">
-						<IconButton aria-label="Delete field" size="2xs" variant="ghost" colorPalette="red" onClick={() => onDelete(accessor)}>
-							<Trash2 size={14} />
-						</IconButton>
-					</Tooltip>
+					{moveMenu}
+					{!field.system && (
+						<Tooltip content={labels.delete}>
+							<IconButton aria-label={labels.delete} size="2xs" variant="ghost" colorPalette="red" onClick={() => onDelete(accessor)}>
+								<Trash2 size={14} />
+							</IconButton>
+						</Tooltip>
+					)}
 				</Flex>
 			)}
 			{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: content is display-only; tabIndex removed via inert wrapper */}
@@ -883,7 +1032,7 @@ FieldShell.displayName = "FieldShell";
 
 (If Biome flags a different a11y rule name, use the reported rule in the ignore comment — the intent line stays.)
 
-- [ ] **Step 4: Run tests** — `npx vitest run src/editor/__tests__/field-shell.test.tsx` → 3 PASS.
+- [ ] **Step 4: Run tests** — `npx vitest run src/editor/__tests__/field-shell.test.tsx` → 5 PASS.
 
 - [ ] **Step 5: Full gate + commit**
 
@@ -898,12 +1047,27 @@ git commit -m "feat(editor): FieldShell with selection toolbar and inert content
 ### Task 5: `EditorCanvas` core
 
 **Files:**
+- Modify: `src/renderer/field-component.tsx:48-54` (memo comparator — see Step 0)
+- Modify: `src/renderer/__tests__/field-component.test.tsx` (memo test)
 - Create: `src/editor/editor-canvas.tsx`
 - Create: `src/editor/__tests__/editor-canvas.test.tsx`
 - Create: `src/editor/__tests__/editor-helpers.tsx` (shared test fixtures for T5–T12; NOT named `*.test.tsx`)
 
+- [ ] **Step 0 (sanctioned renderer change): identity-based `FieldComponent` memo.** The current comparator (`field-component.tsx:48-54`) compares only `api_accessor` + `field_type` + `readOnly` — panel edits to name/required/settings produce a new `Field` with the same accessor, so the canvas would NEVER re-render and live preview is dead. Replace the custom comparator:
+
+```tsx
+export const FieldComponent = memo(FieldComponentInner, (prev, next) => {
+	// Identity comparison: draft-ops replace only the edited field object,
+	// so exactly the edited field re-renders. Renderer consumers pass
+	// stable field objects and are unaffected.
+	return prev.field === next.field && prev.readOnly === next.readOnly;
+});
+```
+
+TDD: first add a failing test to `src/renderer/__tests__/field-component.test.tsx` — render a FieldComponent, rerender with a NEW field object (same accessor/type, different `config.name`), assert the rendered output shows the new name (with the old comparator it shows the stale one). Run the whole renderer suite afterwards — SpecForm/FieldRenderer pass stable objects, nothing else may regress. Commit separately: `fix(renderer): identity-based FieldComponent memo for editable fields`.
+
 **Interfaces:**
-- Consumes: `SpecDraft` (T3), `FieldShell` (T4), `partition` from the draft, `FieldComponent` from `../renderer/field-component` (renders plugin components + error boundary + hidden-check — reuse it, do not reimplement), `Tabs` from `@knkcs/anker/primitives`, `FieldSearch` + `buildSearchIndex` from `../renderer/spec-form/*`, `useContainerOrientation` from `../renderer/spec-form/use-container-orientation`.
+- Consumes: `SpecDraft` (T3), `FieldShell` (T4), `partition` from the draft, `FieldComponent` from `../renderer/field-component` (renders plugin components + error boundary + hidden-check — reuse it; its memo becomes identity-based in Step 0), `Tabs` from `@knkcs/anker/primitives`, `FieldSearch` from `../renderer/spec-form/field-search` (the editor builds its own index — hidden fields included), `useContainerOrientation` from `../renderer/spec-form/use-container-orientation`.
 - Produces (used by T12):
 
 ```tsx
@@ -916,7 +1080,7 @@ export interface EditorCanvasProps {
 }
 ```
 
-For T5, type the labels param as `{ defaultTab: string; searchPlaceholder: string; noResults: string }` — T12 passes its richer object (structural typing).
+For T5, type the labels param as the `CanvasLabels` interface shown in the implementation (defaultTab/searchPlaceholder/noResults/hiddenField/groupPreview + `shell: FieldShellToolbarLabels`) — T12 builds this object from its flat `EditorLabels`.
 
 Behavior in this task (affordances come later): renders one scratch `useForm` + `FormProvider` + `FieldKitProvider` passthrough is NOT needed (consumer provides it — canvas assumes it exists, same as FieldRenderer); tab strip when `partition.hasSections` (active tab state, value convention `tab-${i}`, mounted-hidden panels — copy the conventions from `SpecFormTabs`), flat stack otherwise; every non-hidden field renders `<FieldShell><FieldComponent field={field}/></FieldShell>` inside a `Stack gap="5"`; hidden fields render a collapsed shell variant: same FieldShell but children replaced by a muted one-line `<Text color="fg.muted">Hidden field: {name}</Text>` (authors must be able to select hidden fields — they are invisible in SpecForm but must be editable here); `FieldSearch` in the strip (jump = switch tab + `onSelect(accessor)`); duplicate/delete wired to draft-ops through `spec.apply`.
 
@@ -984,7 +1148,14 @@ import { EditorCanvas } from "../editor-canvas";
 import { useSpecDraft } from "../use-spec-draft";
 import { EditorWrap, makeField, makeSection, testPlugins } from "./editor-helpers";
 
-const LABELS = { defaultTab: "General", searchPlaceholder: "Find field…", noResults: "No fields found" };
+const LABELS = {
+	defaultTab: "General", searchPlaceholder: "Find field…", noResults: "No fields found",
+	hiddenField: "Hidden field:", groupPreview: "Repeating group",
+	shell: {
+		drag: "Drag to reorder", edit: "Edit field", duplicate: "Duplicate field",
+		delete: "Delete field", systemLocked: "System field",
+	},
+};
 
 function Harness({ schema, onCommit = vi.fn() }: { schema: Schema; onCommit?: (s: Schema) => void }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
@@ -1066,12 +1237,12 @@ describe("EditorCanvas", () => {
 // src/editor/editor-canvas.tsx
 import { Box, Flex, Stack, Text } from "@chakra-ui/react";
 import { Tabs } from "@knkcs/anker/primitives";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { FieldSearch } from "../renderer/spec-form/field-search";
-import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
+import type { FieldShellToolbarLabels } from "./field-shell";
 import { getDefaultValues } from "../schema/zod-builder";
 import type { Field } from "../schema/types";
 import { duplicateField, removeField } from "./draft-ops";
@@ -1082,6 +1253,9 @@ interface CanvasLabels {
 	defaultTab: string;
 	searchPlaceholder: string;
 	noResults: string;
+	hiddenField: string;   // e.g. "Hidden field:" prefix
+	groupPreview: string;  // e.g. "Repeating group" — child count appended
+	shell: FieldShellToolbarLabels;
 }
 
 export interface EditorCanvasProps {
@@ -1092,12 +1266,25 @@ export interface EditorCanvasProps {
 	labels: CanvasLabels;
 }
 
-function ShellContent({ field }: { field: Field }) {
+function ShellContent({ field, labels }: { field: Field; labels: CanvasLabels }) {
 	if (field.config.hidden) {
 		return (
 			<Text fontSize="sm" color="fg.muted" fontStyle="italic">
-				Hidden field: {field.config.name}
+				{labels.hiddenField} {field.config.name}
 			</Text>
+		);
+	}
+	if (field.field_type === "group") {
+		// The real GroupField renders an empty useFieldArray state that reads
+		// as broken in an inert canvas — show the spec's framed preview instead.
+		const childCount = (field.children ?? []).length;
+		return (
+			<Box borderWidth="1px" borderStyle="dashed" borderColor="border" borderRadius="md" p="3">
+				<Text fontSize="sm" fontWeight="medium">{field.config.name}</Text>
+				<Text fontSize="xs" color="fg.muted">
+					{labels.groupPreview} · {childCount}
+				</Text>
+			</Box>
 		);
 	}
 	return <FieldComponent field={field} />;
@@ -1117,17 +1304,35 @@ export function EditorCanvas({
 
 	// Scratch form so real field components render authentic defaults.
 	const methods = useForm({ defaultValues: getDefaultValues(draft) });
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset previews new defaults when the draft changes
+	// Reset ONLY when the defaults actually changed — a per-keystroke reset
+	// would re-render every registered field (incl. heavy ones like TipTap).
+	const lastDefaultsRef = useRef(JSON.stringify(getDefaultValues(draft)));
+	// biome-ignore lint/correctness/useExhaustiveDependencies: guarded by content comparison
 	useEffect(() => {
-		methods.reset(getDefaultValues(draft));
+		const next = getDefaultValues(draft);
+		const serialized = JSON.stringify(next);
+		if (serialized !== lastDefaultsRef.current) {
+			lastDefaultsRef.current = serialized;
+			methods.reset(next);
+		}
 	}, [draft]);
 
 	useEffect(() => {
 		setActiveTab("tab-0");
 	}, [partition.tabs.length === 0]); // reset only when tab count crosses zero is wrong — see note below
 
+	// Editor-side index: unlike the renderer's buildSearchIndex, HIDDEN fields
+	// are included — they render as selectable rows on the canvas.
 	const searchIndex = useMemo(
-		() => buildSearchIndex(partition.tabs, labels.defaultTab),
+		() =>
+			partition.tabs.flatMap((tab, tabIndex) =>
+				tab.fields.map((field) => ({
+					accessor: field.config.api_accessor,
+					label: field.config.name,
+					tabIndex,
+					tabLabel: tab.section?.config.name ?? labels.defaultTab,
+				})),
+			),
 		[partition, labels.defaultTab],
 	);
 
@@ -1154,8 +1359,9 @@ export function EditorCanvas({
 					onEdit={onEdit}
 					onDuplicate={handleDuplicate}
 					onDelete={handleDelete}
+					labels={labels.shell}
 				>
-					<ShellContent field={field} />
+					<ShellContent field={field} labels={labels} />
 				</FieldShell>
 			))}
 		</Stack>
@@ -1266,7 +1472,7 @@ export function TypePickerPopover(props: TypePickerPopoverProps): JSX.Element;
 Canvas addition: between every pair of shells (and at the end of each tab, and as the empty-tab/empty-spec drop zone) render an insertion row: a thin hover-revealed line with a centered ⊕ `TypePickerPopover` trigger (`opacity 0 → 1` on hover via Chakra `_hover` on the row group; always visible when the tab is empty). Picking a type builds the new field:
 
 ```ts
-const accessor = uniquifyAccessor(draft, plugin.id); // e.g. "text", "text_copy"…
+const accessor = nextAccessor(draft, plugin.id); // e.g. "text", "text_2"… (numeric — it is not a copy)
 const newField: Field = {
 	field_type: plugin.id,
 	config: { name: plugin.name, api_accessor: accessor, required: false, instructions: "" },
@@ -1362,7 +1568,7 @@ Then wire insertion rows into `renderFields` in `editor-canvas.tsx` — the canv
 	const insertAt = (tabIndex: number, position: number) => (pluginId: string) => {
 		const plugin = plugins.find((p) => p.id === pluginId);
 		if (!plugin) return;
-		const accessor = uniquifyAccessor(draft, plugin.id);
+		const accessor = nextAccessor(draft, plugin.id);
 		const newField: Field = {
 			field_type: plugin.id,
 			config: { name: plugin.name, api_accessor: accessor, required: false, instructions: "" },
@@ -1389,13 +1595,13 @@ Then wire insertion rows into `renderFields` in `editor-canvas.tsx` — the canv
 				context={context}
 				currentSpec={draft}
 				onPick={insertAt(tabIndex, position)}
-				triggerLabel="Add field"
+				triggerLabel={labels.addField}
 			/>
 		</Flex>
 	);
 ```
 
-`renderFields(fields, tabIndex)` interleaves: `insertionRow(tabIndex, 0, fields.length === 0)`, then for each field `[shell, insertionRow(tabIndex, i+1, false)]`. The empty-spec branch renders `insertionRow(0, 0, true)` instead of the placeholder Box.
+`renderFields(fields, tabIndex)` interleaves: `insertionRow(tabIndex, 0, fields.length === 0)`, then for each field `[shell, insertionRow(tabIndex, i+1, false)]`. The empty-spec branch renders a labeled empty state instead of the placeholder Box: a centered `<Text color="fg.muted">{labels.emptySpec}</Text>` above `insertionRow(0, 0, true)` (CanvasLabels gains `addField: string` and `emptySpec: string` — e.g. "No fields yet. Add the first one:"). Empty plugin registry / fully filtered context: TypePicker already renders its "no matching" message — verify it appears inside the popover and reads sensibly with an empty search.
 
 - [ ] **Step 4: Run tests** — `npx vitest run src/editor/__tests__/insertion.test.tsx src/editor/__tests__/editor-canvas.test.tsx src/editor/__tests__/draft-ops.test.ts` → PASS (T5 tests updated only by adding the new required `plugins` prop to the harness).
 
@@ -1434,7 +1640,7 @@ export interface SectionMenuProps {
 }
 ```
 
-Rename: the MenuItem switches the tab label into an inline `<Input size="xs">` (local state in the canvas: `renamingAccessor`); Enter/blur commits via `onRename`, Escape cancels. Delete: canvas calls `const ok = await confirm({ title: labels.deleteSection, message: <text naming the section>, colorPalette: "red" }); if (ok) apply(deleteSection(draft, accessor))`. "+ Section": a ghost Button after the last trigger → `apply(addSection(draft, "New section"))` and immediately enter rename mode for it. SpecEditor (T12) must wrap everything in `ConfirmModalProvider` — for now the canvas test provides it.
+Rename: the MenuItem switches the tab label into an inline `<Input size="xs">` (local state in the canvas: `renamingAccessor`); Enter/blur commits via `onRename`, Escape cancels. Delete: canvas calls `const ok = await confirm({ title: labels.deleteSection, message: labels.deleteSectionConfirm.replace("{section}", sectionName), colorPalette: "red" }); if (ok) apply(deleteSection(draft, accessor))`. The default `deleteSectionConfirm` text MUST say the fields survive: "Delete section \"{section}\"? Its fields move to the previous tab." The rename inline input must call `e.stopPropagation()` on its Escape keydown so the shell-deselect document listener (T12) does not also fire. "+ Section": a ghost Button after the last trigger → `apply(addSection(draft, "New section"))` and immediately enter rename mode for it. SpecEditor (T12) must wrap everything in `ConfirmModalProvider` — for now the canvas test provides it.
 
 - [ ] **Step 1: Write failing tests** — `src/editor/__tests__/sections.test.tsx` (harness = T5 pattern + `ConfirmModalProvider` inside `EditorWrap`'s children). Cases, write in full:
 
@@ -1588,7 +1794,14 @@ export interface PanelSectionProps {
 	field: Field;
 	plugin: FieldTypePlugin | undefined;
 	onFieldChange: (next: Field) => void;   // panel → canvas live update
-	accessorError: string | null;            // from draft validation
+	accessorError: string | null;            // local gate error (see below)
+	committedAccessors: Set<string>;         // accessors present in the last committed schema
+	labels: PanelLabels;                     // headings + messages (T12 provides; tests pass English)
+}
+export interface PanelLabels {
+	general: string; validation: string; typeSettings: string; noSettings: string;
+	children: string; back: string; close: string; localizable: string;
+	accessorInUse: string; accessorEmpty: string; committedAccessorWarning: string;
 }
 export function ConfigSection(props: PanelSectionProps): JSX.Element;    // name, accessor, instructions, required, default, hidden, readOnly (+ name→accessor slugify with manual-edit latch, ported from field-modal.tsx:134-151)
 export function ValidationSection(props: PanelSectionProps): JSX.Element; // min/max length, pattern, pattern message, unique
@@ -1607,7 +1820,17 @@ export interface FieldConfigPanelProps {
 export function FieldConfigPanel(props: FieldConfigPanelProps): JSX.Element | null;
 ```
 
-Field mutation pattern (each control): build `next: Field` immutably and call `onFieldChange(next)` — e.g. required checkbox: `onFieldChange({ ...field, config: { ...field.config, required: e.target.checked } })`. Validation numbers empty-string → key removed (port the conditional-spread technique from field-modal.tsx:165-215). Sections render inside Chakra `Collapsible`/details-style groups titled General / Validation / Type settings (General expanded by default).
+Field mutation pattern (each control): build `next: Field` immutably and call `onFieldChange(next)` — e.g. required checkbox: `onFieldChange({ ...field, config: { ...field.config, required: e.target.checked } })`. Validation numbers empty-string → key removed (port the conditional-spread technique from field-modal.tsx:165-215). Sections render inside Chakra `Collapsible`/details-style groups titled via `labels.general` / `labels.validation` / `labels.typeSettings` (General expanded by default).
+
+**Accessor gate (Blocking finding #2 from the design review — the contract):** the accessor input is LOCAL STATE in ConfigSection, synced from `field.config.api_accessor` when the selected field changes. On each keystroke it validates locally: empty → `labels.accessorEmpty`; collides with another field's accessor in the draft → `labels.accessorInUse`. Only a VALID value is applied to the draft (`onFieldChange` with the new accessor); invalid values show the error under the input and never touch the draft — mid-typing collisions can therefore never overwrite another field (updateField matches whole accessors). When the applied accessor changes, the parent (T12) re-syncs its `selected` state in the same `onFieldChange` handler.
+
+**Committed-accessor warning:** when `committedAccessors.has(field.config.api_accessor)` and the input differs from the synced value, render `labels.committedAccessorWarning` ("Changing the accessor of a saved field disconnects its existing data") as a warning-toned helper under the input. New-in-draft fields rename silently.
+
+**Auto-slug latch (baseline-aware):** name→accessor auto-slugify (port from field-modal.tsx:134-151) starts ACTIVE when the field's accessor is NOT in `committedAccessors` (new-in-draft) and the user has not manually edited the accessor; it latches off on manual accessor edit. Committed fields never auto-slug.
+
+**Trim on blur, not on keystroke:** `.trim()` from the FieldModal serialization applies on input blur (and before Save via the draft as-is) — trimming per keystroke makes typing spaces impossible.
+
+**Config parity:** ConfigSection adds a `localizable` checkbox next to hidden/readOnly (`labels.localizable`) — `FieldConfig.localizable` exists but no editor generation has ever exposed it.
 
 Group drill-in (v1, minimal per spec): when `field.field_type === "group"`, panel shows below the standard sections a "Children" list — each child row: name + type + Edit button; Edit swaps the panel to that child (`drillStack` local state; Back button pops). Child edits produce a new children array on the group: `onFieldChange({ ...group, children: children.map(...) })`.
 
@@ -1615,10 +1838,14 @@ Group drill-in (v1, minimal per spec): when `field.field_type === "group"`, pane
 
 ```tsx
 it("renders nothing when field is null");
-it("label edit calls onFieldChange with updated name (and auto-slugs a fresh accessor)");
+it("label edit calls onFieldChange with updated name (and auto-slugs a fresh accessor for a new-in-draft field)");
 it("manual accessor edit latches — subsequent label edits stop touching the accessor");
-it("shows accessorError from fieldErrors");
+it("committed fields never auto-slug (accessor in committedAccessors)");
+it("colliding accessor edit shows the error and does NOT call onFieldChange");
+it("empty accessor shows the error and does NOT call onFieldChange");
+it("editing a committed field's accessor shows the disconnect warning");
 it("required checkbox toggles config.required");
+it("localizable checkbox toggles config.localizable");
 it("renders plugin settingsComponent and applies its onChange to field.settings");
 it("group children list drills in and edits a child name");
 ```
@@ -1662,7 +1889,7 @@ it("valid spec renders no badges");
 
 Note: two fields sharing one accessor break React keys (both shells keyed by the same accessor). The canvas must key shells by `${accessor}-${flatIndex}` — this task changes the key and asserts both shells render (getAllByTestId("shell-dup")).
 
-- [ ] **Step 2–4: RED → implement → GREEN** (badge JSX copied from SpecFormTabs trigger; per-tab error count = fieldErrors whose accessor belongs to that tab — duplicates map to the tab of their first occurrence).
+- [ ] **Step 2–4: RED → implement → GREEN** (badge JSX copied from SpecFormTabs trigger; per-tab error count = fieldErrors counted against EVERY tab containing a field with that accessor — a cross-tab duplicate badges both tabs, computed by walking partition.tabs' fields rather than first-occurrence lookup).
 
 - [ ] **Step 5: Full gate + commit**
 
@@ -1760,13 +1987,38 @@ git commit -m "feat(editor): Try-it mode with scratch form and test submit"
 
 ```tsx
 export interface EditorLabels {
-	defaultTab?: string; searchPlaceholder?: string; noResults?: string; // passed to canvas/SpecForm
+	// canvas / SpecForm passthrough
+	defaultTab?: string; searchPlaceholder?: string; noResults?: string;
+	hiddenField?: string; groupPreview?: string; addField?: string; emptySpec?: string;
+	// header
 	save?: string; discard?: string; build?: string; tryIt?: string;
-	testSubmit?: string; testSubmitSuccess?: string; addSection?: string;
-	moveToSection?: string; deleteSectionConfirm?: string;
+	fixValidationFirst?: string; saveFailed?: string;
+	// try-it
+	testSubmit?: string; testSubmitSuccess?: string;
+	// sections
+	addSection?: string; newSectionName?: string; sectionNameInput?: string;
 	renameSection?: string; moveLeft?: string; moveRight?: string;
-	deleteSection?: string; orientationH?: string; orientationV?: string;
+	deleteSection?: string; deleteSectionConfirm?: string; // "{section}" interpolated
+	orientationH?: string; orientationV?: string; sectionMenu?: string; // "{section}" interpolated aria
+	moveToSection?: string;
+	// shell toolbar
+	dragField?: string; editField?: string; duplicateField?: string;
+	deleteField?: string; systemLocked?: string;
+	// delete undo
+	fieldDeleted?: string; undo?: string;
+	// panel
+	panelGeneral?: string; panelValidation?: string; panelTypeSettings?: string;
+	panelNoSettings?: string; panelChildren?: string; panelBack?: string; panelClose?: string;
+	panelLocalizable?: string; accessorInUse?: string; accessorEmpty?: string;
+	committedAccessorWarning?: string;
+	// validation messages by SpecFieldErrorCode ("{accessor}" interpolated)
+	errorDuplicateAccessor?: string; errorEmptyName?: string; errorEmptyAccessor?: string;
 }
+```
+
+`DEFAULT_EDITOR_LABELS: Required<EditorLabels>` lives beside the component with English defaults for every key (single source — no string literals anywhere else in `/editor`). A module-level helper maps `SpecFieldError.code` → the corresponding label with `{accessor}` interpolation; the panel and any error summaries render translated messages through it.
+
+```ts
 export interface SpecEditorProps {
 	schema: Schema;
 	onCommit: (schema: Schema) => void;
@@ -1783,12 +2035,15 @@ Structure (complete component, ~150 lines):
 - `useSpecDraft(schema, plugins, onCommit, onDirtyChange)`.
 - `const [mode, setMode] = useState<"build" | "tryit">("build")`; `const [selected, setSelected] = useState<string | null>(null)`; `const [autoFocusLabel, setAutoFocusLabel] = useState(false)`.
 - Wrap everything in `ConfirmModalProvider` (from `@knkcs/anker/feedback`) and render anker `Toaster` (from `/primitives`) once.
-- Header `Flex` (borderBottom, `bg="bg-subtle"`, p="2"): left `{title}` + `DirtyDot` (from `@knkcs/anker/atoms`) when `spec.dirty`; right: segmented Build/Try-it control (two Buttons, `variant={mode === x ? "solid" : "ghost"}`, Try-it `disabled={!spec.validation.valid}` wrapped in `Tooltip content="Fix validation errors first"` when disabled), `Button variant="outline"` Discard (`disabled={!spec.dirty}`, onClick `spec.discard()` + `setSelected(null)`), `Button variant="solid"` Save (`disabled={!spec.dirty || !spec.validation.valid}`, onClick `spec.save()`).
+- Header `Flex` (borderBottom, `bg="bg-subtle"`, p="2"): left `{title}` + `DirtyDot` (from `@knkcs/anker/atoms`) when `spec.dirty`; right: segmented Build/Try-it control (two Buttons, `variant={mode === x ? "solid" : "ghost"}`, Try-it `disabled={!spec.validation.valid}` wrapped in `Tooltip content={labels.fixValidationFirst}` when disabled), `Button variant="outline"` Discard (`disabled={!spec.dirty || spec.saving}`, onClick `spec.discard()` + `setSelected(null)`), `Button variant="solid"` Save (`disabled={!spec.dirty || !spec.validation.valid || spec.saving}`, `loading={spec.saving}`, onClick `spec.save()`). An effect watches `spec.saveError`: on a new error, `toaster.create({ title: labels.saveFailed, type: "error" })` — the draft stays dirty (hook guarantees), so the author can retry.
 - Body: `mode === "tryit"` → `<TryItView key={tryItNonce} schema={spec.draft} …/>` (a `key` that changes on every entry to Try-it guarantees a fresh mount → scratch data cannot survive exits; increment a nonce in the toggle handler). Else `Flex`: `<EditorCanvas flex="1" …/>` + `<FieldConfigPanel …/>` when `selected` resolves to a field in the draft (`spec.draft.find(...)`; selection of a since-deleted accessor renders no panel).
-- `onEdit(accessor)` = `setSelected(accessor); setAutoFocusLabel(true)`; panel `onFieldChange` = `spec.apply(updateField(spec.draft, selected, next))` — **careful**: when the accessor itself was edited, subsequent updates must target the NEW accessor; the shell keeps `selected` in sync by updating it whenever `onFieldChange` changes the accessor.
-- Escape key (document listener, build mode only): `setSelected(null)`.
+- `onEdit(accessor)` = `setSelected(accessor); setAutoFocusLabel(true)`; plain `onSelect` RESETS `autoFocusLabel` to false (review finding: otherwise every later click-select steals focus into the panel). Panel `onFieldChange` = `spec.apply(updateField(spec.draft, selected, next))`; when the applied field's accessor differs from `selected`, update `selected` to the new accessor in the same handler (the panel's local gate — T9 — guarantees the new accessor is unique, so this re-sync is unambiguous).
+- **Delete undo toast:** the canvas's delete handler is provided by SpecEditor: it captures `{ field, flatIndex }` before `apply(removeField(...))`, then `toaster.create({ title: labels.fieldDeleted, type: "info", action: { label: labels.undo, onClick: () => spec.apply(insertFieldAt(spec.draft, field, flatIndex)) } })`. Single level, best-effort (if the draft changed shape since, `insertFieldAt` clamps the index — acceptable). Verify `toaster.create`'s action API against `node_modules/@knkcs/anker/dist/primitives` (zag toast supports `action: { label, onClick }`); if unavailable, render the Undo as a plain button inside the toast description.
+- `committedAccessors` for the panel: `useMemo(() => new Set(schema.map((f) => f.config.api_accessor)), [schema])` — the last committed spec the consumer gave us.
+- Escape key (document listener, build mode only): if `event.defaultPrevented`, ignore (popover/menu/rename inputs handle their own Escape); else `setSelected(null)`.
+- Render anker `Toaster` once inside SpecEditor; document in MDX that hosts already mounting a global `Toaster` will see editor toasts through their own instance (anker's toaster is a module singleton) — no prop needed.
 
-- [ ] **Step 1: Rewrite the spec-editor tests** — `src/editor/__tests__/spec-editor.test.tsx`, full file, covering: renders canvas fields from schema; Save disabled when clean; edit via panel (select shell → panel opens → change label → canvas shell text updates) makes dirty; Save calls `onCommit` once with the edited schema and disables again; Discard reverts the canvas; Try-it toggle renders typable inputs, and toggling back to Build then to Try-it again loses typed data (fresh mount — assert input value empty); Try-it disabled with a tooltip when the draft is invalid (fixture with duplicate accessors); Escape clears selection; `onDirtyChange` fires. Use `EditorWrap` fixtures; every tab click wrapped in `act`.
+- [ ] **Step 1: Rewrite the spec-editor tests** — `src/editor/__tests__/spec-editor.test.tsx`, full file, covering: renders canvas fields from schema; Save disabled when clean; edit via panel (select shell → panel opens → change label → canvas shell text updates) makes dirty; Save calls `onCommit` once with the edited schema and disables again; Discard reverts the canvas; Try-it toggle renders typable inputs, and toggling back to Build then to Try-it again loses typed data (fresh mount — assert input value empty); Try-it disabled with a tooltip when the draft is invalid (fixture with duplicate accessors); Escape clears selection; `onDirtyChange` fires; async `onCommit` rejection keeps Save enabled/dirty and shows the error toast (mock a rejecting onCommit); delete shows the undo toast and Undo restores the field at its position. Use `EditorWrap` fixtures; every tab click wrapped in `act`.
 
 - [ ] **Step 2: RED** — the new tests fail against the old SpecEditor.
 
@@ -1836,6 +2091,10 @@ git commit -m "feat(editor): export new SpecEditor; stories, docs, v0.2.0"
 - Condition editing UI (spec amendment 2026-07-04: renderer doesn't evaluate conditions yet — build the renderer side first).
 - fieldkit#24/#25/#26 follow-ups (tab-shell dedup, combobox a11y, read-mode fallback) — independent of this plan.
 - anker#146 (`optionalText`), anker#148 (`DirtyDot` label prop — the header dirty dot here inherits the German aria-label until it lands).
+
+## Design-Review Amendments (2026-07-04)
+
+A pre-execution senior review (verdict: execute with amendments) produced the spec's "Amendments" section; this plan incorporates all of them: identity-based FieldComponent memo (T5 Step 0), panel-local accessor gate + committed-accessor warning + baseline-aware slug latch (T9), content-equality draft-reset guard + dirty-keeps-draft + Promise-aware onCommit with saveError (T3, T12), moveSection first-section no-op (T2), system-field lock + system:false on duplicate (T4, T2), delete-undo toast (T12), keyboard-selectable shells (T4), full EditorLabels coverage + validateSpec error codes (T1, T12), localizable checkbox + trim-on-blur (T9), group framed preview + defaults-guarded scratch reset + hidden-inclusive search index (T5), numeric insert accessors + labeled empty states (T6), merge-wording confirm + Escape containment (T7), duplicate badges on all affected tabs (T10).
 
 ## Self-Review Notes
 

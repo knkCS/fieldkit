@@ -204,6 +204,49 @@ Header toggle swaps canvas+panel for the real renderer:
    updated.
 4. knkCMS consumers migrate at their own pace (0.1.x stays available).
 
+## Amendments — 2026-07-04 senior design review
+
+Adopted before implementation started:
+
+1. **Live preview mechanics**: `FieldComponent`'s memo becomes
+   identity-based (`prev.field === next.field`) — the only `/renderer`
+   change this project makes. Draft-ops preserve untouched field
+   identities, so exactly one shell re-renders per panel keystroke.
+2. **Accessor edits are gated**: the panel holds the accessor as local
+   state and applies it to the draft only when non-empty and
+   collision-free (mirrors old FieldModal's error gate). Editing the
+   accessor of a **committed** field (present in the `schema` baseline)
+   shows an inline warning that existing stored data will disconnect.
+3. **Draft reset guard**: an incoming `schema` prop that is
+   content-equal to the current baseline does NOT reset the draft
+   (consumers may pass fresh arrays every render). A genuine content
+   change while dirty keeps the draft and surfaces a conflict notice.
+4. **`onCommit` may return a Promise**: `save()` awaits it; on
+   rejection the draft stays dirty and an error toast shows. Fire-and-
+   forget consumers are unaffected.
+5. **System fields are locked**: `system: true` fields show a lock
+   indicator, cannot be deleted, and their accessor is read-only.
+   Duplicating any field forces `system: false` on the copy.
+6. **Delete gets a single-level undo toast** (restores the field at its
+   old position); Discard remains the whole-session safety net.
+7. **`moveSection` left on the first section is a no-op** (the implicit
+   tab cannot be displaced).
+8. **Keyboard support**: field shells are focusable
+   (`role="button"`, `tabIndex=0`, Enter/Space selects) — selection,
+   toolbar, and keyboard dnd are reachable without a mouse.
+9. **Full i18n**: every author-facing string goes through
+   `EditorLabels` (toolbar tooltips, insertion trigger, hidden-field
+   row, panel headings, empty states, confirm texts with `{section}`
+   interpolation). `validateSpec` field errors gain a stable `code` so
+   the editor can render translated messages.
+10. **Config parity**: the panel adds a `localizable` checkbox
+    (documented `FieldConfig` key that no editor generation has ever
+    exposed). Group child *editing* exists (drill-in); adding/removing
+    children stays out of scope and is documented.
+11. **Groups on canvas** render the framed preview from this spec via an
+    explicit branch (the real `GroupField` renders an empty state that
+    reads as broken).
+
 ## Design decisions log
 
 | Decision | Choice | Alternatives rejected |
