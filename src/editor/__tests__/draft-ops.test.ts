@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { partitionSchemaBySections } from "../../schema/partition";
 import type { Field, Schema } from "../../schema/types";
 import {
 	addSection,
 	deleteSection,
 	duplicateField,
+	flatInsertIndex,
 	insertFieldAt,
 	moveField,
 	moveFieldToSection,
@@ -224,5 +226,58 @@ describe("section ops", () => {
 		// tabs: 0=[a] (implicit), 1=[s1: b] — move a into tab 1
 		const out = moveFieldToSection([f("a"), s("s1"), f("b")], "a", 1);
 		expect(out.map((x) => x.config.api_accessor)).toEqual(["s1", "b", "a"]);
+	});
+});
+
+describe("flatInsertIndex", () => {
+	it("empty schema → 0", () => {
+		const schema: Schema = [];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 0)).toBe(0);
+	});
+
+	it("sectionless schema: top-of-tab lands before the first field", () => {
+		const schema: Schema = [f("a"), f("b")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 0)).toBe(0);
+	});
+
+	it("sectionless schema: middle-of-tab lands between fields", () => {
+		const schema: Schema = [f("a"), f("b")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 1)).toBe(1);
+	});
+
+	it("sectionless schema: end-of-tab lands after the last field", () => {
+		const schema: Schema = [f("a"), f("b")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 2)).toBe(2);
+	});
+
+	it("top-of-tab under a section lands right after the marker", () => {
+		// [s1][a][b] — top of tab 0 (the s1 tab) is right after the marker
+		const schema: Schema = [s("s1"), f("a"), f("b")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 0)).toBe(1);
+	});
+
+	it("middle-of-tab under a section lands between its fields", () => {
+		// [s1][a][b][s2][c] — position 1 of tab 0 is between a and b
+		const schema: Schema = [s("s1"), f("a"), f("b"), s("s2"), f("c")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 1)).toBe(2);
+	});
+
+	it("empty tab: position 0 lands right after its marker", () => {
+		// [a][s1] — implicit tab 0 has "a", tab 1 (s1) is empty
+		const schema: Schema = [f("a"), s("s1")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 1, 0)).toBe(2);
+	});
+
+	it("out-of-range tab index falls back to the end of the schema", () => {
+		const schema: Schema = [f("a")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 5, 0)).toBe(1);
 	});
 });

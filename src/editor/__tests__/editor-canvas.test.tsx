@@ -17,6 +17,8 @@ const LABELS = {
 	noResults: "No fields found",
 	hiddenField: "Hidden field:",
 	groupPreview: "Repeating group",
+	addField: "Add field",
+	emptySpec: "No fields yet. Add the first one:",
 	shell: {
 		drag: "Drag to reorder",
 		edit: "Edit field",
@@ -38,6 +40,7 @@ function Harness({
 	return (
 		<EditorCanvas
 			spec={spec}
+			plugins={testPlugins}
 			selectedAccessor={selected}
 			onSelect={setSelected}
 			onEdit={setSelected}

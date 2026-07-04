@@ -1,16 +1,24 @@
 // src/editor/editor-canvas.tsx
 import { Box, Flex, Stack, Text } from "@chakra-ui/react";
 import { Tabs } from "@knkcs/anker/primitives";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { FieldSearch } from "../renderer/spec-form/field-search";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
+import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
-import { duplicateField, removeField } from "./draft-ops";
+import {
+	duplicateField,
+	flatInsertIndex,
+	insertFieldAt,
+	nextAccessor,
+	removeField,
+} from "./draft-ops";
 import type { FieldShellToolbarLabels } from "./field-shell";
 import { FieldShell } from "./field-shell";
+import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 
 interface CanvasLabels {
@@ -19,11 +27,15 @@ interface CanvasLabels {
 	noResults: string;
 	hiddenField: string; // e.g. "Hidden field:" prefix
 	groupPreview: string; // e.g. "Repeating group" — child count appended
+	addField: string; // aria-label for the ⊕ insertion trigger
+	emptySpec: string; // empty-spec placeholder message
 	shell: FieldShellToolbarLabels;
 }
 
 export interface EditorCanvasProps {
 	spec: SpecDraft;
+	plugins: FieldTypePlugin[];
+	context?: FieldContext;
 	selectedAccessor: string | null;
 	onSelect: (accessor: string | null) => void;
 	onEdit: (accessor: string) => void;
@@ -71,6 +83,8 @@ ShellContent.displayName = "ShellContent";
 
 export function EditorCanvas({
 	spec,
+	plugins,
+	context,
 	selectedAccessor,
 	onSelect,
 	onEdit,
@@ -133,22 +147,76 @@ export function EditorCanvas({
 	const handleDuplicate = (accessor: string) =>
 		apply(duplicateField(draft, accessor));
 
-	const renderFields = (fields: Field[]) => (
+	const insertAt =
+		(tabIndex: number, position: number) => (pluginId: string) => {
+			const plugin = plugins.find((p) => p.id === pluginId);
+			if (!plugin) return;
+			const accessor = nextAccessor(draft, plugin.id);
+			const newField: Field = {
+				field_type: plugin.id,
+				config: {
+					name: plugin.name,
+					api_accessor: accessor,
+					required: false,
+					instructions: "",
+				},
+				settings: plugin.defaultSettings ?? null,
+				system: false,
+			};
+			apply(
+				insertFieldAt(
+					draft,
+					newField,
+					flatInsertIndex(draft, partition, tabIndex, position),
+				),
+			);
+			onSelect(accessor);
+		};
+
+	const insertionRow = (
+		tabIndex: number,
+		position: number,
+		alwaysVisible: boolean,
+	) => (
+		<Flex
+			key={`insert-${tabIndex}-${position}`}
+			role="group"
+			justify="center"
+			align="center"
+			height="6"
+			opacity={alwaysVisible ? 1 : 0}
+			_hover={{ opacity: 1 }}
+			transition="opacity 0.15s"
+		>
+			<TypePickerPopover
+				plugins={plugins}
+				context={context}
+				currentSpec={draft}
+				onPick={insertAt(tabIndex, position)}
+				triggerLabel={labels.addField}
+			/>
+		</Flex>
+	);
+
+	const renderFields = (fields: Field[], tabIndex: number) => (
 		<Stack gap="5">
-			{fields.map((field) => (
-				<FieldShell
-					key={field.config.api_accessor}
-					field={field}
-					selected={selectedAccessor === field.config.api_accessor}
-					invalid={invalidAccessors.has(field.config.api_accessor)}
-					onSelect={(a) => onSelect(a)}
-					onEdit={onEdit}
-					onDuplicate={handleDuplicate}
-					onDelete={handleDelete}
-					labels={labels.shell}
-				>
-					<ShellContent field={field} labels={labels} />
-				</FieldShell>
+			{insertionRow(tabIndex, 0, fields.length === 0)}
+			{fields.map((field, i) => (
+				<Fragment key={field.config.api_accessor}>
+					<FieldShell
+						field={field}
+						selected={selectedAccessor === field.config.api_accessor}
+						invalid={invalidAccessors.has(field.config.api_accessor)}
+						onSelect={(a) => onSelect(a)}
+						onEdit={onEdit}
+						onDuplicate={handleDuplicate}
+						onDelete={handleDelete}
+						labels={labels.shell}
+					>
+						<ShellContent field={field} labels={labels} />
+					</FieldShell>
+					{insertionRow(tabIndex, i + 1, false)}
+				</Fragment>
 			))}
 		</Stack>
 	);
@@ -156,13 +224,11 @@ export function EditorCanvas({
 	if (partition.tabs.length === 0) {
 		return (
 			<FormProvider {...methods}>
-				<Box
-					data-testid="editor-canvas-empty"
-					color="fg.muted"
-					p="6"
-					textAlign="center"
-				>
-					{/* empty-spec drop zone arrives with insertion (T6) */}
+				<Box data-testid="editor-canvas-empty" p="6" textAlign="center">
+					<Stack gap="3" align="center">
+						<Text color="fg.muted">{labels.emptySpec}</Text>
+						{insertionRow(0, 0, true)}
+					</Stack>
 				</Box>
 			</FormProvider>
 		);
@@ -171,7 +237,9 @@ export function EditorCanvas({
 	if (!partition.hasSections) {
 		return (
 			<FormProvider {...methods}>
-				<Box ref={containerRef}>{renderFields(partition.tabs[0].fields)}</Box>
+				<Box ref={containerRef}>
+					{renderFields(partition.tabs[0].fields, 0)}
+				</Box>
 			</FormProvider>
 		);
 	}
@@ -210,7 +278,7 @@ export function EditorCanvas({
 							key={tab.section?.config.api_accessor ?? `implicit-${i}`}
 							value={`tab-${i}`}
 						>
-							<Box pt="4">{renderFields(tab.fields)}</Box>
+							<Box pt="4">{renderFields(tab.fields, i)}</Box>
 						</Tabs.Content>
 					))}
 				</Tabs.Root>

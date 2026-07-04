@@ -1,3 +1,4 @@
+import type { SpecPartition } from "../schema/partition";
 import { partitionSchemaBySections } from "../schema/partition";
 import type { Field, Schema } from "../schema/types";
 
@@ -17,6 +18,44 @@ export function insertFieldAt(
 	const next = [...schema];
 	next.splice(index, 0, field);
 	return next;
+}
+
+/**
+ * Flat schema index for "insert at position `position` of tab `tabIndex`".
+ * Position 0 lands right after the tab's opening marker (or at the very
+ * start of the schema for the implicit first tab); position k>0 lands
+ * right after the tab's (k-1)th field — so `position === tab.fields.length`
+ * appends at the end of the tab. An out-of-range tab index falls back to
+ * the end of the schema.
+ */
+export function flatInsertIndex(
+	schema: Schema,
+	partition: SpecPartition,
+	tabIndex: number,
+	position: number,
+): number {
+	const tab = partition.tabs[tabIndex];
+	if (!tab) return schema.length;
+
+	const precedingField = tab.fields[position - 1];
+	if (precedingField) {
+		const idx = schema.findIndex(
+			(f) => f.config.api_accessor === precedingField.config.api_accessor,
+		);
+		return idx + 1;
+	}
+
+	if (tab.section) {
+		const idx = schema.findIndex(
+			(f) =>
+				f.field_type === "section" &&
+				f.config.api_accessor === tab.section?.config.api_accessor,
+		);
+		return idx + 1;
+	}
+
+	// Implicit first tab, inserting before any of its fields.
+	return 0;
 }
 
 export function updateField(
