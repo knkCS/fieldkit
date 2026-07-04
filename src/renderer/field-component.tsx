@@ -39,10 +39,9 @@ function FieldComponentInner({ field, readOnly }: FieldComponentProps) {
 }
 
 export const FieldComponent = memo(FieldComponentInner, (prev, next) => {
-	return (
-		prev.field.config.api_accessor === next.field.config.api_accessor &&
-		prev.field.field_type === next.field.field_type &&
-		prev.readOnly === next.readOnly
-	);
+	// Identity comparison: draft-ops replace only the edited field object,
+	// so exactly the edited field re-renders. Renderer consumers pass
+	// stable field objects and are unaffected.
+	return prev.field === next.field && prev.readOnly === next.readOnly;
 });
 (FieldComponent as { displayName?: string }).displayName = "FieldComponent";

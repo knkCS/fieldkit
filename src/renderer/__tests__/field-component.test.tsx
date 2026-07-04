@@ -88,4 +88,34 @@ describe("FieldComponent", () => {
 		);
 		expect(screen.getByText(/unknown field type/i)).toBeInTheDocument();
 	});
+
+	it("should re-render when given a new field object with the same accessor/type (editor live preview)", () => {
+		const { rerender } = render(
+			<Wrapper>
+				<FieldComponent field={field} />
+			</Wrapper>,
+		);
+		expect(screen.getByTestId("field-name")).toHaveAttribute(
+			"placeholder",
+			"Name",
+		);
+
+		// A panel edit (e.g. renaming the field) produces a brand-new Field
+		// object with the same api_accessor/field_type. A comparator keyed
+		// only on those two properties would treat this as "no change" and
+		// skip the re-render, so the canvas would never reflect edits.
+		const renamed: Field = {
+			...field,
+			config: { ...field.config, name: "Renamed" },
+		};
+		rerender(
+			<Wrapper>
+				<FieldComponent field={renamed} />
+			</Wrapper>,
+		);
+		expect(screen.getByTestId("field-name")).toHaveAttribute(
+			"placeholder",
+			"Renamed",
+		);
+	});
 });
