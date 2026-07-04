@@ -55,6 +55,7 @@ import {
 	removeField,
 	renameSection,
 	setOrientation,
+	uniquifyAccessor,
 } from "./draft-ops";
 import type { FieldShellToolbarLabels } from "./field-shell";
 import { FieldShell } from "./field-shell";
@@ -256,8 +257,14 @@ export function EditorCanvas({
 		if (target) onDeleteField?.(target, flatIndex);
 		apply(removeField(draft, accessor));
 	};
-	const handleDuplicate = (accessor: string) =>
+	const handleDuplicate = (accessor: string) => {
+		// Computed from the PRE-duplication draft, same as duplicateField's own
+		// internal call — so this always names the exact copy it's about to
+		// insert, without re-deriving or guessing its accessor after the fact.
+		const copyAccessor = uniquifyAccessor(draft, accessor);
 		apply(duplicateField(draft, accessor));
+		onSelect(copyAccessor);
+	};
 
 	const startRename = (accessor: string) => {
 		// Clear any leftover blur suppression from a previous session whose
@@ -422,7 +429,10 @@ export function EditorCanvas({
 					flatInsertIndex(draft, partition, tabIndex, position),
 				),
 			);
-			onSelect(accessor);
+			// Selects it AND focuses the panel's Label input — matching the spec's
+			// "insert, select, focus the label" flow so the author can name the
+			// field immediately without an extra click.
+			onEdit(accessor);
 		};
 
 	const insertionRow = (
@@ -444,7 +454,11 @@ export function EditorCanvas({
 			transition="opacity 0.15s"
 		>
 			<TypePickerPopover
-				plugins={plugins}
+				// "section" is inserted only via the strip's "+ Section" button
+				// (addSectionButton) — offering it here too would give authors two
+				// competing ways to add one, and this path skips the section-marker
+				// bookkeeping (addSection) that keeps tabs consistent.
+				plugins={plugins.filter((p) => p.id !== "section")}
 				context={context}
 				currentSpec={draft}
 				onPick={insertAt(tabIndex, position)}

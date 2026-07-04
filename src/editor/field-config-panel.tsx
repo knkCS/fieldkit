@@ -53,6 +53,25 @@ export interface PanelLabels {
 	 * project's "all strings via labels" constraint rules out hardcoding one.
 	 */
 	editChild: string;
+	/**
+	 * Final-review batch: ConfigSection and ValidationSection hardcoded their
+	 * control labels in English (Name, Accessor, Required, …) despite the
+	 * project's "every author-facing string routes through labels" rule.
+	 * These twelve keys route those controls through PanelLabels like every
+	 * other panel string.
+	 */
+	name: string;
+	accessor: string;
+	required: string;
+	instructions: string;
+	defaultValue: string;
+	hidden: string;
+	readOnly: string;
+	minLength: string;
+	maxLength: string;
+	pattern: string;
+	patternMessage: string;
+	unique: string;
 }
 
 export interface FieldConfigPanelProps {

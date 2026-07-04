@@ -1,5 +1,5 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -106,7 +106,7 @@ describe("EditorCanvas", () => {
 		expect(screen.getByTestId("shell-b")).toBeInTheDocument();
 	});
 
-	it("duplicate inserts a copy right after with uniquified accessor", async () => {
+	it("duplicate inserts a copy right after with uniquified accessor and selects the copy", async () => {
 		render(
 			<EditorWrap>
 				<Harness schema={[makeField("a")]} />
@@ -114,7 +114,16 @@ describe("EditorCanvas", () => {
 		);
 		fireEvent.click(screen.getByTestId("shell-a"));
 		fireEvent.click(await screen.findByLabelText("Duplicate field"));
-		expect(screen.getByTestId("shell-a_copy")).toBeInTheDocument();
+
+		const copyShell = screen.getByTestId("shell-a_copy");
+		expect(copyShell).toBeInTheDocument();
+		// The copy — not the original — is selected: its own toolbar is visible.
+		expect(
+			within(copyShell).getByLabelText("Delete field"),
+		).toBeInTheDocument();
+		expect(
+			within(screen.getByTestId("shell-a")).queryByLabelText("Delete field"),
+		).not.toBeInTheDocument();
 	});
 
 	it("renders hidden fields as selectable muted rows", () => {

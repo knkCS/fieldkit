@@ -111,6 +111,22 @@ describe("useSpecDraft", () => {
 		expect(result.current.dirty).toBe(true);
 	});
 
+	it("content-changed schema while dirty sets baselineConflict; discard clears it", () => {
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
+			{ initialProps: { schema: [f("a")] as Schema } },
+		);
+		act(() => result.current.apply([f("a"), f("mine")]));
+		expect(result.current.baselineConflict).toBe(false);
+
+		rerender({ schema: [f("x")] });
+		expect(result.current.dirty).toBe(true);
+		expect(result.current.baselineConflict).toBe(true);
+
+		act(() => result.current.discard());
+		expect(result.current.baselineConflict).toBe(false);
+	});
+
 	it("save is a no-op while the draft is invalid", async () => {
 		const onCommit = vi.fn();
 		const { result } = renderHook(() =>

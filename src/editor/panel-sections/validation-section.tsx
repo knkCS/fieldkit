@@ -12,7 +12,11 @@ import type { PanelSectionProps } from "../field-config-panel";
  * removal (ported from field-modal.tsx:179-185), and the whole `validation`
  * object collapses to `undefined` once every key is gone.
  */
-export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
+export function ValidationSection({
+	field,
+	onFieldChange,
+	labels,
+}: PanelSectionProps) {
 	const validation = field.validation ?? {};
 
 	function commitValidation(next: FieldValidation) {
@@ -64,7 +68,7 @@ export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
 			<Flex gap="3" mb="3">
 				<Box as="label" display="block" flex="1">
 					<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-						Min length
+						{labels.minLength}
 					</Text>
 					<Input
 						size="sm"
@@ -77,7 +81,7 @@ export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
 				</Box>
 				<Box as="label" display="block" flex="1">
 					<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-						Max length
+						{labels.maxLength}
 					</Text>
 					<Input
 						size="sm"
@@ -92,7 +96,7 @@ export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
 
 			<Box as="label" display="block" mb="3">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Pattern (regex)
+					{labels.pattern}
 				</Text>
 				<Input
 					size="sm"
@@ -105,7 +109,7 @@ export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
 
 			<Box as="label" display="block" mb="3">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Pattern message
+					{labels.patternMessage}
 				</Text>
 				<Input
 					size="sm"
@@ -123,7 +127,7 @@ export function ValidationSection({ field, onFieldChange }: PanelSectionProps) {
 					onChange={handleUnique}
 					data-testid="panel-unique-input"
 				/>
-				<Text fontSize="sm">Unique</Text>
+				<Text fontSize="sm">{labels.unique}</Text>
 			</Box>
 		</Box>
 	);

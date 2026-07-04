@@ -24,6 +24,18 @@ const testLabels: PanelLabels = {
 	accessorEmpty: "Accessor is required",
 	committedAccessorWarning:
 		"Changing the accessor of a saved field disconnects its existing data",
+	name: "Name",
+	accessor: "Accessor",
+	required: "Required",
+	instructions: "Instructions",
+	defaultValue: "Default value",
+	hidden: "Hidden",
+	readOnly: "Read only",
+	minLength: "Min length",
+	maxLength: "Max length",
+	pattern: "Pattern (regex)",
+	patternMessage: "Pattern message",
+	unique: "Unique",
 };
 
 function readDump(): Field {
@@ -298,6 +310,55 @@ describe("FieldConfigPanel", () => {
 
 		fireEvent.click(screen.getByTestId("panel-localizable-input"));
 		expect(readDump().config.localizable).toBe(true);
+	});
+
+	it("routes ConfigSection and ValidationSection control labels through PanelLabels, not hardcoded English", () => {
+		const field = makeField("my_field", "My Field");
+		const translated: PanelLabels = {
+			...testLabels,
+			name: "Nombre",
+			accessor: "Identificador",
+			required: "Obligatorio",
+			instructions: "Instrucciones",
+			defaultValue: "Valor por defecto",
+			hidden: "Oculto",
+			readOnly: "Solo lectura",
+			minLength: "Longitud mínima",
+			maxLength: "Longitud máxima",
+			pattern: "Patrón (regex)",
+			patternMessage: "Mensaje de patrón",
+			unique: "Único",
+		};
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field]}
+					fieldErrors={[]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					labels={translated}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(screen.getByText("Nombre")).toBeInTheDocument();
+		expect(screen.getByText("Identificador")).toBeInTheDocument();
+		expect(screen.getByText("Obligatorio")).toBeInTheDocument();
+		expect(screen.getByText("Instrucciones")).toBeInTheDocument();
+		expect(screen.getByText("Valor por defecto")).toBeInTheDocument();
+		expect(screen.getByText("Oculto")).toBeInTheDocument();
+		expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+
+		// Validation section starts collapsed — open it.
+		fireEvent.click(screen.getByTestId("panel-toggle-validation"));
+		expect(screen.getByText("Longitud mínima")).toBeInTheDocument();
+		expect(screen.getByText("Longitud máxima")).toBeInTheDocument();
+		expect(screen.getByText("Patrón (regex)")).toBeInTheDocument();
+		expect(screen.getByText("Mensaje de patrón")).toBeInTheDocument();
+		expect(screen.getByText("Único")).toBeInTheDocument();
 	});
 
 	it("autoFocusLabel focuses the name input on its rising edge only — typing elsewhere keeps focus", () => {

@@ -14,7 +14,14 @@ export interface TryItViewProps {
 	/** The draft schema being edited — Try-it renders a real form from it. */
 	schema: Schema;
 	plugins: FieldTypePlugin[];
-	labels: { testSubmit: string; testSubmitSuccess: string };
+	labels: {
+		testSubmit: string;
+		testSubmitSuccess: string;
+		/** Passed through to the underlying `SpecForm`'s `labels` prop. */
+		defaultTab?: string;
+		searchPlaceholder?: string;
+		noResults?: string;
+	};
 }
 
 // Self-contained scratch form: `SpecForm` gets its own `useForm` instance
@@ -40,7 +47,14 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 	return (
 		<FormProvider {...methods}>
 			<form onSubmit={methods.handleSubmit(onValid)} data-testid="try-it-form">
-				<SpecForm schema={schema} />
+				<SpecForm
+					schema={schema}
+					labels={{
+						defaultTab: labels.defaultTab,
+						searchPlaceholder: labels.searchPlaceholder,
+						noResults: labels.noResults,
+					}}
+				/>
 				<Flex justify="flex-end" mt="6">
 					<Button type="submit" variant="solid">
 						{labels.testSubmit}

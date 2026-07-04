@@ -65,10 +65,14 @@ function Harness({
 	schema,
 	plugins = testPlugins,
 	onCommit = vi.fn(),
+	onSelectSpy,
+	onEditSpy,
 }: {
 	schema: Schema;
 	plugins?: FieldTypePlugin[];
 	onCommit?: (s: Schema) => void;
+	onSelectSpy?: (accessor: string | null) => void;
+	onEditSpy?: (accessor: string) => void;
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
@@ -77,8 +81,14 @@ function Harness({
 			<EditorCanvas
 				spec={spec}
 				selectedAccessor={selected}
-				onSelect={setSelected}
-				onEdit={setSelected}
+				onSelect={(a) => {
+					onSelectSpy?.(a);
+					setSelected(a);
+				}}
+				onEdit={(a) => {
+					onEditSpy?.(a);
+					setSelected(a);
+				}}
 				labels={LABELS}
 				plugins={plugins}
 			/>
@@ -96,10 +106,16 @@ describe("EditorCanvas insertion points", () => {
 		expect(screen.getByLabelText("Add field")).toBeInTheDocument();
 	});
 
-	it("picking a type inserts at that position and selects it", async () => {
+	it("picking a type inserts at that position and calls onEdit (selects it AND focuses the label), not onSelect", async () => {
+		const onSelectSpy = vi.fn();
+		const onEditSpy = vi.fn();
 		render(
 			<EditorWrap>
-				<Harness schema={[makeField("a"), makeField("b")]} />
+				<Harness
+					schema={[makeField("a"), makeField("b")]}
+					onSelectSpy={onSelectSpy}
+					onEditSpy={onEditSpy}
+				/>
 			</EditorWrap>,
 		);
 		// Insertion points: [0]=before a, [1]=between a and b, [2]=after b.
@@ -118,8 +134,26 @@ describe("EditorCanvas insertion points", () => {
 		).map((el) => el.getAttribute("data-testid"));
 		expect(shells).toEqual(["shell-a", "shell-text", "shell-b"]);
 
+		// Insertion goes through onEdit (focuses the panel's Label input), not
+		// plain onSelect.
+		expect(onEditSpy).toHaveBeenCalledWith("text");
+		expect(onSelectSpy).not.toHaveBeenCalled();
+
 		// The new field is selected — its toolbar is visible.
 		expect(await screen.findByLabelText("Delete field")).toBeInTheDocument();
+	});
+
+	it("the insertion popover never offers the section type (use + Section instead)", async () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeField("a")]} />
+			</EditorWrap>,
+		);
+		await act(async () => {
+			fireEvent.click(screen.getAllByLabelText("Add field")[0]);
+		});
+		expect(await screen.findByTestId("type-option-text")).toBeInTheDocument();
+		expect(screen.queryByTestId("type-option-section")).not.toBeInTheDocument();
 	});
 
 	it("empty tab shows its insertion point", async () => {

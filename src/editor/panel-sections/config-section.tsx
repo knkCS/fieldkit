@@ -183,7 +183,7 @@ export function ConfigSection({
 		<Box>
 			<Box as="label" display="block" mb="3">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Name
+					{labels.name}
 				</Text>
 				<Input
 					size="sm"
@@ -197,7 +197,7 @@ export function ConfigSection({
 
 			<Box as="label" display="block" mb="1">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Accessor
+					{labels.accessor}
 				</Text>
 				<Input
 					size="sm"
@@ -239,12 +239,12 @@ export function ConfigSection({
 					onChange={handleCheckbox("required")}
 					data-testid="panel-required-input"
 				/>
-				<Text fontSize="sm">Required</Text>
+				<Text fontSize="sm">{labels.required}</Text>
 			</Box>
 
 			<Box as="label" display="block" mb="3">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Instructions
+					{labels.instructions}
 				</Text>
 				<Textarea
 					size="sm"
@@ -259,7 +259,7 @@ export function ConfigSection({
 
 			<Box as="label" display="block" mb="3">
 				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					Default value
+					{labels.defaultValue}
 				</Text>
 				<Input
 					size="sm"
@@ -278,7 +278,7 @@ export function ConfigSection({
 						onChange={handleCheckbox("hidden")}
 						data-testid="panel-hidden-input"
 					/>
-					<Text fontSize="sm">Hidden</Text>
+					<Text fontSize="sm">{labels.hidden}</Text>
 				</Box>
 				<Box as="label" display="flex" alignItems="center" gap="2">
 					<input
@@ -287,7 +287,7 @@ export function ConfigSection({
 						onChange={handleCheckbox("read_only")}
 						data-testid="panel-readonly-input"
 					/>
-					<Text fontSize="sm">Read only</Text>
+					<Text fontSize="sm">{labels.readOnly}</Text>
 				</Box>
 				<Box as="label" display="flex" alignItems="center" gap="2">
 					<input

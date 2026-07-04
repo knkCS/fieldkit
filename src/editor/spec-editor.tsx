@@ -80,6 +80,33 @@ export interface EditorLabels {
 	 * cannot build a valid PanelLabels object.
 	 */
 	editChild?: string;
+	/**
+	 * Final-review batch: ConfigSection's and ValidationSection's control
+	 * labels (Name, Accessor, Required, Instructions, Default value, Hidden,
+	 * Read only, Min length, Max length, Pattern, Pattern message, Unique)
+	 * were hardcoded English despite the project's "every author-facing
+	 * string routes through labels" rule — these route through PanelLabels
+	 * like every other panel string.
+	 */
+	name?: string;
+	accessor?: string;
+	required?: string;
+	instructions?: string;
+	defaultValue?: string;
+	hidden?: string;
+	readOnly?: string;
+	minLength?: string;
+	maxLength?: string;
+	pattern?: string;
+	patternMessage?: string;
+	unique?: string;
+	/**
+	 * Toast title shown when a background `schema` prop change arrives while
+	 * the draft is dirty (Amendment 3's "conflict notice" — the draft is kept,
+	 * but the author must be warned that Save will overwrite the incoming
+	 * content).
+	 */
+	baselineConflict?: string;
 	// validation messages by SpecFieldErrorCode ("{accessor}" interpolated)
 	errorDuplicateAccessor?: string;
 	errorEmptyName?: string;
@@ -142,6 +169,22 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	committedAccessorWarning:
 		"Changing the accessor of a saved field disconnects its existing data",
 	editChild: "Edit",
+
+	name: "Name",
+	accessor: "Accessor",
+	required: "Required",
+	instructions: "Instructions",
+	defaultValue: "Default value",
+	hidden: "Hidden",
+	readOnly: "Read only",
+	minLength: "Min length",
+	maxLength: "Max length",
+	pattern: "Pattern (regex)",
+	patternMessage: "Pattern message",
+	unique: "Unique",
+
+	baselineConflict:
+		"The saved specification changed in the background. Saving will overwrite it.",
 
 	errorDuplicateAccessor: 'Duplicate accessor "{accessor}"',
 	errorEmptyName: "Name must not be empty",
@@ -224,6 +267,21 @@ export function SpecEditor({
 		lastSaveErrorRef.current = spec.saveError;
 	}, [spec.saveError, mergedLabels.saveFailed]);
 
+	// Toast on the RISING EDGE of baselineConflict only (mirrors saveError
+	// above) — it flips true once when a background schema change arrives
+	// while dirty, and must not re-toast on every subsequent render while it
+	// stays true.
+	const lastBaselineConflictRef = useRef(false);
+	useEffect(() => {
+		if (spec.baselineConflict && !lastBaselineConflictRef.current) {
+			toaster.create({
+				title: mergedLabels.baselineConflict,
+				type: "warning",
+			});
+		}
+		lastBaselineConflictRef.current = spec.baselineConflict;
+	}, [spec.baselineConflict, mergedLabels.baselineConflict]);
+
 	// Undo (below) needs the LIVE draft at click time, not the one captured
 	// when the toast was created — by the time Undo is clicked, the draft has
 	// already advanced past the deletion (and possibly further edits).
@@ -232,9 +290,12 @@ export function SpecEditor({
 		draftRef.current = spec.draft;
 	}, [spec.draft]);
 
-	// Escape, Build mode only: a popover/menu/rename-input that handles its
-	// own Escape marks the event defaultPrevented — this must not ALSO clear
-	// the selection underneath it.
+	// Escape, Build mode only: inner controls (an open popover/menu, or the
+	// section rename input) stop propagation — or preventDefault — on their
+	// own Escape handling, so this document-level listener never actually
+	// sees those keydowns bubble up to it. The defaultPrevented check below is
+	// an additional, belt-and-suspenders guard for any handler that prevents
+	// default without also stopping propagation.
 	useEffect(() => {
 		if (mode !== "build") return;
 		function onKeyDown(event: KeyboardEvent) {
@@ -304,6 +365,18 @@ export function SpecEditor({
 			accessorEmpty: mergedLabels.accessorEmpty,
 			committedAccessorWarning: mergedLabels.committedAccessorWarning,
 			editChild: mergedLabels.editChild,
+			name: mergedLabels.name,
+			accessor: mergedLabels.accessor,
+			required: mergedLabels.required,
+			instructions: mergedLabels.instructions,
+			defaultValue: mergedLabels.defaultValue,
+			hidden: mergedLabels.hidden,
+			readOnly: mergedLabels.readOnly,
+			minLength: mergedLabels.minLength,
+			maxLength: mergedLabels.maxLength,
+			pattern: mergedLabels.pattern,
+			patternMessage: mergedLabels.patternMessage,
+			unique: mergedLabels.unique,
 		}),
 		[mergedLabels],
 	);
@@ -439,6 +512,9 @@ export function SpecEditor({
 						labels={{
 							testSubmit: mergedLabels.testSubmit,
 							testSubmitSuccess: mergedLabels.testSubmitSuccess,
+							defaultTab: mergedLabels.defaultTab,
+							searchPlaceholder: mergedLabels.searchPlaceholder,
+							noResults: mergedLabels.noResults,
 						}}
 					/>
 				) : (

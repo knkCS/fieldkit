@@ -33,6 +33,22 @@ most consumers won't need it directly.
 | `title`         | `ReactNode`                          | —       | Header-left slot, next to the dirty indicator — put a spec/content-type name here. |
 | `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
 
+### FieldKitProvider requirement
+
+`SpecEditor` renders its live field previews through the same `FieldComponent`
+the renderer uses (see [Config panel & live preview](#config-panel--live-preview)),
+and that component calls `useFieldKit()` internally. **`SpecEditor` must
+therefore be mounted inside the consumer's `FieldKitProvider`** — outside one,
+it throws (`useFieldKit must be used within a FieldKitProvider`).
+
+The provider's `plugins` registry and the `plugins` prop passed to
+`SpecEditor` must be **the same set**. They serve different jobs (the
+provider resolves a field's component/adapters at render time; the `plugins`
+prop drives the type picker, validation, and Zod generation), so a mismatch
+between them is easy to introduce silently — e.g. a type offered by the type
+picker but missing from the provider would insert a field the live preview
+can't actually render, and vice versa.
+
 ## The Draft Model
 
 `SpecEditor` never mutates `schema` directly and never calls `onCommit` on
@@ -87,6 +103,10 @@ changes, by content (`JSON.stringify` equality):
   a background refetch or another editor updating the same spec propagates
   in). **If the draft was dirty, it is deliberately kept** — an author's
   unsaved work must survive an incoming prop change, even a legitimate one.
+  In that case a warning toast (`labels.baselineConflict`) fires once, since
+  the incoming content is no longer what the draft was based on — Save would
+  now overwrite it. Applying a further edit, discarding, or saving all clear
+  the notice.
 
 The corollary hosts must respect: **update the `schema` prop only with
 content you intend as a new baseline** — after `onCommit` resolves, or from
@@ -290,6 +310,19 @@ are shown.
 | `accessorEmpty` | `"Accessor is required"` | Empty accessor error |
 | `committedAccessorWarning` | `"Changing the accessor of a saved field disconnects its existing data"` | Non-blocking warning on an already-committed field |
 | `editChild` | `"Edit"` | Group children list's per-row Edit button |
+| `name` | `"Name"` | General section's Name field label |
+| `accessor` | `"Accessor"` | General section's Accessor field label |
+| `required` | `"Required"` | General section's Required checkbox label |
+| `instructions` | `"Instructions"` | General section's Instructions field label |
+| `defaultValue` | `"Default value"` | General section's Default value field label |
+| `hidden` | `"Hidden"` | General section's Hidden checkbox label |
+| `readOnly` | `"Read only"` | General section's Read only checkbox label |
+| `minLength` | `"Min length"` | Validation section's Min length field label |
+| `maxLength` | `"Max length"` | Validation section's Max length field label |
+| `pattern` | `"Pattern (regex)"` | Validation section's Pattern field label |
+| `patternMessage` | `"Pattern message"` | Validation section's Pattern message field label |
+| `unique` | `"Unique"` | Validation section's Unique checkbox label |
+| `baselineConflict` | `"The saved specification changed in the background. Saving will overwrite it."` | Warning toast when a background `schema` change arrives while the draft is dirty |
 | `errorDuplicateAccessor` | `'Duplicate accessor "{accessor}"'` | Validation-section error message (`{accessor}` interpolated) |
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
@@ -317,6 +350,10 @@ every edit) is replaced by the draft session described above:
    above — if your host previously fed `schema` from the same state
    `onChange` wrote to on every keystroke, that pattern no longer applies;
    `schema` should now reflect only the committed content.
+6. Confirm your host renders `SpecEditor` inside its `FieldKitProvider`, and
+   that the provider's `plugins` and the `plugins` prop you pass to
+   `SpecEditor` are the same set — see the
+   [FieldKitProvider requirement](#fieldkitprovider-requirement) above.
 
 ## Known Limitations
 
@@ -324,9 +361,6 @@ every edit) is replaced by the draft session described above:
   (drill-in only) lets you *edit* an existing child field's config, but
   there is no in-editor way to add or remove a group's children — author
   those via `defineSpec()` / hand-authored `Field[]` up front.
-- **The dirty dot's default label is English.** The header's dirty
-  indicator announces `labels.dirty` (default `"Unsaved changes"`) to
-  screen readers — override it via `labels` like any other string.
 - **`TypePicker`'s internal strings aren't label-routed yet** — its search
   placeholder and "No matching field types" text are hardcoded English, not
   wired through `EditorLabels`.

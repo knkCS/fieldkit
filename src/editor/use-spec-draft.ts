@@ -20,6 +20,15 @@ export interface SpecDraft {
 	saving: boolean;
 	saveError: unknown | null;
 	discard: () => void;
+	/**
+	 * Amendment 3: true when a genuinely content-changed `schema` prop arrived
+	 * while the draft was dirty — the draft is kept (an author's in-progress
+	 * work must survive a background refetch), but Save would now overwrite
+	 * whatever just arrived. Cleared by `apply`, `save`, and `discard` — any
+	 * of those is the author acting on the current state, at which point the
+	 * notice has served its purpose.
+	 */
+	baselineConflict: boolean;
 }
 
 export function useSpecDraft(
@@ -32,11 +41,14 @@ export function useSpecDraft(
 	const [draft, setDraft] = useState<Schema>(schema);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState<unknown | null>(null);
+	const [baselineConflict, setBaselineConflict] = useState(false);
 
 	// Reset guard: a new prop identity with EQUAL content is ignored
 	// (consumers may build fresh arrays every render). Genuinely new
 	// content adopts the new baseline, but a dirty draft is KEPT — an
-	// author's in-progress work must survive a background refetch.
+	// author's in-progress work must survive a background refetch. When that
+	// happens, flag baselineConflict so the host can warn the author that
+	// Save will now overwrite the incoming content (Amendment 3).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
@@ -44,6 +56,7 @@ export function useSpecDraft(
 		const wasDirty = draft !== baseline;
 		setBaseline(schema);
 		if (!wasDirty) setDraft(schema);
+		else setBaselineConflict(true);
 	}, [schema]);
 
 	const partition = useMemo(() => partitionSchemaBySections(draft), [draft]);
@@ -64,6 +77,7 @@ export function useSpecDraft(
 
 	const apply = useCallback((next: Schema) => {
 		setSaveError(null);
+		setBaselineConflict(false);
 		setDraft(next);
 	}, []);
 
@@ -76,6 +90,7 @@ export function useSpecDraft(
 		if (!validation.valid || saving) return;
 		setSaving(true);
 		setSaveError(null);
+		setBaselineConflict(false);
 		try {
 			await onCommit(draft);
 			setBaseline(draft); // advance ONLY on success
@@ -88,6 +103,7 @@ export function useSpecDraft(
 
 	const discard = useCallback(() => {
 		setSaveError(null);
+		setBaselineConflict(false);
 		setDraft(baseline);
 	}, [baseline]);
 
@@ -101,5 +117,6 @@ export function useSpecDraft(
 		saving,
 		saveError,
 		discard,
+		baselineConflict,
 	};
 }

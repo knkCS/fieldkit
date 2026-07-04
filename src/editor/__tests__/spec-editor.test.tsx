@@ -1,7 +1,7 @@
 // src/editor/__tests__/spec-editor.test.tsx
 import { toaster } from "@knkcs/anker/primitives";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
 import { EditorWrap, makeField, testPlugins } from "./editor-helpers";
@@ -13,6 +13,23 @@ vi.mock("@knkcs/anker/primitives", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("@knkcs/anker/primitives")>();
 	return { ...actual, toaster: { create: vi.fn() } };
+});
+
+// anker's Popover positions itself via @floating-ui/dom's autoUpdate, which
+// requires ResizeObserver — unimplemented in jsdom (needed for the ⊕
+// insertion popover test below).
+class MockResizeObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+
+beforeEach(() => {
+	vi.stubGlobal("ResizeObserver", MockResizeObserver);
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
 });
 
 const L = DEFAULT_EDITOR_LABELS;
@@ -195,6 +212,61 @@ describe("SpecEditor", () => {
 		expect(screen.getByRole("button", { name: L.save })).not.toBeDisabled();
 	});
 
+	it("Try-it passes label overrides through to SpecForm (e.g. a translated default tab)", () => {
+		render(
+			<EditorWrap>
+				<SpecEditor
+					schema={[
+						makeField("a"),
+						{
+							field_type: "section",
+							config: {
+								name: "SEO",
+								api_accessor: "s1",
+								required: false,
+								instructions: "",
+							},
+							settings: {},
+							system: false,
+						},
+						makeField("b"),
+					]}
+					onCommit={vi.fn()}
+					plugins={testPlugins}
+					labels={{ defaultTab: "Allgemein" }}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: L.tryIt }));
+
+		expect(screen.getByText("Allgemein")).toBeInTheDocument();
+	});
+
+	it("shows a conflict toast when the schema prop changes in the background while the draft is dirty", () => {
+		const { rerender } = renderEditor([makeField("title", "Title")]);
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		rerender(
+			<EditorWrap>
+				<SpecEditor
+					schema={[makeField("title", "Changed elsewhere")]}
+					onCommit={vi.fn()}
+					plugins={testPlugins}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(toaster.create).toHaveBeenCalledWith({
+			title: L.baselineConflict,
+			type: "warning",
+		});
+	});
+
 	it("deleting a field shows an undo toast, and Undo restores it at its position", () => {
 		renderEditor([makeField("a"), makeField("b"), makeField("c")]);
 
@@ -223,5 +295,24 @@ describe("SpecEditor", () => {
 			"shell-b",
 			"shell-c",
 		]);
+	});
+
+	it("inserting a field via the ⊕ selects it and focuses the panel's Name input", async () => {
+		renderEditor([makeField("a")]);
+
+		await act(async () => {
+			fireEvent.click(screen.getAllByLabelText(L.addField)[0]);
+		});
+		const option = await screen.findByTestId("type-option-text");
+		// Synchronous act (not awaited): the panel mounts and its autofocus
+		// effect runs within this same flush. Checked immediately, before any
+		// later macrotask — anker's Popover asynchronously (rAF) restores focus
+		// to its own trigger on close, which would otherwise race and win
+		// against this assertion.
+		act(() => {
+			fireEvent.click(option);
+		});
+
+		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
 	});
 });
