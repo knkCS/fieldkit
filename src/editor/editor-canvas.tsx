@@ -218,6 +218,24 @@ export function EditorCanvas({
 		[spec.validation],
 	);
 
+	// Per-tab error count for the TAB badge (mirrors SpecFormTabs). A single
+	// duplicate-accessor error must badge EVERY tab containing a field with
+	// that accessor, so this walks partition.tabs' fields — not a
+	// first-occurrence lookup — checking presence (not per-field multiplicity)
+	// against each tab's accessor set.
+	const tabErrorCounts = useMemo(
+		() =>
+			partition.tabs.map((tab) => {
+				const accessors = new Set(
+					tab.fields.map((field) => field.config.api_accessor),
+				);
+				return spec.validation.fieldErrors.filter((error) =>
+					accessors.has(error.accessor),
+				).length;
+			}),
+		[partition, spec.validation],
+	);
+
 	const handleDelete = (accessor: string) => {
 		if (selectedAccessor === accessor) onSelect(null);
 		apply(removeField(draft, accessor));
@@ -427,7 +445,10 @@ export function EditorCanvas({
 			<Stack gap="5">
 				{insertionRow(tabIndex, 0, fields.length === 0)}
 				{fields.map((field, i) => (
-					<Fragment key={field.config.api_accessor}>
+					// Composite key: duplicate accessors (consumer-provided schemas
+					// only — the panel gate prevents authoring them) would otherwise
+					// collide on a plain accessor key. Both shells must still render.
+					<Fragment key={`${field.config.api_accessor}-${i}`}>
 						<FieldShell
 							field={field}
 							selected={selectedAccessor === field.config.api_accessor}
@@ -545,6 +566,20 @@ export function EditorCanvas({
 											<Flex role="presentation" align="center" gap="0.5">
 												<Tabs.Trigger value={`tab-${i}`}>
 													{tab.section?.config.name ?? labels.defaultTab}
+													{tabErrorCounts[i] > 0 && (
+														<Box
+															as="span"
+															data-testid={`tab-errors-${i}`}
+															bg="danger.600"
+															color="white"
+															borderRadius="full"
+															fontSize="xs"
+															px="1.5"
+															ml="1.5"
+														>
+															{tabErrorCounts[i]}
+														</Box>
+													)}
 												</Tabs.Trigger>
 												{tab.section && accessor && (
 													<SectionMenu
