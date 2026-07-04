@@ -130,4 +130,48 @@ describe("useSpecDraft", () => {
 		act(() => result.current.apply([]));
 		expect(onDirty).toHaveBeenLastCalledWith(true);
 	});
+
+	it("apply clears saveError", async () => {
+		const onCommit = vi.fn().mockRejectedValue(new Error("api down"));
+		const { result } = renderHook(() =>
+			useSpecDraft([f("a")], [textPlugin], onCommit),
+		);
+		act(() => result.current.apply([f("b")]));
+		await act(async () => result.current.save());
+		expect(result.current.saveError).toBeInstanceOf(Error);
+		act(() => result.current.apply([]));
+		expect(result.current.saveError).toBeNull();
+	});
+
+	it("a mid-flight save that succeeds after discard advances the baseline to the committed snapshot", async () => {
+		let resolve!: () => void;
+		const onCommit = vi.fn(
+			() =>
+				new Promise<void>((r) => {
+					resolve = r;
+				}),
+		);
+		// Stable prop identity, as with a consumer holding schema in state.
+		const b0: Schema = [f("a")];
+		const { result } = renderHook(() =>
+			useSpecDraft(b0, [textPlugin], onCommit),
+		);
+		const d1: Schema = [f("a"), f("b")];
+		act(() => result.current.apply(d1));
+		act(() => {
+			void result.current.save(); // in flight, NOT awaited
+		});
+		act(() => result.current.discard()); // back to B0, clean for now
+		expect(result.current.dirty).toBe(false);
+		await act(async () => {
+			resolve();
+		});
+		expect(onCommit).toHaveBeenCalledWith(d1);
+		// The server now holds D1; baseline truthfully advanced to it, so
+		// the reverted draft (B0) reads dirty against the committed content.
+		expect(result.current.dirty).toBe(true);
+		act(() => result.current.discard());
+		expect(result.current.draft).toEqual(d1);
+		expect(result.current.dirty).toBe(false);
+	});
 });

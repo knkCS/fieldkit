@@ -67,6 +67,11 @@ export function useSpecDraft(
 		setDraft(next);
 	}, []);
 
+	// Invariant: baseline always tracks the last successfully committed
+	// content. If the user discards or edits while a save is in flight and
+	// the save then succeeds, the baseline advances to the committed
+	// snapshot — dirty then truthfully reflects draft-vs-committed, and
+	// discard restores the committed content.
 	const save = useCallback(async () => {
 		if (!validation.valid || saving) return;
 		setSaving(true);
