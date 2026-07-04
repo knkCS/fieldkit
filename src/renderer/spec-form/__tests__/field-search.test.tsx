@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SpecForm } from "../spec-form";
-import { makeField, makeSection, Wrapper } from "./helpers";
+import { makeField, makePickerField, makeSection, Wrapper } from "./helpers";
 
 const schema = [
 	makeField("title", "Title"),
@@ -70,6 +70,40 @@ describe("SpecForm — field search", () => {
 		});
 		await waitFor(() => {
 			expect(screen.getByTestId("field-meta")).toHaveFocus();
+		});
+	});
+
+	// Regression for a Controller-based field (reference, media, select):
+	// its interactive control has no `name` attribute, so neither
+	// `document.getElementsByName` nor RHF's `setFocus` can reach it. The
+	// jump must fall back to the anker-style `<label htmlFor>` sibling and
+	// focus the first focusable element inside its field container.
+	it("jumps to a field with no name attribute: switches, focuses its labeled control", async () => {
+		render(
+			<Wrapper>
+				<SpecForm
+					schema={[
+						makeField("title", "Title"),
+						makeSection("seo", "SEO"),
+						makePickerField("photo", "Photo"),
+					]}
+				/>
+			</Wrapper>,
+		);
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "photo" },
+		});
+		// The field's own `<label>Photo</label>` (rendered, but on the inactive
+		// tab) is ambiguous against the search result's label text, so scope
+		// the click to the results listbox — same reasoning as the "SEO" match
+		// above.
+		const listbox = await screen.findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Photo"));
+		await waitFor(() => {
+			expect(screen.getByTestId("field-photo")).toBeVisible();
+		});
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "pick" })).toHaveFocus();
 		});
 	});
 

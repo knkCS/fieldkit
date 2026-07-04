@@ -28,6 +28,15 @@ export function makeSection(
 	};
 }
 
+export function makePickerField(accessor: string, name = accessor): Field {
+	return {
+		field_type: "picker",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: null,
+		system: false,
+	};
+}
+
 function TestField({ field }: FieldProps) {
 	const { register } = useFormContext();
 	return (
@@ -36,6 +45,24 @@ function TestField({ field }: FieldProps) {
 			aria-label={field.config.name}
 			{...register(field.config.api_accessor)}
 		/>
+	);
+}
+
+// Stands in for Controller-based fields (reference, media, select) whose
+// interactive control is not a plain registered input: no `name` attribute
+// anywhere, and the anker-style `<label htmlFor>` is a sibling of the
+// control rather than wrapping it directly.
+function PickerField({ field }: FieldProps) {
+	const accessor = field.config.api_accessor;
+	return (
+		<div data-testid={`field-${accessor}`}>
+			<label htmlFor={accessor}>{field.config.name}</label>
+			<div>
+				<button aria-label="pick" type="button">
+					Pick
+				</button>
+			</div>
+		</div>
 	);
 }
 
@@ -57,6 +84,15 @@ export const testPlugins: FieldTypePlugin[] = [
 		category: "structural",
 		fieldComponent: () => null,
 		toZodType: () => z.never(),
+	},
+	{
+		id: "picker",
+		name: "Picker",
+		description: "",
+		icon: () => null,
+		category: "reference",
+		fieldComponent: PickerField,
+		toZodType: () => z.string(),
 	},
 ];
 
