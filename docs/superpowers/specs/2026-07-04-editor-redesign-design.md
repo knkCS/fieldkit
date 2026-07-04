@@ -76,7 +76,12 @@ src/editor/
   field-shell.tsx          per-field wrapper: selection, toolbar, dnd
   field-config-panel.tsx   side panel frame (selected field)
   panel-sections/          dismantled FieldModal, one file per section:
-                           config, validation, settings, condition
+                           config, validation, settings
+                           (condition editing deferred: FieldCondition
+                           exists in the schema but the renderer does not
+                           evaluate conditions yet — an editor UI for it
+                           would configure dead settings; amended
+                           2026-07-04 during planning)
   type-picker-popover.tsx  existing TypePicker content, re-homed
   section-menu.tsx         per-tab ⌄ menu (rename, move, delete, orientation)
 ```
