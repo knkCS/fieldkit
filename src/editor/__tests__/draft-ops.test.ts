@@ -61,6 +61,24 @@ describe("field ops", () => {
 		).toEqual(["b", "c", "a"]);
 	});
 
+	it("moveField with out-of-range indices is a no-op returning the same reference", () => {
+		const schema: Schema = [f("a"), f("b")];
+		expect(moveField(schema, -1, 1)).toBe(schema);
+		expect(moveField(schema, 2, 0)).toBe(schema);
+		expect(moveField(schema, 0, -1)).toBe(schema);
+		expect(moveField(schema, 0, 3)).toBe(schema);
+	});
+
+	it("updateField with a missing accessor returns the same reference", () => {
+		const schema: Schema = [f("a")];
+		expect(updateField(schema, "nope", f("x"))).toBe(schema);
+	});
+
+	it("removeField with a missing accessor returns the same reference", () => {
+		const schema: Schema = [f("a")];
+		expect(removeField(schema, "nope")).toBe(schema);
+	});
+
 	it("uniquifyAccessor appends _copy, _copy2", () => {
 		expect(uniquifyAccessor([f("a")], "a")).toBe("a_copy");
 		expect(uniquifyAccessor([f("a"), f("a_copy")], "a")).toBe("a_copy2");
@@ -100,6 +118,16 @@ describe("section ops", () => {
 		expect(out[0].config.name).toBe("Renamed");
 	});
 
+	it("renameSection with a missing accessor returns the same reference", () => {
+		const schema: Schema = [s("s1"), f("a")];
+		expect(renameSection(schema, "nope", "Renamed")).toBe(schema);
+	});
+
+	it("deleteSection with a missing accessor returns the same reference", () => {
+		const schema: Schema = [f("a"), s("s1"), f("b")];
+		expect(deleteSection(schema, "nope")).toBe(schema);
+	});
+
 	it("moveSection moves the whole block", () => {
 		// [a][s1 b][s2 c] — move s2 left → [a][s2 c][s1 b]
 		const out = moveSection(
@@ -113,6 +141,51 @@ describe("section ops", () => {
 			"c",
 			"s1",
 			"b",
+		]);
+	});
+
+	it("moveSection right swaps two sections", () => {
+		// [s1 a][s2 b] — move s1 right → [s2 b][s1 a]
+		const out = moveSection([s("s1"), f("a"), s("s2"), f("b")], "s1", 1);
+		expect(out.map((x) => x.config.api_accessor)).toEqual([
+			"s2",
+			"b",
+			"s1",
+			"a",
+		]);
+	});
+
+	it("moveSection right moves the middle of three sections", () => {
+		// [s1 a][s2 b][s3 c] — move s2 right → [s1 a][s3 c][s2 b]
+		const out = moveSection(
+			[s("s1"), f("a"), s("s2"), f("b"), s("s3"), f("c")],
+			"s2",
+			1,
+		);
+		expect(out.map((x) => x.config.api_accessor)).toEqual([
+			"s1",
+			"a",
+			"s3",
+			"c",
+			"s2",
+			"b",
+		]);
+	});
+
+	it("moveSection right on the first of three lands adjacent (one step)", () => {
+		// [s1 a][s2 b][s3 c] — move s1 right → [s2 b][s1 a][s3 c]
+		const out = moveSection(
+			[s("s1"), f("a"), s("s2"), f("b"), s("s3"), f("c")],
+			"s1",
+			1,
+		);
+		expect(out.map((x) => x.config.api_accessor)).toEqual([
+			"s2",
+			"b",
+			"s1",
+			"a",
+			"s3",
+			"c",
 		]);
 	});
 

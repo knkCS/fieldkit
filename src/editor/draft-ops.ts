@@ -24,10 +24,12 @@ export function updateField(
 	accessor: string,
 	next: Field,
 ): Schema {
+	if (!schema.some((f) => f.config.api_accessor === accessor)) return schema;
 	return schema.map((f) => (f.config.api_accessor === accessor ? next : f));
 }
 
 export function removeField(schema: Schema, accessor: string): Schema {
+	if (!schema.some((f) => f.config.api_accessor === accessor)) return schema;
 	return schema.filter((f) => f.config.api_accessor !== accessor);
 }
 
@@ -36,6 +38,8 @@ export function moveField(
 	fromIndex: number,
 	toIndex: number,
 ): Schema {
+	if (fromIndex < 0 || fromIndex > schema.length - 1) return schema;
+	if (toIndex < 0 || toIndex > schema.length) return schema;
 	const next = [...schema];
 	const [moved] = next.splice(fromIndex, 1);
 	next.splice(toIndex, 0, moved);
@@ -90,13 +94,21 @@ export function addSection(schema: Schema, name: string): Schema {
 	return [...schema, section];
 }
 
+function isSectionMarker(field: Field, sectionAccessor: string): boolean {
+	return (
+		field.field_type === "section" &&
+		field.config.api_accessor === sectionAccessor
+	);
+}
+
 export function renameSection(
 	schema: Schema,
 	sectionAccessor: string,
 	name: string,
 ): Schema {
+	if (!schema.some((f) => isSectionMarker(f, sectionAccessor))) return schema;
 	return schema.map((f) =>
-		f.field_type === "section" && f.config.api_accessor === sectionAccessor
+		isSectionMarker(f, sectionAccessor)
 			? { ...f, config: { ...f.config, name } }
 			: f,
 	);
@@ -137,15 +149,20 @@ export function moveSection(
 	const markers = rest
 		.map((f, i) => ({ f, i }))
 		.filter(({ f }) => f.field_type === "section");
-	// Where does the block currently begin among sections? Count markers before `start`.
+	// Count markers before `start` in the ORIGINAL schema. Since the moved
+	// block (marker included) is absent from `rest`, those markers occupy
+	// indices 0…precedingMarkers-1 in `markers`, and the first marker AFTER
+	// the block sits at index `precedingMarkers` (everything shifted down by
+	// the removed marker).
 	const precedingMarkers = schema
 		.slice(0, start)
 		.filter((f) => f.field_type === "section").length;
-	const targetMarkerIndex = precedingMarkers + (direction === -1 ? -1 : 1);
+	const targetMarkerIndex = precedingMarkers + (direction === -1 ? -1 : 0);
 	// Moving the first section left is a NO-OP: the implicit tab (leading fields)
 	// cannot be displaced — swapping past it would absorb those fields.
 	if (direction === -1 && targetMarkerIndex < 0) return schema;
-	if (direction === 1 && targetMarkerIndex >= markers.length) return schema; // already last
+	// No marker after the block → already the last section → NO-OP.
+	if (direction === 1 && targetMarkerIndex >= markers.length) return schema;
 	const target = markers[targetMarkerIndex];
 	if (!target) return schema;
 	let insertAt: number;
@@ -160,12 +177,8 @@ export function moveSection(
 }
 
 export function deleteSection(schema: Schema, sectionAccessor: string): Schema {
-	return schema.filter(
-		(f) =>
-			!(
-				f.field_type === "section" && f.config.api_accessor === sectionAccessor
-			),
-	);
+	if (!schema.some((f) => isSectionMarker(f, sectionAccessor))) return schema;
+	return schema.filter((f) => !isSectionMarker(f, sectionAccessor));
 }
 
 export function setOrientation(
