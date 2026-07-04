@@ -46,6 +46,7 @@ const LABELS = {
 		delete: "Delete field",
 		systemLocked: "System field",
 	},
+	moveToSection: "Move to section",
 	renameSection: "Rename",
 	moveLeft: "Move left",
 	moveRight: "Move right",

@@ -1,9 +1,39 @@
 // src/editor/editor-canvas.tsx
 import { Box, Flex, Input, Stack, Text } from "@chakra-ui/react";
-import { Button } from "@knkcs/anker/atoms";
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	type DragOverEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useDroppable,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	SortableContext,
+	sortableKeyboardCoordinates,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { Button, IconButton } from "@knkcs/anker/atoms";
 import { useConfirmModal } from "@knkcs/anker/feedback";
-import { Tabs } from "@knkcs/anker/primitives";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+	MenuContent,
+	MenuItem,
+	MenuRoot,
+	MenuTrigger,
+	Tabs,
+} from "@knkcs/anker/primitives";
+import { FolderInput } from "lucide-react";
+import {
+	Fragment,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { FieldSearch } from "../renderer/spec-form/field-search";
@@ -17,6 +47,8 @@ import {
 	duplicateField,
 	flatInsertIndex,
 	insertFieldAt,
+	moveField,
+	moveFieldToSection,
 	moveSection,
 	nextAccessor,
 	removeField,
@@ -30,6 +62,19 @@ import { SectionMenu } from "./section-menu";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 
+/** Droppable wrapper for a tab-trigger row — a cross-section drag target. */
+function TabDropZone({
+	tabIndex,
+	children,
+}: {
+	tabIndex: number;
+	children: ReactNode;
+}) {
+	const { setNodeRef } = useDroppable({ id: `tabdrop-${tabIndex}` });
+	return <Box ref={setNodeRef}>{children}</Box>;
+}
+TabDropZone.displayName = "TabDropZone";
+
 interface CanvasLabels extends SectionMenuLabels {
 	defaultTab: string;
 	searchPlaceholder: string;
@@ -39,6 +84,7 @@ interface CanvasLabels extends SectionMenuLabels {
 	addField: string; // aria-label for the ⊕ insertion trigger
 	emptySpec: string; // empty-spec placeholder message
 	shell: FieldShellToolbarLabels;
+	moveToSection: string; // aria-label/tooltip for the "Move to section…" toolbar trigger
 	// "{section}" interpolated — MUST say fields survive (move to the previous tab)
 	deleteSectionConfirm: string;
 	sectionMenu: string; // "{section}" interpolated — aria-label for the menu trigger
@@ -114,6 +160,13 @@ export function EditorCanvas({
 	const { confirm } = useConfirmModal();
 	const { orientation, containerRef } = useContainerOrientation(
 		partition.orientation,
+	);
+
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
 	);
 
 	// Scratch form so real field components render authentic defaults.
@@ -219,6 +272,70 @@ export function EditorCanvas({
 		apply(deleteSection(draft, accessor));
 	};
 
+	// Hovering a tab-trigger drop zone while dragging activates that tab so
+	// the user can see where the field will land before releasing.
+	const handleDragOver = (event: DragOverEvent) => {
+		const overId = event.over?.id;
+		if (typeof overId !== "string" || !overId.startsWith("tabdrop-")) return;
+		setActiveTab(`tab-${overId.slice("tabdrop-".length)}`);
+	};
+
+	const handleDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+		if (!over) return;
+		const activeAccessor = String(active.id);
+		const overId = String(over.id);
+
+		if (overId.startsWith("tabdrop-")) {
+			const tabIndex = Number(overId.slice("tabdrop-".length));
+			apply(moveFieldToSection(draft, activeAccessor, tabIndex));
+			return;
+		}
+
+		if (activeAccessor === overId) return;
+		const fromIndex = draft.findIndex(
+			(f) => f.config.api_accessor === activeAccessor,
+		);
+		const toIndex = draft.findIndex((f) => f.config.api_accessor === overId);
+		if (fromIndex === -1 || toIndex === -1) return;
+		apply(moveField(draft, fromIndex, toIndex));
+	};
+
+	// Built per-field so the canvas (not FieldShell) owns the cross-section
+	// move logic; undefined when there's nowhere else to move a field to.
+	const buildMoveMenu = (field: Field, tabIndex: number) => {
+		if (!partition.hasSections) return undefined;
+		const accessor = field.config.api_accessor;
+		return (
+			<MenuRoot>
+				<MenuTrigger asChild>
+					<IconButton
+						aria-label={labels.moveToSection}
+						size="2xs"
+						variant="ghost"
+					>
+						<FolderInput size={14} />
+					</IconButton>
+				</MenuTrigger>
+				<MenuContent>
+					{partition.tabs.map((tab, i) => {
+						if (i === tabIndex) return null;
+						const key = tab.section?.config.api_accessor ?? `implicit-${i}`;
+						return (
+							<MenuItem
+								key={key}
+								value={key}
+								onSelect={() => apply(moveFieldToSection(draft, accessor, i))}
+							>
+								{tab.section?.config.name ?? labels.defaultTab}
+							</MenuItem>
+						);
+					})}
+				</MenuContent>
+			</MenuRoot>
+		);
+	};
+
 	const firstSectionIndex = partition.tabs.findIndex(
 		(tab) => tab.section !== null,
 	);
@@ -284,26 +401,32 @@ export function EditorCanvas({
 	);
 
 	const renderFields = (fields: Field[], tabIndex: number) => (
-		<Stack gap="5">
-			{insertionRow(tabIndex, 0, fields.length === 0)}
-			{fields.map((field, i) => (
-				<Fragment key={field.config.api_accessor}>
-					<FieldShell
-						field={field}
-						selected={selectedAccessor === field.config.api_accessor}
-						invalid={invalidAccessors.has(field.config.api_accessor)}
-						onSelect={(a) => onSelect(a)}
-						onEdit={onEdit}
-						onDuplicate={handleDuplicate}
-						onDelete={handleDelete}
-						labels={labels.shell}
-					>
-						<ShellContent field={field} labels={labels} />
-					</FieldShell>
-					{insertionRow(tabIndex, i + 1, false)}
-				</Fragment>
-			))}
-		</Stack>
+		<SortableContext
+			items={fields.map((f) => f.config.api_accessor)}
+			strategy={verticalListSortingStrategy}
+		>
+			<Stack gap="5">
+				{insertionRow(tabIndex, 0, fields.length === 0)}
+				{fields.map((field, i) => (
+					<Fragment key={field.config.api_accessor}>
+						<FieldShell
+							field={field}
+							selected={selectedAccessor === field.config.api_accessor}
+							invalid={invalidAccessors.has(field.config.api_accessor)}
+							onSelect={(a) => onSelect(a)}
+							onEdit={onEdit}
+							onDuplicate={handleDuplicate}
+							onDelete={handleDelete}
+							moveMenu={buildMoveMenu(field, tabIndex)}
+							labels={labels.shell}
+						>
+							<ShellContent field={field} labels={labels} />
+						</FieldShell>
+						{insertionRow(tabIndex, i + 1, false)}
+					</Fragment>
+				))}
+			</Stack>
+		</SortableContext>
 	);
 
 	if (partition.tabs.length === 0) {
@@ -323,119 +446,136 @@ export function EditorCanvas({
 	if (!partition.hasSections) {
 		return (
 			<FormProvider {...methods}>
-				<Box ref={containerRef}>
-					<Flex justify="flex-end" mb="2">
-						{addSectionButton}
-					</Flex>
-					{renderFields(partition.tabs[0].fields, 0)}
-				</Box>
+				<DndContext
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					onDragOver={handleDragOver}
+					onDragEnd={handleDragEnd}
+				>
+					<Box ref={containerRef}>
+						<Flex justify="flex-end" mb="2">
+							{addSectionButton}
+						</Flex>
+						{renderFields(partition.tabs[0].fields, 0)}
+					</Box>
+				</DndContext>
 			</FormProvider>
 		);
 	}
 
 	return (
 		<FormProvider {...methods}>
-			<Box ref={containerRef}>
-				<Tabs.Root
-					value={activeTab}
-					onValueChange={(e) => setActiveTab(e.value)}
-					orientation={orientation}
-				>
-					<Flex align="center" justify="space-between" gap="4">
-						<Tabs.List flex="1">
-							{partition.tabs.map((tab, i) => {
-								const accessor = tab.section?.config.api_accessor;
-								const key = accessor ?? `implicit-${i}`;
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCenter}
+				onDragOver={handleDragOver}
+				onDragEnd={handleDragEnd}
+			>
+				<Box ref={containerRef}>
+					<Tabs.Root
+						value={activeTab}
+						onValueChange={(e) => setActiveTab(e.value)}
+						orientation={orientation}
+					>
+						<Flex align="center" justify="space-between" gap="4">
+							<Tabs.List flex="1">
+								{partition.tabs.map((tab, i) => {
+									const accessor = tab.section?.config.api_accessor;
+									const key = accessor ?? `implicit-${i}`;
 
-								if (accessor && renaming === accessor) {
+									if (accessor && renaming === accessor) {
+										return (
+											<TabDropZone key={key} tabIndex={i}>
+												<Input
+													size="xs"
+													width="auto"
+													maxWidth="10rem"
+													autoFocus
+													defaultValue={tab.section?.config.name}
+													aria-label={labels.sectionNameInput}
+													onClick={(e) => e.stopPropagation()}
+													onKeyDown={(e) => {
+														if (e.key === "Enter") {
+															e.preventDefault();
+															// Mirror the Escape path: suppress the follow-on
+															// blur so the commit isn't applied twice.
+															skipBlurRef.current = true;
+															commitRename(accessor, e.currentTarget.value);
+														} else if (e.key === "Escape") {
+															// Stop the rename cancel from also reaching the
+															// document-level Escape/deselect listener (T12).
+															e.stopPropagation();
+															skipBlurRef.current = true;
+															setRenaming(null);
+														}
+													}}
+													onBlur={(e) => {
+														if (skipBlurRef.current) {
+															skipBlurRef.current = false;
+															return;
+														}
+														commitRename(accessor, e.currentTarget.value);
+													}}
+												/>
+											</TabDropZone>
+										);
+									}
+
 									return (
-										<Input
-											key={key}
-											size="xs"
-											width="auto"
-											maxWidth="10rem"
-											autoFocus
-											defaultValue={tab.section?.config.name}
-											aria-label={labels.sectionNameInput}
-											onClick={(e) => e.stopPropagation()}
-											onKeyDown={(e) => {
-												if (e.key === "Enter") {
-													e.preventDefault();
-													// Mirror the Escape path: suppress the follow-on
-													// blur so the commit isn't applied twice.
-													skipBlurRef.current = true;
-													commitRename(accessor, e.currentTarget.value);
-												} else if (e.key === "Escape") {
-													// Stop the rename cancel from also reaching the
-													// document-level Escape/deselect listener (T12).
-													e.stopPropagation();
-													skipBlurRef.current = true;
-													setRenaming(null);
-												}
-											}}
-											onBlur={(e) => {
-												if (skipBlurRef.current) {
-													skipBlurRef.current = false;
-													return;
-												}
-												commitRename(accessor, e.currentTarget.value);
-											}}
-										/>
-									);
-								}
-
-								return (
-									<Flex key={key} role="presentation" align="center" gap="0.5">
-										<Tabs.Trigger value={`tab-${i}`}>
-											{tab.section?.config.name ?? labels.defaultTab}
-										</Tabs.Trigger>
-										{tab.section && accessor && (
-											<SectionMenu
-												sectionAccessor={accessor}
-												sectionName={tab.section.config.name}
-												isFirst={i === firstSectionIndex}
-												orientation={partition.orientation}
-												onRename={(a) => startRename(a)}
-												onMove={handleMoveSection}
-												onDelete={() =>
-													handleDeleteSection(
-														accessor,
-														tab.section?.config.name ?? "",
-													)
-												}
-												onOrientation={handleOrientation}
-												labels={labels}
-												triggerAriaLabel={labels.sectionMenu.replace(
-													"{section}",
-													tab.section.config.name,
+										<TabDropZone key={key} tabIndex={i}>
+											<Flex role="presentation" align="center" gap="0.5">
+												<Tabs.Trigger value={`tab-${i}`}>
+													{tab.section?.config.name ?? labels.defaultTab}
+												</Tabs.Trigger>
+												{tab.section && accessor && (
+													<SectionMenu
+														sectionAccessor={accessor}
+														sectionName={tab.section.config.name}
+														isFirst={i === firstSectionIndex}
+														orientation={partition.orientation}
+														onRename={(a) => startRename(a)}
+														onMove={handleMoveSection}
+														onDelete={() =>
+															handleDeleteSection(
+																accessor,
+																tab.section?.config.name ?? "",
+															)
+														}
+														onOrientation={handleOrientation}
+														labels={labels}
+														triggerAriaLabel={labels.sectionMenu.replace(
+															"{section}",
+															tab.section.config.name,
+														)}
+													/>
 												)}
-											/>
-										)}
-									</Flex>
-								);
-							})}
-						</Tabs.List>
-						{addSectionButton}
-						<FieldSearch
-							index={searchIndex}
-							placeholder={labels.searchPlaceholder}
-							noResultsLabel={labels.noResults}
-							onJump={(r) => {
-								setActiveTab(`tab-${r.tabIndex}`);
-								onSelect(r.accessor);
-							}}
-						/>
-					</Flex>
-					{partition.tabs.map((tab, i) => (
-						<Tabs.Content
-							key={tab.section?.config.api_accessor ?? `implicit-${i}`}
-							value={`tab-${i}`}
-						>
-							<Box pt="4">{renderFields(tab.fields, i)}</Box>
-						</Tabs.Content>
-					))}
-				</Tabs.Root>
-			</Box>
+											</Flex>
+										</TabDropZone>
+									);
+								})}
+							</Tabs.List>
+							{addSectionButton}
+							<FieldSearch
+								index={searchIndex}
+								placeholder={labels.searchPlaceholder}
+								noResultsLabel={labels.noResults}
+								onJump={(r) => {
+									setActiveTab(`tab-${r.tabIndex}`);
+									onSelect(r.accessor);
+								}}
+							/>
+						</Flex>
+						{partition.tabs.map((tab, i) => (
+							<Tabs.Content
+								key={tab.section?.config.api_accessor ?? `implicit-${i}`}
+								value={`tab-${i}`}
+							>
+								<Box pt="4">{renderFields(tab.fields, i)}</Box>
+							</Tabs.Content>
+						))}
+					</Tabs.Root>
+				</Box>
+			</DndContext>
 		</FormProvider>
 	);
 }
