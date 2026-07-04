@@ -1,10 +1,51 @@
 import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { Plus, Trash2 } from "lucide-react";
+import { memo, useMemo } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { GroupSettings } from "../../schema/field-types/group";
 import type { FieldProps } from "../../schema/plugin";
+import type { Field } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
+
+interface GroupItemFieldsProps {
+	childFields: Field[];
+	parentAccessor: string;
+	index: number;
+	readOnly?: boolean;
+}
+
+/**
+ * Renders one group item's nested fields, computing the remapped schema
+ * (child api_accessor rewritten to `${parentAccessor}.${index}.${...}`) in a
+ * useMemo keyed on the stable inputs. This keeps the schema array reference
+ * stable across re-renders of the parent GroupField that don't affect this
+ * particular item, which is required for FieldComponent's identity-based
+ * memo (see field-component.tsx) to actually skip re-rendering.
+ */
+function GroupItemFieldsInner({
+	childFields,
+	parentAccessor,
+	index,
+	readOnly,
+}: GroupItemFieldsProps) {
+	const schema = useMemo(
+		() =>
+			childFields.map((child) => ({
+				...child,
+				config: {
+					...child.config,
+					api_accessor: `${parentAccessor}.${index}.${child.config.api_accessor}`,
+				},
+			})),
+		[childFields, parentAccessor, index],
+	);
+
+	return <FieldRenderer schema={schema} readOnly={readOnly} />;
+}
+
+const GroupItemFields = memo(GroupItemFieldsInner);
+GroupItemFields.displayName = "GroupItemFields";
 
 export function GroupField({ field, readOnly }: FieldProps<GroupSettings>) {
 	const { control } = useFormContext();
@@ -70,14 +111,10 @@ export function GroupField({ field, readOnly }: FieldProps<GroupSettings>) {
 									</IconButton>
 								)}
 							</Flex>
-							<FieldRenderer
-								schema={children.map((child) => ({
-									...child,
-									config: {
-										...child.config,
-										api_accessor: `${accessor}.${index}.${child.config.api_accessor}`,
-									},
-								}))}
+							<GroupItemFields
+								childFields={children}
+								parentAccessor={accessor}
+								index={index}
 								readOnly={readOnly}
 							/>
 						</Box>

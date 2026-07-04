@@ -1,5 +1,6 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../../schema/types";
@@ -21,6 +22,31 @@ const textPlugin = {
 	},
 };
 
+/**
+ * Module-level render counter keyed by api_accessor, used to prove that
+ * unrelated group items do not re-render when a sibling item is added.
+ */
+const probeRenderCounts: Record<string, number> = {};
+
+function ProbeField({ field }: { field: Field }) {
+	const accessor = field.config.api_accessor;
+	probeRenderCounts[accessor] = (probeRenderCounts[accessor] ?? 0) + 1;
+	return <input data-testid={`probe-${accessor}`} />;
+}
+
+const probePlugin = {
+	id: "probe",
+	name: "Probe",
+	description: "Counts renders for memoization assertions",
+	icon: () => null,
+	category: "text" as const,
+	fieldComponent: ProbeField,
+	toZodType: () => {
+		const { z } = require("zod");
+		return z.string();
+	},
+};
+
 function Wrapper({
 	children,
 	defaultValues = { items: [] },
@@ -31,7 +57,7 @@ function Wrapper({
 	const methods = useForm({ defaultValues });
 	return (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={[textPlugin]}>
+			<FieldKitProvider plugins={[textPlugin, probePlugin]}>
 				<FormProvider {...methods}>{children}</FormProvider>
 			</FieldKitProvider>
 		</ChakraProvider>
@@ -170,5 +196,58 @@ describe("GroupField", () => {
 
 	it("has displayName", () => {
 		expect(GroupField.displayName).toBe("GroupField");
+	});
+
+	it("does not re-render existing items' fields when a new item is added", async () => {
+		const user = userEvent.setup();
+		for (const key of Object.keys(probeRenderCounts)) {
+			delete probeRenderCounts[key];
+		}
+
+		const probeChildFields: Field[] = [
+			{
+				field_type: "probe",
+				config: {
+					name: "Name",
+					api_accessor: "name",
+					required: true,
+					instructions: "",
+				},
+				children: null,
+				system: false,
+			},
+		];
+
+		const probeField: Field = {
+			field_type: "group",
+			config: {
+				name: "Team Members",
+				api_accessor: "items",
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			children: probeChildFields,
+			system: false,
+		};
+
+		render(
+			<Wrapper defaultValues={{ items: [{ name: "Alice" }, { name: "Bob" }] }}>
+				<GroupField field={probeField} />
+			</Wrapper>,
+		);
+
+		const before0 = probeRenderCounts["items.0.name"];
+		const before1 = probeRenderCounts["items.1.name"];
+		expect(before0).toBeGreaterThan(0);
+		expect(before1).toBeGreaterThan(0);
+
+		await user.click(screen.getByRole("button", { name: /Add item/ }));
+
+		// A third item (items.2.name) is now mounted, but the two pre-existing
+		// items' nested fields must not re-render — their schema objects
+		// (and thus the FieldComponent memo's identity check) must be stable.
+		expect(probeRenderCounts["items.0.name"]).toBe(before0);
+		expect(probeRenderCounts["items.1.name"]).toBe(before1);
 	});
 });
