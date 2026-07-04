@@ -437,37 +437,48 @@ export function EditorCanvas({
 		</Flex>
 	);
 
-	const renderFields = (fields: Field[], tabIndex: number) => (
-		<SortableContext
-			items={fields.map((f) => f.config.api_accessor)}
-			strategy={verticalListSortingStrategy}
-		>
-			<Stack gap="5">
-				{insertionRow(tabIndex, 0, fields.length === 0)}
-				{fields.map((field, i) => (
-					// Composite key: duplicate accessors (consumer-provided schemas
-					// only — the panel gate prevents authoring them) would otherwise
-					// collide on a plain accessor key. Both shells must still render.
-					<Fragment key={`${field.config.api_accessor}-${i}`}>
-						<FieldShell
-							field={field}
-							selected={selectedAccessor === field.config.api_accessor}
-							invalid={invalidAccessors.has(field.config.api_accessor)}
-							onSelect={(a) => onSelect(a)}
-							onEdit={onEdit}
-							onDuplicate={handleDuplicate}
-							onDelete={handleDelete}
-							moveMenu={buildMoveMenu(field, tabIndex)}
-							labels={labels.shell}
-						>
-							<ShellContent field={field} labels={labels} />
-						</FieldShell>
-						{insertionRow(tabIndex, i + 1, false)}
-					</Fragment>
-				))}
-			</Stack>
-		</SortableContext>
-	);
+	const renderFields = (fields: Field[], tabIndex: number) => {
+		// Keys: plain accessor for the first (usually only) occurrence — a
+		// position-dependent key would remount shells on every reorder,
+		// tearing down the focused drag handle mid-keyboard-drag. Duplicate
+		// accessors (consumer-provided schemas only — the panel gate prevents
+		// authoring them) get an occurrence suffix so both shells render
+		// instead of colliding as React siblings.
+		const occurrences = new Map<string, number>();
+		const keyFor = (accessor: string) => {
+			const n = occurrences.get(accessor) ?? 0;
+			occurrences.set(accessor, n + 1);
+			return n === 0 ? accessor : `${accessor}-${n}`;
+		};
+		return (
+			<SortableContext
+				items={fields.map((f) => f.config.api_accessor)}
+				strategy={verticalListSortingStrategy}
+			>
+				<Stack gap="5">
+					{insertionRow(tabIndex, 0, fields.length === 0)}
+					{fields.map((field, i) => (
+						<Fragment key={keyFor(field.config.api_accessor)}>
+							<FieldShell
+								field={field}
+								selected={selectedAccessor === field.config.api_accessor}
+								invalid={invalidAccessors.has(field.config.api_accessor)}
+								onSelect={(a) => onSelect(a)}
+								onEdit={onEdit}
+								onDuplicate={handleDuplicate}
+								onDelete={handleDelete}
+								moveMenu={buildMoveMenu(field, tabIndex)}
+								labels={labels.shell}
+							>
+								<ShellContent field={field} labels={labels} />
+							</FieldShell>
+							{insertionRow(tabIndex, i + 1, false)}
+						</Fragment>
+					))}
+				</Stack>
+			</SortableContext>
+		);
+	};
 
 	if (partition.tabs.length === 0) {
 		return (

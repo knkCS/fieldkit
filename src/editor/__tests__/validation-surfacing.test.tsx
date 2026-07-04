@@ -110,6 +110,37 @@ describe("validation surfacing", () => {
 		expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
 	});
 
+	it("reordering fields preserves shell DOM nodes (stable keys)", () => {
+		// Keys must not be position-dependent: a reorder that changes a
+		// shell's key remounts it, tearing down the focused drag handle
+		// mid-keyboard-drag (focus drops to document.body).
+		const { rerender } = render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b"), makeField("c")]} />
+			</EditorWrap>,
+		);
+		const before = screen.getByTestId("shell-a");
+
+		// useSpecDraft adopts genuinely-new prop content into a clean draft,
+		// so a rerender with the reordered schema drives the same re-render
+		// path a drag reorder's apply() does.
+		rerender(
+			<EditorWrap>
+				<Harness schema={[makeField("b"), makeField("a"), makeField("c")]} />
+			</EditorWrap>,
+		);
+
+		// The reorder actually applied…
+		const shells = screen.getAllByTestId(/^shell-/);
+		expect(shells.map((el) => el.dataset.testid)).toEqual([
+			"shell-b",
+			"shell-a",
+			"shell-c",
+		]);
+		// …and the moved shell kept its DOM node (no remount).
+		expect(screen.getByTestId("shell-a")).toBe(before);
+	});
+
 	it("valid spec renders no badges", () => {
 		const schema: Schema = [
 			makeSection("s1", "General"),
