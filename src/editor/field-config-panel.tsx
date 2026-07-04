@@ -4,7 +4,7 @@ import { Button, IconButton } from "@knkcs/anker/atoms";
 import { ChevronDown, ChevronLeft, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { FieldTypePlugin } from "../schema/plugin";
-import type { Field } from "../schema/types";
+import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
@@ -20,7 +20,17 @@ export interface PanelSectionProps {
 	 * introduced by something other than typing, like a drag-drop merge).
 	 * ConfigSection's own local gate takes precedence when both are set. */
 	accessorError: string | null;
-	/** Accessors present in the last committed schema. */
+	/**
+	 * Accessors the active field may NOT take, derived from the LIVE DRAFT by
+	 * FieldConfigPanel (top-level field: every other top-level accessor;
+	 * drilled child: its sibling children within the parent group). This — not
+	 * `committedAccessors` — is the collision gate: two new-in-draft fields
+	 * colliding would otherwise slip through and a later `updateField` (which
+	 * replaces ALL accessor matches) would destroy one field's config.
+	 */
+	takenAccessors: Set<string>;
+	/** Accessors present in the last committed schema — drives the disconnect
+	 * warning and the auto-slug latch baseline, NOT collision checking. */
 	committedAccessors: Set<string>;
 	labels: PanelLabels;
 }
@@ -49,6 +59,13 @@ export interface FieldConfigPanelProps {
 	/** null → panel hidden. */
 	field: Field | null;
 	plugin: FieldTypePlugin | undefined;
+	/**
+	 * The LIVE draft schema. The panel derives the accessor collision pool
+	 * for the active field from it (see PanelSectionProps.takenAccessors) —
+	 * `committedAccessors` alone cannot catch collisions between two fields
+	 * that were both added in the current draft session.
+	 */
+	draft: Schema;
 	/** from draft validation. */
 	fieldErrors: SpecFieldError[];
 	onFieldChange: (next: Field) => void;
@@ -63,8 +80,14 @@ export interface FieldConfigPanelProps {
 	 * PanelSectionProps (which the brief DOES specify verbatim) requires
 	 * `committedAccessors` and `labels` on every section, and this panel is
 	 * the only place that can supply them to its children — so it must
-	 * accept them itself. T12 wires committedAccessors from
-	 * `useMemo(() => new Set(schema.map(f => f.config.api_accessor)), [schema])`.
+	 * accept them itself.
+	 *
+	 * IMPORTANT for T12: build this set RECURSIVELY — top-level accessors AND
+	 * every group's children accessors (all nesting levels). A flat
+	 * `new Set(schema.map((f) => f.config.api_accessor))` would omit committed
+	 * group children; their auto-slug latch would then start ACTIVE and a
+	 * simple name edit would silently re-slug a saved child's accessor,
+	 * disconnecting its data.
 	 */
 	committedAccessors: Set<string>;
 	/** T12's DEFAULT_EDITOR_LABELS supplies English defaults; tests pass their own. */
@@ -127,6 +150,7 @@ function resolveChain(field: Field, drillStack: string[]): Field[] {
 export function FieldConfigPanel({
 	field,
 	plugin,
+	draft,
 	fieldErrors,
 	onFieldChange,
 	onClose,
@@ -140,6 +164,7 @@ export function FieldConfigPanel({
 	const topAccessorRef = useRef<string | null>(
 		field?.config.api_accessor ?? null,
 	);
+	const prevAutoFocusRef = useRef(false);
 
 	// Selecting a different top-level field resets any open drill-in — the
 	// child path belongs to the previously selected group, not the new field.
@@ -151,18 +176,20 @@ export function FieldConfigPanel({
 		}
 	}, [field]);
 
-	// `field` is a real dependency, not just autoFocusLabel: re-focus on every
-	// newly-selected field while autoFocusLabel stays `true` across
-	// consecutive edits (e.g. Edit on field A, then Edit on field B without
-	// an intervening plain select, which would otherwise leave the prop
-	// unchanged and this effect wouldn't refire).
+	// Focus the name input on the RISING EDGE of autoFocusLabel only. The
+	// field object changes identity on every applied edit, so depending on it
+	// would steal focus back to the name input on each keystroke in any other
+	// panel control. T12 resets autoFocusLabel to false on plain select and
+	// sets it true on Edit — each Edit produces a fresh rising edge.
 	useEffect(() => {
-		if (!autoFocusLabel || !field) return;
+		const rising = Boolean(autoFocusLabel) && !prevAutoFocusRef.current;
+		prevAutoFocusRef.current = Boolean(autoFocusLabel);
+		if (!rising) return;
 		const input = containerRef.current?.querySelector<HTMLInputElement>(
 			'[data-testid="panel-name-input"]',
 		);
 		input?.focus();
-	}, [autoFocusLabel, field]);
+	}, [autoFocusLabel]);
 
 	if (!field) return null;
 
@@ -178,6 +205,14 @@ export function FieldConfigPanel({
 		if (chain.length === 1) {
 			onFieldChange(next);
 			return;
+		}
+		// A rename (manual or auto-slug) changes the drilled child's accessor;
+		// the drillStack entry pointing at it must follow in the same update,
+		// or the stale path would stop resolving and the panel would silently
+		// fall back to editing the PARENT GROUP while still showing Back.
+		const oldActiveAccessor = chain[chain.length - 1].config.api_accessor;
+		if (next.config.api_accessor !== oldActiveAccessor) {
+			setDrillStack((s) => [...s.slice(0, -1), next.config.api_accessor]);
 		}
 		// Rebuild the tree bottom-up, replacing each level's edited child by
 		// its PRE-edit accessor (captured in `chain`) so a rename of the
@@ -201,11 +236,23 @@ export function FieldConfigPanel({
 				e.accessor === activeField.config.api_accessor,
 		)?.message ?? null;
 
+	// Collision pool for the ACTIVE field, from the LIVE draft: a top-level
+	// field competes with every other top-level accessor; a drilled child
+	// competes with its siblings inside the parent group. The active field's
+	// own current accessor is excluded (re-typing it is a no-op, not a clash).
+	const collisionPool =
+		chain.length === 1 ? draft : (chain[chain.length - 2].children ?? []);
+	const takenAccessors = new Set(
+		collisionPool.map((f) => f.config.api_accessor),
+	);
+	takenAccessors.delete(activeField.config.api_accessor);
+
 	const sectionProps: PanelSectionProps = {
 		field: activeField,
 		plugin: activePlugin,
 		onFieldChange: handleActiveFieldChange,
 		accessorError,
+		takenAccessors,
 		committedAccessors,
 		labels,
 	};

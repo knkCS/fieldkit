@@ -30,6 +30,7 @@ export function ConfigSection({
 	field,
 	onFieldChange,
 	accessorError: externalAccessorError,
+	takenAccessors,
 	committedAccessors,
 	labels,
 }: PanelSectionProps) {
@@ -43,8 +44,7 @@ export function ConfigSection({
 	// of the accessor, so name edits stop re-deriving it.
 	const manuallyEditedRef = useRef(false);
 	// The accessor as of the last time a *different* field was selected —
-	// used both as the collision-check exclusion and as the "committed
-	// warning" comparison baseline.
+	// the "committed warning" comparison baseline.
 	const syncedAccessorRef = useRef(field.config.api_accessor);
 
 	const [accessorInput, setAccessorInput] = useState(field.config.api_accessor);
@@ -71,12 +71,16 @@ export function ConfigSection({
 		onFieldChange(next);
 	}
 
-	/** Empty → accessorEmpty; taken by another (committed) field → accessorInUse. */
+	/**
+	 * Empty → accessorEmpty; taken in the LIVE DRAFT → accessorInUse.
+	 * `takenAccessors` already excludes the field's own current accessor, so
+	 * re-typing it is a no-op, not a clash. committedAccessors is deliberately
+	 * NOT consulted here — a committed accessor absent from the draft (its
+	 * field was deleted this session) is free to take.
+	 */
 	function validateAccessor(value: string): string | null {
 		if (value.trim() === "") return labels.accessorEmpty;
-		if (value !== syncedAccessorRef.current && committedAccessors.has(value)) {
-			return labels.accessorInUse;
-		}
+		if (takenAccessors.has(value)) return labels.accessorInUse;
 		return null;
 	}
 
@@ -85,14 +89,14 @@ export function ConfigSection({
 		let nextAccessor = field.config.api_accessor;
 		if (!manuallyEditedRef.current) {
 			const slugged = slugify(newName);
-			// Only re-derive the accessor when the slug is itself valid; an
-			// invalid slug (empty, or colliding) leaves the accessor untouched
-			// rather than silently writing a bad value.
-			if (!validateAccessor(slugged)) {
-				nextAccessor = slugged;
-				setAccessorInput(slugged);
-				setLocalAccessorError(null);
-			}
+			const err = validateAccessor(slugged);
+			// Show the attempted slug + error either way, but only apply a
+			// VALID slug to the draft — a colliding auto-slug must never reach
+			// updateField (which replaces ALL accessor matches and would
+			// destroy the other field's config). The name itself still applies.
+			setAccessorInput(slugged);
+			setLocalAccessorError(err);
+			if (!err) nextAccessor = slugged;
 		}
 		apply({
 			...field,

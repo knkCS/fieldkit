@@ -32,6 +32,7 @@ function readDump(): Field {
 
 function Harness({
 	initialField,
+	otherFields = [],
 	plugin,
 	committedAccessors = new Set<string>(),
 	fieldErrors = [],
@@ -39,6 +40,8 @@ function Harness({
 	onFieldChangeSpy,
 }: {
 	initialField: Field;
+	/** Other fields present in the live draft alongside the edited field. */
+	otherFields?: Field[];
 	plugin?: FieldTypePlugin;
 	committedAccessors?: Set<string>;
 	fieldErrors?: SpecFieldError[];
@@ -46,11 +49,13 @@ function Harness({
 	onFieldChangeSpy?: (next: Field) => void;
 }) {
 	const [field, setField] = useState<Field | null>(initialField);
+	const draft = field ? [field, ...otherFields] : [...otherFields];
 	return (
 		<div>
 			<FieldConfigPanel
 				field={field}
 				plugin={plugin}
+				draft={draft}
 				fieldErrors={fieldErrors}
 				onFieldChange={(next) => {
 					onFieldChangeSpy?.(next);
@@ -73,6 +78,7 @@ describe("FieldConfigPanel", () => {
 				<FieldConfigPanel
 					field={null}
 					plugin={undefined}
+					draft={[]}
 					fieldErrors={[]}
 					onFieldChange={vi.fn()}
 					onClose={vi.fn()}
@@ -154,6 +160,7 @@ describe("FieldConfigPanel", () => {
 			<EditorWrap>
 				<Harness
 					initialField={field}
+					otherFields={[makeField("other_field", "Other Field")]}
 					committedAccessors={new Set(["other_field"])}
 					onFieldChangeSpy={onFieldChangeSpy}
 				/>
@@ -169,6 +176,58 @@ describe("FieldConfigPanel", () => {
 		);
 		expect(onFieldChangeSpy).not.toHaveBeenCalled();
 		expect(readDump().config.api_accessor).toBe("my_field");
+	});
+
+	it("colliding with another NEW-IN-DRAFT field's accessor shows the error and does NOT call onFieldChange", () => {
+		// Neither field is committed — the collision can only be caught by
+		// checking the LIVE DRAFT, not committedAccessors.
+		const field = makeField("field_b", "Field B");
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={field}
+					otherFields={[makeField("field_a", "Field A")]}
+					committedAccessors={new Set()}
+					onFieldChangeSpy={onFieldChangeSpy}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.change(screen.getByTestId("panel-accessor-input"), {
+			target: { value: "field_a" },
+		});
+
+		expect(screen.getByTestId("accessor-error")).toHaveTextContent(
+			testLabels.accessorInUse,
+		);
+		expect(onFieldChangeSpy).not.toHaveBeenCalled();
+		expect(readDump().config.api_accessor).toBe("field_b");
+	});
+
+	it("auto-slug collision with a draft sibling suppresses the accessor (error shown) but still applies the name", () => {
+		const field = makeField("field_b", "Field B");
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={field}
+					otherFields={[makeField("title", "Title")]}
+					committedAccessors={new Set()}
+				/>
+			</EditorWrap>,
+		);
+
+		// Slug of the new name ("title") collides with the sibling's accessor.
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Title" },
+		});
+
+		const dump = readDump();
+		expect(dump.config.name).toBe("Title");
+		expect(dump.config.api_accessor).toBe("field_b");
+		expect(screen.getByTestId("accessor-error")).toHaveTextContent(
+			testLabels.accessorInUse,
+		);
 	});
 
 	it("empty accessor shows the error and does NOT call onFieldChange", () => {
@@ -241,6 +300,25 @@ describe("FieldConfigPanel", () => {
 		expect(readDump().config.localizable).toBe(true);
 	});
 
+	it("autoFocusLabel focuses the name input on its rising edge only — typing elsewhere keeps focus", () => {
+		const field = makeField("my_field", "My Field");
+		render(
+			<EditorWrap>
+				<Harness initialField={field} autoFocusLabel />
+			</EditorWrap>,
+		);
+
+		// Rising edge (mount with autoFocusLabel=true) focuses the name input.
+		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
+
+		// Editing another control must NOT re-trigger the focus effect even
+		// though the field object changes identity on every applied edit.
+		const instructions = screen.getByTestId("panel-instructions-input");
+		instructions.focus();
+		fireEvent.change(instructions, { target: { value: "Some help text" } });
+		expect(instructions).toHaveFocus();
+	});
+
 	it("renders plugin settingsComponent and applies its onChange to field.settings", () => {
 		const field = makeField("my_field", "My Field");
 		const pluginWithSettings: FieldTypePlugin = {
@@ -277,8 +355,8 @@ describe("FieldConfigPanel", () => {
 		expect(readDump().settings).toEqual({ placeholder: "Hello" });
 	});
 
-	it("group children list drills in and edits a child name", () => {
-		const groupField: Field = {
+	function makeGroupField(): Field {
+		return {
 			field_type: "group",
 			config: {
 				name: "Items",
@@ -302,10 +380,12 @@ describe("FieldConfigPanel", () => {
 			],
 			system: false,
 		};
+	}
 
+	it("group children list drills in and edits a child name", () => {
 		render(
 			<EditorWrap>
-				<Harness initialField={groupField} />
+				<Harness initialField={makeGroupField()} />
 			</EditorWrap>,
 		);
 
@@ -322,5 +402,29 @@ describe("FieldConfigPanel", () => {
 		const dump = readDump();
 		expect(dump.field_type).toBe("group");
 		expect(dump.children?.[0].config.name).toBe("Renamed Item");
+	});
+
+	it("drill-in stays on the child when a name edit auto-slugs its accessor", () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={makeGroupField()} />
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+
+		// The child is new-in-draft, so this name edit auto-slugs its accessor
+		// (item_name → renamed_item). The drill path must follow the rename —
+		// a stale path would silently fall back to editing the parent group.
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Renamed Item" },
+		});
+
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Renamed Item");
+		expect(screen.getByTestId("panel-accessor-input")).toHaveValue(
+			"renamed_item",
+		);
+		expect(readDump().children?.[0].config.api_accessor).toBe("renamed_item");
 	});
 });
