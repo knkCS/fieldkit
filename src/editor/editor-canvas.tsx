@@ -167,6 +167,14 @@ export function EditorCanvas({
 	const handleDuplicate = (accessor: string) =>
 		apply(duplicateField(draft, accessor));
 
+	const startRename = (accessor: string) => {
+		// Clear any leftover blur suppression from a previous session whose
+		// Enter/Escape set the flag but whose input unmounted without firing
+		// blur — a stale flag would swallow THIS session's blur commit.
+		skipBlurRef.current = false;
+		setRenaming(accessor);
+	};
+
 	const commitRename = (accessor: string, name: string) => {
 		setRenaming(null);
 		const trimmed = name.trim();
@@ -180,7 +188,7 @@ export function EditorCanvas({
 		// Appending a section always adds exactly one tab at the end,
 		// regardless of the current tab count (0, 1 implicit, or many).
 		setActiveTab(`tab-${partition.tabs.length}`);
-		setRenaming(added.config.api_accessor);
+		startRename(added.config.api_accessor);
 	};
 
 	const handleMoveSection = (accessor: string, direction: -1 | 1) =>
@@ -195,7 +203,20 @@ export function EditorCanvas({
 			message: labels.deleteSectionConfirm.replace("{section}", name),
 			colorPalette: "red",
 		});
-		if (ok) apply(deleteSection(draft, accessor));
+		if (!ok) return;
+		// Every tab at or after the deleted one shifts down an index, so an
+		// unadjusted numeric activeTab would land on the NEXT section's
+		// content. Follow the fields instead: deleting the active tab lands
+		// on the previous tab (which absorbs the merged fields); deleting an
+		// earlier tab keeps the same section active at its shifted index.
+		const deletedIndex = partition.tabs.findIndex(
+			(tab) => tab.section?.config.api_accessor === accessor,
+		);
+		const activeIndex = Number(activeTab.replace("tab-", ""));
+		if (deletedIndex !== -1 && activeIndex >= deletedIndex) {
+			setActiveTab(`tab-${Math.max(0, activeIndex - 1)}`);
+		}
+		apply(deleteSection(draft, accessor));
 	};
 
 	const firstSectionIndex = partition.tabs.findIndex(
@@ -340,6 +361,9 @@ export function EditorCanvas({
 											onKeyDown={(e) => {
 												if (e.key === "Enter") {
 													e.preventDefault();
+													// Mirror the Escape path: suppress the follow-on
+													// blur so the commit isn't applied twice.
+													skipBlurRef.current = true;
 													commitRename(accessor, e.currentTarget.value);
 												} else if (e.key === "Escape") {
 													// Stop the rename cancel from also reaching the
@@ -371,7 +395,7 @@ export function EditorCanvas({
 												sectionName={tab.section.config.name}
 												isFirst={i === firstSectionIndex}
 												orientation={partition.orientation}
-												onRename={(a) => setRenaming(a)}
+												onRename={(a) => startRename(a)}
 												onMove={handleMoveSection}
 												onDelete={() =>
 													handleDeleteSection(

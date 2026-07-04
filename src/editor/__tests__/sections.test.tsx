@@ -181,6 +181,77 @@ describe("EditorCanvas section strip editing", () => {
 		expect(screen.getByTestId("shell-b")).toBeInTheDocument();
 	});
 
+	it("deleting the ACTIVE section lands on the tab that received its fields", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("a"),
+						makeSection("s1", "SEO"),
+						makeField("b"),
+						makeSection("s2", "Meta"),
+						makeField("c"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		// Activate the SEO tab (tab-1), then delete it via its menu.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Section menu: SEO"));
+		});
+		await selectMenuItem("last"); // "Delete section" is always the last item
+		const confirmButton = await screen.findByRole("button", {
+			name: "Confirm",
+		});
+		await act(async () => {
+			fireEvent.click(confirmButton);
+		});
+
+		// SEO's fields merged into the PREVIOUS tab (General) — the view must
+		// follow them there, not slide onto Meta (whose index shifted down).
+		expect(screen.getByRole("tab", { name: /General/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(
+			screen.getByTestId("shell-b").closest("[role='tabpanel']"),
+		).not.toHaveAttribute("hidden");
+	});
+
+	it("blur commits a rename after a previous Escape-cancelled rename", async () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeSection("s1", "SEO"), makeField("b")]} />
+			</EditorWrap>,
+		);
+
+		// First session: enter rename mode, cancel with Escape.
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Section menu: SEO"));
+		});
+		await selectMenuItem("first");
+		const first = await screen.findByDisplayValue("SEO");
+		fireEvent.keyDown(first, { key: "Escape" });
+		expect(screen.getByRole("tab", { name: /SEO/ })).toBeInTheDocument();
+
+		// Second session: the blur-suppression flag set by Escape must not
+		// leak into this session (its input unmounted without firing blur) —
+		// committing via blur has to still work.
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Section menu: SEO"));
+		});
+		await selectMenuItem("first");
+		const second = await screen.findByDisplayValue("SEO");
+		fireEvent.change(second, { target: { value: "Meta" } });
+		fireEvent.blur(second);
+
+		expect(screen.getByRole("tab", { name: /Meta/ })).toBeInTheDocument();
+	});
+
 	it("orientation toggle only on the first section's menu", async () => {
 		const schema = [
 			makeSection("s1"),
