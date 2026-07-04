@@ -89,7 +89,11 @@ export type {
 	Schema,
 } from "./types";
 // Spec validation
-export type { SpecValidationResult } from "./validate-spec";
+export type {
+	SpecFieldError,
+	SpecFieldErrorCode,
+	SpecValidationResult,
+} from "./validate-spec";
 export { validateSpec } from "./validate-spec";
 // Zod builder
 export type { ZodBuilderOptions } from "./zod-builder";

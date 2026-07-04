@@ -1,0 +1,376 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./spec-editor.stories";
+
+<Meta of={Stories} />
+
+# SpecEditor
+
+A WYSIWYG editor for `Field[]` specifications: authors add, arrange, and
+configure fields directly on a live preview of the form they're building, in
+a **Build** mode, then flip to a **Try-it** mode to fill out and submit the
+real thing. `SpecEditor` owns an internal draft session (see
+[The Draft Model](#the-draft-model)) and commits it back to the host only
+when the author clicks Save.
+
+## When to Use
+
+Reach for `SpecEditor` anywhere an admin authors or edits a content type,
+form, or record schema — it is the write side that pairs with
+[SpecForm](?path=/story/renderer-specform--horizontal) (the read/fill side).
+`TypePicker` stays exported for hosts that need the bare field-type picker
+UI outside the ⊕ insertion popover (for example, a custom "add field" flow);
+most consumers won't need it directly.
+
+## Props
+
+| Prop            | Type                                | Default | Description                                                                 |
+|-----------------|--------------------------------------|---------|-------------------------------------------------------------------------------|
+| `schema`        | `Schema`                             | —       | The **committed** specification. See the schema-prop stability contract below. |
+| `onCommit`      | `(schema: Schema) => void \| Promise<void>` | —  | Called with the draft when the author clicks Save. May return a Promise; a rejection surfaces an error toast and keeps the draft dirty. |
+| `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard. |
+| `plugins`       | `FieldTypePlugin[]`                  | —       | The field-type registry available to insert, render, and validate against.  |
+| `context`       | `FieldContext`                       | —       | Restricts which plugins the type picker offers (`plugin.availableIn`).       |
+| `title`         | `ReactNode`                          | —       | Header-left slot, next to the dirty indicator — put a spec/content-type name here. |
+| `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
+
+## The Draft Model
+
+`SpecEditor` never mutates `schema` directly and never calls `onCommit` on
+every keystroke. Internally (`useSpecDraft`) it holds:
+
+- **`baseline`** — the last schema this session knows to be committed. It
+  starts as the `schema` prop and only ever moves forward on a
+  **successful** `onCommit` resolution.
+- **`draft`** — the live, in-progress schema every Build-mode edit applies
+  to immediately (selection, insertion, drag, panel edits — all instant, all
+  local).
+- **`dirty`** — `draft !== baseline` (by reference; edits always produce a
+  new array). Drives the header's `DirtyDot`, and enables/disables Save and
+  Discard.
+
+**Save** calls `onCommit(draft)` only when the draft is valid
+(`spec.validation.valid`) and no save is already in flight. While the
+Promise is pending, Save shows a loading state and both Save and Discard are
+disabled. On resolve, `baseline` advances to the saved draft — `dirty`
+becomes `false`. On rejection, `saveError` is set, an error toast
+(`labels.saveFailed`) appears once per new failure, and — critically —
+**the draft is left untouched and still dirty**, so the author can just fix
+whatever failed and click Save again without losing anything.
+
+**Discard** resets `draft` back to `baseline` and clears any `saveError`.
+
+### The mid-flight-save semantic
+
+Because `baseline` only advances on a resolved `onCommit`, a Discard that
+happens *while a save is still in flight* does not cancel that save. If the
+in-flight save goes on to succeed, `baseline` still advances to the schema
+that was actually sent to the host — even though the visible `draft` was
+already reverted. The practical effect: right after such a save resolves,
+the editor can read as dirty again, because the (reverted) draft now
+genuinely differs from what the host actually has stored. A further Discard
+at that point restores the *actually-committed* content, not the
+pre-in-flight-save content. This is deliberate: `dirty` always tells the
+truth about draft-vs-server, never about draft-vs-"what the UI displayed a
+moment ago."
+
+### Schema-prop stability contract
+
+`schema` is compared to `baseline` on every render, by reference first and
+then (if the reference changed) by content (`JSON.stringify` equality):
+
+- **Same reference, or a new array with equal content** — ignored. This is
+  the common case of a consumer re-rendering with a schema built fresh each
+  time (e.g. from a `useState` or a query result) — it must not fight the
+  author's in-progress edits or bounce `baseline` unnecessarily.
+- **A new array with genuinely different content** — adopted as the new
+  `baseline`. If the draft was clean, `draft` also snaps to it (this is how
+  a background refetch or another editor updating the same spec propagates
+  in). **If the draft was dirty, it is deliberately kept** — an author's
+  unsaved work must survive an incoming prop change, even a legitimate one.
+
+The corollary hosts must respect: **update the `schema` prop only with
+content you intend as a new baseline** — after `onCommit` resolves, or from
+a genuine out-of-band change (e.g. another session's edit arriving over a
+subscription). Passing a *stale*-content array (same identity purpose, older
+data) after the fact will revert the baseline backwards for a clean draft.
+Passing a fresh array with unchanged content on every render (normal React
+hygiene) is always safe.
+
+## Build Mode
+
+### Selection & toolbar
+
+Click (or focus + <kbd>Enter</kbd>/<kbd>Space</kbd>) a field's shell to
+select it — a floating toolbar appears above the shell (drag handle, Edit,
+Duplicate, a cross-tab "Move to section" menu when the spec has 2+ tabs, and
+Delete), and the [config panel](#config-panel--live-preview) opens to its
+right. System fields (`field.system`) show a lock badge in place of Delete —
+see [System-Field Locking](#system-field-locking).
+
+### ⊕ insertion
+
+A thin, hover-revealed (keyboard-focus-revealed too, for
+<kbd>Tab</kbd>-only navigation) insertion row sits between every pair of
+fields, before the first, and after the last in each tab. Clicking its ⊕
+opens `TypePicker` in a popover, filtered by `context` and searchable; the
+picked type is inserted at that exact position, auto-named and
+auto-accessored (`nextAccessor`: `title`, `title_2`, `title_3`, …), and
+immediately selected so the panel opens on it. An empty tab (or an empty
+spec — the `Empty` story) shows its insertion row **always visible**, not
+just on hover, plus a labeled empty-state message (`labels.emptySpec`).
+
+### Sections & the section menu
+
+Each tab's header carries a <kbd>⌄</kbd> menu: Rename (inline input, commits
+on <kbd>Enter</kbd>/blur, cancels on <kbd>Escape</kbd>), Move left/right,
+an orientation toggle (horizontal/vertical tabs — first section only, since
+orientation is a whole-form setting), and Delete. **Deleting a section only
+removes its marker field** — every field that belonged to it survives and
+merges into the *previous* tab (or becomes the implicit first tab, if the
+first section is deleted). The confirm dialog's message
+(`labels.deleteSectionConfirm`) says so explicitly; nothing is destroyed.
+"+ Section" appends a new section and immediately opens its rename input.
+
+### Drag & drop, including cross-tab
+
+Fields reorder within a tab via a drag handle (pointer or keyboard — see
+[Keyboard Support](#keyboard-support)). Dragging a field's row onto another
+tab's *trigger* (not just reordering within the active tab) activates that
+tab live, previewing the drop target, and releasing moves the field to the
+end of that tab — the same operation the toolbar's "Move to section" menu
+performs without any dragging at all. Dropping onto a field's own current
+tab trigger is a no-op.
+
+### Field search
+
+A search box (mirroring `SpecForm`'s, `/` to focus) filters across every
+tab by name or accessor. Unlike the renderer's read-time search, the editor's
+index **includes hidden fields** (`config.hidden`) — they're real, selectable
+rows in Build mode (rendered as an italic "Hidden field: {name}" placeholder
+instead of their live input), since an author must be able to find and edit
+them even though end users in Try-it/production never see them.
+
+### Delete-undo toast
+
+Deleting a field doesn't ask for confirmation up front — it removes the
+field immediately and shows a toast (`labels.fieldDeleted`) with an
+**Undo** action that re-inserts it at its original flat position. Undo
+reads the *live* draft at click time, not a snapshot from when the toast
+appeared, so it stays correct even if you kept editing (or deleted more
+fields) before clicking it. It's a single-level, best-effort undo — the
+insertion index clamps rather than throws if the schema's shape changed
+enough to make the original position ambiguous.
+
+### Validation surfacing
+
+Every draft change re-runs `validateSpec`. A field with an error (currently:
+duplicate accessor, empty name, empty accessor) gets a danger-colored shell
+outline; any tab containing an errored field shows a numeric badge on its
+trigger counting that tab's errors. **Save and Try-it are both disabled**
+while `validation.valid` is `false` — Try-it's disabled state carries a
+tooltip (`labels.fixValidationFirst`) explaining why. See the `InvalidDraft`
+story below.
+
+### Config panel & live preview
+
+Selecting a field opens a right-hand panel with collapsible sections:
+General (name, accessor, instructions, required, default value,
+hidden/read-only/localizable), Validation (min/max length, pattern +
+message, unique), Type Settings (the plugin's own settings UI), and —
+`group` fields only — a read-only Children list with per-row Edit buttons
+that drill the panel into a child (with a Back control). The canvas
+re-renders the field's real component live as you edit its config, via the
+same `FieldComponent` the renderer uses, wired to a scratch
+`react-hook-form` instance seeded with the spec's own default values — so
+what you see in Build mode is a faithful preview, not a mock. `group`
+fields render a framed name+count preview instead (their real component
+needs a populated `useFieldArray`, which reads as broken with zero items on
+an inert canvas).
+
+The accessor input has its own local, possibly-invalid state: editing the
+**name** auto-derives the accessor via slugify *until* the accessor has
+been manually edited once (an "auto-slug latch") — and that latch starts
+**already engaged** for any field whose accessor was already committed
+(present in the last-saved `schema`), so a simple rename can never silently
+re-slug and disconnect a saved field's data. Manually typing an accessor
+that collides with a sibling, or is empty, shows an inline error and is
+**not** applied to the draft until fixed. Changing the accessor of an
+already-committed field (even validly) shows a non-blocking warning
+(`labels.committedAccessorWarning`) — the data stored under the old
+accessor won't follow.
+
+### System-field locking
+
+Fields marked `system: true` (typically framework-managed fields like an
+id or timestamps) show a lock badge instead of a Delete button in the
+selection toolbar, and their accessor input is disabled in the panel. Their
+*name*, instructions, and settings remain editable. Duplicating a system
+field produces a normal, unlocked (`system: false`) copy.
+
+## Try-it Mode
+
+Clicking **Try it** (disabled when the draft is invalid) mounts the draft
+schema as a real, independent form — its own `react-hook-form` instance and
+Zod resolver, sharing nothing with Build mode's scratch preview form or with
+any host form. Submitting shows a success toast (`labels.testSubmitSuccess`);
+nothing is persisted anywhere. **Every entry into Try-it force-remounts the
+view** (via a bump counter), so scratch data typed in a previous visit can
+never leak into or survive a later one. Clicking **Build** returns to
+editing without losing the draft.
+
+## Keyboard Support
+
+- **Shells**: focusable (`tabIndex=0`); <kbd>Enter</kbd> or <kbd>Space</kbd>
+  selects, matching click.
+- **Reordering**: the drag handle is a `dnd-kit` `KeyboardSensor` target —
+  focus it and press <kbd>Space</kbd> to lift, <kbd>↑</kbd>/<kbd>↓</kbd> to
+  move, <kbd>Space</kbd> again to drop, <kbd>Escape</kbd> to cancel.
+- **Insertion**: the ⊕ trigger becomes visible on keyboard focus (not just
+  hover), satisfying WCAG 2.4.7 — you never Tab onto an invisible control.
+- **Section menu / rename**: standard menu keyboard nav
+  (<kbd>Home</kbd>/<kbd>End</kbd>/arrows/<kbd>Enter</kbd>); the rename input
+  commits on <kbd>Enter</kbd> and cancels on <kbd>Escape</kbd> without
+  bubbling to the shell-deselect handler below.
+- **Escape (Build mode, global)**: clears the current field selection —
+  unless something with its own Escape handling (an open menu, popover, or
+  the rename input) already consumed the event.
+
+## Labels
+
+All author-facing strings route through `labels` (type `EditorLabels`),
+merged over `DEFAULT_EDITOR_LABELS`. Every key is optional; English defaults
+are shown.
+
+| Key | Default | Used for |
+|---|---|---|
+| `defaultTab` | `"General"` | Implicit first tab's name (no sections before it) |
+| `searchPlaceholder` | `"Find field…"` | Field search input |
+| `noResults` | `"No fields found"` | Field search, empty result set |
+| `hiddenField` | `"Hidden field:"` | Prefix before a hidden field's name on the canvas |
+| `groupPreview` | `"Repeating group"` | Group field's framed preview label |
+| `addField` | `"Add field"` | ⊕ insertion trigger aria-label |
+| `emptySpec` | `"No fields yet. Add the first one:"` | Empty-schema placeholder |
+| `save` | `"Save"` | Header Save button |
+| `discard` | `"Discard"` | Header Discard button |
+| `build` | `"Build"` | Header Build-mode toggle |
+| `tryIt` | `"Try it"` | Header Try-it-mode toggle |
+| `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on a disabled Try-it button |
+| `saveFailed` | `"Save failed"` | Error toast title on a rejected `onCommit` |
+| `testSubmit` | `"Test submit"` | Try-it's submit button |
+| `testSubmitSuccess` | `"Form submitted successfully"` | Try-it's success toast |
+| `addSection` | `"+ Section"` | Add-section button |
+| `newSectionName` | `"New section"` | Default name for a freshly added section |
+| `sectionNameInput` | `"Section name"` | Inline rename input's aria-label |
+| `renameSection` | `"Rename"` | Section menu item |
+| `moveLeft` | `"Move left"` | Section menu item |
+| `moveRight` | `"Move right"` | Section menu item |
+| `deleteSection` | `"Delete section"` | Section menu item / confirm dialog title |
+| `deleteSectionConfirm` | `'Delete section "{section}"? Its fields move to the previous tab.'` | Confirm dialog message (`{section}` interpolated) |
+| `orientationH` | `"Horizontal tabs"` | Orientation toggle (when currently vertical) |
+| `orientationV` | `"Vertical tabs"` | Orientation toggle (when currently horizontal) |
+| `sectionMenu` | `"Section menu: {section}"` | Section menu trigger aria-label (`{section}` interpolated) |
+| `moveToSection` | `"Move to section"` | Cross-tab move menu trigger, toolbar |
+| `dragField` | `"Drag to reorder"` | Drag handle aria-label / tooltip |
+| `editField` | `"Edit field"` | Toolbar Edit button |
+| `duplicateField` | `"Duplicate field"` | Toolbar Duplicate button |
+| `deleteField` | `"Delete field"` | Toolbar Delete button |
+| `systemLocked` | `"System field"` | System-field lock badge aria-label |
+| `fieldDeleted` | `"Field deleted"` | Delete-undo toast title |
+| `undo` | `"Undo"` | Delete-undo toast action |
+| `panelGeneral` | `"General"` | Panel section heading |
+| `panelValidation` | `"Validation"` | Panel section heading |
+| `panelTypeSettings` | `"Type settings"` | Panel section heading |
+| `panelNoSettings` | `"No additional settings"` | Shown when a type has no settings UI |
+| `panelChildren` | `"Children"` | Group field's children section heading |
+| `panelBack` | `"Back"` | Panel drill-in Back button |
+| `panelClose` | `"Close"` | Panel close button aria-label |
+| `panelLocalizable` | `"Localizable"` | Localizable checkbox label |
+| `accessorInUse` | `"This accessor is already in use"` | Accessor collision error |
+| `accessorEmpty` | `"Accessor is required"` | Empty accessor error |
+| `committedAccessorWarning` | `"Changing the accessor of a saved field disconnects its existing data"` | Non-blocking warning on an already-committed field |
+| `editChild` | `"Edit"` | Group children list's per-row Edit button |
+| `errorDuplicateAccessor` | `'Duplicate accessor "{accessor}"'` | Validation-section error message (`{accessor}` interpolated) |
+| `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
+| `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
+
+## Migration from 0.1
+
+`SpecEditor`'s 0.1 API (`onChange: (schema: Schema) => void`, firing on
+every edit) is replaced by the draft session described above:
+
+1. Rename the prop: `onChange` → `onCommit`. It now fires **once**, only on
+   Save, not on every keystroke.
+2. **Remove any per-edit persistence** your host was doing in `onChange` —
+   there is no equivalent hook for "an edit just happened locally"; the
+   whole point of the draft model is that nothing reaches the host until
+   Save.
+3. If your host needs leave-protection (an unsaved-changes guard, a
+   route-change confirmation), wire the new `onDirtyChange` prop into it
+   directly — it fires exactly when `SpecEditor`'s internal dirty state
+   changes.
+4. If your `onChange` handler ever awaited a request, return that same
+   Promise from `onCommit` instead — `SpecEditor` now natively handles the
+   pending/rejected states (loading Save button, error toast, draft stays
+   dirty) that you previously had to build yourself.
+5. Review the [schema-prop stability contract](#schema-prop-stability-contract)
+   above — if your host previously fed `schema` from the same state
+   `onChange` wrote to on every keystroke, that pattern no longer applies;
+   `schema` should now reflect only the committed content.
+
+## Known Limitations
+
+- **Group children have no add/remove UI.** The panel's Children section
+  (drill-in only) lets you *edit* an existing child field's config, but
+  there is no in-editor way to add or remove a group's children — author
+  those via `defineSpec()` / hand-authored `Field[]` up front.
+- **`DirtyDot` announces in German** until `@knkcs/anker`#148 (a `label`
+  prop) lands — its current accessible name is not yet overridable from
+  here.
+- **`TypePicker`'s internal strings aren't label-routed yet** — its search
+  placeholder and "No matching field types" text are hardcoded English, not
+  wired through `EditorLabels`.
+- **No condition-editing UI.** `FieldCondition` exists on the schema type,
+  but the renderer doesn't evaluate conditions yet, so an authoring UI for
+  them is deferred until that lands.
+
+## Examples
+
+### Build
+
+A sectioned spec (implicit "General" tab, then "SEO" and "Advanced"). Try
+selecting a field, inserting one via ⊕, dragging to reorder, or opening a
+section's menu. `onCommit` is wired to local state with a simulated
+network delay so you can see the Save button's loading state; the panel
+below shows the last successfully committed schema and an activity log of
+each `onCommit` call.
+
+<Canvas of={Stories.Build} />
+
+### Try It
+
+Same spec as Build. `SpecEditor` keeps its Build/Try-it mode as internal
+state with no prop to force it open on mount, so click **Try it** in the
+header to preview the schema as a real, submittable form.
+
+<Canvas of={Stories.TryIt} />
+
+### Sectionless
+
+No `section` fields at all — the canvas renders as one flat, tab-free list.
+
+<Canvas of={Stories.Sectionless} />
+
+### Empty
+
+An empty schema (`[]`). The insertion row is always visible (not just on
+hover) so there's always an obvious way to add the first field.
+
+<Canvas of={Stories.Empty} />
+
+### Invalid Draft
+
+Two fields authored with the same accessor. Both shells outline red, the
+containing tab carries an error-count badge, and Save/Try-it stay disabled
+until the collision is resolved.
+
+<Canvas of={Stories.InvalidDraft} />
