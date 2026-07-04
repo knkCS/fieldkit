@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Schema } from "../../schema/types";
 import { EditorCanvas } from "../editor-canvas";
 import { useSpecDraft } from "../use-spec-draft";
@@ -48,9 +49,11 @@ const LABELS = {
 
 function Harness({
 	schema,
+	plugins = testPlugins,
 	onCommit = vi.fn(),
 }: {
 	schema: Schema;
+	plugins?: FieldTypePlugin[];
 	onCommit?: (s: Schema) => void;
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
@@ -62,7 +65,7 @@ function Harness({
 			onSelect={setSelected}
 			onEdit={setSelected}
 			labels={LABELS}
-			plugins={testPlugins}
+			plugins={plugins}
 		/>
 	);
 }
@@ -113,5 +116,46 @@ describe("EditorCanvas insertion points", () => {
 			fireEvent.click(screen.getByText("SEO"));
 		});
 		expect(screen.getByLabelText("Add field")).toBeInTheDocument();
+	});
+
+	it("insertion rows become visible on keyboard focus (WCAG 2.4.7)", () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b")]} />
+			</EditorWrap>,
+		);
+		const trigger = screen.getAllByLabelText("Add field")[0];
+		const row = trigger.closest("[role='group']") as HTMLElement;
+		expect(row).not.toBeNull();
+
+		// jsdom's getComputedStyle cannot resolve pseudo-class rules such as
+		// :focus-within, so assert against the emitted stylesheet instead:
+		// the row's emotion class must carry a focus-within rule restoring
+		// opacity, so Tabbing onto the hidden ⊕ button reveals the row.
+		const cssClass = Array.from(row.classList).find((c) =>
+			c.startsWith("css-"),
+		);
+		expect(cssClass).toBeDefined();
+		const styleText = Array.from(document.querySelectorAll("style"))
+			.map((tag) => tag.textContent ?? "")
+			.join("\n");
+		const focusWithinRule = new RegExp(
+			`\\.${cssClass}[^{]*focus-within[^{]*\\{[^}]*opacity:1`,
+		);
+		expect(styleText).toMatch(focusWithinRule);
+	});
+
+	it("empty plugin registry shows the no-matching message inside the popover", async () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[]} plugins={[]} />
+			</EditorWrap>,
+		);
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Add field"));
+		});
+		expect(
+			await screen.findByText("No matching field types"),
+		).toBeInTheDocument();
 	});
 });

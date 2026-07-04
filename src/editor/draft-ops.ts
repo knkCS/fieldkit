@@ -26,7 +26,7 @@ export function insertFieldAt(
  * start of the schema for the implicit first tab); position k>0 lands
  * right after the tab's (k-1)th field — so `position === tab.fields.length`
  * appends at the end of the tab. An out-of-range tab index falls back to
- * the end of the schema.
+ * the end of the schema; an overflowing position clamps to the tab's end.
  */
 export function flatInsertIndex(
 	schema: Schema,
@@ -37,7 +37,10 @@ export function flatInsertIndex(
 	const tab = partition.tabs[tabIndex];
 	if (!tab) return schema.length;
 
-	const precedingField = tab.fields[position - 1];
+	// Clamp: an overflowing position appends at the tab's end instead of
+	// falling through to the tab's front.
+	const clamped = Math.min(position, tab.fields.length);
+	const precedingField = tab.fields[clamped - 1];
 	if (precedingField) {
 		const idx = schema.findIndex(
 			(f) => f.config.api_accessor === precedingField.config.api_accessor,

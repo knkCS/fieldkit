@@ -280,4 +280,20 @@ describe("flatInsertIndex", () => {
 		const partition = partitionSchemaBySections(schema);
 		expect(flatInsertIndex(schema, partition, 5, 0)).toBe(1);
 	});
+
+	it("position overflow clamps to the end of the tab (implicit tab)", () => {
+		// Without clamping, position > fields.length on the implicit tab fell
+		// through to 0 (front) instead of the tab's end.
+		const schema: Schema = [f("a"), f("b")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 5)).toBe(2);
+	});
+
+	it("position overflow clamps to the end of the tab (sectioned tab)", () => {
+		// [s1][a][s2][c] — overflow position on tab 0 must land after "a",
+		// not right after the s1 marker.
+		const schema: Schema = [s("s1"), f("a"), s("s2"), f("c")];
+		const partition = partitionSchemaBySections(schema);
+		expect(flatInsertIndex(schema, partition, 0, 9)).toBe(2);
+	});
 });

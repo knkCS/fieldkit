@@ -186,6 +186,9 @@ export function EditorCanvas({
 			height="6"
 			opacity={alwaysVisible ? 1 : 0}
 			_hover={{ opacity: 1 }}
+			// Keyboard parity with _hover: without this, Tabbing onto the ⊕
+			// button lands on an invisible control (WCAG 2.4.7).
+			_focusWithin={{ opacity: 1 }}
 			transition="opacity 0.15s"
 		>
 			<TypePickerPopover
