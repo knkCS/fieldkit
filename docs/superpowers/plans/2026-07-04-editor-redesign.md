@@ -1898,7 +1898,9 @@ git add src/editor/
 git commit -m "feat(editor): validation badges and outlines on the canvas"
 ```
 
----### Task 11: Try-it mode
+---
+
+### Task 11: Try-it mode
 
 **Files:**
 - Create: `src/editor/try-it-view.tsx`
