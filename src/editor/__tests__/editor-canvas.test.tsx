@@ -1,3 +1,4 @@
+import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -26,6 +27,18 @@ const LABELS = {
 		delete: "Delete field",
 		systemLocked: "System field",
 	},
+	renameSection: "Rename",
+	moveLeft: "Move left",
+	moveRight: "Move right",
+	deleteSection: "Delete section",
+	deleteSectionConfirm:
+		'Delete section "{section}"? Its fields move to the previous tab.',
+	orientationH: "Horizontal tabs",
+	orientationV: "Vertical tabs",
+	sectionMenu: "Section menu: {section}",
+	addSection: "+ Section",
+	newSectionName: "New section",
+	sectionNameInput: "Section name",
 };
 
 function Harness({
@@ -38,14 +51,16 @@ function Harness({
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
 	return (
-		<EditorCanvas
-			spec={spec}
-			plugins={testPlugins}
-			selectedAccessor={selected}
-			onSelect={setSelected}
-			onEdit={setSelected}
-			labels={LABELS}
-		/>
+		<ConfirmModalProvider>
+			<EditorCanvas
+				spec={spec}
+				plugins={testPlugins}
+				selectedAccessor={selected}
+				onSelect={setSelected}
+				onEdit={setSelected}
+				labels={LABELS}
+			/>
+		</ConfirmModalProvider>
 	);
 }
 

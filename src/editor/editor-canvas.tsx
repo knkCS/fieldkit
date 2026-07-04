@@ -1,5 +1,7 @@
 // src/editor/editor-canvas.tsx
-import { Box, Flex, Stack, Text } from "@chakra-ui/react";
+import { Box, Flex, Input, Stack, Text } from "@chakra-ui/react";
+import { Button } from "@knkcs/anker/atoms";
+import { useConfirmModal } from "@knkcs/anker/feedback";
 import { Tabs } from "@knkcs/anker/primitives";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -10,18 +12,25 @@ import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import {
+	addSection,
+	deleteSection,
 	duplicateField,
 	flatInsertIndex,
 	insertFieldAt,
+	moveSection,
 	nextAccessor,
 	removeField,
+	renameSection,
+	setOrientation,
 } from "./draft-ops";
 import type { FieldShellToolbarLabels } from "./field-shell";
 import { FieldShell } from "./field-shell";
+import type { SectionMenuLabels } from "./section-menu";
+import { SectionMenu } from "./section-menu";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 
-interface CanvasLabels {
+interface CanvasLabels extends SectionMenuLabels {
 	defaultTab: string;
 	searchPlaceholder: string;
 	noResults: string;
@@ -30,6 +39,12 @@ interface CanvasLabels {
 	addField: string; // aria-label for the ⊕ insertion trigger
 	emptySpec: string; // empty-spec placeholder message
 	shell: FieldShellToolbarLabels;
+	// "{section}" interpolated — MUST say fields survive (move to the previous tab)
+	deleteSectionConfirm: string;
+	sectionMenu: string; // "{section}" interpolated — aria-label for the menu trigger
+	addSection: string; // "+ Section" button label
+	newSectionName: string; // default name for a freshly added section
+	sectionNameInput: string; // aria-label for the inline rename input
 }
 
 export interface EditorCanvasProps {
@@ -92,6 +107,11 @@ export function EditorCanvas({
 }: EditorCanvasProps) {
 	const { partition, draft, apply } = spec;
 	const [activeTab, setActiveTab] = useState("tab-0");
+	const [renaming, setRenaming] = useState<string | null>(null);
+	// Escape cancels the rename Input without committing; this guards the
+	// blur that may follow it from re-committing the cancelled text.
+	const skipBlurRef = useRef(false);
+	const { confirm } = useConfirmModal();
 	const { orientation, containerRef } = useContainerOrientation(
 		partition.orientation,
 	);
@@ -146,6 +166,47 @@ export function EditorCanvas({
 	};
 	const handleDuplicate = (accessor: string) =>
 		apply(duplicateField(draft, accessor));
+
+	const commitRename = (accessor: string, name: string) => {
+		setRenaming(null);
+		const trimmed = name.trim();
+		if (trimmed) apply(renameSection(draft, accessor, trimmed));
+	};
+
+	const handleAddSection = () => {
+		const next = addSection(draft, labels.newSectionName);
+		const added = next[next.length - 1];
+		apply(next);
+		// Appending a section always adds exactly one tab at the end,
+		// regardless of the current tab count (0, 1 implicit, or many).
+		setActiveTab(`tab-${partition.tabs.length}`);
+		setRenaming(added.config.api_accessor);
+	};
+
+	const handleMoveSection = (accessor: string, direction: -1 | 1) =>
+		apply(moveSection(draft, accessor, direction));
+
+	const handleOrientation = (o: "horizontal" | "vertical") =>
+		apply(setOrientation(draft, o));
+
+	const handleDeleteSection = async (accessor: string, name: string) => {
+		const ok = await confirm({
+			title: labels.deleteSection,
+			message: labels.deleteSectionConfirm.replace("{section}", name),
+			colorPalette: "red",
+		});
+		if (ok) apply(deleteSection(draft, accessor));
+	};
+
+	const firstSectionIndex = partition.tabs.findIndex(
+		(tab) => tab.section !== null,
+	);
+
+	const addSectionButton = (
+		<Button variant="ghost" size="xs" onClick={handleAddSection}>
+			{labels.addSection}
+		</Button>
+	);
 
 	const insertAt =
 		(tabIndex: number, position: number) => (pluginId: string) => {
@@ -231,6 +292,7 @@ export function EditorCanvas({
 					<Stack gap="3" align="center">
 						<Text color="fg.muted">{labels.emptySpec}</Text>
 						{insertionRow(0, 0, true)}
+						{addSectionButton}
 					</Stack>
 				</Box>
 			</FormProvider>
@@ -241,6 +303,9 @@ export function EditorCanvas({
 		return (
 			<FormProvider {...methods}>
 				<Box ref={containerRef}>
+					<Flex justify="flex-end" mb="2">
+						{addSectionButton}
+					</Flex>
 					{renderFields(partition.tabs[0].fields, 0)}
 				</Box>
 			</FormProvider>
@@ -257,15 +322,76 @@ export function EditorCanvas({
 				>
 					<Flex align="center" justify="space-between" gap="4">
 						<Tabs.List flex="1">
-							{partition.tabs.map((tab, i) => (
-								<Tabs.Trigger
-									key={tab.section?.config.api_accessor ?? `implicit-${i}`}
-									value={`tab-${i}`}
-								>
-									{tab.section?.config.name ?? labels.defaultTab}
-								</Tabs.Trigger>
-							))}
+							{partition.tabs.map((tab, i) => {
+								const accessor = tab.section?.config.api_accessor;
+								const key = accessor ?? `implicit-${i}`;
+
+								if (accessor && renaming === accessor) {
+									return (
+										<Input
+											key={key}
+											size="xs"
+											width="auto"
+											maxWidth="10rem"
+											autoFocus
+											defaultValue={tab.section?.config.name}
+											aria-label={labels.sectionNameInput}
+											onClick={(e) => e.stopPropagation()}
+											onKeyDown={(e) => {
+												if (e.key === "Enter") {
+													e.preventDefault();
+													commitRename(accessor, e.currentTarget.value);
+												} else if (e.key === "Escape") {
+													// Stop the rename cancel from also reaching the
+													// document-level Escape/deselect listener (T12).
+													e.stopPropagation();
+													skipBlurRef.current = true;
+													setRenaming(null);
+												}
+											}}
+											onBlur={(e) => {
+												if (skipBlurRef.current) {
+													skipBlurRef.current = false;
+													return;
+												}
+												commitRename(accessor, e.currentTarget.value);
+											}}
+										/>
+									);
+								}
+
+								return (
+									<Flex key={key} role="presentation" align="center" gap="0.5">
+										<Tabs.Trigger value={`tab-${i}`}>
+											{tab.section?.config.name ?? labels.defaultTab}
+										</Tabs.Trigger>
+										{tab.section && accessor && (
+											<SectionMenu
+												sectionAccessor={accessor}
+												sectionName={tab.section.config.name}
+												isFirst={i === firstSectionIndex}
+												orientation={partition.orientation}
+												onRename={(a) => setRenaming(a)}
+												onMove={handleMoveSection}
+												onDelete={() =>
+													handleDeleteSection(
+														accessor,
+														tab.section?.config.name ?? "",
+													)
+												}
+												onOrientation={handleOrientation}
+												labels={labels}
+												triggerAriaLabel={labels.sectionMenu.replace(
+													"{section}",
+													tab.section.config.name,
+												)}
+											/>
+										)}
+									</Flex>
+								);
+							})}
 						</Tabs.List>
+						{addSectionButton}
 						<FieldSearch
 							index={searchIndex}
 							placeholder={labels.searchPlaceholder}
