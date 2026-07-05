@@ -1,51 +1,11 @@
 import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { BlocksSettings } from "../../schema/field-types/blocks";
 import type { FieldProps } from "../../schema/plugin";
-import type { Field } from "../../schema/types";
-import { FieldRenderer } from "../field-renderer";
-
-interface BlockItemFieldsProps {
-	childFields: Field[];
-	parentAccessor: string;
-	index: number;
-	readOnly?: boolean;
-}
-
-/**
- * Renders one block item's nested fields, computing the remapped schema
- * (child api_accessor rewritten to `${parentAccessor}.${index}.${...}`) in a
- * useMemo keyed on the stable inputs. This keeps the schema array reference
- * stable across re-renders of the parent BlocksField that don't affect this
- * particular item, which is required for FieldComponent's identity-based
- * memo (see field-component.tsx) to actually skip re-rendering.
- */
-function BlockItemFieldsInner({
-	childFields,
-	parentAccessor,
-	index,
-	readOnly,
-}: BlockItemFieldsProps) {
-	const schema = useMemo(
-		() =>
-			childFields.map((child) => ({
-				...child,
-				config: {
-					...child.config,
-					api_accessor: `${parentAccessor}.${index}.${child.config.api_accessor}`,
-				},
-			})),
-		[childFields, parentAccessor, index],
-	);
-
-	return <FieldRenderer schema={schema} readOnly={readOnly} />;
-}
-
-const BlockItemFields = memo(BlockItemFieldsInner);
-BlockItemFields.displayName = "BlockItemFields";
+import { NestedItemFields } from "./item-fields";
 
 export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 	const { control } = useFormContext();
@@ -178,7 +138,7 @@ export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 									)}
 								</Flex>
 								{blockFields.length > 0 && (
-									<BlockItemFields
+									<NestedItemFields
 										childFields={blockFields}
 										parentAccessor={accessor}
 										index={index}

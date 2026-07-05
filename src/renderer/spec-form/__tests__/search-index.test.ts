@@ -57,6 +57,16 @@ describe("buildSearchIndex", () => {
 		const index = buildSearchIndex(tabs, "General");
 		expect(index.find((r) => r.accessor === "secret")).toBeUndefined();
 	});
+
+	it("includes hidden fields when includeHidden is true", () => {
+		const index = buildSearchIndex(tabs, "General", { includeHidden: true });
+		expect(index.find((r) => r.accessor === "secret")).toEqual({
+			accessor: "secret",
+			label: "Secret",
+			tabIndex: 1,
+			tabLabel: "SEO",
+		});
+	});
 });
 
 describe("searchFields", () => {

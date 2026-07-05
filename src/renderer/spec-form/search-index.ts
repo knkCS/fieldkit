@@ -7,13 +7,22 @@ export interface FieldSearchResult {
 	tabLabel: string;
 }
 
+export interface BuildSearchIndexOptions {
+	/** Include fields marked `hidden` — the editor canvas renders them as
+	 * selectable rows and must be able to jump to them; SpecForm never
+	 * renders hidden fields, so its search must not surface them either. */
+	includeHidden?: boolean;
+}
+
 export function buildSearchIndex(
 	tabs: SpecTab[],
 	defaultTabLabel: string,
+	opts?: BuildSearchIndexOptions,
 ): FieldSearchResult[] {
+	const includeHidden = opts?.includeHidden ?? false;
 	return tabs.flatMap((tab, tabIndex) =>
 		tab.fields
-			.filter((field) => !field.config.hidden)
+			.filter((field) => includeHidden || !field.config.hidden)
 			.map((field) => ({
 				accessor: field.config.api_accessor,
 				label: field.config.name,

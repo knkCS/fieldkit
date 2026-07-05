@@ -12,6 +12,7 @@ import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
 import { buildSearchIndex } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
+import { TabErrorBadge } from "./tab-error-badge";
 import { useContainerOrientation } from "./use-container-orientation";
 import { useTabIndicators } from "./use-tab-indicators";
 
@@ -236,18 +237,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
 			{tab.section?.config.name ?? labels.defaultTab}
 			{indicators[i].errorCount > 0 ? (
-				<Box
-					as="span"
-					data-testid={`tab-errors-${i}`}
-					bg="danger.600"
-					color="white"
-					borderRadius="full"
-					fontSize="xs"
-					px="1.5"
-					ml="1.5"
-				>
-					{indicators[i].errorCount}
-				</Box>
+				<TabErrorBadge index={i} count={indicators[i].errorCount} />
 			) : (
 				indicators[i].dirty && (
 					<Box as="span" data-testid={`tab-dirty-${i}`} ml="1.5">

@@ -37,6 +37,8 @@ import {
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { FieldSearch } from "../renderer/spec-form/field-search";
+import { buildSearchIndex } from "../renderer/spec-form/search-index";
+import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field } from "../schema/types";
@@ -210,18 +212,13 @@ export function EditorCanvas({
 		if (activeIndex >= partition.tabs.length) setActiveTab("tab-0");
 	}, [partition.tabs.length, activeTab]);
 
-	// Editor-side index: unlike the renderer's buildSearchIndex, HIDDEN fields
-	// are included — they render as selectable rows on the canvas.
+	// Editor-side index: unlike the renderer's default buildSearchIndex call,
+	// HIDDEN fields are included — they render as selectable rows on the canvas.
 	const searchIndex = useMemo(
 		() =>
-			partition.tabs.flatMap((tab, tabIndex) =>
-				tab.fields.map((field) => ({
-					accessor: field.config.api_accessor,
-					label: field.config.name,
-					tabIndex,
-					tabLabel: tab.section?.config.name ?? labels.defaultTab,
-				})),
-			),
+			buildSearchIndex(partition.tabs, labels.defaultTab, {
+				includeHidden: true,
+			}),
 		[partition, labels.defaultTab],
 	);
 
@@ -675,18 +672,10 @@ export function EditorCanvas({
 												<Tabs.Trigger value={`tab-${i}`}>
 													{tab.section?.config.name ?? labels.defaultTab}
 													{tabErrorCounts[i] > 0 && (
-														<Box
-															as="span"
-															data-testid={`tab-errors-${i}`}
-															bg="danger.600"
-															color="white"
-															borderRadius="full"
-															fontSize="xs"
-															px="1.5"
-															ml="1.5"
-														>
-															{tabErrorCounts[i]}
-														</Box>
+														<TabErrorBadge
+															index={i}
+															count={tabErrorCounts[i]}
+														/>
 													)}
 												</Tabs.Trigger>
 												{tab.section && accessor && (
