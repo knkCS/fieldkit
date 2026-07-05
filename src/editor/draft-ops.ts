@@ -1,13 +1,17 @@
 import type { SpecPartition } from "../schema/partition";
 import { partitionSchemaBySections } from "../schema/partition";
+import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 
-function slugify(name: string): string {
-	const slug = name
+/** Ported verbatim from field-modal.tsx:17-22. Shared by draft-ops'
+ * addSection (which falls back to "section" for an all-punctuation/empty
+ * name) and the panel's ConfigSection (which does NOT fall back — an empty
+ * slug there must surface the accessorEmpty validation message instead). */
+export function slugify(value: string): string {
+	return value
 		.toLowerCase()
 		.replace(/\s+/g, "_")
 		.replace(/[^a-z0-9_]/g, "");
-	return slug || "section";
 }
 
 export function insertFieldAt(
@@ -103,13 +107,29 @@ export function moveField(
 	return next;
 }
 
+/**
+ * Shared probe loop for `nextAccessor`/`uniquifyAccessor`: returns `base` if
+ * it's free, otherwise the first `suffix(n)` (n = 1, 2, 3, …) not already
+ * taken. Each call site's `suffix` encodes its own numbering scheme —
+ * `nextAccessor`'s plain `_2, _3, …` vs. `uniquifyAccessor`'s unnumbered
+ * `_copy` followed by `_copy2, _copy3, …`.
+ */
+function probeAccessor(
+	taken: Set<string>,
+	base: string,
+	suffix: (n: number) => string,
+): string {
+	if (!taken.has(base)) return base;
+	let n = 1;
+	while (taken.has(suffix(n))) n++;
+	return suffix(n);
+}
+
 export function uniquifyAccessor(schema: Schema, base: string): string {
 	const taken = new Set(schema.map((f) => f.config.api_accessor));
-	if (!taken.has(base)) return base;
-	if (!taken.has(`${base}_copy`)) return `${base}_copy`;
-	let n = 2;
-	while (taken.has(`${base}_copy${n}`)) n++;
-	return `${base}_copy${n}`;
+	return probeAccessor(taken, base, (n) =>
+		n === 1 ? `${base}_copy` : `${base}_copy${n}`,
+	);
 }
 
 export function duplicateField(schema: Schema, accessor: string): Schema {
@@ -130,10 +150,24 @@ export function duplicateField(schema: Schema, accessor: string): Schema {
 /** Accessor for a freshly inserted field: base, base_2, base_3… (no "_copy" — it isn't a copy). */
 export function nextAccessor(schema: Schema, base: string): string {
 	const taken = new Set(schema.map((f) => f.config.api_accessor));
-	if (!taken.has(base)) return base;
-	let n = 2;
-	while (taken.has(`${base}_${n}`)) n++;
-	return `${base}_${n}`;
+	return probeAccessor(taken, base, (n) => `${base}_${n + 1}`);
+}
+
+/** Builds the default Field for a freshly inserted instance of `plugin`:
+ * a unique accessor (via nextAccessor), the plugin's defaultSettings (or
+ * null), and system:false (freshly inserted fields are always user-created). */
+export function createField(plugin: FieldTypePlugin, schema: Schema): Field {
+	return {
+		field_type: plugin.id,
+		config: {
+			name: plugin.name,
+			api_accessor: nextAccessor(schema, plugin.id),
+			required: false,
+			instructions: "",
+		},
+		settings: plugin.defaultSettings ?? null,
+		system: false,
+	};
 }
 
 export function addSection(schema: Schema, name: string): Schema {
@@ -141,7 +175,7 @@ export function addSection(schema: Schema, name: string): Schema {
 		field_type: "section",
 		config: {
 			name,
-			api_accessor: uniquifyAccessor(schema, slugify(name)),
+			api_accessor: uniquifyAccessor(schema, slugify(name) || "section"),
 			required: false,
 			instructions: "",
 		},

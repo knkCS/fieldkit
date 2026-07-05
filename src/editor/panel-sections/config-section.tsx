@@ -3,15 +3,8 @@ import { Box, Flex, Input, Text, Textarea } from "@chakra-ui/react";
 import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { Field } from "../../schema/types";
+import { slugify } from "../draft-ops";
 import type { PanelSectionProps } from "../field-config-panel";
-
-/** Ported verbatim from field-modal.tsx:17-22. */
-function slugify(value: string): string {
-	return value
-		.toLowerCase()
-		.replace(/\s+/g, "_")
-		.replace(/[^a-z0-9_]/g, "");
-}
 
 /**
  * General section: name, accessor, instructions, required, default value,

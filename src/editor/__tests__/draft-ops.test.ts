@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { partitionSchemaBySections } from "../../schema/partition";
+import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
 import {
 	addSection,
+	createField,
 	deleteSection,
 	duplicateField,
 	flatInsertIndex,
@@ -15,9 +18,23 @@ import {
 	removeFieldAt,
 	renameSection,
 	setOrientation,
+	slugify,
 	uniquifyAccessor,
 	updateField,
 } from "../draft-ops";
+
+function makePlugin(overrides: Partial<FieldTypePlugin> = {}): FieldTypePlugin {
+	return {
+		id: "text",
+		name: "Text",
+		description: "Plain text",
+		icon: () => null,
+		category: "text",
+		fieldComponent: () => null,
+		toZodType: () => z.string(),
+		...overrides,
+	};
+}
 
 function f(accessor: string, type = "text"): Field {
 	return {
@@ -121,6 +138,39 @@ describe("field ops", () => {
 		expect(nextAccessor([f("text")], "text")).toBe("text_2");
 		expect(nextAccessor([f("text"), f("text_2")], "text")).toBe("text_3");
 		expect(nextAccessor([], "text")).toBe("text");
+	});
+
+	it("slugify lowercases, spaces-to-underscores, and strips invalid chars", () => {
+		expect(slugify("My Field!")).toBe("my_field");
+		expect(slugify("")).toBe("");
+	});
+
+	it("createField builds a fresh Field from a plugin's id/name/defaultSettings", () => {
+		const plugin = makePlugin({
+			id: "select",
+			name: "Select",
+			defaultSettings: { options: [] },
+		});
+		const out = createField(plugin, [f("a")]);
+		expect(out).toEqual({
+			field_type: "select",
+			config: {
+				name: "Select",
+				api_accessor: "select",
+				required: false,
+				instructions: "",
+			},
+			settings: { options: [] },
+			system: false,
+		});
+	});
+
+	it("createField uniquifies the accessor via nextAccessor and falls back to null settings", () => {
+		const plugin = makePlugin({ id: "text", name: "Text" });
+		const out = createField(plugin, [f("text")]);
+		expect(out.config.api_accessor).toBe("text_2");
+		expect(out.settings).toBeNull();
+		expect(out.system).toBe(false);
 	});
 });
 

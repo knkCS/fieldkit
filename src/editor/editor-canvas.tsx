@@ -45,6 +45,7 @@ import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import {
 	addSection,
+	createField,
 	deleteSection,
 	duplicateField,
 	flatInsertIndex,
@@ -52,7 +53,6 @@ import {
 	moveField,
 	moveFieldToSection,
 	moveSection,
-	nextAccessor,
 	removeFieldAt,
 	renameSection,
 	setOrientation,
@@ -468,18 +468,7 @@ export function EditorCanvas({
 		(tabIndex: number, position: number) => (pluginId: string) => {
 			const plugin = plugins.find((p) => p.id === pluginId);
 			if (!plugin) return;
-			const accessor = nextAccessor(draft, plugin.id);
-			const newField: Field = {
-				field_type: plugin.id,
-				config: {
-					name: plugin.name,
-					api_accessor: accessor,
-					required: false,
-					instructions: "",
-				},
-				settings: plugin.defaultSettings ?? null,
-				system: false,
-			};
+			const newField = createField(plugin, draft);
 			apply(
 				insertFieldAt(
 					draft,
@@ -490,7 +479,7 @@ export function EditorCanvas({
 			// Selects it AND focuses the panel's Label input — matching the spec's
 			// "insert, select, focus the label" flow so the author can name the
 			// field immediately without an extra click.
-			onEdit(accessor);
+			onEdit(newField.config.api_accessor);
 		};
 
 	const insertionRow = (
