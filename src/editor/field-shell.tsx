@@ -167,7 +167,31 @@ export function FieldShell({
 					)}
 				</Flex>
 			)}
-			<Box inert pointerEvents="none" userSelect="none">
+			{/* F8: the JSX boolean shorthand `inert` (i.e. passing the JS boolean
+			    `true`) is only recognized as a boolean DOM property by React 19.
+			    The peer range allows React >=18, where React DOM logs "Received
+			    `true` for a non-boolean attribute" and drops it entirely — the
+			    canvas preview is then NOT actually inert (focus/AT can still
+			    reach it) on a React 18 host, even though this repo's own React
+			    19 dev dependency masks the bug locally.
+			    Deviation from the adjudicated fix (`{ inert: "" }`): verified
+			    empirically against the installed React 19 that an EMPTY string
+			    does not work — React 19 now treats `inert` as a boolean-typed
+			    property, and an empty string is JS-falsy, so React drops the
+			    attribute exactly like the bug it's meant to fix (confirmed via
+			    this file's own regression test going red). A non-empty STRING
+			    value sidesteps both failure modes: React 19 accepts any
+			    "truthy" value for a boolean-typed prop and keeps the attribute
+			    present (dev-only console warning, attribute unaffected); React
+			    18, which doesn't recognize `inert` as boolean-typed at all,
+			    falls back to its generic passthrough for a plain string value
+			    and sets the attribute directly — no boolean coercion involved
+			    either way. */}
+			<Box
+				{...({ inert: "true" } as Record<string, unknown>)}
+				pointerEvents="none"
+				userSelect="none"
+			>
 				{children}
 			</Box>
 		</Box>
