@@ -15,7 +15,14 @@ export interface SpecDraft {
 	partition: SpecPartition;
 	validation: SpecValidationResult;
 	dirty: boolean;
-	apply: (next: Schema) => void;
+	/** Accepts either a plain next-Schema value or a functional updater
+	 * `(draft) => Schema` (mirroring React's setState) — the latter lets a
+	 * caller apply an edit relative to whatever the draft is AT THE TIME the
+	 * update actually runs (e.g. an undo toast's onClick, fired well after
+	 * the click that created it, or an edit handler invoked from a closure
+	 * over a since-stale `draft`), without needing to track the live draft
+	 * itself via a ref. */
+	apply: (next: Schema | ((draft: Schema) => Schema)) => void;
 	save: () => Promise<void>;
 	saving: boolean;
 	saveError: unknown | null;
@@ -29,6 +36,10 @@ export interface SpecDraft {
 	 * notice has served its purpose.
 	 */
 	baselineConflict: boolean;
+	/** Same map useSpecDraft builds internally for validateSpec — returned so
+	 * consumers (e.g. SpecEditor) don't need to rebuild an identical
+	 * `new Map(plugins.map(...))` from the same plugins array. */
+	pluginMap: Map<string, FieldTypePlugin>;
 }
 
 export function useSpecDraft(
@@ -60,10 +71,17 @@ export function useSpecDraft(
 	// CURRENT DRAFT byte-for-byte, it can only be our own save's echo,
 	// regardless of timing — adopt it as the new baseline silently instead
 	// of latching a false "changed in the background" warning.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
+	// baselineJson is recomputed only when `baseline` itself changes, not on
+	// every render that hands this effect a fresh-identity `schema` (the
+	// common case — consumers may build a new array every render). The
+	// incoming `schema` still gets stringified per identity-change below;
+	// that half is unavoidable since it's the value actually varying.
+	const baselineJson = useMemo(() => JSON.stringify(baseline), [baseline]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline/baselineJson but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
-		if (JSON.stringify(schema) === JSON.stringify(baseline)) return;
+		if (JSON.stringify(schema) === baselineJson) return;
 		if (JSON.stringify(schema) === JSON.stringify(draft)) {
 			setBaseline(schema);
 			return;
@@ -90,10 +108,10 @@ export function useSpecDraft(
 		onDirtyChange?.(dirty);
 	}, [dirty, onDirtyChange]);
 
-	const apply = useCallback((next: Schema) => {
+	const apply = useCallback((next: Schema | ((draft: Schema) => Schema)) => {
 		setSaveError(null);
 		setBaselineConflict(false);
-		setDraft(next);
+		setDraft((prev) => (typeof next === "function" ? next(prev) : next));
 	}, []);
 
 	// Invariant: baseline always tracks the last successfully committed
@@ -133,5 +151,6 @@ export function useSpecDraft(
 		saveError,
 		discard,
 		baselineConflict,
+		pluginMap,
 	};
 }

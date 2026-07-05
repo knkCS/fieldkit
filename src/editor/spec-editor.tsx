@@ -282,14 +282,6 @@ export function SpecEditor({
 		lastBaselineConflictRef.current = spec.baselineConflict;
 	}, [spec.baselineConflict, mergedLabels.baselineConflict]);
 
-	// Undo (below) needs the LIVE draft at click time, not the one captured
-	// when the toast was created — by the time Undo is clicked, the draft has
-	// already advanced past the deletion (and possibly further edits).
-	const draftRef = useRef<Schema>(spec.draft);
-	useEffect(() => {
-		draftRef.current = spec.draft;
-	}, [spec.draft]);
-
 	// Escape, Build mode only: inner controls (an open popover/menu, or the
 	// section rename input) stop propagation — or preventDefault — on their
 	// own Escape handling, so this document-level listener never actually
@@ -305,11 +297,6 @@ export function SpecEditor({
 		document.addEventListener("keydown", onKeyDown);
 		return () => document.removeEventListener("keydown", onKeyDown);
 	}, [mode]);
-
-	const pluginMap = useMemo(
-		() => new Map(plugins.map((p) => [p.id, p])),
-		[plugins],
-	);
 
 	// The last COMMITTED spec (the `schema` prop), not the live draft — drives
 	// the panel's disconnect warning and auto-slug latch baseline.
@@ -420,7 +407,10 @@ export function SpecEditor({
 
 	function handlePanelFieldChange(next: Field) {
 		if (selected == null) return;
-		spec.apply(updateField(spec.draft, selected, next));
+		// Functional-updater form: applies against whatever the draft is AT
+		// APPLY TIME, not the `spec.draft` closed over when this handler was
+		// (re)created — avoids depending on a live-draft ref.
+		spec.apply((draft) => updateField(draft, selected, next));
 		// The panel's local collision gate already guarantees uniqueness, so a
 		// changed accessor here is unambiguous — follow the selection to it.
 		if (next.config.api_accessor !== selected) {
@@ -437,8 +427,12 @@ export function SpecEditor({
 			type: "info",
 			action: {
 				label: mergedLabels.undo,
+				// Functional-updater form: the toast's onClick fires well after
+				// this closure was created, so it must apply against the draft
+				// AT UNDO TIME (which may have advanced past the deletion), not
+				// whatever `spec.draft` was when the toast was scheduled.
 				onClick: () =>
-					spec.apply(insertFieldAt(draftRef.current, field, flatIndex)),
+					spec.apply((draft) => insertFieldAt(draft, field, flatIndex)),
 			},
 		});
 	}
@@ -566,7 +560,7 @@ export function SpecEditor({
 						{selectedField && (
 							<FieldConfigPanel
 								field={selectedField}
-								plugin={pluginMap.get(selectedField.field_type)}
+								plugin={spec.pluginMap.get(selectedField.field_type)}
 								draft={spec.draft}
 								fieldErrors={translatedFieldErrors}
 								onFieldChange={handlePanelFieldChange}

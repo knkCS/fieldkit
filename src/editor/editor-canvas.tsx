@@ -188,20 +188,27 @@ export function EditorCanvas({
 		}),
 	);
 
+	// Computed ONCE per draft identity (rather than separately for the
+	// useForm initializer, the reset-guard ref's initializer, and the effect
+	// below) — getDefaultValues(draft) + its JSON serialization were each
+	// re-run redundantly on every render even though only one of the three
+	// call sites actually needed a fresh value on any given render.
+	const { defaults, serialized: serializedDefaults } = useMemo(() => {
+		const next = getDefaultValues(draft);
+		return { defaults: next, serialized: JSON.stringify(next) };
+	}, [draft]);
+
 	// Scratch form so real field components render authentic defaults.
-	const methods = useForm({ defaultValues: getDefaultValues(draft) });
+	const methods = useForm({ defaultValues: defaults });
 	// Reset ONLY when the defaults actually changed — a per-keystroke reset
 	// would re-render every registered field (incl. heavy ones like TipTap).
-	const lastDefaultsRef = useRef(JSON.stringify(getDefaultValues(draft)));
-	// biome-ignore lint/correctness/useExhaustiveDependencies: guarded by content comparison
+	const lastDefaultsRef = useRef(serializedDefaults);
 	useEffect(() => {
-		const next = getDefaultValues(draft);
-		const serialized = JSON.stringify(next);
-		if (serialized !== lastDefaultsRef.current) {
-			lastDefaultsRef.current = serialized;
-			methods.reset(next);
+		if (serializedDefaults !== lastDefaultsRef.current) {
+			lastDefaultsRef.current = serializedDefaults;
+			methods.reset(defaults);
 		}
-	}, [draft]);
+	}, [serializedDefaults, defaults, methods]);
 
 	// Reset the active tab only when the draft's tab count shrinks below the
 	// active index (e.g. deleting a section). Do NOT reset on every draft

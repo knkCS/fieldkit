@@ -147,6 +147,33 @@ describe("useSpecDraft", () => {
 		expect(onDirty).toHaveBeenLastCalledWith(true);
 	});
 
+	it("apply accepts a functional updater applied against the CURRENT draft", () => {
+		const { result } = renderHook(() =>
+			useSpecDraft([f("a"), f("b")], [textPlugin], vi.fn()),
+		);
+		act(() => result.current.apply((draft) => removeField(draft, "b")));
+		expect(result.current.draft.map((x) => x.config.api_accessor)).toEqual([
+			"a",
+		]);
+		expect(result.current.dirty).toBe(true);
+
+		// A second updater call sees the result of the first, not a stale
+		// closure over the original draft.
+		act(() => result.current.apply((draft) => [...draft, f("c")]));
+		expect(result.current.draft.map((x) => x.config.api_accessor)).toEqual([
+			"a",
+			"c",
+		]);
+	});
+
+	it("exposes a pluginMap built from the plugins array", () => {
+		const { result } = renderHook(() =>
+			useSpecDraft([f("a")], [textPlugin], vi.fn()),
+		);
+		expect(result.current.pluginMap.get("text")).toBe(textPlugin);
+		expect(result.current.pluginMap.size).toBe(1);
+	});
+
 	it("apply clears saveError", async () => {
 		const onCommit = vi.fn().mockRejectedValue(new Error("api down"));
 		const { result } = renderHook(() =>
