@@ -50,6 +50,24 @@ async function selectMenuItem(edge: "first" | "last") {
 	});
 }
 
+// "Move right" is always the third item (index 2): Rename, Move left, Move
+// right, [Orientation], Delete.
+async function selectMoveRight() {
+	const menu = await screen.findByRole("menu");
+	await act(async () => {
+		fireEvent.keyDown(menu, { key: "Home" });
+	});
+	await act(async () => {
+		fireEvent.keyDown(menu, { key: "ArrowDown" });
+	});
+	await act(async () => {
+		fireEvent.keyDown(menu, { key: "ArrowDown" });
+	});
+	await act(async () => {
+		fireEvent.keyDown(menu, { key: "Enter" });
+	});
+}
+
 // The orientation item, when present, is always the one just before Delete.
 async function selectOrientationMenuItem() {
 	const menu = await screen.findByRole("menu");
@@ -303,5 +321,82 @@ describe("EditorCanvas section strip editing", () => {
 			"aria-orientation",
 			"vertical",
 		);
+	});
+
+	it("moving the ACTIVE section right keeps it visible at its new tab index (F9)", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("a"), // implicit tab-0
+						makeSection("s1", "One"),
+						makeField("b"),
+						makeSection("s2", "Two"),
+						makeField("c"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		// View "One" (tab-1).
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /One/ }));
+		});
+		expect(screen.getByRole("tab", { name: /One/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Section menu: One"));
+		});
+		await selectMoveRight();
+
+		// "One"'s fields survive the move (they always did) — the view must
+		// follow them to the tab's NEW index instead of showing whatever
+		// section slid into the old one.
+		expect(screen.getByRole("tab", { name: /One/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(
+			screen.getByTestId("shell-b").closest("[role='tabpanel']"),
+		).not.toHaveAttribute("hidden");
+	});
+
+	it("moving a section right, while viewing the section it swaps with, follows the swap (F9)", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("a"),
+						makeSection("s1", "One"),
+						makeField("b"),
+						makeSection("s2", "Two"),
+						makeField("c"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		// View "Two" (tab-2) — the section "One" is about to swap places with.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /Two/ }));
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Section menu: One"));
+		});
+		await selectMoveRight();
+
+		// "Two" is now at tab-1 (swapped down one) — the view must follow it
+		// there, not keep showing the stale numeric index.
+		expect(screen.getByRole("tab", { name: /Two/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(
+			screen.getByTestId("shell-c").closest("[role='tabpanel']"),
+		).not.toHaveAttribute("hidden");
 	});
 });

@@ -1,7 +1,6 @@
 // src/editor/editor-canvas.tsx
 import { Box, Flex, Input, Stack, Text } from "@chakra-ui/react";
 import {
-	closestCenter,
 	DndContext,
 	type DragEndEvent,
 	type DragOverEvent,
@@ -63,6 +62,7 @@ import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
+import { visibleClosestCenter } from "./visible-collision";
 
 /** Droppable wrapper for a tab-trigger row — a cross-section drag target. */
 function TabDropZone({
@@ -329,8 +329,30 @@ export function EditorCanvas({
 		startRename(added.config.api_accessor);
 	};
 
-	const handleMoveSection = (accessor: string, direction: -1 | 1) =>
-		apply(moveSection(draft, accessor, direction));
+	// F9: moveSection reorders section BLOCKS but the canvas's activeTab is a
+	// numeric index into that order — moving the currently-viewed section
+	// (or the neighbor it swaps with) left an unadjusted index pointing at
+	// whatever slid into the old slot, silently switching the visible tab's
+	// CONTENT out from under the author.
+	const handleMoveSection = (accessor: string, direction: -1 | 1) => {
+		const next = moveSection(draft, accessor, direction);
+		if (next !== draft) {
+			const activeIndex = Number(activeTab.replace("tab-", ""));
+			const movedTabIndex = partition.tabs.findIndex(
+				(tab) => tab.section?.config.api_accessor === accessor,
+			);
+			if (movedTabIndex !== -1) {
+				if (activeIndex === movedTabIndex) {
+					// Viewing the section that moved: follow it to its new index.
+					setActiveTab(`tab-${activeIndex + direction}`);
+				} else if (activeIndex === movedTabIndex + direction) {
+					// Viewing the neighbor it swapped places with: follow the swap.
+					setActiveTab(`tab-${activeIndex - direction}`);
+				}
+			}
+		}
+		apply(next);
+	};
 
 	const handleOrientation = (o: "horizontal" | "vertical") =>
 		apply(setOrientation(draft, o));
@@ -574,7 +596,7 @@ export function EditorCanvas({
 			<FormProvider {...methods}>
 				<DndContext
 					sensors={sensors}
-					collisionDetection={closestCenter}
+					collisionDetection={visibleClosestCenter}
 					onDragOver={handleDragOver}
 					onDragEnd={handleDragEnd}
 				>
@@ -593,7 +615,7 @@ export function EditorCanvas({
 		<FormProvider {...methods}>
 			<DndContext
 				sensors={sensors}
-				collisionDetection={closestCenter}
+				collisionDetection={visibleClosestCenter}
 				onDragOver={handleDragOver}
 				onDragEnd={handleDragEnd}
 			>
