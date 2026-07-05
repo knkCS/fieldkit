@@ -1,8 +1,8 @@
 // src/editor/spec-editor.tsx
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, Stack } from "@chakra-ui/react";
 import { Button, DirtyDot } from "@knkcs/anker/atoms";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
+import { Alert, Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
@@ -389,6 +389,20 @@ export function SpecEditor({
 		[spec.validation.fieldErrors, mergedLabels],
 	);
 
+	// F4: maxPerSpec violations land in `validation.errors` but NOT in
+	// `fieldErrors` (there's no single field to blame — the constraint is on
+	// the count of a whole field_type), so they were invisible: no shell
+	// outline, no tab badge, just a disabled Save with no explanation. Every
+	// fieldErrors message is duplicated verbatim into `errors` too, so
+	// filtering those out isolates exactly the non-field (maxPerSpec)
+	// messages that still need a home.
+	const nonFieldErrors = useMemo(() => {
+		const fieldErrorMessages = new Set(
+			spec.validation.fieldErrors.map((e) => e.message),
+		);
+		return spec.validation.errors.filter((msg) => !fieldErrorMessages.has(msg));
+	}, [spec.validation]);
+
 	const selectedField: Field | null =
 		(selected != null
 			? (spec.draft.find((f) => f.config.api_accessor === selected) ?? null)
@@ -503,6 +517,24 @@ export function SpecEditor({
 						</Button>
 					</Flex>
 				</Flex>
+
+				{nonFieldErrors.length > 0 && (
+					<Stack gap="1" p="2">
+						{nonFieldErrors.map((message) => (
+							// TODO(fieldkit#27): these are validateSpec's raw, English-only
+							// message strings, not routed through EditorLabels — unlike
+							// fieldErrors' codes, maxPerSpec violations aren't translatable
+							// yet. Sanctioned deviation from the "all strings via labels"
+							// rule for this one surface until that lands.
+							<Alert
+								key={message}
+								role="alert"
+								status="warning"
+								title={message}
+							/>
+						))}
+					</Stack>
+				)}
 
 				{mode === "tryit" ? (
 					<TryItView
