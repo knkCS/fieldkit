@@ -44,7 +44,20 @@ export function validateSpec(
 		}
 	}
 
-	// Check accessor constraints: empty name, empty accessor, duplicates
+	// Check accessor constraints: empty name, empty accessor, duplicates.
+	// Recurses into group children (F5) — each field list (top-level, or one
+	// group's children) is its OWN duplicate-accessor namespace: the same
+	// accessor reused in a sibling group, or at a different nesting level, is
+	// NOT a collision, so `seen` must not be shared across recursive calls.
+	checkAccessors(fields, fieldErrors);
+	for (const fe of fieldErrors) {
+		errors.push(fe.message);
+	}
+
+	return { valid: errors.length === 0, errors, fieldErrors };
+}
+
+function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 	const seen = new Map<string, number>();
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
@@ -64,6 +77,9 @@ export function validateSpec(
 		} else {
 			seen.set(accessor, (seen.get(accessor) ?? 0) + 1);
 		}
+		if (field.children && field.children.length > 0) {
+			checkAccessors(field.children, fieldErrors);
+		}
 	}
 	for (const [accessor, count] of seen) {
 		if (count > 1) {
@@ -74,9 +90,4 @@ export function validateSpec(
 			});
 		}
 	}
-	for (const fe of fieldErrors) {
-		errors.push(fe.message);
-	}
-
-	return { valid: errors.length === 0, errors, fieldErrors };
 }

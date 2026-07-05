@@ -106,4 +106,62 @@ describe("validateSpec — accessor checks", () => {
 		expect(result.valid).toBe(true);
 		expect(result.fieldErrors).toEqual([]);
 	});
+
+	function group(accessor: string, children: Field[]): Field {
+		return {
+			field_type: "group",
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children,
+			system: false,
+		};
+	}
+
+	it("reports empty name for a group child (F5)", () => {
+		const child = f("item_name", "");
+		const result = validateSpec([group("items", [child])], plugins);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "item_name",
+			code: "empty_name",
+			message: "Name must not be empty",
+		});
+	});
+
+	it("reports duplicate_accessor for two children within the SAME group (F5)", () => {
+		const result = validateSpec(
+			[group("items", [f("dup"), f("dup")])],
+			plugins,
+		);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "dup",
+			code: "duplicate_accessor",
+			message: 'Duplicate accessor "dup"',
+		});
+	});
+
+	it("does NOT flag the same accessor reused across DIFFERENT groups (namespaced, F5)", () => {
+		const result = validateSpec(
+			[group("group_a", [f("x")]), group("group_b", [f("x")])],
+			plugins,
+		);
+		expect(result.valid).toBe(true);
+		expect(
+			result.fieldErrors.filter((e) => e.code === "duplicate_accessor"),
+		).toEqual([]);
+	});
+
+	it("does NOT flag a child accessor colliding with a top-level accessor (namespaced, F5)", () => {
+		const result = validateSpec([f("x"), group("items", [f("x")])], plugins);
+		expect(result.valid).toBe(true);
+		expect(
+			result.fieldErrors.filter((e) => e.code === "duplicate_accessor"),
+		).toEqual([]);
+	});
 });
