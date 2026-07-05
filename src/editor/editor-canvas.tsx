@@ -187,6 +187,11 @@ export function EditorCanvas({
 	const { partition, draft, apply } = spec;
 	const [activeTab, setActiveTab] = useState("tab-0");
 	const [renaming, setRenaming] = useState<string | null>(null);
+	// Insertion boundaries are display:none while a drag is active: dnd-kit's
+	// transforms create stacking contexts that would otherwise drop the
+	// transforming shells below the hover-revealable boundary strips, and
+	// insert affordances have no business mid-drag anyway.
+	const [dragActive, setDragActive] = useState(false);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -405,7 +410,12 @@ export function EditorCanvas({
 		setActiveTab(`tab-${overId.slice("tabdrop-".length)}`);
 	};
 
+	const handleDragStart = () => setDragActive(true);
+	const handleDragCancel = () => setDragActive(false);
+
 	const handleDragEnd = (event: DragEndEvent) => {
+		// Before the early returns: every drop ends the drag, valid target or not.
+		setDragActive(false);
 		const { active, over } = event;
 		if (!over) return;
 		const activeAccessor = String(active.id);
@@ -515,6 +525,11 @@ export function EditorCanvas({
 			justify="center"
 			align="center"
 			height="5"
+			// Hidden entirely mid-drag (see dragActive) — a hover-revealable
+			// strip over a transforming shell would intercept the pointer and
+			// paint above it (dnd-kit transforms create stacking contexts that
+			// tie-break against the boundary's z-index).
+			display={dragActive ? "none" : undefined}
 			{...(variant === "overlay"
 				? {
 						position: "absolute" as const,
@@ -523,7 +538,10 @@ export function EditorCanvas({
 						right: "0",
 						zIndex: "docked",
 					}
-				: {})}
+				: // The flow variant must be its own containing block: without it
+					// the absolutely positioned hairline below resolves against
+					// Tabs.Root / the viewport and paints far outside the strip.
+					{ position: "relative" as const })}
 			opacity={alwaysVisible ? 1 : 0}
 			_hover={{ opacity: 1 }}
 			// Keyboard parity with _hover: without this, Tabbing onto the ⊕
@@ -634,11 +652,15 @@ export function EditorCanvas({
 				<DndContext
 					sensors={sensors}
 					collisionDetection={visibleClosestCenter}
+					onDragStart={handleDragStart}
 					onDragOver={handleDragOver}
 					onDragEnd={handleDragEnd}
+					onDragCancel={handleDragCancel}
 				>
 					<Box ref={containerRef}>
-						<Flex justify="flex-end" mb="2">
+						{/* mb="5": the first field's overlay boundary reaches 20px above
+						    the shell — this margin is the space it fills. */}
+						<Flex justify="flex-end" mb="5">
 							{addSectionButton}
 						</Flex>
 						{renderFields(partition.tabs[0].fields, 0)}
@@ -653,8 +675,10 @@ export function EditorCanvas({
 			<DndContext
 				sensors={sensors}
 				collisionDetection={visibleClosestCenter}
+				onDragStart={handleDragStart}
 				onDragOver={handleDragOver}
 				onDragEnd={handleDragEnd}
+				onDragCancel={handleDragCancel}
 			>
 				<Box ref={containerRef}>
 					<Tabs.Root
@@ -761,7 +785,9 @@ export function EditorCanvas({
 								key={tab.section?.config.api_accessor ?? `implicit-${i}`}
 								value={`tab-${i}`}
 							>
-								<Box pt="4">{renderFields(tab.fields, i)}</Box>
+								{/* pt="5": the first field's overlay boundary reaches 20px
+								    above the shell — this padding is the space it fills. */}
+								<Box pt="5">{renderFields(tab.fields, i)}</Box>
 							</Tabs.Content>
 						))}
 					</Tabs.Root>

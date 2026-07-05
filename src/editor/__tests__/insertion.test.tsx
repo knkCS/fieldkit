@@ -193,6 +193,33 @@ describe("EditorCanvas insertion points", () => {
 		expect(styleText).toMatch(focusWithinRule);
 	});
 
+	it("flow boundaries anchor their hairline: the boundary's own class carries position:relative", () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b")]} />
+			</EditorWrap>,
+		);
+		// buttons[2] is the trailing per-tab boundary — the flow variant. Without
+		// position:relative on the boundary Flex, its absolutely positioned
+		// hairline resolves against Tabs.Root / the viewport instead of the strip.
+		const trailing = screen.getAllByLabelText("Add field")[2];
+		const boundary = trailing.closest("[role='group']") as HTMLElement;
+		expect(boundary).not.toBeNull();
+		// Same emitted-stylesheet technique as the focus-within test above:
+		// assert the boundary's emotion class declares position:relative.
+		const cssClass = Array.from(boundary.classList).find((c) =>
+			c.startsWith("css-"),
+		);
+		expect(cssClass).toBeDefined();
+		const styleText = Array.from(document.querySelectorAll("style"))
+			.map((tag) => tag.textContent ?? "")
+			.join("\n");
+		const relativeRule = new RegExp(
+			`\\.${cssClass}[^{]*\\{[^}]*position:relative`,
+		);
+		expect(styleText).toMatch(relativeRule);
+	});
+
 	it("insertion boundaries between fields are overlays inside the shells' wrappers (no flow rows)", () => {
 		render(
 			<EditorWrap>

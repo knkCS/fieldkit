@@ -262,6 +262,41 @@ describe("EditorCanvas drag & drop", () => {
 		rectSpy.mockRestore();
 	});
 
+	it("insertion boundaries leave the a11y tree during a drag and return after cancel", async () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b")]} />
+			</EditorWrap>,
+		);
+
+		// Before the drag: 3 boundaries (above a, above b, trailing). Their
+		// hover-hidden opacity does not remove them from the a11y tree.
+		expect(screen.getAllByRole("button", { name: "Add field" })).toHaveLength(
+			3,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-a"));
+		const handle = screen.getByLabelText("Drag to reorder");
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
+		// setTimeout after activation — yield a macrotask before the next key.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		// During the drag every boundary is display:none — insert affordances
+		// must not intercept or overpaint transforming shells (stacking-context
+		// inversion), so they leave the a11y tree entirely.
+		expect(screen.queryAllByRole("button", { name: "Add field" })).toHaveLength(
+			0,
+		);
+
+		// Escape cancels the drag; the boundaries return.
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "Escape" });
+		expect(screen.getAllByRole("button", { name: "Add field" })).toHaveLength(
+			3,
+		);
+	});
+
 	it("hides the Move to section trigger when only one tab exists", async () => {
 		render(
 			<EditorWrap>
