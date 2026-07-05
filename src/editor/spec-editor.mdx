@@ -354,6 +354,14 @@ every edit) is replaced by the draft session described above:
    that the provider's `plugins` and the `plugins` prop you pass to
    `SpecEditor` are the same set — see the
    [FieldKitProvider requirement](#fieldkitprovider-requirement) above.
+7. **`FieldModal` and `FieldModalProps` were removed from
+   `@knkcs/fieldkit/editor`'s public exports in 0.2.0** — field
+   configuration is now the built-in side panel described in
+   [Config panel & live preview](#config-panel--live-preview), opened by
+   selecting a field on `SpecEditor`'s canvas. There is no standalone
+   drop-in replacement exported for a "configure one field outside
+   `SpecEditor`" use case; remove any direct `FieldModal`/`FieldModalProps`
+   imports — they will fail to resolve.
 
 ## Known Limitations
 
