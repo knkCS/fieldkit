@@ -503,17 +503,27 @@ export function EditorCanvas({
 			onEdit(newField.config.api_accessor);
 		};
 
-	const insertionRow = (
+	const insertionBoundary = (
 		tabIndex: number,
 		position: number,
-		alwaysVisible: boolean,
+		variant: "overlay" | "flow",
+		alwaysVisible = false,
 	) => (
 		<Flex
 			key={`insert-${tabIndex}-${position}`}
 			role="group"
 			justify="center"
 			align="center"
-			height="6"
+			height="5"
+			{...(variant === "overlay"
+				? {
+						position: "absolute" as const,
+						top: "-5",
+						left: "0",
+						right: "0",
+						zIndex: "docked",
+					}
+				: {})}
 			opacity={alwaysVisible ? 1 : 0}
 			_hover={{ opacity: 1 }}
 			// Keyboard parity with _hover: without this, Tabbing onto the ⊕
@@ -521,17 +531,28 @@ export function EditorCanvas({
 			_focusWithin={{ opacity: 1 }}
 			transition="opacity 0.15s"
 		>
-			<TypePickerPopover
-				// "section" is inserted only via the strip's "+ Section" button
-				// (addSectionButton) — offering it here too would give authors two
-				// competing ways to add one, and this path skips the section-marker
-				// bookkeeping (addSection) that keeps tabs consistent.
-				plugins={plugins.filter((p) => p.id !== "section")}
-				context={context}
-				currentSpec={draft}
-				onPick={insertAt(tabIndex, position)}
-				triggerLabel={labels.addField}
+			{/* hairline across the gap; the ⊕ chip sits on top and breaks it */}
+			<Box
+				position="absolute"
+				left="0"
+				right="0"
+				top="50%"
+				borderTopWidth="2px"
+				borderColor="accent"
 			/>
+			<Box position="relative" bg="bg-surface" borderRadius="full">
+				<TypePickerPopover
+					// "section" is inserted only via the strip's "+ Section" button
+					// (addSectionButton) — offering it here too would give authors two
+					// competing ways to add one, and this path skips the section-marker
+					// bookkeeping (addSection) that keeps tabs consistent.
+					plugins={plugins.filter((p) => p.id !== "section")}
+					context={context}
+					currentSpec={draft}
+					onPick={insertAt(tabIndex, position)}
+					triggerLabel={labels.addField}
+				/>
+			</Box>
 		</Flex>
 	);
 
@@ -554,31 +575,40 @@ export function EditorCanvas({
 				strategy={verticalListSortingStrategy}
 			>
 				<Stack gap="5">
-					{insertionRow(tabIndex, 0, fields.length === 0)}
 					{fields.map((field, i) => (
 						<Fragment key={keyFor(field.config.api_accessor)}>
-							<FieldShell
-								field={field}
-								selected={selectedAccessor === field.config.api_accessor}
-								invalid={invalidAccessors.has(field.config.api_accessor)}
-								onSelect={(a) => onSelect(a)}
-								onEdit={onEdit}
-								onDuplicate={handleDuplicate}
-								// Position-based (F2b): closes over THIS exact field object
-								// and its flat-draft index, ignoring whatever accessor
-								// FieldShell's internal onClick passes — required so the
-								// second of two duplicate-accessor shells deletes only
-								// itself, not both.
-								onDelete={() => handleDeleteField(field, draft.indexOf(field))}
-								duplicateDisabled={isDuplicateDisabled(field)}
-								moveMenu={buildMoveMenu(field, tabIndex)}
-								labels={labels}
-							>
-								<ShellContent field={field} labels={labels} />
-							</FieldShell>
-							{insertionRow(tabIndex, i + 1, false)}
+							<Box position="relative">
+								{insertionBoundary(tabIndex, i, "overlay")}
+								<FieldShell
+									field={field}
+									selected={selectedAccessor === field.config.api_accessor}
+									invalid={invalidAccessors.has(field.config.api_accessor)}
+									onSelect={(a) => onSelect(a)}
+									onEdit={onEdit}
+									onDuplicate={handleDuplicate}
+									// Position-based (F2b): closes over THIS exact field object
+									// and its flat-draft index, ignoring whatever accessor
+									// FieldShell's internal onClick passes — required so the
+									// second of two duplicate-accessor shells deletes only
+									// itself, not both.
+									onDelete={() =>
+										handleDeleteField(field, draft.indexOf(field))
+									}
+									duplicateDisabled={isDuplicateDisabled(field)}
+									moveMenu={buildMoveMenu(field, tabIndex)}
+									labels={labels}
+								>
+									<ShellContent field={field} labels={labels} />
+								</FieldShell>
+							</Box>
 						</Fragment>
 					))}
+					{insertionBoundary(
+						tabIndex,
+						fields.length,
+						"flow",
+						fields.length === 0, // empty tab: visible drop zone
+					)}
 				</Stack>
 			</SortableContext>
 		);
@@ -590,7 +620,7 @@ export function EditorCanvas({
 				<Box data-testid="editor-canvas-empty" p="6" textAlign="center">
 					<Stack gap="3" align="center">
 						<Text color="fg.muted">{labels.emptySpec}</Text>
-						{insertionRow(0, 0, true)}
+						{insertionBoundary(0, 0, "flow", true)}
 						{addSectionButton}
 					</Stack>
 				</Box>

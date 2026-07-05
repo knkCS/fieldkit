@@ -193,6 +193,24 @@ describe("EditorCanvas insertion points", () => {
 		expect(styleText).toMatch(focusWithinRule);
 	});
 
+	it("insertion boundaries between fields are overlays inside the shells' wrappers (no flow rows)", () => {
+		render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b")]} />
+			</EditorWrap>,
+		);
+		const buttons = screen.getAllByLabelText("Add field");
+		expect(buttons).toHaveLength(3); // above a, above b, trailing
+		// The boundary above "b" lives INSIDE b's relative wrapper (overlay), not
+		// as a flow sibling between the shells:
+		const shellB = screen.getByTestId("shell-b");
+		expect(shellB.parentElement).toContainElement(buttons[1]);
+		// The trailing boundary IS a flow element after the last wrapper:
+		expect(shellB.parentElement?.nextElementSibling).toContainElement(
+			buttons[2],
+		);
+	});
+
 	it("empty plugin registry shows the no-matching message inside the popover", async () => {
 		render(
 			<EditorWrap>
