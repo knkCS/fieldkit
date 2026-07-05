@@ -245,6 +245,61 @@ describe("section ops", () => {
 		const out = moveFieldToSection([f("a"), s("s1"), f("b")], "a", 1);
 		expect(out.map((x) => x.config.api_accessor)).toEqual(["s1", "b", "a"]);
 	});
+
+	it("moveSection transfers orientation to the new first section, forward and back (F7)", () => {
+		const s1Vertical: Field = {
+			...s("s1"),
+			settings: { orientation: "vertical" },
+		};
+		const schema: Schema = [s1Vertical, f("a"), s("s2"), f("b")];
+
+		// Move s1 (first, vertical) right — s2 becomes first.
+		const moved = moveSection(schema, "s1", 1);
+		expect(moved.map((x) => x.config.api_accessor)).toEqual([
+			"s2",
+			"b",
+			"s1",
+			"a",
+		]);
+		expect(partitionSchemaBySections(moved).orientation).toBe("vertical");
+		expect(
+			(
+				moved.find((x) => x.config.api_accessor === "s1")?.settings as {
+					orientation?: string;
+				} | null
+			)?.orientation,
+		).toBeUndefined();
+
+		// Move it back — s2 (now carrying the setting) moves right past s1.
+		const movedBack = moveSection(moved, "s2", 1);
+		expect(movedBack.map((x) => x.config.api_accessor)).toEqual([
+			"s1",
+			"a",
+			"s2",
+			"b",
+		]);
+		expect(partitionSchemaBySections(movedBack).orientation).toBe("vertical");
+		expect(
+			(
+				movedBack.find((x) => x.config.api_accessor === "s2")?.settings as {
+					orientation?: string;
+				} | null
+			)?.orientation,
+		).toBeUndefined();
+	});
+
+	it("moveSection with no orientation set on the first section transfers nothing (no spurious settings)", () => {
+		const schema: Schema = [s("s1"), f("a"), s("s2"), f("b")];
+		const moved = moveSection(schema, "s1", 1);
+		expect(
+			(
+				moved.find((x) => x.config.api_accessor === "s2")?.settings as {
+					orientation?: string;
+				} | null
+			)?.orientation,
+		).toBeUndefined();
+		expect(partitionSchemaBySections(moved).orientation).toBe("horizontal");
+	});
 });
 
 describe("flatInsertIndex", () => {

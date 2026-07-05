@@ -230,7 +230,67 @@ export function moveSection(
 		const afterRange = sectionBlockRange(rest, target.f.config.api_accessor);
 		insertAt = afterRange ? afterRange[1] : rest.length;
 	}
-	return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
+	const moved = [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
+	return transferOrientationOnNewFirstSection(schema, moved);
+}
+
+/**
+ * F7: `setOrientation` writes the whole-form orientation onto the FIRST
+ * section marker (partitionSchemaBySections reads it from there too), but
+ * `moveSection` can change which section ends up first — without this, the
+ * author's orientation choice would silently vanish (the new first section
+ * has no `orientation` key, so partition falls back to "horizontal") while a
+ * stale, now-shadowed copy sits dead on the section that used to be first.
+ *
+ * Reads the effective orientation of the INPUT schema's first section and,
+ * if the OUTPUT's first section is a different one, writes it onto the new
+ * first section and strips the key from the old one (so it doesn't resurface
+ * if THAT section is later moved back to first without an explicit toggle).
+ */
+function transferOrientationOnNewFirstSection(
+	input: Schema,
+	output: Schema,
+): Schema {
+	const inputFirstIndex = input.findIndex((f) => f.field_type === "section");
+	const outputFirstIndex = output.findIndex((f) => f.field_type === "section");
+	if (inputFirstIndex === -1 || outputFirstIndex === -1) return output;
+
+	const inputFirst = input[inputFirstIndex];
+	const outputFirst = output[outputFirstIndex];
+	if (inputFirst.config.api_accessor === outputFirst.config.api_accessor) {
+		return output; // first section unchanged — nothing to transfer
+	}
+
+	const orientationSettings = inputFirst.settings as
+		| { orientation?: "horizontal" | "vertical" }
+		| null
+		| undefined;
+	const hadOrientation =
+		!!orientationSettings && "orientation" in orientationSettings;
+	if (!hadOrientation) return output; // nothing set — no-op, no spurious keys
+
+	return output.map((f, i) => {
+		if (i === outputFirstIndex) {
+			return {
+				...f,
+				settings: {
+					...(f.settings ?? {}),
+					orientation: orientationSettings.orientation,
+				},
+			};
+		}
+		if (
+			f.field_type === "section" &&
+			f.config.api_accessor === inputFirst.config.api_accessor
+		) {
+			const { orientation: _drop, ...restSettings } = f.settings as Record<
+				string,
+				unknown
+			>;
+			return { ...f, settings: restSettings };
+		}
+		return f;
+	});
 }
 
 export function deleteSection(schema: Schema, sectionAccessor: string): Schema {

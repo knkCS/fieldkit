@@ -49,10 +49,25 @@ export function useSpecDraft(
 	// author's in-progress work must survive a background refetch. When that
 	// happens, flag baselineConflict so the host can warn the author that
 	// Save will now overwrite the incoming content (Amendment 3).
+	//
+	// F6: BEFORE that conflict check, handle the echo of our OWN save. A
+	// synchronous `onCommit` (e.g. `onCommit={setSchema}`, explicitly allowed
+	// by the `void | Promise<void>` signature) can flush the new `schema`
+	// prop before `save()`'s post-await `setBaseline(draft)` continuation has
+	// run — so this effect can see new-content `schema` vs. the still-stale
+	// `baseline` while `dirty` is (at that instant, truthfully) still true.
+	// That is NOT a background conflict: if the incoming content matches the
+	// CURRENT DRAFT byte-for-byte, it can only be our own save's echo,
+	// regardless of timing — adopt it as the new baseline silently instead
+	// of latching a false "changed in the background" warning.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
 		if (JSON.stringify(schema) === JSON.stringify(baseline)) return;
+		if (JSON.stringify(schema) === JSON.stringify(draft)) {
+			setBaseline(schema);
+			return;
+		}
 		const wasDirty = draft !== baseline;
 		setBaseline(schema);
 		if (!wasDirty) setDraft(schema);

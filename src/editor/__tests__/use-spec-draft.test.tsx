@@ -190,4 +190,45 @@ describe("useSpecDraft", () => {
 		expect(result.current.draft).toEqual(d1);
 		expect(result.current.dirty).toBe(false);
 	});
+
+	it("a background schema update matching the current draft's exact content adopts it as the baseline without a false conflict (F6)", async () => {
+		// Reproduces a synchronous onCommit (e.g. onCommit={setSchema}) racing
+		// ahead of save()'s own post-await setBaseline(draft): the `schema` prop
+		// can echo the draft's exact content before save()'s continuation has
+		// advanced `baseline`, while `dirty` is still (truthfully, at that
+		// instant) true. The old guard treated that as a genuine background
+		// conflict and fired the warning toast on every ordinary save.
+		let resolve!: () => void;
+		const onCommit = vi.fn(
+			() =>
+				new Promise<void>((r) => {
+					resolve = r;
+				}),
+		);
+		const b0: Schema = [f("a")];
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], onCommit),
+			{ initialProps: { schema: b0 as Schema } },
+		);
+		const d1: Schema = [f("a"), f("b")];
+		act(() => result.current.apply(d1));
+
+		act(() => {
+			void result.current.save(); // in flight, NOT resolved yet
+		});
+
+		// The host's onCommit echoes the draft back as `schema` — same content
+		// (here, the exact same reference, mirroring onCommit={setSchema}) —
+		// while save()'s own baseline advance is still pending.
+		rerender({ schema: d1 });
+
+		expect(result.current.baselineConflict).toBe(false);
+		expect(result.current.dirty).toBe(false);
+
+		await act(async () => {
+			resolve();
+		});
+		expect(result.current.baselineConflict).toBe(false);
+		expect(result.current.dirty).toBe(false);
+	});
 });
