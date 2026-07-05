@@ -1,15 +1,56 @@
 // src/editor/type-picker.tsx
 
+import {
+	Box,
+	chakra,
+	Grid,
+	Input,
+	InputGroup,
+	Stack,
+	Text,
+} from "@chakra-ui/react";
+import { Tooltip } from "@knkcs/anker/primitives";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
+import type {
+	FieldContext,
+	FieldTypeCategory,
+	FieldTypePlugin,
+} from "../schema/plugin";
 import type { Field } from "../schema/types";
+
+export interface TypePickerLabels {
+	searchPlaceholder?: string;
+	searchLabel?: string;
+	noMatches?: string;
+	/** Tooltip/title on disabled at-max cards; "{max}" interpolated. */
+	maxReached?: string;
+	categories?: Partial<Record<FieldTypeCategory, string>>;
+}
+
+export const DEFAULT_TYPE_PICKER_LABELS: Required<TypePickerLabels> = {
+	searchPlaceholder: "Search field types...",
+	searchLabel: "Search field types",
+	noMatches: "No matching field types",
+	maxReached: "Limit reached (max {max})",
+	categories: {
+		text: "Text",
+		number: "Number",
+		date: "Date",
+		selection: "Selection",
+		boolean: "Boolean",
+		structural: "Structural",
+		reference: "Reference",
+		media: "Media",
+	},
+};
 
 export interface TypePickerProps {
 	plugins: FieldTypePlugin[];
 	context?: FieldContext;
 	currentSpec?: Field[];
 	onSelect: (pluginId: string) => void;
+	labels?: TypePickerLabels;
 }
 
 function countByType(spec: Field[]): Map<string, number> {
@@ -25,6 +66,7 @@ function TypePickerInner({
 	context,
 	currentSpec,
 	onSelect,
+	labels,
 }: TypePickerProps) {
 	const [search, setSearch] = useState("");
 
@@ -66,131 +108,116 @@ function TypePickerInner({
 		return groups;
 	}, [filteredPlugins]);
 
+	// Per-key `??` fallback rather than a blind `{...DEFAULT, ...labels}`
+	// spread: a caller that builds its labels object by mapping through
+	// possibly-absent upstream fields (as TypePickerPopover's `pickerLabels`
+	// does when threaded from a CanvasLabels that doesn't set the type* keys)
+	// produces keys present with value `undefined`, not omitted — a spread
+	// would still overwrite the default with that `undefined`.
+	const l = {
+		searchPlaceholder:
+			labels?.searchPlaceholder ?? DEFAULT_TYPE_PICKER_LABELS.searchPlaceholder,
+		searchLabel: labels?.searchLabel ?? DEFAULT_TYPE_PICKER_LABELS.searchLabel,
+		noMatches: labels?.noMatches ?? DEFAULT_TYPE_PICKER_LABELS.noMatches,
+		maxReached: labels?.maxReached ?? DEFAULT_TYPE_PICKER_LABELS.maxReached,
+		categories: {
+			...DEFAULT_TYPE_PICKER_LABELS.categories,
+			...labels?.categories,
+		},
+	};
+
 	return (
-		<div
-			data-testid="type-picker"
-			style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-		>
-			<div style={{ position: "relative" }}>
-				<Search
-					size={16}
-					style={{
-						position: "absolute",
-						left: "8px",
-						top: "50%",
-						transform: "translateY(-50%)",
-						color: "var(--chakra-colors-fg-subtle)",
-						pointerEvents: "none",
-					}}
-				/>
-				<input
-					type="text"
-					placeholder="Search field types..."
+		<Stack gap="3" data-testid="type-picker">
+			<InputGroup startElement={<Search size={16} />}>
+				<Input
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
-					aria-label="Search field types"
-					style={{
-						width: "100%",
-						padding: "8px 8px 8px 32px",
-						border: "1px solid var(--chakra-colors-border)",
-						borderRadius: "6px",
-						fontSize: "14px",
-						boxSizing: "border-box",
-					}}
+					placeholder={l.searchPlaceholder}
+					aria-label={l.searchLabel}
+					size="sm"
 				/>
-			</div>
+			</InputGroup>
 
 			{Array.from(grouped.entries()).map(([category, categoryPlugins]) => (
-				<div key={category}>
-					<h4
-						style={{
-							margin: "0 0 8px 0",
-							fontSize: "12px",
-							fontWeight: 600,
-							textTransform: "uppercase",
-							letterSpacing: "0.05em",
-							color: "var(--chakra-colors-fg-muted)",
-						}}
+				<Box key={category}>
+					<Text
+						fontSize="xs"
+						fontWeight="semibold"
+						textTransform="uppercase"
+						letterSpacing="wider"
+						color="fg.muted"
+						mb="2"
 					>
-						{category}
-					</h4>
-					<div
-						style={{
-							display: "grid",
-							gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-							gap: "8px",
-						}}
-					>
+						{l.categories[category as FieldTypeCategory] ?? category}
+					</Text>
+					<Grid templateColumns="repeat(auto-fill, minmax(180px, 1fr))" gap="2">
 						{categoryPlugins.map((plugin) => {
 							const count = typeCounts.get(plugin.id) ?? 0;
 							const isAtMax =
 								plugin.maxPerSpec !== undefined && count >= plugin.maxPerSpec;
 							const Icon = plugin.icon;
-
-							return (
-								<button
+							const maxTitle = l.maxReached.replace(
+								"{max}",
+								String(plugin.maxPerSpec ?? 0),
+							);
+							const card = (
+								<chakra.button
 									key={plugin.id}
 									type="button"
 									data-testid={`type-option-${plugin.id}`}
 									disabled={isAtMax}
+									title={isAtMax ? maxTitle : undefined}
 									onClick={() => onSelect(plugin.id)}
-									style={{
-										display: "flex",
-										alignItems: "flex-start",
-										gap: "8px",
-										padding: "10px",
-										border: "1px solid var(--chakra-colors-border)",
-										borderRadius: "6px",
-										background: isAtMax
-											? "var(--chakra-colors-bg-subtle)"
-											: "var(--chakra-colors-bg-surface)",
-										cursor: isAtMax ? "not-allowed" : "pointer",
-										opacity: isAtMax ? 0.5 : 1,
-										textAlign: "left",
-										width: "100%",
+									display="flex"
+									alignItems="flex-start"
+									gap="2"
+									p="2.5"
+									borderWidth="1px"
+									borderColor="border"
+									borderRadius="md"
+									bg={isAtMax ? "bg-subtle" : "bg-surface"}
+									opacity={isAtMax ? 0.5 : 1}
+									cursor={isAtMax ? "not-allowed" : "pointer"}
+									textAlign="left"
+									width="100%"
+									_hover={isAtMax ? undefined : { bg: "bg-muted" }}
+									_focusVisible={{
+										outline: "2px solid",
+										outlineColor: "accent",
+										outlineOffset: "1px",
 									}}
 								>
-									<span style={{ flexShrink: 0, marginTop: "2px" }}>
+									<Box as="span" flexShrink={0} mt="0.5">
 										<Icon size={18} />
-									</span>
-									<span
-										style={{
-											display: "flex",
-											flexDirection: "column",
-											gap: "2px",
-										}}
-									>
-										<span style={{ fontWeight: 500, fontSize: "14px" }}>
+									</Box>
+									<Stack gap="0.5">
+										<Text fontWeight="medium" fontSize="sm">
 											{plugin.name}
-										</span>
-										<span
-											style={{
-												fontSize: "12px",
-												color: "var(--chakra-colors-fg-muted)",
-											}}
-										>
+										</Text>
+										<Text fontSize="xs" color="fg.muted">
 											{plugin.description}
-										</span>
-									</span>
-								</button>
+										</Text>
+									</Stack>
+								</chakra.button>
+							);
+							return isAtMax ? (
+								<Tooltip key={plugin.id} content={maxTitle}>
+									{card}
+								</Tooltip>
+							) : (
+								card
 							);
 						})}
-					</div>
-				</div>
+					</Grid>
+				</Box>
 			))}
 
 			{grouped.size === 0 && (
-				<p
-					style={{
-						color: "var(--chakra-colors-fg-subtle)",
-						textAlign: "center",
-						padding: "16px",
-					}}
-				>
-					No matching field types
-				</p>
+				<Text color="fg.subtle" textAlign="center" p="4">
+					{l.noMatches}
+				</Text>
 			)}
-		</div>
+		</Stack>
 	);
 }
 

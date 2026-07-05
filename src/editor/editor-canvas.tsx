@@ -40,7 +40,11 @@ import { FieldSearch } from "../renderer/spec-form/field-search";
 import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
-import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
+import type {
+	FieldContext,
+	FieldTypeCategory,
+	FieldTypePlugin,
+} from "../schema/plugin";
 import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import {
@@ -62,6 +66,7 @@ import { FieldShell } from "./field-shell";
 import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
 import type { EditorLabels } from "./spec-editor";
+import type { TypePickerLabels } from "./type-picker";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 import { visibleClosestCenter } from "./visible-collision";
@@ -113,7 +118,18 @@ export interface CanvasLabels
 			| "addSection" // "+ Section" button label
 			| "newSectionName" // default name for a freshly added section
 			| "sectionNameInput" // aria-label for the inline rename input
-		> {}
+		> {
+	// Type-picker passthrough (⊕ insertion popover). Kept optional here (unlike
+	// the Required<EditorLabels> Pick above) so hosts driving EditorCanvas
+	// directly with a hand-rolled CanvasLabels object — as the insertion test
+	// suite does — aren't forced to supply them; TypePicker's own
+	// DEFAULT_TYPE_PICKER_LABELS covers whatever's left undefined.
+	typeSearchPlaceholder?: string;
+	typeSearchLabel?: string;
+	typeNoMatches?: string;
+	typeMaxReached?: string;
+	typeCategories?: Partial<Record<FieldTypeCategory, string>>;
+}
 
 export interface EditorCanvasProps {
 	spec: SpecDraft;
@@ -495,6 +511,14 @@ export function EditorCanvas({
 		</Button>
 	);
 
+	const pickerLabels: TypePickerLabels = {
+		searchPlaceholder: labels.typeSearchPlaceholder,
+		searchLabel: labels.typeSearchLabel,
+		noMatches: labels.typeNoMatches,
+		maxReached: labels.typeMaxReached,
+		categories: labels.typeCategories,
+	};
+
 	const insertAt =
 		(tabIndex: number, position: number) => (pluginId: string) => {
 			const plugin = plugins.find((p) => p.id === pluginId);
@@ -569,6 +593,7 @@ export function EditorCanvas({
 					currentSpec={draft}
 					onPick={insertAt(tabIndex, position)}
 					triggerLabel={labels.addField}
+					pickerLabels={pickerLabels}
 				/>
 			</Box>
 		</Flex>

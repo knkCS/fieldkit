@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
+import type { TypePickerLabels } from "./type-picker";
 import { TypePicker } from "./type-picker";
 
 export interface TypePickerPopoverProps {
@@ -18,6 +19,7 @@ export interface TypePickerPopoverProps {
 	currentSpec: Schema;
 	onPick: (pluginId: string) => void; // parent inserts + selects
 	triggerLabel: string; // aria-label for the ⊕ button
+	pickerLabels?: TypePickerLabels;
 }
 
 export function TypePickerPopover({
@@ -26,6 +28,7 @@ export function TypePickerPopover({
 	currentSpec,
 	onPick,
 	triggerLabel,
+	pickerLabels,
 }: TypePickerPopoverProps) {
 	const [open, setOpen] = useState(false);
 	return (
@@ -55,6 +58,7 @@ export function TypePickerPopover({
 							setOpen(false);
 							onPick(id);
 						}}
+						labels={pickerLabels}
 					/>
 				</Box>
 			</PopoverContent>

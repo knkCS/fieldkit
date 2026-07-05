@@ -270,6 +270,11 @@ are shown.
 | `groupPreview` | `"Repeating group"` | Group field's framed preview label |
 | `addField` | `"Add field"` | ⊕ insertion trigger aria-label |
 | `emptySpec` | `"No fields yet. Add the first one:"` | Empty-schema placeholder |
+| `typeSearchPlaceholder` | `"Search field types..."` | Type picker's search input placeholder |
+| `typeSearchLabel` | `"Search field types"` | Type picker's search input aria-label |
+| `typeNoMatches` | `"No matching field types"` | Type picker's empty-search-result message |
+| `typeMaxReached` | `"Limit reached (max {max})"` | Tooltip/title on a disabled at-max type card (`{max}` interpolated) |
+| `typeCategories` | `{ text: "Text", number: "Number", date: "Date", selection: "Selection", boolean: "Boolean", structural: "Structural", reference: "Reference", media: "Media" }` | Type picker's category group headings, keyed by `FieldTypeCategory` |
 | `save` | `"Save"` | Header Save button |
 | `discard` | `"Discard"` | Header Discard button |
 | `build` | `"Build"` | Header Build-mode toggle |
@@ -369,9 +374,6 @@ every edit) is replaced by the draft session described above:
   (drill-in only) lets you *edit* an existing child field's config, but
   there is no in-editor way to add or remove a group's children — author
   those via `defineSpec()` / hand-authored `Field[]` up front.
-- **`TypePicker`'s internal strings aren't label-routed yet** — its search
-  placeholder and "No matching field types" text are hardcoded English, not
-  wired through `EditorLabels`.
 - **No condition-editing UI.** `FieldCondition` exists on the schema type,
   but the renderer doesn't evaluate conditions yet, so an authoring UI for
   them is deferred until that lands.

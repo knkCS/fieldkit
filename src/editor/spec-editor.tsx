@@ -4,7 +4,11 @@ import { Button, DirtyDot } from "@knkcs/anker/atoms";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { Alert, Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
+import type {
+	FieldContext,
+	FieldTypeCategory,
+	FieldTypePlugin,
+} from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
 import { insertFieldAt, updateField } from "./draft-ops";
@@ -22,6 +26,13 @@ export interface EditorLabels {
 	groupPreview?: string; // e.g. "Repeating group" — child count appended
 	addField?: string; // aria-label for the ⊕ insertion trigger
 	emptySpec?: string; // empty-spec placeholder message
+	// type picker (search + category headings + at-max explanation)
+	typeSearchPlaceholder?: string;
+	typeSearchLabel?: string;
+	typeNoMatches?: string;
+	/** Tooltip/title on disabled at-max cards; "{max}" interpolated. */
+	typeMaxReached?: string;
+	typeCategories?: Partial<Record<FieldTypeCategory, string>>;
 	// header
 	save?: string;
 	discard?: string;
@@ -116,6 +127,21 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	groupPreview: "Repeating group",
 	addField: "Add field",
 	emptySpec: "No fields yet. Add the first one:",
+
+	typeSearchPlaceholder: "Search field types...",
+	typeSearchLabel: "Search field types",
+	typeNoMatches: "No matching field types",
+	typeMaxReached: "Limit reached (max {max})",
+	typeCategories: {
+		text: "Text",
+		number: "Number",
+		date: "Date",
+		selection: "Selection",
+		boolean: "Boolean",
+		structural: "Structural",
+		reference: "Reference",
+		media: "Media",
+	},
 
 	save: "Save",
 	discard: "Discard",
