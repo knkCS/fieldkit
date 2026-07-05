@@ -26,6 +26,10 @@ export interface FieldShellProps {
 	moveMenu?: ReactNode;
 	labels: FieldShellToolbarLabels;
 	children: ReactNode;
+	/** F2c/F4a: disables the Duplicate toolbar button (its accessor is
+	 * duplicated in the draft, and/or its field_type has reached
+	 * `maxPerSpec`) — reuses `labels.duplicate` as the aria-label either way. */
+	duplicateDisabled?: boolean;
 }
 
 export function FieldShell({
@@ -39,6 +43,7 @@ export function FieldShell({
 	moveMenu,
 	labels,
 	children,
+	duplicateDisabled,
 }: FieldShellProps) {
 	const accessor = field.config.api_accessor;
 	const {
@@ -140,6 +145,7 @@ export function FieldShell({
 							aria-label={labels.duplicate}
 							size="2xs"
 							variant="ghost"
+							disabled={duplicateDisabled}
 							onClick={() => onDuplicate(accessor)}
 						>
 							<Copy size={14} />

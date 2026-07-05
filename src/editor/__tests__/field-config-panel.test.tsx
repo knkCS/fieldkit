@@ -102,6 +102,73 @@ describe("FieldConfigPanel", () => {
 		expect(screen.queryByTestId("field-config-panel")).not.toBeInTheDocument();
 	});
 
+	it("blocks all edits and shows a prominent error when the selected accessor is duplicated in the draft (F2a)", () => {
+		// Consumer-supplied schemas can contain duplicate accessors — the exact
+		// state validateSpec flags. Selection/updateField key on accessor alone
+		// elsewhere, so an unguarded edit here would go on to corrupt/destroy
+		// the OTHER field sharing the accessor. The panel must go read-only
+		// instead until the author resolves the duplication.
+		const field = makeField("dup", "Dup A");
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field, makeField("dup", "Dup B")]}
+					fieldErrors={[
+						{
+							accessor: "dup",
+							code: "duplicate_accessor",
+							message: 'Duplicate accessor "dup"',
+						},
+					]}
+					onFieldChange={onFieldChangeSpy}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(screen.getByTestId("panel-duplicate-banner")).toHaveTextContent(
+			'Duplicate accessor "dup"',
+		);
+
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Renamed" },
+		});
+		fireEvent.click(screen.getByTestId("panel-required-input"));
+
+		expect(onFieldChangeSpy).not.toHaveBeenCalled();
+	});
+
+	it("does not show the duplicate banner or block edits for a non-duplicated field", () => {
+		const field = makeField("solo", "Solo");
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field]}
+					fieldErrors={[]}
+					onFieldChange={onFieldChangeSpy}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(
+			screen.queryByTestId("panel-duplicate-banner"),
+		).not.toBeInTheDocument();
+
+		fireEvent.click(screen.getByTestId("panel-required-input"));
+		expect(onFieldChangeSpy).toHaveBeenCalledTimes(1);
+	});
+
 	it("label edit calls onFieldChange with updated name (and auto-slugs a fresh accessor for a new-in-draft field)", () => {
 		const field = makeField("draft_field", "Draft Field");
 		render(
@@ -143,6 +210,60 @@ describe("FieldConfigPanel", () => {
 		const dump = readDump();
 		expect(dump.config.name).toBe("Another Name");
 		expect(dump.config.api_accessor).toBe("custom");
+	});
+
+	it("auto-slug latch re-arms the moment the selected field's accessor becomes committed, e.g. right after Save (F1)", () => {
+		// Regression for F1: the resync effect used to early-return whenever
+		// `field === appliedFieldRef.current` (our own last edit echoed back) —
+		// which is exactly what happens across a Save while the field stays
+		// selected, since the draft's field object identity doesn't change.
+		// That meant a save's `committedAccessors` update never re-armed the
+		// latch, and a post-save rename could still silently re-slug the
+		// accessor of a field whose data is now actually persisted.
+		const initial = makeField("draft_field", "Draft Field");
+		function ReArmHarness({ committed }: { committed: Set<string> }) {
+			const [field, setField] = useState<Field>(initial);
+			return (
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field]}
+					fieldErrors={[]}
+					onFieldChange={setField}
+					onClose={() => {}}
+					committedAccessors={committed}
+					labels={testLabels}
+				/>
+			);
+		}
+
+		const { rerender } = render(
+			<EditorWrap>
+				<ReArmHarness committed={new Set()} />
+			</EditorWrap>,
+		);
+
+		// New-in-draft: auto-slug is active.
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "My Field" },
+		});
+		expect(screen.getByTestId("panel-accessor-input")).toHaveValue("my_field");
+
+		// Simulate a completed Save: the field stays selected (same component
+		// instance/state, matching the real app where the draft's field object
+		// identity is unchanged across a save), but `committedAccessors` now
+		// contains its accessor.
+		rerender(
+			<EditorWrap>
+				<ReArmHarness committed={new Set(["my_field"])} />
+			</EditorWrap>,
+		);
+
+		// A further Name edit must NOT touch the now-committed accessor.
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Renamed After Save" },
+		});
+		expect(screen.getByTestId("panel-accessor-input")).toHaveValue("my_field");
 	});
 
 	it("committed fields never auto-slug (accessor in committedAccessors)", () => {

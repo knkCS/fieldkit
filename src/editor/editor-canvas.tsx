@@ -52,7 +52,7 @@ import {
 	moveFieldToSection,
 	moveSection,
 	nextAccessor,
-	removeField,
+	removeFieldAt,
 	renameSection,
 	setOrientation,
 	uniquifyAccessor,
@@ -248,16 +248,55 @@ export function EditorCanvas({
 		[partition, spec.validation],
 	);
 
-	const handleDelete = (accessor: string) => {
-		if (selectedAccessor === accessor) onSelect(null);
-		const flatIndex = draft.findIndex(
-			(f) => f.config.api_accessor === accessor,
-		);
-		const target = draft[flatIndex];
-		if (target) onDeleteField?.(target, flatIndex);
-		apply(removeField(draft, accessor));
+	// F2b: deletes the EXACT field object clicked, by its position in the
+	// flat draft — not by accessor. A consumer-supplied schema can contain
+	// duplicate accessors (the InvalidDraft state); an accessor-keyed delete
+	// would remove every field sharing it. `field` is the same object
+	// reference `renderFields` pulled from `draft` (via `partition`, itself
+	// built by walking `draft`), so `draft.indexOf(field)` unambiguously
+	// resolves ITS position even when its accessor is duplicated.
+	const handleDeleteField = (field: Field, flatIndex: number) => {
+		if (selectedAccessor === field.config.api_accessor) onSelect(null);
+		if (flatIndex === -1) return;
+		onDeleteField?.(field, flatIndex);
+		apply(removeFieldAt(draft, flatIndex));
 	};
+
+	// F2c/F4a: the accessor-keyed count only knows "does this accessor
+	// appear more than once", i.e. an authoring mistake the panel now blocks
+	// editing on (F2a) — duplicating it would compound the ambiguity further.
+	// The type count enforces `plugin.maxPerSpec`: duplicating a field whose
+	// type has already reached its limit would immediately re-violate it
+	// with no visible error (F4).
+	const accessorCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const f of draft) {
+			counts.set(
+				f.config.api_accessor,
+				(counts.get(f.config.api_accessor) ?? 0) + 1,
+			);
+		}
+		return counts;
+	}, [draft]);
+	const typeCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const f of draft) {
+			counts.set(f.field_type, (counts.get(f.field_type) ?? 0) + 1);
+		}
+		return counts;
+	}, [draft]);
+	const isDuplicateDisabled = (field: Field): boolean => {
+		const dupAccessor =
+			(accessorCounts.get(field.config.api_accessor) ?? 0) > 1;
+		if (dupAccessor) return true;
+		const plugin = plugins.find((p) => p.id === field.field_type);
+		if (plugin?.maxPerSpec == null) return false;
+		return (typeCounts.get(field.field_type) ?? 0) >= plugin.maxPerSpec;
+	};
+
 	const handleDuplicate = (accessor: string) => {
+		const field = draft.find((f) => f.config.api_accessor === accessor);
+		if (field && isDuplicateDisabled(field)) return; // defense-in-depth: button is also disabled
 		// Computed from the PRE-duplication draft, same as duplicateField's own
 		// internal call — so this always names the exact copy it's about to
 		// insert, without re-deriving or guessing its accessor after the fact.
@@ -496,7 +535,13 @@ export function EditorCanvas({
 								onSelect={(a) => onSelect(a)}
 								onEdit={onEdit}
 								onDuplicate={handleDuplicate}
-								onDelete={handleDelete}
+								// Position-based (F2b): closes over THIS exact field object
+								// and its flat-draft index, ignoring whatever accessor
+								// FieldShell's internal onClick passes — required so the
+								// second of two duplicate-accessor shells deletes only
+								// itself, not both.
+								onDelete={() => handleDeleteField(field, draft.indexOf(field))}
+								duplicateDisabled={isDuplicateDisabled(field)}
 								moveMenu={buildMoveMenu(field, tabIndex)}
 								labels={labels.shell}
 							>

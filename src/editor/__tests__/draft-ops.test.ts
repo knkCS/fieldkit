@@ -12,6 +12,7 @@ import {
 	moveSection,
 	nextAccessor,
 	removeField,
+	removeFieldAt,
 	renameSection,
 	setOrientation,
 	uniquifyAccessor,
@@ -79,6 +80,23 @@ describe("field ops", () => {
 	it("removeField with a missing accessor returns the same reference", () => {
 		const schema: Schema = [f("a")];
 		expect(removeField(schema, "nope")).toBe(schema);
+	});
+
+	it("removeFieldAt removes exactly the field at that flat index (F2b: duplicate-accessor safe)", () => {
+		// Two fields sharing the same accessor — an accessor-keyed removeField
+		// would delete BOTH; removeFieldAt must delete only the one at `index`.
+		const dupA = f("dup");
+		const dupB = f("dup");
+		const schema: Schema = [dupA, dupB];
+		const out = removeFieldAt(schema, 1);
+		expect(out).toHaveLength(1);
+		expect(out[0]).toBe(dupA);
+	});
+
+	it("removeFieldAt with an out-of-range index returns the same reference", () => {
+		const schema: Schema = [f("a")];
+		expect(removeFieldAt(schema, -1)).toBe(schema);
+		expect(removeFieldAt(schema, 1)).toBe(schema);
 	});
 
 	it("uniquifyAccessor appends _copy, _copy2", () => {

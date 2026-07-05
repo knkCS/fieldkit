@@ -75,6 +75,21 @@ export function removeField(schema: Schema, accessor: string): Schema {
 	return schema.filter((f) => f.config.api_accessor !== accessor);
 }
 
+/**
+ * Removes exactly the field at `index` — unlike `removeField`, safe against
+ * consumer-supplied schemas with DUPLICATE accessors (F2): an accessor-keyed
+ * removal would delete every field sharing that accessor, destroying the
+ * other one's config. Callers resolve the flat index via `schema.indexOf`
+ * on the exact field OBJECT reference (draft fields keep stable identity
+ * until edited), not by re-searching for the accessor.
+ */
+export function removeFieldAt(schema: Schema, index: number): Schema {
+	if (index < 0 || index >= schema.length) return schema;
+	const next = [...schema];
+	next.splice(index, 1);
+	return next;
+}
+
 export function moveField(
 	schema: Schema,
 	fromIndex: number,

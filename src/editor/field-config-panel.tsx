@@ -316,6 +316,20 @@ export function FieldConfigPanel({
 				e.accessor === activeField.config.api_accessor,
 		)?.message ?? null;
 
+	// F2: a consumer-supplied schema can contain duplicate accessors — exactly
+	// the state validateSpec flags via the `duplicate_accessor` fieldError
+	// found above. Selection and updateField key on accessor alone elsewhere
+	// in the editor, so applying an edit here while the active accessor is
+	// ambiguous would go on to corrupt or destroy the OTHER field sharing it.
+	// Pragmatic containment (not an identity refactor): go read-only and
+	// surface the error prominently until the author resolves the duplicate.
+	const isDuplicateSelection = accessorError !== null;
+
+	function guardedFieldChange(next: Field) {
+		if (isDuplicateSelection) return;
+		handleActiveFieldChange(next);
+	}
+
 	// Collision pool for the ACTIVE field, from the LIVE draft: a top-level
 	// field competes with every other top-level accessor; a drilled child
 	// competes with its siblings inside the parent group. The active field's
@@ -330,7 +344,7 @@ export function FieldConfigPanel({
 	const sectionProps: PanelSectionProps = {
 		field: activeField,
 		plugin: activePlugin,
-		onFieldChange: handleActiveFieldChange,
+		onFieldChange: guardedFieldChange,
 		accessorError,
 		takenAccessors,
 		committedAccessors,
@@ -381,6 +395,21 @@ export function FieldConfigPanel({
 					<X size={16} />
 				</IconButton>
 			</Flex>
+
+			{isDuplicateSelection && (
+				<Box
+					borderWidth="1px"
+					borderColor="danger.600"
+					borderRadius="md"
+					p="2"
+					mb="4"
+					data-testid="panel-duplicate-banner"
+				>
+					<Text fontSize="xs" fontWeight="semibold" color="danger.600">
+						{accessorError}
+					</Text>
+				</Box>
+			)}
 
 			<Disclosure title={labels.general} defaultOpen testId="general">
 				<ConfigSection {...sectionProps} />

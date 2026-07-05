@@ -66,6 +66,22 @@ export function ConfigSection({
 		appliedFieldRef.current = field;
 	}, [field, committedAccessors]);
 
+	// Re-arm the latch the instant the SELECTED field's accessor becomes
+	// committed — e.g. right after a successful Save, while the field stays
+	// selected. The resync effect above intentionally skips its own echoed-
+	// back edit (`field === appliedFieldRef.current`), but a Save doesn't
+	// change the draft field's object identity, so that effect alone never
+	// re-arms the latch post-save. Committed fields must never auto-slug
+	// again (F1), regardless of whose edit `field` currently reflects — this
+	// effect only ever ARMS the latch (true), never disarms it, so it can't
+	// fight the baseline-aware reset above when a genuinely different,
+	// not-yet-committed field is selected next.
+	useEffect(() => {
+		if (committedAccessors.has(field.config.api_accessor)) {
+			manuallyEditedRef.current = true;
+		}
+	}, [committedAccessors, field.config.api_accessor]);
+
 	function apply(next: Field) {
 		appliedFieldRef.current = next;
 		onFieldChange(next);
