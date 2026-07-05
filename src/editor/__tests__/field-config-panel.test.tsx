@@ -60,8 +60,8 @@ function Harness({
 	autoFocusLabel?: boolean;
 	onFieldChangeSpy?: (next: Field) => void;
 }) {
-	const [field, setField] = useState<Field | null>(initialField);
-	const draft = field ? [field, ...otherFields] : [...otherFields];
+	const [field, setField] = useState<Field>(initialField);
+	const draft = [field, ...otherFields];
 	return (
 		<div>
 			<FieldConfigPanel
@@ -84,24 +84,6 @@ function Harness({
 }
 
 describe("FieldConfigPanel", () => {
-	it("renders nothing when field is null", () => {
-		render(
-			<EditorWrap>
-				<FieldConfigPanel
-					field={null}
-					plugin={undefined}
-					draft={[]}
-					fieldErrors={[]}
-					onFieldChange={vi.fn()}
-					onClose={vi.fn()}
-					committedAccessors={new Set()}
-					labels={testLabels}
-				/>
-			</EditorWrap>,
-		);
-		expect(screen.queryByTestId("field-config-panel")).not.toBeInTheDocument();
-	});
-
 	it("blocks all edits and shows a prominent error when the selected accessor is duplicated in the draft (F2a)", () => {
 		// Consumer-supplied schemas can contain duplicate accessors — the exact
 		// state validateSpec flags. Selection/updateField key on accessor alone

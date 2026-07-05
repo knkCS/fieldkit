@@ -24,37 +24,30 @@ export function ValidationSection({
 		onFieldChange({ ...field, validation: hasKeys ? next : undefined });
 	}
 
-	function handleMinLength(e: ChangeEvent<HTMLInputElement>) {
-		const raw = e.target.value;
-		const next = { ...validation };
-		if (raw === "") delete next.min_length;
-		else next.min_length = Number(raw);
-		commitValidation(next);
+	/**
+	 * Every validation-field handler is "empty input → delete the key,
+	 * otherwise set it (optionally parsed, e.g. Number() for the length
+	 * fields)" — this factory replaces four near-identical copies of that
+	 * same shape.
+	 */
+	function makeValidationHandler<K extends keyof FieldValidation>(
+		key: K,
+		parse: (raw: string) => FieldValidation[K] = (raw) =>
+			raw as FieldValidation[K],
+	) {
+		return (e: ChangeEvent<HTMLInputElement>) => {
+			const raw = e.target.value;
+			const next = { ...validation };
+			if (!raw) delete next[key];
+			else next[key] = parse(raw);
+			commitValidation(next);
+		};
 	}
 
-	function handleMaxLength(e: ChangeEvent<HTMLInputElement>) {
-		const raw = e.target.value;
-		const next = { ...validation };
-		if (raw === "") delete next.max_length;
-		else next.max_length = Number(raw);
-		commitValidation(next);
-	}
-
-	function handlePattern(e: ChangeEvent<HTMLInputElement>) {
-		const raw = e.target.value;
-		const next = { ...validation };
-		if (!raw) delete next.pattern;
-		else next.pattern = raw;
-		commitValidation(next);
-	}
-
-	function handlePatternMessage(e: ChangeEvent<HTMLInputElement>) {
-		const raw = e.target.value;
-		const next = { ...validation };
-		if (!raw) delete next.pattern_message;
-		else next.pattern_message = raw;
-		commitValidation(next);
-	}
+	const handleMinLength = makeValidationHandler("min_length", Number);
+	const handleMaxLength = makeValidationHandler("max_length", Number);
+	const handlePattern = makeValidationHandler("pattern");
+	const handlePatternMessage = makeValidationHandler("pattern_message");
 
 	function handleUnique(e: ChangeEvent<HTMLInputElement>) {
 		onFieldChange({

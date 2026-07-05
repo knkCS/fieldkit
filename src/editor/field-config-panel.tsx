@@ -75,8 +75,10 @@ export interface PanelLabels {
 }
 
 export interface FieldConfigPanelProps {
-	/** null → panel hidden. */
-	field: Field | null;
+	/** The panel has no hidden/empty state of its own — the only caller
+	 * (SpecEditor) already gates rendering on `selectedField &&`, so there's
+	 * no null case for this component to handle internally. */
+	field: Field;
 	plugin: FieldTypePlugin | undefined;
 	/**
 	 * The LIVE draft schema. The panel derives the accessor collision pool
@@ -91,9 +93,6 @@ export interface FieldConfigPanelProps {
 	onClose: () => void;
 	/** set by onEdit / insertion flows. */
 	autoFocusLabel?: boolean;
-	/** future-proof; v1 renders children list read-only names + Edit buttons
-	 * that select the child INTO the panel with a Back control. */
-	onSelectChild?: (childAccessor: string) => void;
 	/**
 	 * Addition beyond the T9 brief's literal FieldConfigPanelProps snippet:
 	 * PanelSectionProps (which the brief DOES specify verbatim) requires
@@ -174,18 +173,15 @@ export function FieldConfigPanel({
 	onFieldChange,
 	onClose,
 	autoFocusLabel,
-	onSelectChild,
 	committedAccessors,
 	labels,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<string[]>([]);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const topAccessorRef = useRef<string | null>(
-		field?.config.api_accessor ?? null,
-	);
+	const nameInputRef = useRef<HTMLInputElement>(null);
+	const topAccessorRef = useRef<string>(field.config.api_accessor);
 	const prevAutoFocusRef = useRef(false);
 	const focusChainRef = useRef<{
-		accessor: string | null;
+		accessor: string;
 		raf1: number;
 		raf2?: number;
 	} | null>(null);
@@ -193,7 +189,7 @@ export function FieldConfigPanel({
 	// Selecting a different top-level field resets any open drill-in — the
 	// child path belongs to the previously selected group, not the new field.
 	useEffect(() => {
-		const topAccessor = field?.config.api_accessor ?? null;
+		const topAccessor = field.config.api_accessor;
 		if (topAccessorRef.current !== topAccessor) {
 			topAccessorRef.current = topAccessor;
 			setDrillStack([]);
@@ -240,8 +236,10 @@ export function FieldConfigPanel({
 		}
 
 		const accessor = topAccessorRef.current;
-		const focusChain: { accessor: string | null; raf1: number; raf2?: number } =
-			{ accessor, raf1: 0 };
+		const focusChain: { accessor: string; raf1: number; raf2?: number } = {
+			accessor,
+			raf1: 0,
+		};
 		focusChain.raf1 = requestAnimationFrame(() => {
 			focusChain.raf2 = requestAnimationFrame(() => {
 				focusChainRef.current = null;
@@ -249,17 +247,14 @@ export function FieldConfigPanel({
 				// this chain was scheduled — only focus if the panel is still
 				// showing the field the chain was scheduled for.
 				if (topAccessorRef.current !== accessor) return;
-				const input = containerRef.current?.querySelector<HTMLInputElement>(
-					'[data-testid="panel-name-input"]',
-				);
-				input?.focus();
+				nameInputRef.current?.focus();
 			});
 		});
 		focusChainRef.current = focusChain;
 	}, [autoFocusLabel]);
 
 	// Cancel any still-pending focus chain on unmount (e.g. the panel closes
-	// entirely — field becomes null — while a chain is in flight).
+	// entirely — the parent stops rendering it — while a chain is in flight).
 	useEffect(() => {
 		return () => {
 			if (focusChainRef.current) {
@@ -270,8 +265,6 @@ export function FieldConfigPanel({
 			}
 		};
 	}, []);
-
-	if (!field) return null;
 
 	const chain = resolveChain(field, drillStack);
 	const activeField = chain[chain.length - 1];
@@ -355,7 +348,6 @@ export function FieldConfigPanel({
 
 	return (
 		<Box
-			ref={containerRef}
 			bg="bg-subtle"
 			borderLeftWidth="1px"
 			borderColor="border"
@@ -412,7 +404,7 @@ export function FieldConfigPanel({
 			)}
 
 			<Disclosure title={labels.general} defaultOpen testId="general">
-				<ConfigSection {...sectionProps} />
+				<ConfigSection {...sectionProps} nameInputRef={nameInputRef} />
 			</Disclosure>
 
 			<Disclosure
@@ -450,10 +442,9 @@ export function FieldConfigPanel({
 								<Button
 									size="xs"
 									variant="ghost"
-									onClick={() => {
-										setDrillStack((s) => [...s, child.config.api_accessor]);
-										onSelectChild?.(child.config.api_accessor);
-									}}
+									onClick={() =>
+										setDrillStack((s) => [...s, child.config.api_accessor])
+									}
 									data-testid={`panel-child-edit-${child.config.api_accessor}`}
 								>
 									{labels.editChild}

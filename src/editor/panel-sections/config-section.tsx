@@ -1,10 +1,18 @@
 // src/editor/panel-sections/config-section.tsx
 import { Box, Flex, Input, Text, Textarea } from "@chakra-ui/react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, Ref } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { Field } from "../../schema/types";
 import { slugify } from "../draft-ops";
 import type { PanelSectionProps } from "../field-config-panel";
+
+export interface ConfigSectionProps extends PanelSectionProps {
+	/** Threaded from FieldConfigPanel so its autofocus effect can call
+	 * `.focus()` directly on the Name input's DOM node instead of querying
+	 * for its `data-testid` at runtime (that attribute stays a test hook
+	 * only). */
+	nameInputRef?: Ref<HTMLInputElement>;
+}
 
 /**
  * General section: name, accessor, instructions, required, default value,
@@ -26,7 +34,8 @@ export function ConfigSection({
 	takenAccessors,
 	committedAccessors,
 	labels,
-}: PanelSectionProps) {
+	nameInputRef,
+}: ConfigSectionProps) {
 	// Tracks the last Field object *this component* produced via apply(), so
 	// the resync effect below can tell "field changed because we edited it"
 	// (skip resync — local state already reflects it) apart from "field
@@ -195,6 +204,7 @@ export function ConfigSection({
 					{labels.name}
 				</Text>
 				<Input
+					ref={nameInputRef}
 					size="sm"
 					mt="1"
 					value={field.config.name}
