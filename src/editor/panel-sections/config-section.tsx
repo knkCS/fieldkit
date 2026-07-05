@@ -315,7 +315,7 @@ export function ConfigSection({
 						onChange={handleCheckbox("localizable")}
 						data-testid="panel-localizable-input"
 					/>
-					<Text fontSize="sm">{labels.localizable}</Text>
+					<Text fontSize="sm">{labels.panelLocalizable}</Text>
 				</Box>
 			</Flex>
 		</Box>

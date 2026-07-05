@@ -8,15 +8,10 @@ import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
 import { insertFieldAt, updateField } from "./draft-ops";
-import { EditorCanvas, type EditorCanvasProps } from "./editor-canvas";
-import { FieldConfigPanel, type PanelLabels } from "./field-config-panel";
+import { EditorCanvas } from "./editor-canvas";
+import { FieldConfigPanel } from "./field-config-panel";
 import { TryItView } from "./try-it-view";
 import { useSpecDraft } from "./use-spec-draft";
-
-/** The canvas's labels shape isn't exported by name (`CanvasLabels` is an
- * internal interface in editor-canvas.tsx) — extracted structurally instead
- * of widening that module's export surface just for this one type alias. */
-type CanvasLabels = EditorCanvasProps["labels"];
 
 export interface EditorLabels {
 	// canvas / SpecForm passthrough
@@ -306,67 +301,10 @@ export function SpecEditor({
 		return set;
 	}, [schema]);
 
-	const canvasLabels: CanvasLabels = useMemo(
-		() => ({
-			defaultTab: mergedLabels.defaultTab,
-			searchPlaceholder: mergedLabels.searchPlaceholder,
-			noResults: mergedLabels.noResults,
-			hiddenField: mergedLabels.hiddenField,
-			groupPreview: mergedLabels.groupPreview,
-			addField: mergedLabels.addField,
-			emptySpec: mergedLabels.emptySpec,
-			moveToSection: mergedLabels.moveToSection,
-			renameSection: mergedLabels.renameSection,
-			moveLeft: mergedLabels.moveLeft,
-			moveRight: mergedLabels.moveRight,
-			deleteSection: mergedLabels.deleteSection,
-			deleteSectionConfirm: mergedLabels.deleteSectionConfirm,
-			orientationH: mergedLabels.orientationH,
-			orientationV: mergedLabels.orientationV,
-			sectionMenu: mergedLabels.sectionMenu,
-			addSection: mergedLabels.addSection,
-			newSectionName: mergedLabels.newSectionName,
-			sectionNameInput: mergedLabels.sectionNameInput,
-			shell: {
-				drag: mergedLabels.dragField,
-				edit: mergedLabels.editField,
-				duplicate: mergedLabels.duplicateField,
-				delete: mergedLabels.deleteField,
-				systemLocked: mergedLabels.systemLocked,
-			},
-		}),
-		[mergedLabels],
-	);
-
-	const panelLabels: PanelLabels = useMemo(
-		() => ({
-			general: mergedLabels.panelGeneral,
-			validation: mergedLabels.panelValidation,
-			typeSettings: mergedLabels.panelTypeSettings,
-			noSettings: mergedLabels.panelNoSettings,
-			children: mergedLabels.panelChildren,
-			back: mergedLabels.panelBack,
-			close: mergedLabels.panelClose,
-			localizable: mergedLabels.panelLocalizable,
-			accessorInUse: mergedLabels.accessorInUse,
-			accessorEmpty: mergedLabels.accessorEmpty,
-			committedAccessorWarning: mergedLabels.committedAccessorWarning,
-			editChild: mergedLabels.editChild,
-			name: mergedLabels.name,
-			accessor: mergedLabels.accessor,
-			required: mergedLabels.required,
-			instructions: mergedLabels.instructions,
-			defaultValue: mergedLabels.defaultValue,
-			hidden: mergedLabels.hidden,
-			readOnly: mergedLabels.readOnly,
-			minLength: mergedLabels.minLength,
-			maxLength: mergedLabels.maxLength,
-			pattern: mergedLabels.pattern,
-			patternMessage: mergedLabels.patternMessage,
-			unique: mergedLabels.unique,
-		}),
-		[mergedLabels],
-	);
+	// CanvasLabels and PanelLabels are both Picks of EditorLabels using the
+	// SAME flat key names (C8/C17) — mergedLabels (Required<EditorLabels>)
+	// satisfies both structurally, so no per-key renaming/mapping is needed
+	// here; each is just passed straight through as the `labels` prop below.
 
 	const translatedFieldErrors = useMemo(
 		() =>
@@ -554,7 +492,7 @@ export function SpecEditor({
 								onSelect={handleSelect}
 								onEdit={handleEdit}
 								onDeleteField={handleDeleteField}
-								labels={canvasLabels}
+								labels={mergedLabels}
 							/>
 						</Box>
 						{selectedField && (
@@ -567,7 +505,7 @@ export function SpecEditor({
 								onClose={() => handleSelect(null)}
 								autoFocusLabel={autoFocusLabel}
 								committedAccessors={committedAccessors}
-								labels={panelLabels}
+								labels={mergedLabels}
 							/>
 						)}
 					</Flex>

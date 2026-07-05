@@ -58,10 +58,10 @@ import {
 	setOrientation,
 	uniquifyAccessor,
 } from "./draft-ops";
-import type { FieldShellToolbarLabels } from "./field-shell";
 import { FieldShell } from "./field-shell";
 import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
+import type { EditorLabels } from "./spec-editor";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 import { visibleClosestCenter } from "./visible-collision";
@@ -83,23 +83,37 @@ function TabDropZone({
 }
 TabDropZone.displayName = "TabDropZone";
 
-interface CanvasLabels extends SectionMenuLabels {
-	defaultTab: string;
-	searchPlaceholder: string;
-	noResults: string;
-	hiddenField: string; // e.g. "Hidden field:" prefix
-	groupPreview: string; // e.g. "Repeating group" — child count appended
-	addField: string; // aria-label for the ⊕ insertion trigger
-	emptySpec: string; // empty-spec placeholder message
-	shell: FieldShellToolbarLabels;
-	moveToSection: string; // aria-label/tooltip for the "Move to section…" toolbar trigger
-	// "{section}" interpolated — MUST say fields survive (move to the previous tab)
-	deleteSectionConfirm: string;
-	sectionMenu: string; // "{section}" interpolated — aria-label for the menu trigger
-	addSection: string; // "+ Section" button label
-	newSectionName: string; // default name for a freshly added section
-	sectionNameInput: string; // aria-label for the inline rename input
-}
+/**
+ * Flat EditorLabels key names throughout (including the field-shell toolbar
+ * labels — dragField/editField/duplicateField/deleteField/systemLocked —
+ * flattened directly onto this type instead of a nested `shell` sub-object)
+ * so a host's merged EditorLabels satisfies this type structurally, with no
+ * per-key renaming layer required at the call site.
+ */
+export interface CanvasLabels
+	extends SectionMenuLabels,
+		Pick<
+			Required<EditorLabels>,
+			| "defaultTab"
+			| "searchPlaceholder"
+			| "noResults"
+			| "hiddenField" // e.g. "Hidden field:" prefix
+			| "groupPreview" // e.g. "Repeating group" — child count appended
+			| "addField" // aria-label for the ⊕ insertion trigger
+			| "emptySpec" // empty-spec placeholder message
+			| "dragField"
+			| "editField"
+			| "duplicateField"
+			| "deleteField"
+			| "systemLocked"
+			| "moveToSection" // aria-label/tooltip for the "Move to section…" toolbar trigger
+			// "{section}" interpolated — MUST say fields survive (move to the previous tab)
+			| "deleteSectionConfirm"
+			| "sectionMenu" // "{section}" interpolated — aria-label for the menu trigger
+			| "addSection" // "+ Section" button label
+			| "newSectionName" // default name for a freshly added section
+			| "sectionNameInput" // aria-label for the inline rename input
+		> {}
 
 export interface EditorCanvasProps {
 	spec: SpecDraft;
@@ -558,7 +572,7 @@ export function EditorCanvas({
 								onDelete={() => handleDeleteField(field, draft.indexOf(field))}
 								duplicateDisabled={isDuplicateDisabled(field)}
 								moveMenu={buildMoveMenu(field, tabIndex)}
-								labels={labels.shell}
+								labels={labels}
 							>
 								<ShellContent field={field} labels={labels} />
 							</FieldShell>

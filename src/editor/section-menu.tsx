@@ -7,15 +7,19 @@ import {
 	MenuTrigger,
 } from "@knkcs/anker/primitives";
 import { ChevronDown } from "lucide-react";
+import type { EditorLabels } from "./spec-editor";
 
-export interface SectionMenuLabels {
-	renameSection: string;
-	moveLeft: string;
-	moveRight: string;
-	deleteSection: string;
-	orientationH: string;
-	orientationV: string;
-}
+/** Already-flat EditorLabels key names — no renaming layer needed between
+ * EditorLabels and this menu's own labels prop. */
+export type SectionMenuLabels = Pick<
+	Required<EditorLabels>,
+	| "renameSection"
+	| "moveLeft"
+	| "moveRight"
+	| "deleteSection"
+	| "orientationH"
+	| "orientationV"
+>;
 
 export interface SectionMenuProps {
 	sectionAccessor: string;

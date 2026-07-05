@@ -6,14 +6,16 @@ import { Tooltip } from "@knkcs/anker/primitives";
 import { Copy, GripVertical, Lock, Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Field } from "../schema/types";
+import type { EditorLabels } from "./spec-editor";
 
-export interface FieldShellToolbarLabels {
-	drag: string;
-	edit: string;
-	duplicate: string;
-	delete: string;
-	systemLocked: string;
-}
+/** A Pick of EditorLabels — the toolbar consumes the SAME flat key names as
+ * EditorLabels (dragField/editField/duplicateField/deleteField/systemLocked)
+ * instead of its own drag/edit/duplicate/delete names, so a host can pass
+ * its merged EditorLabels straight through without a renaming layer. */
+export type FieldShellToolbarLabels = Pick<
+	Required<EditorLabels>,
+	"dragField" | "editField" | "duplicateField" | "deleteField" | "systemLocked"
+>;
 
 export interface FieldShellProps {
 	field: Field;
@@ -28,7 +30,7 @@ export interface FieldShellProps {
 	children: ReactNode;
 	/** F2c/F4a: disables the Duplicate toolbar button (its accessor is
 	 * duplicated in the draft, and/or its field_type has reached
-	 * `maxPerSpec`) — reuses `labels.duplicate` as the aria-label either way. */
+	 * `maxPerSpec`) — reuses `labels.duplicateField` as the aria-label either way. */
 	duplicateDisabled?: boolean;
 }
 
@@ -119,9 +121,9 @@ export function FieldShell({
 					{/* closeOnEscape=false: the open tooltip's Escape handler stops
 					    propagation at the document (capture phase), which would
 					    swallow the Escape that cancels a keyboard drag. */}
-					<Tooltip content={labels.drag} closeOnEscape={false}>
+					<Tooltip content={labels.dragField} closeOnEscape={false}>
 						<IconButton
-							aria-label={labels.drag}
+							aria-label={labels.dragField}
 							size="2xs"
 							variant="ghost"
 							{...attributes}
@@ -130,9 +132,9 @@ export function FieldShell({
 							<GripVertical size={14} />
 						</IconButton>
 					</Tooltip>
-					<Tooltip content={labels.edit}>
+					<Tooltip content={labels.editField}>
 						<IconButton
-							aria-label={labels.edit}
+							aria-label={labels.editField}
 							size="2xs"
 							variant="ghost"
 							onClick={() => onEdit(accessor)}
@@ -140,9 +142,9 @@ export function FieldShell({
 							<Pencil size={14} />
 						</IconButton>
 					</Tooltip>
-					<Tooltip content={labels.duplicate}>
+					<Tooltip content={labels.duplicateField}>
 						<IconButton
-							aria-label={labels.duplicate}
+							aria-label={labels.duplicateField}
 							size="2xs"
 							variant="ghost"
 							disabled={duplicateDisabled}
@@ -153,9 +155,9 @@ export function FieldShell({
 					</Tooltip>
 					{moveMenu}
 					{!field.system && (
-						<Tooltip content={labels.delete}>
+						<Tooltip content={labels.deleteField}>
 							<IconButton
-								aria-label={labels.delete}
+								aria-label={labels.deleteField}
 								size="2xs"
 								variant="ghost"
 								colorPalette="red"

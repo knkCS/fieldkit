@@ -11,14 +11,14 @@ import { FieldConfigPanel, type PanelLabels } from "../field-config-panel";
 import { EditorWrap, makeField } from "./editor-helpers";
 
 const testLabels: PanelLabels = {
-	general: "General",
-	validation: "Validation",
-	typeSettings: "Type Settings",
-	noSettings: "No additional settings",
-	children: "Children",
-	back: "Back",
-	close: "Close",
-	localizable: "Localizable",
+	panelGeneral: "General",
+	panelValidation: "Validation",
+	panelTypeSettings: "Type Settings",
+	panelNoSettings: "No additional settings",
+	panelChildren: "Children",
+	panelBack: "Back",
+	panelClose: "Close",
+	panelLocalizable: "Localizable",
 	editChild: "Edit",
 	accessorInUse: "This accessor is already in use",
 	accessorEmpty: "Accessor is required",

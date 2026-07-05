@@ -18,7 +18,7 @@ export function SettingsSection({
 	if (!SettingsComponent) {
 		return (
 			<Text fontSize="sm" color="fg.muted">
-				{labels.noSettings}
+				{labels.panelNoSettings}
 			</Text>
 		);
 	}

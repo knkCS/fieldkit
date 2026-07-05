@@ -31,10 +31,10 @@ function Wrap({ children }: { children: ReactNode }) {
 
 const noop = () => {};
 const shellLabels = {
-	drag: "Drag to reorder",
-	edit: "Edit field",
-	duplicate: "Duplicate field",
-	delete: "Delete field",
+	dragField: "Drag to reorder",
+	editField: "Edit field",
+	duplicateField: "Duplicate field",
+	deleteField: "Delete field",
 	systemLocked: "System field",
 };
 

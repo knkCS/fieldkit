@@ -9,6 +9,7 @@ import type { SpecFieldError } from "../schema/validate-spec";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
 import { ValidationSection } from "./panel-sections/validation-section";
+import type { EditorLabels } from "./spec-editor";
 
 /** Shared props for every panel section (ConfigSection/ValidationSection/SettingsSection). */
 export interface PanelSectionProps {
@@ -35,44 +36,42 @@ export interface PanelSectionProps {
 	labels: PanelLabels;
 }
 
-export interface PanelLabels {
-	general: string;
-	validation: string;
-	typeSettings: string;
-	noSettings: string;
-	children: string;
-	back: string;
-	close: string;
-	localizable: string;
-	accessorInUse: string;
-	accessorEmpty: string;
-	committedAccessorWarning: string;
-	/**
-	 * Small addition beyond the T9 brief's literal PanelLabels snippet: the
-	 * group children list's per-row "Edit" button needs a label too, and the
-	 * project's "all strings via labels" constraint rules out hardcoding one.
-	 */
-	editChild: string;
-	/**
-	 * Final-review batch: ConfigSection and ValidationSection hardcoded their
-	 * control labels in English (Name, Accessor, Required, …) despite the
-	 * project's "every author-facing string routes through labels" rule.
-	 * These twelve keys route those controls through PanelLabels like every
-	 * other panel string.
-	 */
-	name: string;
-	accessor: string;
-	required: string;
-	instructions: string;
-	defaultValue: string;
-	hidden: string;
-	readOnly: string;
-	minLength: string;
-	maxLength: string;
-	pattern: string;
-	patternMessage: string;
-	unique: string;
-}
+/**
+ * A Pick of EditorLabels — the panel consumes the SAME flat key names as
+ * EditorLabels (general→panelGeneral, validation→panelValidation, etc.)
+ * instead of its own shorter names, so a host's merged EditorLabels
+ * satisfies this type structurally with no per-key renaming layer required
+ * at the call site.
+ */
+export type PanelLabels = Pick<
+	Required<EditorLabels>,
+	| "panelGeneral"
+	| "panelValidation"
+	| "panelTypeSettings"
+	| "panelNoSettings"
+	| "panelChildren"
+	| "panelBack"
+	| "panelClose"
+	| "panelLocalizable"
+	| "accessorInUse"
+	| "accessorEmpty"
+	| "committedAccessorWarning"
+	// The group children list's per-row "Edit" button label.
+	| "editChild"
+	// ConfigSection's and ValidationSection's control labels.
+	| "name"
+	| "accessor"
+	| "required"
+	| "instructions"
+	| "defaultValue"
+	| "hidden"
+	| "readOnly"
+	| "minLength"
+	| "maxLength"
+	| "pattern"
+	| "patternMessage"
+	| "unique"
+>;
 
 export interface FieldConfigPanelProps {
 	/** The panel has no hidden/empty state of its own — the only caller
@@ -364,7 +363,7 @@ export function FieldConfigPanel({
 					data-testid="panel-back"
 				>
 					<ChevronLeft size={14} />
-					{labels.back}
+					{labels.panelBack}
 				</Button>
 			)}
 
@@ -378,7 +377,7 @@ export function FieldConfigPanel({
 					)}
 				</Box>
 				<IconButton
-					aria-label={labels.close}
+					aria-label={labels.panelClose}
 					size="xs"
 					variant="ghost"
 					onClick={onClose}
@@ -403,12 +402,12 @@ export function FieldConfigPanel({
 				</Box>
 			)}
 
-			<Disclosure title={labels.general} defaultOpen testId="general">
+			<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
 				<ConfigSection {...sectionProps} nameInputRef={nameInputRef} />
 			</Disclosure>
 
 			<Disclosure
-				title={labels.validation}
+				title={labels.panelValidation}
 				defaultOpen={false}
 				testId="validation"
 			>
@@ -416,7 +415,7 @@ export function FieldConfigPanel({
 			</Disclosure>
 
 			<Disclosure
-				title={labels.typeSettings}
+				title={labels.panelTypeSettings}
 				defaultOpen={false}
 				testId="type-settings"
 			>
@@ -424,7 +423,7 @@ export function FieldConfigPanel({
 			</Disclosure>
 
 			{activeField.field_type === "group" && (
-				<Disclosure title={labels.children} defaultOpen testId="children">
+				<Disclosure title={labels.panelChildren} defaultOpen testId="children">
 					<Box>
 						{children.map((child) => (
 							<Flex
