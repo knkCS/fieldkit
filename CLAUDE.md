@@ -35,33 +35,49 @@ Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five la
 
 ```
 src/
-├── schema/              # Types, registry, Zod builder, defineSpec()
+├── schema/              # Zero-React layer
 │   ├── types.ts         # Field, FieldConfig, FieldValidation, Schema
+│   ├── plugin.ts        # FieldTypePlugin, FieldProps, CellProps, SettingsProps
 │   ├── registry.ts      # Plugin registry
-│   ├── zod-builder.ts   # specToZodSchema()
-│   ├── define-spec.ts   # Builder API
+│   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
+│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children)
+│   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
+│   ├── define-spec.ts   # defineSpec() API
+│   ├── builders.ts      # text(), section(), … spec builders
 │   └── field-types/     # Built-in field type plugin definitions
-├── editor/              # Specification editor
-│   ├── spec-editor.tsx
-│   ├── editor-canvas.tsx
-│   ├── field-config-panel.tsx
+├── editor/              # WYSIWYG specification editor
+│   ├── spec-editor.tsx  # Public shell: header, Build/Try-it, Save/Discard, labels
+│   ├── use-spec-draft.ts# Draft session (baseline = last committed content)
+│   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
+│   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd, insertion boundaries
+│   ├── field-shell.tsx  # Per-field wrapper: selection, toolbar, inert content
+│   ├── field-config-panel.tsx  # Side panel (live edits, accessor gate, group drill-in)
+│   ├── panel-sections/  # Config / validation / type-settings panel sections
+│   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
+│   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
-│   └── panel-sections/  # Config panel section components
+│   └── try-it-view.tsx  # Real SpecForm on a scratch form
 ├── renderer/            # Field renderer
-│   ├── field-renderer.tsx
-│   ├── field-component.tsx
-│   ├── provider.tsx     # FieldKitProvider
+│   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
+│   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
+│   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
+│   ├── provider.tsx     # FieldKitProvider (plugins + adapters)
+│   ├── adapters.ts      # Backend adapter interfaces
 │   └── fields/          # Built-in field components
 ├── table/               # Spec-driven data table
 │   ├── spec-data-table.tsx
-│   ├── edit-drawer.tsx
-│   ├── get-cell-for-type.ts
+│   ├── edit-drawer.tsx  # Renders through SpecForm
+│   ├── get-cell-for-type.tsx
 │   └── cells/           # Built-in cell components
 └── rich-text-spec/      # Rich text editor specification
     ├── types.ts         # EditorSpec, EditorNodePlugin
     ├── editor-spec-editor.tsx
     └── node-plugins/    # Built-in node/mark plugin definitions
 ```
+
+Design decision records live in `docs/superpowers/specs/` (renderer redesign,
+editor redesign, canvas insertion overlay) — consult them before revisiting
+an architectural choice.
 
 ## Design Principles
 
@@ -80,19 +96,18 @@ src/
 ### Adding a New Field Type Plugin
 
 1. Create `src/schema/field-types/<name>.ts`:
-   - Export a `FieldTypePlugin` with `id`, `name`, `icon` (Lucide), `toZodType()`, `defaultConfig`
-   - Define a `<Name>Settings` interface if the field has configurable settings
+   - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`
+   - Define a `<Name>Settings` interface if the field has configurable settings (plus a `settingsComponent` for the editor's config panel)
    - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
 2. Register the plugin in `src/schema/field-types/index.ts`
-3. Create renderer component: `src/renderer/fields/<name>-field.tsx`
-   - Use anker form components for simple inputs (see `docs/anker-reference.md`)
-   - Use `Controller` for complex values (see `docs/react-hook-form-reference.md`)
+3. Create renderer component: `src/renderer/fields/<name>-field.tsx` and set it as the plugin's `fieldComponent`
+   - Use anker form components for simple inputs; `Controller` for complex values (see `docs/react-hook-form-reference.md`)
    - Set `displayName` on the exported component
    - Add Storybook story (`.stories.tsx`) and MDX documentation (`.mdx`)
-4. Create table cell: `src/table/cells/<name>-cell.tsx`
-   - Set `displayName` on the exported component
-5. Register the cell in `src/table/get-cell-for-type.tsx`
-6. Register the renderer in `src/renderer/field-component.tsx`
+4. Create table cell: `src/table/cells/<name>-cell.tsx`, set it as the plugin's `cellComponent` (also used by SpecForm's read mode), and set `displayName`
+5. Register the cell in `src/table/get-cell-for-type.tsx` (SpecDataTable column mapping)
+
+There is no manual renderer registration: `FieldComponent` resolves `plugin.fieldComponent` through the registry at render time.
 
 ### Adding a Renderer Field Component
 
@@ -132,22 +147,26 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 | `npm run typecheck` | TypeScript type checking (`tsc --noEmit`) |
 | `npm run test` | Run tests once (Vitest, jsdom environment) |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run verify-exports` | Check tsup entries match built `.d.ts` exports |
 
 Always run `npm run typecheck` and `npm run lint` before committing. Tests use Vitest with jsdom environment and `@testing-library/react`. Test files are colocated with source in `__tests__/` directories.
 
 ## Peer Dependencies
 
 Consuming projects must install:
-- `@knkcs/anker`
+- `@knkcs/anker` ^2.0.0 || ^3.0.0
 - `react` >= 18, `react-dom` >= 18
 - `@chakra-ui/react` ^3.0.0
 - `react-hook-form` ^7.0.0, `@hookform/resolvers` ^3.0.0, `zod` ^3.0.0
 - `@tanstack/react-table` ^8.0.0
 - `@dnd-kit/core`, `@dnd-kit/sortable`
-- `react-router-dom` ^6.0.0
+- `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional:
 - `@knkcms/knkeditor-editor` (for rich_text field type)
+
+Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
+resolved by consumers importing `@knkcs/anker/dashboard`.
 
 ## Related Repositories
 
@@ -159,7 +178,10 @@ Optional:
 
 Read these before working on the corresponding area:
 
-- **`docs/anker-reference.md`** — All anker form component APIs, DataTable, DrawerRoot, semantic tokens. Read before creating or modifying any field component or table component.
+- **`node_modules/@knkcs/anker/CLAUDE-ANKER.md`** — anker's AI-consumable design-system rules (tokens, templates, component catalog). The authoritative anker reference; ships in the anker tarball and tracks the installed version.
+- **`src/renderer/spec-form/spec-form.mdx`** — SpecForm behavior contract (section tabs, search, read mode, labels, schema partitioning rules).
+- **`src/editor/spec-editor.mdx`** — SpecEditor contract (draft model, schema-prop stability, labels table, migration notes, known limitations).
 - **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
-- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying SpecEditor or adding drag-and-drop.
+- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying editor drag-and-drop.
 - **`docs/knkeditor-reference.md`** — EditorSpec types, plugin ID alignment, planned integration contract. Read before modifying rich-text-spec or RichTextField.
+- **`docs/anker-reference.md`** — ⚠️ Historical: written against anker 0.0.2. Superseded by CLAUDE-ANKER.md above; do not trust its API details.
