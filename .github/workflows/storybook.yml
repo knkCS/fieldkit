@@ -9,6 +9,12 @@ permissions:
   pages: write
   id-token: write
 
+# Queue overlapping deploys instead of racing them — two pushes in quick
+# succession previously failed both deploy-pages steps with a conflict.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
