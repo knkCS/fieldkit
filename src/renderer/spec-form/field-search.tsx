@@ -45,10 +45,10 @@ export function FieldSearch({
 	// prop spread), which has no clear() — type-guard the method so the
 	// 3.1 path falls back to the kept setQuery("") behavior instead of
 	// throwing before onJump.
-	const clearInput = () => {
+	const clearInput = useCallback(() => {
 		const handle = searchRef.current;
 		if (typeof handle?.clear === "function") handle.clear();
-	};
+	}, []);
 
 	const jump = (result: FieldSearchResult) => {
 		setQuery("");
@@ -95,6 +95,25 @@ export function FieldSearch({
 		return () => document.removeEventListener("keydown", onKey);
 	}, []);
 
+	// Contain Escape while the dropdown is open: Ark/zag dismissable layers
+	// (e.g. anker's DrawerRoot) listen for Escape on `document` in the
+	// CAPTURE phase, so a bubble-phase stopPropagation on the input never
+	// runs first — a drawer would close (discarding edits) on the same
+	// keypress that dismisses this dropdown. A window-level capture
+	// listener fires before any document-capture listener (outermost-first),
+	// deterministically, regardless of registration order.
+	useEffect(() => {
+		if (!open) return;
+		const onEscapeCapture = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			e.stopPropagation();
+			setQuery("");
+			clearInput();
+		};
+		window.addEventListener("keydown", onEscapeCapture, true);
+		return () => window.removeEventListener("keydown", onEscapeCapture, true);
+	}, [open, clearInput]);
+
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (!open) return;
 		if (e.key === "ArrowDown") {
@@ -106,14 +125,6 @@ export function FieldSearch({
 		} else if (e.key === "Enter") {
 			e.preventDefault();
 			if (results[safeHighlighted]) jump(results[safeHighlighted]);
-		} else if (e.key === "Escape") {
-			// Contain the key inside the dropdown: without this, Escape also
-			// bubbles to ancestors — inside EditDrawer, Chakra's drawer closes
-			// on Escape too, so dismissing search results would also lose
-			// the drawer's in-progress edits.
-			e.stopPropagation();
-			setQuery("");
-			clearInput();
 		}
 	};
 
