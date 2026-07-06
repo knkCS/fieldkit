@@ -513,6 +513,7 @@ export function SpecEditor({
 							searchPlaceholder: mergedLabels.searchPlaceholder,
 							noResults: mergedLabels.noResults,
 							optionalMarker: mergedLabels.optionalMarker,
+							tabErrors: mergedLabels.tabErrors,
 						}}
 					/>
 				) : (

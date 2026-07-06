@@ -9,6 +9,7 @@ import { z } from "zod";
 import { FieldKitProvider } from "../../renderer/provider";
 import type { FieldProps, FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
+import { SpecEditor } from "../spec-editor";
 import { TryItView } from "../try-it-view";
 
 // Mock only the `toaster` export — SpecForm imports `Tabs` from the same
@@ -131,6 +132,40 @@ describe("TryItView", () => {
 			expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
 		});
 		expect(toaster.create).not.toHaveBeenCalled();
+	});
+
+	// Finding 1 (review): SpecEditor computes `mergedLabels.tabErrors` but
+	// never forwarded it into TryItView's `labels` prop, so a consumer
+	// translating `EditorLabels.tabErrors` got English Try-it badges. Render
+	// the real SpecEditor (not TryItView directly, like the tests above) to
+	// prove the full chain: SpecEditor -> TryItView -> SpecForm -> badge.
+	it("passes a labels.tabErrors override through SpecEditor into the try-it badge's aria-label", async () => {
+		const schema: Schema = [
+			makeSection("s1", "General"),
+			makeField("name", "Name"),
+			makeSection("s2", "Details"),
+			makeField("title", "Title", true),
+		];
+		render(
+			<Wrap>
+				<SpecEditor
+					schema={schema}
+					onCommit={vi.fn()}
+					plugins={plugins}
+					labels={{ tabErrors: "{count} ungültige Felder" }}
+				/>
+			</Wrap>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Try it" }));
+		fireEvent.click(screen.getByRole("button", { name: LABELS.testSubmit }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
+				"aria-label",
+				"1 ungültige Felder",
+			);
+		});
 	});
 
 	it("calls toaster.create with the success message on a valid submit", async () => {
