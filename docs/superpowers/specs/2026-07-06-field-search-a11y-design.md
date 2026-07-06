@@ -65,14 +65,16 @@ regression risk; a component swap to fix a wiring gap.
    label replaces the bare count, so a tab announces
    "SEO, 2 invalid fields". Callers interpolate the count into a
    translatable template.
-2. **DirtyDot on tab triggers:** both call sites (SpecFormTabs,
-   EditorCanvas) pass `label={...}` — English default, translatable.
+2. **DirtyDot on tab triggers:** SpecFormTabs (the only tab strip that
+   renders a DirtyDot — the editor canvas shows only error badges, and
+   the editor header's dot is already labeled via `EditorLabels.dirty`)
+   passes `label={...}` — English default, translatable.
 3. **Labels:** `SpecFormLabels` gains `tabErrors?: string` (default
    `"{count} invalid fields"`, `{count}` interpolated) and
    `unsavedChanges?: string` (default `"Unsaved changes"`).
-   `EditorLabels` gains the same two keys (defaults identical);
-   `CanvasLabels` threads them to the editor tab strip. mdx label
-   tables in `spec-form.mdx` and `spec-editor.mdx` gain the rows.
+   `EditorLabels`/`CanvasLabels` gain only `tabErrors` (no canvas
+   DirtyDot exists). mdx label tables in `spec-form.mdx` and
+   `spec-editor.mdx` gain the rows.
 
 ## Scope guard
 
