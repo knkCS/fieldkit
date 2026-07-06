@@ -13,10 +13,9 @@ import { formatCount, mergeLabels } from "../merge-labels";
 import { FieldSearch } from "./field-search";
 import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
-import { buildSearchIndex } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { TabErrorBadge } from "./tab-error-badge";
-import { useContainerOrientation } from "./use-container-orientation";
+import { TabShell, useTabShell } from "./tab-shell";
 import { useTabIndicators } from "./use-tab-indicators";
 
 function tabKey(tab: SpecTab, index: number): string {
@@ -120,25 +119,18 @@ interface SpecFormTabsProps {
 }
 
 function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
-	const [activeTab, setActiveTab] = useState("tab-0");
-	const { orientation, containerRef } = useContainerOrientation(
-		partition.orientation,
-	);
-	const rootRef = useRef<HTMLDivElement>(null);
+	const {
+		activeTab,
+		setActiveTab,
+		orientation,
+		containerRef,
+		rootRef,
+		searchIndex,
+	} = useTabShell(partition, labels.defaultTab);
 	const indicators = useTabIndicators(partition.tabs);
 	const { setFocus } = useFormContext();
 	const { submitCount, errors } = useFormState();
 	const lastHandledSubmit = useRef(0);
-	const searchIndex = useMemo(
-		() => buildSearchIndex(partition.tabs, labels.defaultTab),
-		[partition, labels.defaultTab],
-	);
-
-	// Reset to the first tab when the partition identity changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
-	useEffect(() => {
-		setActiveTab("tab-0");
-	}, [partition]);
 
 	// Target accessor for an in-flight jump, consumed by the effect below.
 	// A ref (rather than state) because writing it must not itself trigger
@@ -158,6 +150,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// element inside a still-hidden panel silently fails. Instead, stash
 	// the target and let the effect below do the focusing once `activeTab`
 	// has actually rendered.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: setActiveTab comes from useTabShell (a useState setter), which React guarantees is referentially stable regardless of which hook scope declared it
 	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
 		pendingJumpRef.current = accessor;
 		setJumpToken((t) => t + 1);
@@ -207,6 +200,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	}, [submitCount, errors, partition, jumpTo]);
 
 	// "/" focuses the search unless the user is typing in a field.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: rootRef comes from useTabShell (a useRef object), which React guarantees is referentially stable regardless of which hook scope declared it
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "/") return;
@@ -241,18 +235,6 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		/>
 	);
 
-	// Merge the callback ref from useContainerOrientation with a plain
-	// RefObject the "/" shortcut effect can query synchronously. Memoized so
-	// its identity is stable across renders — otherwise React would detach
-	// and reattach containerRef (and its ResizeObserver) on every render.
-	const setRoot = useCallback(
-		(node: HTMLDivElement | null) => {
-			rootRef.current = node;
-			containerRef(node);
-		},
-		[containerRef],
-	);
-
 	const tabTriggers = partition.tabs.map((tab, i) => (
 		<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
 			{tab.section?.config.name ?? labels.defaultTab}
@@ -277,41 +259,23 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	));
 
 	return (
-		<Box ref={setRoot}>
-			{/* Vertical Tabs.Root is a row-flex container (nav column beside
-			    content), so the search must live OUTSIDE it to span the full
-			    width above nav+content instead of becoming a row item. */}
-			{orientation === "vertical" && searchNode && (
-				<Box mb="3">{searchNode}</Box>
-			)}
-			<Tabs.Root
-				value={activeTab}
-				onValueChange={(e) => setActiveTab(e.value)}
-				orientation={orientation}
-				// NEVER pass lazyMount/unmountOnExit: RHF needs all panels in the DOM.
-			>
-				{orientation === "horizontal" ? (
-					<Box
-						display="flex"
-						alignItems="center"
-						justifyContent="space-between"
-						gap="4"
-					>
-						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
-						{searchNode}
+		<TabShell
+			orientation={orientation}
+			containerRef={containerRef}
+			rootRef={rootRef}
+			activeTab={activeTab}
+			onTabChange={setActiveTab}
+			searchNode={searchNode}
+			tabTriggers={tabTriggers}
+		>
+			{partition.tabs.map((tab, i) => (
+				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+					<Box pt="4">
+						<FieldRenderer schema={tab.fields} readOnly={readOnly} />
 					</Box>
-				) : (
-					<Tabs.List>{tabTriggers}</Tabs.List>
-				)}
-				{partition.tabs.map((tab, i) => (
-					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
-						<Box pt="4">
-							<FieldRenderer schema={tab.fields} readOnly={readOnly} />
-						</Box>
-					</Tabs.Content>
-				))}
-			</Tabs.Root>
-		</Box>
+				</Tabs.Content>
+			))}
+		</TabShell>
 	);
 }
 SpecFormTabs.displayName = "SpecFormTabs";
@@ -331,21 +295,16 @@ function SpecFormReadTabs({
 	values,
 	labels,
 }: SpecFormReadTabsProps) {
-	const [activeTab, setActiveTab] = useState("tab-0");
-	const { orientation, containerRef } = useContainerOrientation(
-		partition.orientation,
-	);
-	const searchIndex = useMemo(
-		() => buildSearchIndex(partition.tabs, labels.defaultTab),
-		[partition, labels.defaultTab],
-	);
+	const {
+		activeTab,
+		setActiveTab,
+		orientation,
+		containerRef,
+		rootRef,
+		searchIndex,
+	} = useTabShell(partition, labels.defaultTab);
 
-	// Reset to the first tab when the partition identity changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
-	useEffect(() => {
-		setActiveTab("tab-0");
-	}, [partition]);
-
+	// biome-ignore lint/correctness/useExhaustiveDependencies: setActiveTab comes from useTabShell (a useState setter), which React guarantees is referentially stable regardless of which hook scope declared it
 	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
 		setActiveTab(`tab-${tabIndex}`);
 		// Wait one frame so the target panel is visible before scrolling.
@@ -383,40 +342,23 @@ function SpecFormReadTabs({
 	));
 
 	return (
-		<Box ref={containerRef}>
-			{/* Vertical Tabs.Root is a row-flex container (nav column beside
-			    content), so the search must live OUTSIDE it to span the full
-			    width above nav+content instead of becoming a row item. */}
-			{orientation === "vertical" && searchNode && (
-				<Box mb="3">{searchNode}</Box>
-			)}
-			<Tabs.Root
-				value={activeTab}
-				onValueChange={(e) => setActiveTab(e.value)}
-				orientation={orientation}
-			>
-				{orientation === "horizontal" ? (
-					<Box
-						display="flex"
-						alignItems="center"
-						justifyContent="space-between"
-						gap="4"
-					>
-						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
-						{searchNode}
+		<TabShell
+			orientation={orientation}
+			containerRef={containerRef}
+			rootRef={rootRef}
+			activeTab={activeTab}
+			onTabChange={setActiveTab}
+			searchNode={searchNode}
+			tabTriggers={tabTriggers}
+		>
+			{partition.tabs.map((tab, i) => (
+				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+					<Box pt="4">
+						<ReadTab tab={tab} values={values} />
 					</Box>
-				) : (
-					<Tabs.List>{tabTriggers}</Tabs.List>
-				)}
-				{partition.tabs.map((tab, i) => (
-					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
-						<Box pt="4">
-							<ReadTab tab={tab} values={values} />
-						</Box>
-					</Tabs.Content>
-				))}
-			</Tabs.Root>
-		</Box>
+				</Tabs.Content>
+			))}
+		</TabShell>
 	);
 }
 SpecFormReadTabs.displayName = "SpecFormReadTabs";
