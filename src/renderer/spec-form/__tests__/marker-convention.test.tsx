@@ -22,6 +22,20 @@ function textField(accessor: string, required: boolean): Field {
 	};
 }
 
+function sectionField(accessor: string): Field {
+	return {
+		field_type: "section",
+		config: {
+			name: accessor,
+			api_accessor: accessor,
+			required: false,
+			instructions: "",
+		},
+		settings: {},
+		system: false,
+	};
+}
+
 function RealWrapper({ children }: { children: ReactNode }) {
 	const methods = useForm({ defaultValues: { a: "", b: "", c: "" } });
 	return (
@@ -87,6 +101,16 @@ describe("SpecForm — §10 marker convention", () => {
 			</RealWrapper>,
 		);
 		expect(screen.queryByText("(optional)")).toBeNull();
+		expect(screen.queryByText("*")).toBeNull();
+	});
+
+	it("applies the convention through the sectioned tabs path", () => {
+		render(
+			<RealWrapper>
+				<SpecForm schema={[sectionField("s1"), ...mostlyRequired]} />
+			</RealWrapper>,
+		);
+		expect(screen.getByText("(optional)")).toBeInTheDocument();
 		expect(screen.queryByText("*")).toBeNull();
 	});
 });

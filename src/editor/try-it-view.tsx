@@ -51,13 +51,19 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 				<SpecForm
 					schema={schema}
 					labels={{
-						defaultTab: labels.defaultTab,
-						searchPlaceholder: labels.searchPlaceholder,
-						noResults: labels.noResults,
-						// Omitted (not set to `undefined`) when unset: SpecForm merges
-						// via `{...DEFAULT_LABELS, ...labels}`, so an explicit
-						// `optionalMarker: undefined` key here would clobber its
-						// "(optional)" default instead of falling through to it.
+						// Keys are omitted (not set to `undefined`) when unset: SpecForm
+						// merges via `{...DEFAULT_LABELS, ...labels}`, so an explicit
+						// `undefined` key would clobber its default instead of falling
+						// through to it.
+						...(labels.defaultTab !== undefined && {
+							defaultTab: labels.defaultTab,
+						}),
+						...(labels.searchPlaceholder !== undefined && {
+							searchPlaceholder: labels.searchPlaceholder,
+						}),
+						...(labels.noResults !== undefined && {
+							noResults: labels.noResults,
+						}),
 						...(labels.optionalMarker !== undefined && {
 							optionalMarker: labels.optionalMarker,
 						}),
