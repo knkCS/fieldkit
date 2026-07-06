@@ -20,8 +20,11 @@ afterEach(() => {
 const schema = [
 	makeField("title", "Title"),
 	makeSection("seo", "SEO"),
-	// Dotted accessor: the jump selector must CSS.escape it — an
-	// unescaped `[data-field-row=meta.title]` selector matches nothing.
+	// Dotted accessor. Note: the jump's QUOTED attribute selector already
+	// tolerates a literal dot — CSS.escape there is defensive hardening
+	// for characters that would break a quoted selector (`"`, `\`), so
+	// this fixture pins the jump MECHANISM with a realistic nested
+	// accessor, not the escaping itself.
 	makeField("meta.title", "Meta title"),
 ];
 
@@ -61,7 +64,7 @@ describe("SpecForm read mode — search parity", () => {
 				"true",
 			);
 		});
-		// …and the escaped selector found the row: scrolled + flashing.
+		// …and the jump found the row: scrolled + flashing.
 		await waitFor(() => {
 			const row = document.querySelector<HTMLElement>(
 				`[data-field-row="${CSS.escape("meta.title")}"]`,
