@@ -199,30 +199,6 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		}
 	}, [submitCount, errors, partition, jumpTo]);
 
-	// "/" focuses the search unless the user is typing in a field.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: rootRef comes from useTabShell (a useRef object), which React guarantees is referentially stable regardless of which hook scope declared it
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "/") return;
-			const active = document.activeElement;
-			if (
-				active instanceof HTMLInputElement ||
-				active instanceof HTMLTextAreaElement ||
-				(active instanceof HTMLElement && active.isContentEditable)
-			)
-				return;
-			const input = rootRef.current?.querySelector<HTMLInputElement>(
-				"[data-field-search-input]",
-			);
-			if (input) {
-				e.preventDefault();
-				input.focus();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, []);
-
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch
 			index={searchIndex}
@@ -287,9 +263,10 @@ interface SpecFormReadTabsProps {
 }
 
 // Mirrors SpecFormTabs minus form hooks: no useTabIndicators (no RHF
-// dirty/error state exists in read mode), no submit-jump effect, no
-// setFocus/"/" shortcut. The search jump scrolls+flashes the target row
-// instead of focusing a form control.
+// dirty/error state exists in read mode), no submit-jump effect. The "/"
+// shortcut comes from FieldSearch itself (not duplicated here), and the
+// search jump scrolls+flashes the target row instead of focusing a form
+// control.
 function SpecFormReadTabs({
 	partition,
 	values,
@@ -304,24 +281,57 @@ function SpecFormReadTabs({
 		searchIndex,
 	} = useTabShell(partition, labels.defaultTab);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: setActiveTab comes from useTabShell (a useState setter), which React guarantees is referentially stable regardless of which hook scope declared it
-	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
-		setActiveTab(`tab-${tabIndex}`);
-		// Wait one frame so the target panel is visible before scrolling.
-		requestAnimationFrame(() => {
-			const el = document.querySelector<HTMLElement>(
-				`[data-field-row="${accessor}"]`,
+	// Same two-phase pattern as SpecFormTabs' jump: stash the target, bump
+	// a token, and do the DOM work in an effect after the tab has rendered
+	// (a lone rAF can fire before the panel's `hidden` flip has committed).
+	const pendingJumpRef = useRef<string | null>(null);
+	const [jumpToken, setJumpToken] = useState(0);
+	const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const jumpTo = useCallback(
+		(accessor: string, tabIndex: number) => {
+			pendingJumpRef.current = accessor;
+			setJumpToken((t) => t + 1);
+			setActiveTab(`tab-${tabIndex}`);
+		},
+		[setActiveTab],
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: jumpToken is a re-run trigger, not read in the effect body — pendingJumpRef carries the value
+	useEffect(() => {
+		const accessor = pendingJumpRef.current;
+		if (accessor == null) return;
+		pendingJumpRef.current = null;
+		const raf = requestAnimationFrame(() => {
+			// Scoped to this instance's root (not document) and escaped:
+			// dotted/nested accessors break a raw attribute selector.
+			const el = rootRef.current?.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape(accessor)}"]`,
 			);
-			el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-			if (el) {
-				el.style.transition = "box-shadow 1.5s ease";
-				el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
-				setTimeout(() => {
-					el.style.boxShadow = "none";
-				}, 1500);
+			if (!el) return;
+			el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+			el.style.transition = "box-shadow 1.5s ease";
+			el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
+			if (flashTimeoutRef.current != null) {
+				clearTimeout(flashTimeoutRef.current);
 			}
+			flashTimeoutRef.current = setTimeout(() => {
+				el.style.boxShadow = "none";
+				flashTimeoutRef.current = null;
+			}, 1500);
 		});
-	}, []);
+		return () => cancelAnimationFrame(raf);
+	}, [jumpToken]);
+
+	// A pending flash must not fire against an unmounted tree.
+	useEffect(
+		() => () => {
+			if (flashTimeoutRef.current != null) {
+				clearTimeout(flashTimeoutRef.current);
+			}
+		},
+		[],
+	);
 
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch

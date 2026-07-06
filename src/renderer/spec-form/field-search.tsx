@@ -1,7 +1,7 @@
 // src/renderer/spec-form/field-search.tsx
 import { Box, Text } from "@chakra-ui/react";
 import { SearchInput, type SearchInputHandle } from "@knkcs/anker/forms";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FieldSearchResult } from "./search-index";
 import { searchFields } from "./search-index";
 
@@ -25,6 +25,7 @@ export function FieldSearch({
 	const listboxId = `${uid}-listbox`;
 	const optionId = (i: number) => `${uid}-option-${i}`;
 	const searchRef = useRef<SearchInputHandle>(null);
+	const boxRef = useRef<HTMLDivElement>(null);
 
 	const [query, setQuery] = useState("");
 	const [highlighted, setHighlighted] = useState(0);
@@ -64,6 +65,36 @@ export function FieldSearch({
 		setHighlighted(0);
 	}, []);
 
+	// "/" focuses this search unless the user is typing in a field. Lives
+	// here (not in the tab components) so every mount — edit, read, editor
+	// canvas — gets the shortcut from one implementation. With multiple
+	// search boxes mounted at once, the last-mounted listener wins.
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "/") return;
+			const active = document.activeElement;
+			if (
+				active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				(active instanceof HTMLElement && active.isContentEditable)
+			)
+				return;
+			e.preventDefault();
+			const handle = searchRef.current;
+			// Same anker-3.1 degrade shape as clearInput(): on 3.1 + React 19
+			// the ref holds the raw <input>, whose native focus() also passes.
+			if (typeof handle?.focus === "function") {
+				handle.focus();
+			} else {
+				boxRef.current
+					?.querySelector<HTMLInputElement>("[data-field-search-input]")
+					?.focus();
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, []);
+
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (!open) return;
 		if (e.key === "ArrowDown") {
@@ -88,6 +119,7 @@ export function FieldSearch({
 
 	return (
 		<Box
+			ref={boxRef}
 			position="relative"
 			maxWidth="64"
 			data-testid="field-search"
