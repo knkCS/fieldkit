@@ -387,6 +387,11 @@ every edit) is replaced by the draft session described above:
 - **No condition-editing UI.** `FieldCondition` exists on the schema type,
   but the renderer doesn't evaluate conditions yet, so an authoring UI for
   them is deferred until that lands.
+- **Toasts.** SpecEditor mounts anker's `<Toaster />` for its own toasts
+  (save errors, delete-undo, Try-it submit). Hosts that mount a global
+  `<Toaster />` are fine on anker ≥ 3.1.1, which dedupes mounted regions
+  (each toast renders once); on anker 3.1.0 both regions render and
+  toasts appear twice while the editor is mounted.
 
 ## Examples
 
