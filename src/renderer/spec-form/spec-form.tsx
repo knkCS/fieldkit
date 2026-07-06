@@ -81,6 +81,10 @@ export interface SpecFormLabels {
 	/** §10 optional marker shown after non-required labels when the form
 	 * is mostly required. */
 	optionalMarker?: string;
+	/** Accessible name for a tab's error badge; "{count}" interpolated. */
+	tabErrors?: string;
+	/** Accessible name for a tab's dirty dot. */
+	unsavedChanges?: string;
 }
 
 export interface SpecFormProps {
@@ -98,6 +102,8 @@ export const DEFAULT_LABELS: Required<SpecFormLabels> = {
 	searchPlaceholder: "Find field…",
 	noResults: "No fields found",
 	optionalMarker: "(optional)",
+	tabErrors: "{count} invalid fields",
+	unsavedChanges: "Unsaved changes",
 };
 
 interface SpecFormTabsProps {
@@ -243,11 +249,18 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		<Tabs.Trigger key={tabKey(tab, i)} value={`tab-${i}`}>
 			{tab.section?.config.name ?? labels.defaultTab}
 			{indicators[i].errorCount > 0 ? (
-				<TabErrorBadge index={i} count={indicators[i].errorCount} />
+				<TabErrorBadge
+					index={i}
+					count={indicators[i].errorCount}
+					label={labels.tabErrors.replace(
+						"{count}",
+						String(indicators[i].errorCount),
+					)}
+				/>
 			) : (
 				indicators[i].dirty && (
 					<Box as="span" data-testid={`tab-dirty-${i}`} ml="1.5">
-						<DirtyDot />
+						<DirtyDot label={labels.unsavedChanges} />
 					</Box>
 				)
 			)}

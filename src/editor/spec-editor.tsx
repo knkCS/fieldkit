@@ -25,6 +25,8 @@ export interface EditorLabels {
 	/** §10 optional marker for canvas previews and Try-it (pass-through to
 	 * SpecForm's `optionalMarker`). */
 	optionalMarker?: string;
+	/** Accessible name for a canvas tab's error badge; "{count}" interpolated. */
+	tabErrors?: string;
 	hiddenField?: string; // e.g. "Hidden field:" prefix
 	groupPreview?: string; // e.g. "Repeating group" — child count appended
 	addField?: string; // aria-label for the ⊕ insertion trigger
@@ -127,6 +129,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	searchPlaceholder: "Find field…",
 	noResults: "No fields found",
 	optionalMarker: "(optional)",
+	tabErrors: "{count} invalid fields",
 	hiddenField: "Hidden field:",
 	groupPreview: "Repeating group",
 	addField: "Add field",
