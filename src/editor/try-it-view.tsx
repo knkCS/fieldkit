@@ -21,6 +21,7 @@ export interface TryItViewProps {
 		defaultTab?: string;
 		searchPlaceholder?: string;
 		noResults?: string;
+		optionalMarker?: string;
 	};
 }
 
@@ -53,6 +54,13 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 						defaultTab: labels.defaultTab,
 						searchPlaceholder: labels.searchPlaceholder,
 						noResults: labels.noResults,
+						// Omitted (not set to `undefined`) when unset: SpecForm merges
+						// via `{...DEFAULT_LABELS, ...labels}`, so an explicit
+						// `optionalMarker: undefined` key here would clobber its
+						// "(optional)" default instead of falling through to it.
+						...(labels.optionalMarker !== undefined && {
+							optionalMarker: labels.optionalMarker,
+						}),
 					}}
 				/>
 				<Flex justify="flex-end" mt="6">

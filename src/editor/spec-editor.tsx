@@ -22,6 +22,9 @@ export interface EditorLabels {
 	defaultTab?: string;
 	searchPlaceholder?: string;
 	noResults?: string;
+	/** §10 optional marker for canvas previews and Try-it (pass-through to
+	 * SpecForm's `optionalMarker`). */
+	optionalMarker?: string;
 	hiddenField?: string; // e.g. "Hidden field:" prefix
 	groupPreview?: string; // e.g. "Repeating group" — child count appended
 	addField?: string; // aria-label for the ⊕ insertion trigger
@@ -123,6 +126,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	defaultTab: "General",
 	searchPlaceholder: "Find field…",
 	noResults: "No fields found",
+	optionalMarker: "(optional)",
 	hiddenField: "Hidden field:",
 	groupPreview: "Repeating group",
 	addField: "Add field",
@@ -505,6 +509,7 @@ export function SpecEditor({
 							defaultTab: mergedLabels.defaultTab,
 							searchPlaceholder: mergedLabels.searchPlaceholder,
 							noResults: mergedLabels.noResults,
+							optionalMarker: mergedLabels.optionalMarker,
 						}}
 					/>
 				) : (
