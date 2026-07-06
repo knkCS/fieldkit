@@ -35,6 +35,20 @@ function textField(accessor: string, required: boolean): Field {
 	};
 }
 
+function sectionField(accessor: string): Field {
+	return {
+		field_type: "section",
+		config: {
+			name: accessor,
+			api_accessor: accessor,
+			required: false,
+			instructions: "",
+		},
+		settings: {},
+		system: false,
+	};
+}
+
 function Wrap({ children }: { children: ReactNode }) {
 	return (
 		<ChakraProvider value={defaultSystem}>
@@ -84,6 +98,20 @@ describe("EditorCanvas — §10 markers (WYSIWYG)", () => {
 		expect(screen.getByText("*")).toBeInTheDocument();
 		expect(screen.queryByText("(optional)")).toBeNull();
 	});
+
+	it("sectioned draft: canvas previews follow the convention through the tabs branch", () => {
+		render(
+			<Wrap>
+				<SpecEditor
+					schema={[sectionField("s1"), ...mostlyRequired]}
+					onCommit={vi.fn()}
+					plugins={builtInFieldTypes}
+				/>
+			</Wrap>,
+		);
+		expect(screen.getByText("(optional)")).toBeInTheDocument();
+		expect(screen.queryByText("*")).toBeNull();
+	});
 });
 
 describe("TryItView — §10 markers", () => {
@@ -117,5 +145,22 @@ describe("TryItView — §10 markers", () => {
 			</Wrap>,
 		);
 		expect(screen.getByText("(optioneel)")).toBeInTheDocument();
+	});
+});
+
+describe("TryItView — label forwarding", () => {
+	it("falls back to SpecForm defaults for omitted labels", () => {
+		render(
+			<Wrap>
+				<TryItView
+					schema={[sectionField("s1"), textField("a", false)]}
+					plugins={builtInFieldTypes}
+					labels={{ testSubmit: "Test submit", testSubmitSuccess: "OK" }}
+				/>
+			</Wrap>,
+		);
+		// Sectioned schema → SpecForm's tabbed path renders the field search;
+		// its placeholder must be SpecForm's own default, not undefined.
+		expect(screen.getByPlaceholderText("Find field…")).toBeInTheDocument();
 	});
 });

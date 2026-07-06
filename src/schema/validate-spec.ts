@@ -49,6 +49,10 @@ export function validateSpec(
 	// group's children) is its OWN duplicate-accessor namespace: the same
 	// accessor reused in a sibling group, or at a different nesting level, is
 	// NOT a collision, so `seen` must not be shared across recursive calls.
+	// Fields nested inside blocks/array settings are NOT traversed — they
+	// live in `settings` (e.g. allowed_blocks[].fields), not
+	// `Field.children`. Documented-by-design; resolveMarkerConvention
+	// shares the same boundary (see its docstring).
 	checkAccessors(fields, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
