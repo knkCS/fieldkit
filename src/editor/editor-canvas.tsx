@@ -143,8 +143,8 @@ export interface CanvasLabels
 	/** Accessible name for the field-search input; falls back to
 	 * "Find field". */
 	searchLabel?: string;
-	/** aria-label for per-field + tab dirty dots; falls back to
-	 * "Unsaved changes". */
+	/** aria-label default for per-field dirty dots in canvas previews (inert
+	 * today) and, via Try-it, the real form; the header dot uses `dirty`. */
 	unsavedChanges?: string;
 }
 

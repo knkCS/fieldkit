@@ -20,6 +20,41 @@ const schema = [
 	makeField("meta", "Meta description"),
 ];
 
+// Two invalid fields on the same tab, for the count≥2 badge-label test below
+// — the schemas above only ever fail one field at a time, so none of them
+// exercises the plural `tabErrors` template (only its singular sibling).
+const twoErrorSchema = [
+	makeField("title", "Title"),
+	makeSection("seo", "SEO"),
+	makeField("meta", "Meta description"),
+	makeField("keywords", "Keywords"),
+];
+
+function TwoErrorHarness() {
+	const methods = useForm({
+		resolver: zodResolver(
+			z.object({
+				title: z.string(),
+				meta: z.string().min(1),
+				keywords: z.string().min(1),
+			}),
+		),
+		defaultValues: { title: "ok", meta: "", keywords: "" },
+	});
+	return (
+		<Provider>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={testPlugins}>
+					<form onSubmit={methods.handleSubmit(() => {})}>
+						<SpecForm schema={twoErrorSchema} />
+						<button type="submit">Save</button>
+					</form>
+				</FieldKitProvider>
+			</FormProvider>
+		</Provider>
+	);
+}
+
 function Harness() {
 	const methods = useForm({
 		resolver: zodResolver(
@@ -208,5 +243,25 @@ describe("SpecForm — submit jump", () => {
 				"true",
 			);
 		});
+	});
+
+	// Finding 4 (review): every prior badge test in this file fails exactly
+	// one field, so only the singular `tabErrorsOne` default was ever
+	// exercised end to end. Fail both "meta" and "keywords" (same tab) to
+	// prove the plural `tabErrors` template's `{count}` interpolation.
+	it("interpolates the plural tabErrors default when a tab has 2+ invalid fields", async () => {
+		render(<TwoErrorHarness />);
+
+		await act(async () => {
+			fireEvent.click(screen.getByText("Save"));
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
+		});
+		expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
+			"aria-label",
+			"2 invalid fields",
+		);
 	});
 });

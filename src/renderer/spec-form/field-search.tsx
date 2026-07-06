@@ -39,10 +39,20 @@ export function FieldSearch({
 		? Math.min(Math.max(highlighted, 0), results.length - 1)
 		: 0;
 
+	// anker ≥3.2 exposes a SearchInputHandle here; on anker 3.1 under
+	// React 19 the ref lands on the raw <input> element instead (plain-FC
+	// prop spread), which has no clear() — type-guard the method so the
+	// 3.1 path falls back to the kept setQuery("") behavior instead of
+	// throwing before onJump.
+	const clearInput = () => {
+		const handle = searchRef.current;
+		if (typeof handle?.clear === "function") handle.clear();
+	};
+
 	const jump = (result: FieldSearchResult) => {
 		setQuery("");
-		// Also clear the visible text (anker ≥3.2; harmless no-op ref on 3.1).
-		searchRef.current?.clear();
+		// Also clear the visible text (anker ≥3.2; guarded no-op on 3.1).
+		clearInput();
 		onJump(result);
 	};
 
@@ -72,7 +82,7 @@ export function FieldSearch({
 			// the drawer's in-progress edits.
 			e.stopPropagation();
 			setQuery("");
-			searchRef.current?.clear();
+			clearInput();
 		}
 	};
 

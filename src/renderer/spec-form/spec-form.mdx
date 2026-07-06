@@ -40,7 +40,7 @@ are all optional and merge over `DEFAULT_LABELS`.
 | `searchLabel` | `"Find field"` | Accessible name (aria-label) of the field-search input. |
 | `tabErrors` | `"{count} invalid fields"` | Accessible name of a tab's error badge; `{count}` is interpolated. |
 | `tabErrorsOne` | `"1 invalid field"` | Accessible name of a tab's error badge at count 1 — used instead of `tabErrors` so the badge reads as a grammatical singular. |
-| `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot — and, on anker ≥3.2, of a dirty field's own per-field dot (graceful no-op on 3.1, where that dot isn't labeled). |
+| `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot — and, on anker ≥3.2, of a dirty field's own per-field dot. On anker 3.1 the per-field dot is still labeled, just with anker's hardcoded German default rather than this override, which only takes effect on ≥3.2. |
 
 ## Marker convention
 
@@ -93,8 +93,10 @@ listbox itself stays mounted so `aria-controls` never points at a removed
 node. On anker ≥3.2, jumping to a result (`Enter` or a click) or pressing
 `Esc` also clears the input's visible text via `SearchInput`'s imperative
 `clear()` (in addition to clearing the internal query state, which alone
-already closes the dropdown) — a harmless no-op on anker 3.1, where the ref
-isn't populated.
+already closes the dropdown). On anker 3.1, that imperative clear is
+skipped by a type guard (under React 19 the ref points at the raw input
+element, which has no `clear()`), so the typed text stays visible after a
+jump — behavior matches 0.3.2 there.
 
 ## Read Mode
 
