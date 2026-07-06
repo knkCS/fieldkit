@@ -28,10 +28,11 @@ behaves identically to `FieldRenderer`.
 | `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
-| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, and optional marker. |
+| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, markers, and indicator announcements. |
 
 `SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`,
-`optionalMarker`) are all optional and merge over `DEFAULT_LABELS`.
+`optionalMarker`, `tabErrors`, `unsavedChanges`) are all optional and
+merge over `DEFAULT_LABELS`.
 
 | Label | Default | Description |
 |-------|---------|--------------|
