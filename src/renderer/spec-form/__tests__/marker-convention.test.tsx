@@ -1,5 +1,5 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
@@ -112,5 +112,34 @@ describe("SpecForm — §10 marker convention", () => {
 		);
 		expect(screen.getByText("(optional)")).toBeInTheDocument();
 		expect(screen.queryByText("*")).toBeNull();
+	});
+
+	it("labels the per-field dirty dot in English by default", async () => {
+		render(
+			<RealWrapper>
+				<SpecForm schema={[textField("a", false)]} />
+			</RealWrapper>,
+		);
+		fireEvent.change(screen.getByLabelText(/^a/), {
+			target: { value: "changed" },
+		});
+		expect(await screen.findByLabelText("Unsaved changes")).toBeInTheDocument();
+	});
+
+	it("labels.unsavedChanges reaches the per-field dirty dot", async () => {
+		render(
+			<RealWrapper>
+				<SpecForm
+					schema={[textField("a", false)]}
+					labels={{ unsavedChanges: "Nicht gespeichert" }}
+				/>
+			</RealWrapper>,
+		);
+		fireEvent.change(screen.getByLabelText(/^a/), {
+			target: { value: "changed" },
+		});
+		expect(
+			await screen.findByLabelText("Nicht gespeichert"),
+		).toBeInTheDocument();
 	});
 });

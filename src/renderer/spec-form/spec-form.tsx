@@ -9,6 +9,7 @@ import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
+import { mergeLabels } from "../merge-labels";
 import { FieldSearch } from "./field-search";
 import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
@@ -419,7 +420,7 @@ export function SpecForm({
 	values,
 	labels,
 }: SpecFormProps) {
-	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
+	const resolvedLabels = mergeLabels(DEFAULT_LABELS, labels);
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
 	const convention = useMemo(() => resolveMarkerConvention(schema), [schema]);
 	// Memoized so the context value doesn't change identity every render
@@ -430,9 +431,10 @@ export function SpecForm({
 				? {
 						showRequiredIndicator: false,
 						optionalText: resolvedLabels.optionalMarker,
+						dirtyLabel: resolvedLabels.unsavedChanges,
 					}
-				: {},
-		[convention, resolvedLabels.optionalMarker],
+				: { dirtyLabel: resolvedLabels.unsavedChanges },
+		[convention, resolvedLabels.optionalMarker, resolvedLabels.unsavedChanges],
 	);
 
 	// `loading` must win over the empty-schema short-circuit below: a

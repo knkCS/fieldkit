@@ -4,6 +4,7 @@ import { Button, DirtyDot } from "@knkcs/anker/atoms";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { Alert, Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { mergeLabels } from "../renderer/merge-labels";
 import type {
 	FieldContext,
 	FieldTypeCategory,
@@ -268,7 +269,7 @@ export function SpecEditor({
 	labels,
 }: SpecEditorProps) {
 	const mergedLabels = useMemo<Required<EditorLabels>>(
-		() => ({ ...DEFAULT_EDITOR_LABELS, ...labels }),
+		() => mergeLabels(DEFAULT_EDITOR_LABELS, labels),
 		[labels],
 	);
 
