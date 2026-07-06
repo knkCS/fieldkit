@@ -229,6 +229,27 @@ export const ReadMode: Story = {
 	render: () => <ReadWrapper spec={readSpec} values={readValues} />,
 };
 
+// Read mode over a SECTIONED spec: the surface this branch shipped ("/" and
+// cross-tab jump in read mode) had no permanent story of its own — the
+// runtime pass that verified it had to improvise one. This reuses
+// `horizontalSpec` (implicit "General" tab + "SEO" + "Advanced") so the
+// tab strip, per-tab search, and cross-tab jump/flash are all exercisable:
+// try "/" to focus search, then search "meta" and jump to a field in SEO.
+const readSectionedValues: Record<string, unknown> = {
+	title: "Launch Announcement",
+	published: true,
+	meta_title: "Launch Announcement — SEO Title",
+	meta_description: "Everything you need to know about the launch.",
+	priority: 5,
+	visibility: "public",
+};
+
+export const ReadModeSectioned: Story = {
+	render: () => (
+		<ReadWrapper spec={horizontalSpec} values={readSectionedValues} />
+	),
+};
+
 export const Loading: Story = {
 	render: () => <EditWrapper spec={horizontalSpec} loading />,
 };

@@ -84,7 +84,10 @@ across every tab. The `/` shortcut has full parity between modes: the
 listener lives in `FieldSearch` itself (not duplicated per mode), so it
 focuses the search box in both edit and read mode alike. If more than one
 `SpecForm`/search box is mounted at once, each mount registers its own
-listener and the last-mounted one wins.
+listener and the **first-mounted** one wins: listeners fire in registration
+order, and the first one to run focuses its own input synchronously — by the
+time later listeners run, focus is already inside a text input, so their own
+skip-while-typing guard makes them early-return.
 
 Use `ArrowUp`/`ArrowDown` to move the highlight, `Enter` to jump to the
 highlighted result, `Esc` to clear the query. Jumping switches to the target
@@ -204,6 +207,16 @@ A form-free render from a `values` object. The subtitle is omitted from
 `values` and renders as an em dash.
 
 <Canvas of={Stories.ReadMode} />
+
+### Read Mode, Sectioned
+
+The same sectioned schema as "Horizontal", rendered in read mode: a tab
+strip with cross-tab search still works with no `FormProvider` in the tree.
+Try `/` to focus search, then search "meta" and jump to a field in the SEO
+tab — the target tab activates and the row scrolls into view with a brief
+highlight.
+
+<Canvas of={Stories.ReadModeSectioned} />
 
 ### Loading
 

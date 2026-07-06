@@ -68,7 +68,11 @@ export function FieldSearch({
 	// "/" focuses this search unless the user is typing in a field. Lives
 	// here (not in the tab components) so every mount — edit, read, editor
 	// canvas — gets the shortcut from one implementation. With multiple
-	// search boxes mounted at once, the last-mounted listener wins.
+	// search boxes mounted at once, the FIRST-mounted listener wins: it runs
+	// first (listeners fire in registration order) and synchronously focuses
+	// its own input, so by the time later listeners run, `document.activeElement`
+	// is already inside a text input and their own skip-while-typing guard
+	// above makes them early-return.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "/") return;

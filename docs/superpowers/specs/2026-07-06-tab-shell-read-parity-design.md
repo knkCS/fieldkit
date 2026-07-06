@@ -81,8 +81,10 @@ through the type-guarded handle
 ref holds the raw input, whose native `.focus` passes the guard) and a
 container-query fallback. Read mode AND the editor canvas search gain
 the shortcut from the single implementation. Known minor (documented in
-the mdx): with multiple search boxes mounted, the last-mounted
-listener wins.
+the mdx): with multiple search boxes mounted, the first-mounted
+listener wins — it runs first (registration order) and synchronously
+focuses its own input, so later listeners' skip-while-typing guard makes
+them early-return.
 
 ### 4. Read-jump parity
 
@@ -128,9 +130,15 @@ the new mechanism.
   unmodified (refactor-invisibility pin).
 - New read-mode tests: `/` focuses the read-mode search; cross-tab
   read jump switches tab and scroll+flashes the target row using a
-  DOTTED accessor fixture (proves `CSS.escape`); jump query is scoped
-  to the instance root; unmount with a pending jump/flash under fake
-  timers produces no errors/act warnings.
+  DOTTED accessor fixture — this pins the jump MECHANISM with a
+  realistic nested accessor, not the escaping itself: the jump's quoted
+  attribute selector already tolerates a literal dot, so `CSS.escape`
+  is defensive hardening for characters that would break a quoted
+  selector (`"`, `\`), not something this fixture alone proves; jump
+  query is scoped to the instance root — implemented and
+  code-reviewed, but not yet pinned by a two-SpecForm-instance test
+  fixture (follow-up work); unmount with a pending jump/flash under
+  fake timers produces no errors/act warnings.
 - Drawer Escape pair as above.
 - Runtime pass (Storybook): read-mode story — `/` focuses search,
   jump scrolls+flashes across tabs; drawer story — Escape sequence
