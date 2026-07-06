@@ -22,6 +22,7 @@ export interface TryItViewProps {
 		searchPlaceholder?: string;
 		noResults?: string;
 		optionalMarker?: string;
+		tabErrors?: string;
 	};
 }
 
@@ -66,6 +67,9 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 						}),
 						...(labels.optionalMarker !== undefined && {
 							optionalMarker: labels.optionalMarker,
+						}),
+						...(labels.tabErrors !== undefined && {
+							tabErrors: labels.tabErrors,
 						}),
 					}}
 				/>

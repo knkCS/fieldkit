@@ -28,14 +28,17 @@ behaves identically to `FieldRenderer`.
 | `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
-| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, and optional marker. |
+| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, markers, and indicator announcements. |
 
 `SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`,
-`optionalMarker`) are all optional and merge over `DEFAULT_LABELS`.
+`optionalMarker`, `tabErrors`, `unsavedChanges`) are all optional and
+merge over `DEFAULT_LABELS`.
 
 | Label | Default | Description |
 |-------|---------|--------------|
 | `optionalMarker` | `"(optional)"` | §10 marker shown after non-required labels when the form is mostly required. |
+| `tabErrors` | `"{count} invalid fields"` | Accessible name of a tab's error badge; `{count}` is interpolated. |
+| `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot. |
 
 ## Marker convention
 

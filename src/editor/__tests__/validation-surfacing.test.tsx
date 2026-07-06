@@ -76,6 +76,11 @@ describe("validation surfacing", () => {
 
 		const badge = screen.getByTestId("tab-errors-0");
 		expect(Number(badge.textContent)).toBeGreaterThanOrEqual(1);
+		// The two "dup" fields collapse into ONE duplicate_accessor
+		// fieldError, so the badge's accessible name interpolates count 1 —
+		// proves the default `tabErrors` label's `.replace("{count}", …)`
+		// wiring at this call site.
+		expect(badge).toHaveAttribute("aria-label", "1 invalid fields");
 
 		// React-key fix: both fields sharing "dup" must still render as two
 		// distinct shells rather than colliding into one (or crashing).

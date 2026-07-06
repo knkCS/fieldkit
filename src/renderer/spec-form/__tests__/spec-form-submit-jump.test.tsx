@@ -68,7 +68,11 @@ function ResetHarness() {
 	);
 }
 
-function PrecedenceHarness() {
+function PrecedenceHarness({
+	labels,
+}: {
+	labels?: { tabErrors?: string };
+} = {}) {
 	const methods = useForm({
 		resolver: zodResolver(
 			z.object({ title: z.string(), meta: z.string().email() }),
@@ -80,7 +84,7 @@ function PrecedenceHarness() {
 			<FormProvider {...methods}>
 				<FieldKitProvider plugins={testPlugins}>
 					<form onSubmit={methods.handleSubmit(() => {})}>
-						<SpecForm schema={schema} />
+						<SpecForm schema={schema} labels={labels} />
 						<button type="submit">Save</button>
 					</form>
 				</FieldKitProvider>
@@ -124,6 +128,36 @@ describe("SpecForm — submit jump", () => {
 			expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
 		});
 		expect(screen.queryByTestId("tab-dirty-1")).not.toBeInTheDocument();
+		// Only "meta" is invalid, so the badge's accessible name is the
+		// default `tabErrors` label interpolated with count 1 — proves the
+		// `.replace("{count}", …)` wiring at this call site, not just that a
+		// badge with SOME label renders.
+		expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
+			"aria-label",
+			"1 invalid fields",
+		);
+	});
+
+	// Finding 2 (review): the `labels.tabErrors` override and its
+	// `.replace("{count}", …)` interpolation were untested — a wrong token
+	// or count source would still pass every prior test.
+	it("interpolates a labels.tabErrors override into the badge's aria-label", async () => {
+		render(<PrecedenceHarness labels={{ tabErrors: "{count} Fehler" }} />);
+
+		fireEvent.change(screen.getByTestId("field-meta"), {
+			target: { value: "not-an-email" },
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByText("Save"));
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
+				"aria-label",
+				"1 Fehler",
+			);
+		});
 	});
 
 	// Regression test: RHF's reset() (EditDrawer calls it whenever the row

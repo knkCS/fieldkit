@@ -133,6 +133,9 @@ export interface CanvasLabels
 	typeCategories?: Partial<Record<FieldTypeCategory, string>>;
 	/** §10 optional marker for canvas previews; falls back to "(optional)". */
 	optionalMarker?: string;
+	/** Accessible name for a tab's error badge; "{count}" interpolated;
+	 * falls back to "{count} invalid fields". */
+	tabErrors?: string;
 }
 
 export interface EditorCanvasProps {
@@ -788,6 +791,9 @@ export function EditorCanvas({
 															<TabErrorBadge
 																index={i}
 																count={tabErrorCounts[i]}
+																label={(
+																	labels.tabErrors ?? "{count} invalid fields"
+																).replace("{count}", String(tabErrorCounts[i]))}
 															/>
 														)}
 													</Tabs.Trigger>
