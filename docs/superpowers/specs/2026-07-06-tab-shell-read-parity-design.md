@@ -92,12 +92,33 @@ scoped to `rootRef.current` (from `useTabShell`), selector uses
 `setTimeout` cleared on unmount. Scroll + box-shadow flash behavior is
 otherwise unchanged.
 
-### 5. Drawer proof
+### 5. Drawer containment FIX + proof
+
+**Discovery (from the proof test itself):** the believed containment
+was broken in production. Ark/zag's dismissable layer registers its
+Escape listener on `document` in the CAPTURE phase, which always fires
+before FieldSearch's bubble-phase `stopPropagation` — so Escape in an
+open search dropdown inside `EditDrawer` closed the whole drawer,
+losing in-progress edits. The old tests used a bare-div ancestor
+stand-in and could not see this.
+
+**Fix:** FieldSearch's Escape containment moves to a **`window`-level
+capture listener, active only while the dropdown is open**. Capture
+propagation runs outermost-first, so window-capture deterministically
+precedes zag's document-capture listener regardless of registration
+order (no same-node-ordering fragility — the rejected alternative).
+While open: `stopPropagation` + close the dropdown (and clear, as
+today). While closed: the listener no-ops and the drawer's own Escape
+behavior is untouched. The old bubble-phase Escape branch in the input
+keydown handler is removed (redundant — a window-capture stop never
+reaches it). Existing bare-div containment tests must still pass with
+the new mechanism.
 
 - Integration test mounting anker's REAL `DrawerRoot` around a
   sectioned `SpecForm`: with the search dropdown open, Escape closes
   only the dropdown (`onClose` NOT called); a second Escape (dropdown
-  closed) propagates and closes the drawer.
+  closed) propagates and closes the drawer. This is now a regression
+  test for the fix, not just a proof.
 - New Storybook story: drawer + sectioned form (the combination the
   issue notes has no coverage), used by the runtime pass.
 
