@@ -28,10 +28,24 @@ behaves identically to `FieldRenderer`.
 | `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
-| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, and no-results text. |
+| `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, and optional marker. |
 
-`SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`) are
-all optional and merge over `DEFAULT_LABELS`.
+`SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`,
+`optionalMarker`) are all optional and merge over `DEFAULT_LABELS`.
+
+| Label | Default | Description |
+|-------|---------|--------------|
+| `optionalMarker` | `"(optional)"` | §10 marker shown after non-required labels when the form is mostly required. |
+
+## Marker convention
+
+SpecForm applies anker's §10 rule automatically — one convention per
+form, chosen from the schema: when required fields are the strict
+majority, optional fields get the muted `optionalMarker` and asterisks
+are suppressed; otherwise required fields get the standard `*`. Group
+children count toward the majority; section markers don't. Read mode
+shows no markers. Standalone `FieldRenderer` (outside SpecForm) falls
+back to anker's default (asterisks on required fields).
 
 ## Section Partitioning
 
@@ -105,12 +119,6 @@ schema. Useful while a spec or its data is still being fetched.
 `SpecDataTable`'s `EditDrawer` renders row edits through `SpecForm`. See the
 [SpecDataTable "Editable" story](?path=/story/table-specdatatable--editable)
 for that flow rather than duplicating it here.
-
-## Known Limitations
-
-- No required/optional marker convention beyond the asterisk anker's
-  `FormField` already renders — blocked on an `optionalText`-equivalent prop
-  in `@knkcs/anker`.
 
 ## Examples
 
