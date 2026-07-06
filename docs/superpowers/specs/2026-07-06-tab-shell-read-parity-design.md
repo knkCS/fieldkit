@@ -91,8 +91,11 @@ them early-return.
 Adopts edit mode's pattern: `pendingJumpRef` + token + effect; query
 scoped to `rootRef.current` (from `useTabShell`), selector uses
 `CSS.escape(accessor)`; the rAF is cancelled and the 1.5s flash
-`setTimeout` cleared on unmount. Scroll + box-shadow flash behavior is
-otherwise unchanged.
+`setTimeout` cleared on unmount. One deliberate flash change (from the
+final-review wave): the ring now APPEARS instantly and only the fade-out
+animates (the old same-tick transition+ring assignment animated the
+appearance too, leaving the highlight near-invisible on landing), and a
+re-jump within the fade window cleans the previous row's ring.
 
 ### 5. Drawer containment FIX + proof
 
