@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Button, IconButton } from "@knkcs/anker/atoms";
 import { useConfirmModal } from "@knkcs/anker/feedback";
+import { type FormMarkers, FormMarkersProvider } from "@knkcs/anker/forms";
 import {
 	MenuContent,
 	MenuItem,
@@ -40,6 +41,7 @@ import { FieldSearch } from "../renderer/spec-form/field-search";
 import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
+import { resolveMarkerConvention } from "../schema/marker-convention";
 import type {
 	FieldContext,
 	FieldTypeCategory,
@@ -129,6 +131,8 @@ export interface CanvasLabels
 	typeNoMatches?: string;
 	typeMaxReached?: string;
 	typeCategories?: Partial<Record<FieldTypeCategory, string>>;
+	/** §10 optional marker for canvas previews; falls back to "(optional)". */
+	optionalMarker?: string;
 }
 
 export interface EditorCanvasProps {
@@ -235,6 +239,21 @@ export function EditorCanvas({
 
 	// Scratch form so real field components render authentic defaults.
 	const methods = useForm({ defaultValues: defaults });
+	const markerConvention = useMemo(
+		() => resolveMarkerConvention(spec.draft),
+		[spec.draft],
+	);
+	// Memoized so the context value doesn't change identity every render.
+	const markers = useMemo<FormMarkers>(
+		() =>
+			markerConvention === "optional-text"
+				? {
+						showRequiredIndicator: false,
+						optionalText: labels.optionalMarker ?? "(optional)",
+					}
+				: {},
+		[markerConvention, labels.optionalMarker],
+	);
 	// Reset ONLY when the defaults actually changed — a per-keystroke reset
 	// would re-render every registered field (incl. heavy ones like TipTap).
 	const lastDefaultsRef = useRef(serializedDefaults);
@@ -660,13 +679,15 @@ export function EditorCanvas({
 	if (partition.tabs.length === 0) {
 		return (
 			<FormProvider {...methods}>
-				<Box data-testid="editor-canvas-empty" p="6" textAlign="center">
-					<Stack gap="3" align="center">
-						<Text color="fg.muted">{labels.emptySpec}</Text>
-						{insertionBoundary(0, 0, "flow", true)}
-						{addSectionButton}
-					</Stack>
-				</Box>
+				<FormMarkersProvider value={markers}>
+					<Box data-testid="editor-canvas-empty" p="6" textAlign="center">
+						<Stack gap="3" align="center">
+							<Text color="fg.muted">{labels.emptySpec}</Text>
+							{insertionBoundary(0, 0, "flow", true)}
+							{addSectionButton}
+						</Stack>
+					</Box>
+				</FormMarkersProvider>
 			</FormProvider>
 		);
 	}
@@ -674,6 +695,32 @@ export function EditorCanvas({
 	if (!partition.hasSections) {
 		return (
 			<FormProvider {...methods}>
+				<FormMarkersProvider value={markers}>
+					<DndContext
+						sensors={sensors}
+						collisionDetection={visibleClosestCenter}
+						onDragStart={handleDragStart}
+						onDragOver={handleDragOver}
+						onDragEnd={handleDragEnd}
+						onDragCancel={handleDragCancel}
+					>
+						<Box ref={containerRef}>
+							{/* mb="5": the first field's overlay boundary reaches 20px above
+							    the shell — this margin is the space it fills. */}
+							<Flex justify="flex-end" mb="5">
+								{addSectionButton}
+							</Flex>
+							{renderFields(partition.tabs[0].fields, 0)}
+						</Box>
+					</DndContext>
+				</FormMarkersProvider>
+			</FormProvider>
+		);
+	}
+
+	return (
+		<FormProvider {...methods}>
+			<FormMarkersProvider value={markers}>
 				<DndContext
 					sensors={sensors}
 					collisionDetection={visibleClosestCenter}
@@ -683,141 +730,119 @@ export function EditorCanvas({
 					onDragCancel={handleDragCancel}
 				>
 					<Box ref={containerRef}>
-						{/* mb="5": the first field's overlay boundary reaches 20px above
-						    the shell — this margin is the space it fills. */}
-						<Flex justify="flex-end" mb="5">
-							{addSectionButton}
-						</Flex>
-						{renderFields(partition.tabs[0].fields, 0)}
-					</Box>
-				</DndContext>
-			</FormProvider>
-		);
-	}
+						<Tabs.Root
+							value={activeTab}
+							onValueChange={(e) => setActiveTab(e.value)}
+							orientation={orientation}
+						>
+							<Flex align="center" justify="space-between" gap="4">
+								<Tabs.List flex="1">
+									{partition.tabs.map((tab, i) => {
+										const accessor = tab.section?.config.api_accessor;
+										const key = accessor ?? `implicit-${i}`;
 
-	return (
-		<FormProvider {...methods}>
-			<DndContext
-				sensors={sensors}
-				collisionDetection={visibleClosestCenter}
-				onDragStart={handleDragStart}
-				onDragOver={handleDragOver}
-				onDragEnd={handleDragEnd}
-				onDragCancel={handleDragCancel}
-			>
-				<Box ref={containerRef}>
-					<Tabs.Root
-						value={activeTab}
-						onValueChange={(e) => setActiveTab(e.value)}
-						orientation={orientation}
-					>
-						<Flex align="center" justify="space-between" gap="4">
-							<Tabs.List flex="1">
-								{partition.tabs.map((tab, i) => {
-									const accessor = tab.section?.config.api_accessor;
-									const key = accessor ?? `implicit-${i}`;
+										if (accessor && renaming === accessor) {
+											return (
+												<TabDropZone key={key} tabIndex={i}>
+													<Input
+														size="xs"
+														width="auto"
+														maxWidth="10rem"
+														autoFocus
+														defaultValue={tab.section?.config.name}
+														aria-label={labels.sectionNameInput}
+														onClick={(e) => e.stopPropagation()}
+														onKeyDown={(e) => {
+															if (e.key === "Enter") {
+																e.preventDefault();
+																// Mirror the Escape path: suppress the follow-on
+																// blur so the commit isn't applied twice.
+																skipBlurRef.current = true;
+																commitRename(accessor, e.currentTarget.value);
+															} else if (e.key === "Escape") {
+																// Stop the rename cancel from also reaching the
+																// document-level Escape/deselect listener (T12).
+																e.stopPropagation();
+																skipBlurRef.current = true;
+																setRenaming(null);
+															}
+														}}
+														onBlur={(e) => {
+															if (skipBlurRef.current) {
+																skipBlurRef.current = false;
+																return;
+															}
+															commitRename(accessor, e.currentTarget.value);
+														}}
+													/>
+												</TabDropZone>
+											);
+										}
 
-									if (accessor && renaming === accessor) {
 										return (
 											<TabDropZone key={key} tabIndex={i}>
-												<Input
-													size="xs"
-													width="auto"
-													maxWidth="10rem"
-													autoFocus
-													defaultValue={tab.section?.config.name}
-													aria-label={labels.sectionNameInput}
-													onClick={(e) => e.stopPropagation()}
-													onKeyDown={(e) => {
-														if (e.key === "Enter") {
-															e.preventDefault();
-															// Mirror the Escape path: suppress the follow-on
-															// blur so the commit isn't applied twice.
-															skipBlurRef.current = true;
-															commitRename(accessor, e.currentTarget.value);
-														} else if (e.key === "Escape") {
-															// Stop the rename cancel from also reaching the
-															// document-level Escape/deselect listener (T12).
-															e.stopPropagation();
-															skipBlurRef.current = true;
-															setRenaming(null);
-														}
-													}}
-													onBlur={(e) => {
-														if (skipBlurRef.current) {
-															skipBlurRef.current = false;
-															return;
-														}
-														commitRename(accessor, e.currentTarget.value);
-													}}
-												/>
-											</TabDropZone>
-										);
-									}
-
-									return (
-										<TabDropZone key={key} tabIndex={i}>
-											<Flex role="presentation" align="center" gap="0.5">
-												<Tabs.Trigger value={`tab-${i}`}>
-													{tab.section?.config.name ?? labels.defaultTab}
-													{tabErrorCounts[i] > 0 && (
-														<TabErrorBadge
-															index={i}
-															count={tabErrorCounts[i]}
+												<Flex role="presentation" align="center" gap="0.5">
+													<Tabs.Trigger value={`tab-${i}`}>
+														{tab.section?.config.name ?? labels.defaultTab}
+														{tabErrorCounts[i] > 0 && (
+															<TabErrorBadge
+																index={i}
+																count={tabErrorCounts[i]}
+															/>
+														)}
+													</Tabs.Trigger>
+													{tab.section && accessor && (
+														<SectionMenu
+															sectionAccessor={accessor}
+															sectionName={tab.section.config.name}
+															isFirst={i === firstSectionIndex}
+															orientation={partition.orientation}
+															onRename={(a) => startRename(a)}
+															onMove={handleMoveSection}
+															onDelete={() =>
+																handleDeleteSection(
+																	accessor,
+																	tab.section?.config.name ?? "",
+																)
+															}
+															onOrientation={handleOrientation}
+															labels={labels}
+															triggerAriaLabel={labels.sectionMenu.replace(
+																"{section}",
+																tab.section.config.name,
+															)}
 														/>
 													)}
-												</Tabs.Trigger>
-												{tab.section && accessor && (
-													<SectionMenu
-														sectionAccessor={accessor}
-														sectionName={tab.section.config.name}
-														isFirst={i === firstSectionIndex}
-														orientation={partition.orientation}
-														onRename={(a) => startRename(a)}
-														onMove={handleMoveSection}
-														onDelete={() =>
-															handleDeleteSection(
-																accessor,
-																tab.section?.config.name ?? "",
-															)
-														}
-														onOrientation={handleOrientation}
-														labels={labels}
-														triggerAriaLabel={labels.sectionMenu.replace(
-															"{section}",
-															tab.section.config.name,
-														)}
-													/>
-												)}
-											</Flex>
-										</TabDropZone>
-									);
-								})}
-							</Tabs.List>
-							{addSectionButton}
-							<FieldSearch
-								index={searchIndex}
-								placeholder={labels.searchPlaceholder}
-								noResultsLabel={labels.noResults}
-								onJump={(r) => {
-									setActiveTab(`tab-${r.tabIndex}`);
-									onSelect(r.accessor);
-								}}
-							/>
-						</Flex>
-						{partition.tabs.map((tab, i) => (
-							<Tabs.Content
-								key={tab.section?.config.api_accessor ?? `implicit-${i}`}
-								value={`tab-${i}`}
-							>
-								{/* pt="5": the first field's overlay boundary reaches 20px
+												</Flex>
+											</TabDropZone>
+										);
+									})}
+								</Tabs.List>
+								{addSectionButton}
+								<FieldSearch
+									index={searchIndex}
+									placeholder={labels.searchPlaceholder}
+									noResultsLabel={labels.noResults}
+									onJump={(r) => {
+										setActiveTab(`tab-${r.tabIndex}`);
+										onSelect(r.accessor);
+									}}
+								/>
+							</Flex>
+							{partition.tabs.map((tab, i) => (
+								<Tabs.Content
+									key={tab.section?.config.api_accessor ?? `implicit-${i}`}
+									value={`tab-${i}`}
+								>
+									{/* pt="5": the first field's overlay boundary reaches 20px
 								    above the shell — this padding is the space it fills. */}
-								<Box pt="5">{renderFields(tab.fields, i)}</Box>
-							</Tabs.Content>
-						))}
-					</Tabs.Root>
-				</Box>
-			</DndContext>
+									<Box pt="5">{renderFields(tab.fields, i)}</Box>
+								</Tabs.Content>
+							))}
+						</Tabs.Root>
+					</Box>
+				</DndContext>
+			</FormMarkersProvider>
 		</FormProvider>
 	);
 }

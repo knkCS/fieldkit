@@ -207,6 +207,15 @@ fields render a framed name+count preview instead (their real component
 needs a populated `useFieldArray`, which reads as broken with zero items on
 an inert canvas).
 
+Canvas previews also follow the same §10 required/optional marker
+convention the rendered form will use, derived **live** from the draft
+(`resolveMarkerConvention`): toggling a field's Required checkbox in the
+panel can flip every preview's markers — asterisks on the required fields
+versus a muted `(optional)` after the optional ones — the instant the
+majority changes, without leaving Build mode. Try-it mode applies the
+identical convention through the real `SpecForm`, so both modes render
+markers exactly as the finished form will.
+
 The accessor input has its own local, possibly-invalid state: editing the
 **name** auto-derives the accessor via slugify *until* the accessor has
 been manually edited once (an "auto-slug latch") — and that latch starts
@@ -266,6 +275,7 @@ are shown.
 | `defaultTab` | `"General"` | Implicit first tab's name (no sections before it) |
 | `searchPlaceholder` | `"Find field…"` | Field search input |
 | `noResults` | `"No fields found"` | Field search, empty result set |
+| `optionalMarker` | `"(optional)"` | §10 optional marker in canvas previews and Try-it (pass-through to SpecForm) |
 | `hiddenField` | `"Hidden field:"` | Prefix before a hidden field's name on the canvas |
 | `groupPreview` | `"Repeating group"` | Group field's framed preview label |
 | `addField` | `"Add field"` | ⊕ insertion trigger aria-label |

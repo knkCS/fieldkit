@@ -1,8 +1,10 @@
 import { Box } from "@chakra-ui/react";
 import { DirtyDot } from "@knkcs/anker/atoms";
+import { type FormMarkers, FormMarkersProvider } from "@knkcs/anker/forms";
 import { Tabs } from "@knkcs/anker/primitives";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext, useFormState } from "react-hook-form";
+import { resolveMarkerConvention } from "../../schema/marker-convention";
 import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
@@ -76,6 +78,9 @@ export interface SpecFormLabels {
 	defaultTab?: string;
 	searchPlaceholder?: string;
 	noResults?: string;
+	/** §10 optional marker shown after non-required labels when the form
+	 * is mostly required. */
+	optionalMarker?: string;
 }
 
 export interface SpecFormProps {
@@ -92,6 +97,7 @@ export const DEFAULT_LABELS: Required<SpecFormLabels> = {
 	defaultTab: "General",
 	searchPlaceholder: "Find field…",
 	noResults: "No fields found",
+	optionalMarker: "(optional)",
 };
 
 interface SpecFormTabsProps {
@@ -402,6 +408,19 @@ export function SpecForm({
 }: SpecFormProps) {
 	const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
+	const convention = useMemo(() => resolveMarkerConvention(schema), [schema]);
+	// Memoized so the context value doesn't change identity every render
+	// (a fresh object each render would re-render every FormField subtree).
+	const markers = useMemo<FormMarkers>(
+		() =>
+			convention === "optional-text"
+				? {
+						showRequiredIndicator: false,
+						optionalText: resolvedLabels.optionalMarker,
+					}
+				: {},
+		[convention, resolvedLabels.optionalMarker],
+	);
 
 	// `loading` must win over the empty-schema short-circuit below: a
 	// consumer fetching the spec itself passes `schema={[]} loading` until
@@ -436,16 +455,20 @@ export function SpecForm({
 
 	if (!partition.hasSections) {
 		return (
-			<FieldRenderer schema={partition.tabs[0].fields} readOnly={readOnly} />
+			<FormMarkersProvider value={markers}>
+				<FieldRenderer schema={partition.tabs[0].fields} readOnly={readOnly} />
+			</FormMarkersProvider>
 		);
 	}
 
 	return (
-		<SpecFormTabs
-			partition={partition}
-			readOnly={readOnly}
-			labels={resolvedLabels}
-		/>
+		<FormMarkersProvider value={markers}>
+			<SpecFormTabs
+				partition={partition}
+				readOnly={readOnly}
+				labels={resolvedLabels}
+			/>
+		</FormMarkersProvider>
 	);
 }
 SpecForm.displayName = "SpecForm";

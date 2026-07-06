@@ -154,7 +154,7 @@ Always run `npm run typecheck` and `npm run lint` before committing. Tests use V
 ## Peer Dependencies
 
 Consuming projects must install:
-- `@knkcs/anker` ^2.0.0 || ^3.0.0
+- `@knkcs/anker` ^3.1.0
 - `react` >= 18, `react-dom` >= 18
 - `@chakra-ui/react` ^3.0.0
 - `react-hook-form` ^7.0.0, `@hookform/resolvers` ^3.0.0, `zod` ^3.0.0

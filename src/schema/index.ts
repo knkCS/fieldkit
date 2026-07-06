@@ -62,6 +62,11 @@ export {
 	virtualTablePlugin,
 } from "./field-types";
 export type { SectionSettings } from "./field-types/section";
+// Marker convention
+export {
+	type MarkerConvention,
+	resolveMarkerConvention,
+} from "./marker-convention";
 // Partition
 export {
 	partitionSchemaBySections,
