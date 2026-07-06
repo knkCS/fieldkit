@@ -23,6 +23,9 @@ export interface TryItViewProps {
 		noResults?: string;
 		optionalMarker?: string;
 		tabErrors?: string;
+		tabErrorsOne?: string;
+		searchLabel?: string;
+		unsavedChanges?: string;
 	};
 }
 
@@ -57,6 +60,9 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 						noResults: labels.noResults,
 						optionalMarker: labels.optionalMarker,
 						tabErrors: labels.tabErrors,
+						tabErrorsOne: labels.tabErrorsOne,
+						searchLabel: labels.searchLabel,
+						unsavedChanges: labels.unsavedChanges,
 					}}
 				/>
 				<Flex justify="flex-end" mt="6">

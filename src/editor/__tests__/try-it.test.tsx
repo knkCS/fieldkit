@@ -152,7 +152,10 @@ describe("TryItView", () => {
 					schema={schema}
 					onCommit={vi.fn()}
 					plugins={plugins}
-					labels={{ tabErrors: "{count} ungültige Felder" }}
+					labels={{
+						tabErrors: "{count} ungültige Felder",
+						tabErrorsOne: "1 ungültiges Feld",
+					}}
 				/>
 			</Wrap>,
 		);
@@ -163,7 +166,7 @@ describe("TryItView", () => {
 		await waitFor(() => {
 			expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
 				"aria-label",
-				"1 ungültige Felder",
+				"1 ungültiges Feld",
 			);
 		});
 	});

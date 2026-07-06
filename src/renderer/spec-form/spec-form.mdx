@@ -30,15 +30,17 @@ behaves identically to `FieldRenderer`.
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
 | `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, markers, and indicator announcements. |
 
-`SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `noResults`,
-`optionalMarker`, `tabErrors`, `unsavedChanges`) are all optional and
-merge over `DEFAULT_LABELS`.
+`SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `searchLabel`,
+`noResults`, `optionalMarker`, `tabErrors`, `tabErrorsOne`, `unsavedChanges`)
+are all optional and merge over `DEFAULT_LABELS`.
 
 | Label | Default | Description |
 |-------|---------|--------------|
 | `optionalMarker` | `"(optional)"` | §10 marker shown after non-required labels when the form is mostly required. |
+| `searchLabel` | `"Find field"` | Accessible name (aria-label) of the field-search input. |
 | `tabErrors` | `"{count} invalid fields"` | Accessible name of a tab's error badge; `{count}` is interpolated. |
-| `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot. |
+| `tabErrorsOne` | `"1 invalid field"` | Accessible name of a tab's error badge at count 1 — used instead of `tabErrors` so the badge reads as a grammatical singular. |
+| `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot — and, on anker ≥3.2, of a dirty field's own per-field dot (graceful no-op on 3.1, where that dot isn't labeled). |
 
 ## Marker convention
 
@@ -83,7 +85,16 @@ jump to the highlighted result, `Esc` to clear the query. Jumping switches to
 the target tab, then — one frame later, once the panel is visible — focuses
 the field (edit mode) or scrolls to and briefly highlights its row (read
 mode). The search box is hidden when the schema has fewer than one
-searchable field.
+searchable field. Its accessible name is `labels.searchLabel`.
+
+An empty result set renders `labels.noResults` in a `role="status"` element
+outside the listbox — announced to assistive tech — while the (empty)
+listbox itself stays mounted so `aria-controls` never points at a removed
+node. On anker ≥3.2, jumping to a result (`Enter` or a click) or pressing
+`Esc` also clears the input's visible text via `SearchInput`'s imperative
+`clear()` (in addition to clearing the internal query state, which alone
+already closes the dropdown) — a harmless no-op on anker 3.1, where the ref
+isn't populated.
 
 ## Read Mode
 

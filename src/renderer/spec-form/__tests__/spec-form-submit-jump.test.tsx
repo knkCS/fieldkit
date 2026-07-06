@@ -71,7 +71,7 @@ function ResetHarness() {
 function PrecedenceHarness({
 	labels,
 }: {
-	labels?: { tabErrors?: string };
+	labels?: { tabErrors?: string; tabErrorsOne?: string };
 } = {}) {
 	const methods = useForm({
 		resolver: zodResolver(
@@ -129,20 +129,27 @@ describe("SpecForm — submit jump", () => {
 		});
 		expect(screen.queryByTestId("tab-dirty-1")).not.toBeInTheDocument();
 		// Only "meta" is invalid, so the badge's accessible name is the
-		// default `tabErrors` label interpolated with count 1 — proves the
-		// `.replace("{count}", …)` wiring at this call site, not just that a
+		// singular `tabErrorsOne` default at count 1 — proves the
+		// `formatCount(...)` wiring at this call site, not just that a
 		// badge with SOME label renders.
 		expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
 			"aria-label",
-			"1 invalid fields",
+			"1 invalid field",
 		);
 	});
 
 	// Finding 2 (review): the `labels.tabErrors` override and its
 	// `.replace("{count}", …)` interpolation were untested — a wrong token
-	// or count source would still pass every prior test.
-	it("interpolates a labels.tabErrors override into the badge's aria-label", async () => {
-		render(<PrecedenceHarness labels={{ tabErrors: "{count} Fehler" }} />);
+	// or count source would still pass every prior test. Count is 1 here, so
+	// `formatCount` picks `tabErrorsOne` over the `tabErrors` plural template
+	// — both overrides are supplied to prove that precedence, not just that
+	// SOME override string renders.
+	it("interpolates labels.tabErrors/tabErrorsOne overrides into the badge's aria-label", async () => {
+		render(
+			<PrecedenceHarness
+				labels={{ tabErrors: "{count} Fehler", tabErrorsOne: "1 Fehler" }}
+			/>,
+		);
 
 		fireEvent.change(screen.getByTestId("field-meta"), {
 			target: { value: "not-an-email" },

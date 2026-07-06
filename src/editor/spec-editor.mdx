@@ -163,12 +163,13 @@ tab trigger is a no-op.
 
 ### Field search
 
-A search box (mirroring `SpecForm`'s, `/` to focus) filters across every
-tab by name or accessor. Unlike the renderer's read-time search, the editor's
-index **includes hidden fields** (`config.hidden`) — they're real, selectable
-rows in Build mode (rendered as an italic "Hidden field: {name}" placeholder
-instead of their live input), since an author must be able to find and edit
-them even though end users in Try-it/production never see them.
+A search box (mirroring `SpecForm`'s, `/` to focus, accessible name
+`labels.searchLabel`) filters across every tab by name or accessor. Unlike
+the renderer's read-time search, the editor's index **includes hidden
+fields** (`config.hidden`) — they're real, selectable rows in Build mode
+(rendered as an italic "Hidden field: {name}" placeholder instead of their
+live input), since an author must be able to find and edit them even though
+end users in Try-it/production never see them.
 
 ### Delete-undo toast
 
@@ -274,9 +275,12 @@ are shown.
 |---|---|---|
 | `defaultTab` | `"General"` | Implicit first tab's name (no sections before it) |
 | `searchPlaceholder` | `"Find field…"` | Field search input |
+| `searchLabel` | `"Find field"` | Field search input's accessible name (aria-label; canvas + Try-it) |
 | `noResults` | `"No fields found"` | Field search, empty result set |
 | `tabErrors` | `"{count} invalid fields"` | Accessible name of a canvas tab's error badge; `{count}` interpolated |
+| `tabErrorsOne` | `"1 invalid field"` | Accessible name of a canvas tab's error badge at count 1 (canvas + Try-it) |
 | `optionalMarker` | `"(optional)"` | §10 optional marker in canvas previews and Try-it (pass-through to SpecForm) |
+| `unsavedChanges` | `"Unsaved changes"` | aria-label for per-field and per-tab dirty dots on the canvas and in Try-it (both pass through to `SpecForm`'s marker/tab-dot labels); the header's own dirty dot uses `dirty` instead |
 | `hiddenField` | `"Hidden field:"` | Prefix before a hidden field's name on the canvas |
 | `groupPreview` | `"Repeating group"` | Group field's framed preview label |
 | `addField` | `"Add field"` | ⊕ insertion trigger aria-label |

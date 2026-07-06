@@ -9,7 +9,7 @@ import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { Schema } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
-import { mergeLabels } from "../merge-labels";
+import { formatCount, mergeLabels } from "../merge-labels";
 import { FieldSearch } from "./field-search";
 import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
@@ -84,8 +84,12 @@ export interface SpecFormLabels {
 	optionalMarker?: string;
 	/** Accessible name for a tab's error badge; "{count}" interpolated. */
 	tabErrors?: string;
+	/** Accessible name for a tab's error badge at count 1. */
+	tabErrorsOne?: string;
 	/** Accessible name for a tab's dirty dot. */
 	unsavedChanges?: string;
+	/** Accessible name for the field-search input. */
+	searchLabel?: string;
 }
 
 export interface SpecFormProps {
@@ -104,7 +108,9 @@ export const DEFAULT_LABELS: Required<SpecFormLabels> = {
 	noResults: "No fields found",
 	optionalMarker: "(optional)",
 	tabErrors: "{count} invalid fields",
+	tabErrorsOne: "1 invalid field",
 	unsavedChanges: "Unsaved changes",
+	searchLabel: "Find field",
 };
 
 interface SpecFormTabsProps {
@@ -228,6 +234,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 			index={searchIndex}
 			placeholder={labels.searchPlaceholder}
 			noResultsLabel={labels.noResults}
+			label={labels.searchLabel}
 			onJump={(result: FieldSearchResult) =>
 				jumpTo(result.accessor, result.tabIndex)
 			}
@@ -253,9 +260,10 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 				<TabErrorBadge
 					index={i}
 					count={indicators[i].errorCount}
-					label={labels.tabErrors.replace(
-						"{count}",
-						String(indicators[i].errorCount),
+					label={formatCount(
+						labels.tabErrorsOne,
+						labels.tabErrors,
+						indicators[i].errorCount,
 					)}
 				/>
 			) : (
@@ -361,6 +369,7 @@ function SpecFormReadTabs({
 			index={searchIndex}
 			placeholder={labels.searchPlaceholder}
 			noResultsLabel={labels.noResults}
+			label={labels.searchLabel}
 			onJump={(result: FieldSearchResult) =>
 				jumpTo(result.accessor, result.tabIndex)
 			}
