@@ -81,17 +81,22 @@ edits).
    the `<label>`. A field never shows both markers (they are gated on
    opposite `required` values).
 
-4. **Non-string labels** (ReactNode) bypass `Field.Label` today and
+4. **`ControlledFormField`** (the non-RHF twin with its own label
+   block) gains the same two props; both components render markers via
+   a shared internal `FieldLabelMarkers` component in
+   `form-markers.tsx` (context resolution lives there once).
+
+5. **Non-string labels** (ReactNode) bypass `Field.Label` today and
    keep doing so — markers don't apply; documented beside the same
    limitation the dirty dot already has.
 
-5. **Docs/changelog:** CHANGELOG 3.1.0 flags the visual change
+6. **Docs/changelog:** CHANGELOG 3.1.0 flags the visual change
    ("required fields now show `*` by default; suppress via
    `showRequiredIndicator={false}` or `FormMarkersProvider`").
    `CLAUDE-ANKER.md` forms section documents both props + provider.
    `docs/page-patterns.md` §10 gets a one-line pointer to the API.
 
-6. **Tests** (`form-field` tests + a Storybook story): asterisk on
+7. **Tests** (`form-field` tests + a Storybook story): asterisk on
    required; `(optional)` on optional when `optionalText` set; never
    both on one field; `showRequiredIndicator={false}` hides the `*`;
    provider supplies defaults; explicit prop beats provider.
@@ -150,8 +155,9 @@ edits).
    integration: mostly-required schema → `(optional)` on optional
    labels and no `*` anywhere; mostly-optional → `*` on required
    labels; `optionalMarker` override renders custom text. Editor:
-   canvas markers flip when a field's required flag is toggled in the
-   draft.
+   canvas renders the correct markers for both conventions (static,
+   jsdom); the live flip when toggling a field's required flag is
+   verified at runtime in Storybook.
 
 ## Release order
 
