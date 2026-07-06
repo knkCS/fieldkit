@@ -58,4 +58,28 @@ describe("resolveMarkerConvention", () => {
 		// group (optional) + 3 required children → 3 vs 1 → optional-text.
 		expect(resolveMarkerConvention([group])).toBe("optional-text");
 	});
+
+	it("excludes hidden fields (and their children) from the count", () => {
+		const hiddenOptional = f(false, {
+			config: {
+				name: "h",
+				api_accessor: "h",
+				required: false,
+				instructions: "",
+				hidden: true,
+			},
+		});
+		// Visible fields: 2 required vs 1 optional → optional-text. The
+		// three hidden optional fields would flip it to asterisk if counted.
+		expect(
+			resolveMarkerConvention([
+				f(true),
+				f(true),
+				f(false),
+				hiddenOptional,
+				hiddenOptional,
+				hiddenOptional,
+			]),
+		).toBe("optional-text");
+	});
 });
