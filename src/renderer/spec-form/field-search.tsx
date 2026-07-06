@@ -106,6 +106,14 @@ export function FieldSearch({
 		if (!open) return;
 		const onEscapeCapture = (e: KeyboardEvent) => {
 			if (e.key !== "Escape") return;
+			// Only contain Escape aimed at this search UI: if focus/target is
+			// elsewhere (e.g. a keyboard drag in the editor canvas whose
+			// cancel listens on document-bubble), let it propagate untouched —
+			// an unscoped intercept would swallow it (the same bug class
+			// field-shell's tooltip closeOnEscape={false} defends against).
+			if (!(e.target instanceof Node) || !boxRef.current?.contains(e.target)) {
+				return;
+			}
 			e.stopPropagation();
 			setQuery("");
 			clearInput();

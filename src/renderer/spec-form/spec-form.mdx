@@ -111,25 +111,28 @@ jump — behavior matches 0.3.2 there.
 ### Escape containment inside a host drawer
 
 `Esc` is contained so it never escapes to a dialog/drawer ancestor while the
-dropdown is open. This matters because Ark/zag's dismissable layer (which
-powers anker's `DrawerRoot`) listens for `Escape` on `document` in the
-**capture** phase — capture runs outermost-first, so a bubble-phase
-`stopPropagation()` on the search input would always lose the race and let
-the same keypress close the host drawer, discarding in-progress edits.
-`FieldSearch` instead registers its own `window`-level, capture-phase
+dropdown is open **and the Escape targets the search UI**. This matters because
+Ark/zag's dismissable layer (which powers anker's `DrawerRoot`) listens for
+`Escape` on `document` in the **capture** phase — capture runs outermost-first,
+so a bubble-phase `stopPropagation()` on the search input would always lose the
+race and let the same keypress close the host drawer, discarding in-progress
+edits. `FieldSearch` instead registers its own `window`-level, capture-phase
 `keydown` listener, but **only while its dropdown is open** (mounted/torn
 down in an effect keyed on that open state). A capture listener on `window`
 always fires before one on `document` — regardless of registration
-order — so it reliably wins and calls `stopPropagation()` before the event
-ever reaches `document`.
+order — so it reliably wins. Before calling `stopPropagation()`, it checks
+whether the event target is inside this search UI's own container; Escapes
+aimed elsewhere (e.g. a keyboard drag in the editor canvas whose cancel
+listens on document-bubble) are allowed to propagate untouched.
 
-The contract: **Escape with the dropdown open clears the query and closes
-only the dropdown — a host drawer never closes on that keypress.** Escape
-pressed again with the dropdown already closed is not intercepted (no
-listener is mounted), so it propagates normally and closes the host drawer.
-See the `InDrawerWithSections` story below and
-`__tests__/drawer-escape.test.tsx` (mounts a real anker `DrawerRoot`, not a
-bare-div stand-in) for the proof.
+The contract: **Escape with the dropdown open and targeting the search UI
+clears the query and closes only the dropdown — a host drawer never closes
+on that keypress.** Escape pressed again with the dropdown already closed is
+not intercepted (no listener is mounted), so it propagates normally and closes
+the host drawer. Escapes aimed outside the search UI, even while the dropdown
+is open, also propagate normally. See the `InDrawerWithSections` story below
+and `__tests__/drawer-escape.test.tsx` (mounts a real anker `DrawerRoot`, not
+a bare-div stand-in) for the proof.
 
 ## Read Mode
 

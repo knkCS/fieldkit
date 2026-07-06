@@ -52,4 +52,28 @@ describe("SpecForm search inside a real DrawerRoot", () => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	it("does not swallow Escape aimed outside the search UI while the dropdown is open", async () => {
+		const onClose = vi.fn();
+		render(
+			<Wrapper>
+				<DrawerRoot open onClose={onClose} title="Edit">
+					<SpecForm schema={schema} />
+				</DrawerRoot>
+			</Wrapper>,
+		);
+		const input = screen.getByPlaceholderText("Find field…");
+		fireEvent.change(input, { target: { value: "meta" } });
+		await waitFor(() => {
+			expect(screen.getByRole("listbox")).toBeInTheDocument();
+		});
+
+		// Escape targeted at an element OUTSIDE the search box (the drawer
+		// body): the scoped listener must let it through — the drawer closes
+		// even though a dropdown was left open.
+		fireEvent.keyDown(document.body, { key: "Escape" });
+		await waitFor(() => {
+			expect(onClose).toHaveBeenCalledTimes(1);
+		});
+	});
 });
