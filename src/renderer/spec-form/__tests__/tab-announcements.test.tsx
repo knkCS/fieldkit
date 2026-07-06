@@ -16,6 +16,18 @@ describe("TabErrorBadge — accessible label", () => {
 		expect(badge).toHaveAttribute("aria-label", "2 invalid fields");
 		expect(badge).toHaveTextContent("2");
 	});
+
+	it("uses the singular label at count 1 (via formatCount at the call sites)", () => {
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<TabErrorBadge index={0} count={1} label="1 invalid field" />
+			</ChakraProvider>,
+		);
+		expect(screen.getByTestId("tab-errors-0")).toHaveAttribute(
+			"aria-label",
+			"1 invalid field",
+		);
+	});
 });
 
 describe("SpecForm — dirty tab announcement", () => {

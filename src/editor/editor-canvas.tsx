@@ -37,6 +37,7 @@ import {
 } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
+import { formatCount } from "../renderer/merge-labels";
 import { FieldSearch } from "../renderer/spec-form/field-search";
 import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
@@ -136,6 +137,15 @@ export interface CanvasLabels
 	/** Accessible name for a tab's error badge; "{count}" interpolated;
 	 * falls back to "{count} invalid fields". */
 	tabErrors?: string;
+	/** Accessible name for a tab's error badge at count 1; falls back to
+	 * "1 invalid field". */
+	tabErrorsOne?: string;
+	/** Accessible name for the field-search input; falls back to
+	 * "Find field". */
+	searchLabel?: string;
+	/** aria-label default for per-field dirty dots in canvas previews (inert
+	 * today) and, via Try-it, the real form; the header dot uses `dirty`. */
+	unsavedChanges?: string;
 }
 
 export interface EditorCanvasProps {
@@ -253,9 +263,10 @@ export function EditorCanvas({
 				? {
 						showRequiredIndicator: false,
 						optionalText: labels.optionalMarker ?? "(optional)",
+						dirtyLabel: labels.unsavedChanges ?? "Unsaved changes",
 					}
-				: {},
-		[markerConvention, labels.optionalMarker],
+				: { dirtyLabel: labels.unsavedChanges ?? "Unsaved changes" },
+		[markerConvention, labels.optionalMarker, labels.unsavedChanges],
 	);
 	// Reset ONLY when the defaults actually changed — a per-keystroke reset
 	// would re-render every registered field (incl. heavy ones like TipTap).
@@ -791,9 +802,11 @@ export function EditorCanvas({
 															<TabErrorBadge
 																index={i}
 																count={tabErrorCounts[i]}
-																label={(
-																	labels.tabErrors ?? "{count} invalid fields"
-																).replace("{count}", String(tabErrorCounts[i]))}
+																label={formatCount(
+																	labels.tabErrorsOne ?? "1 invalid field",
+																	labels.tabErrors ?? "{count} invalid fields",
+																	tabErrorCounts[i],
+																)}
 															/>
 														)}
 													</Tabs.Trigger>
@@ -829,6 +842,7 @@ export function EditorCanvas({
 									index={searchIndex}
 									placeholder={labels.searchPlaceholder}
 									noResultsLabel={labels.noResults}
+									label={labels.searchLabel ?? "Find field"}
 									onJump={(r) => {
 										setActiveTab(`tab-${r.tabIndex}`);
 										onSelect(r.accessor);

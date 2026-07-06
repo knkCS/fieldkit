@@ -24,6 +24,7 @@ function renderSearch(
 				index={index}
 				placeholder="Find field…"
 				noResultsLabel="No fields found"
+				label="Find field"
 				onJump={onJump}
 			/>
 		</ChakraProvider>,
@@ -92,6 +93,7 @@ describe("FieldSearch — combobox semantics", () => {
 					index={[result("alpha", "Alpha field")]}
 					placeholder="Find field…"
 					noResultsLabel="No fields found"
+					label="Find field"
 					onJump={onJump}
 				/>
 			</ChakraProvider>,
@@ -128,6 +130,7 @@ describe("FieldSearch — combobox semantics", () => {
 					index={[]}
 					placeholder="Find field…"
 					noResultsLabel="No fields found"
+					label="Find field"
 					onJump={onJump}
 				/>
 			</ChakraProvider>,
@@ -145,6 +148,7 @@ describe("FieldSearch — combobox semantics", () => {
 					index={THREE}
 					placeholder="Find field…"
 					noResultsLabel="No fields found"
+					label="Find field"
 					onJump={onJump}
 				/>
 			</ChakraProvider>,
@@ -159,5 +163,33 @@ describe("FieldSearch — combobox semantics", () => {
 		expect(onJump).toHaveBeenCalledWith(
 			expect.objectContaining({ accessor: "alpha" }),
 		);
+	});
+
+	it("uses the label prop as the input's accessible name", async () => {
+		renderSearch(THREE);
+		expect(screen.getByLabelText("Find field")).toBe(input());
+	});
+
+	it("announces the empty state and keeps the listbox mounted", async () => {
+		renderSearch(THREE);
+		fireEvent.change(input(), { target: { value: "zzz" } });
+		await waitFor(() => {
+			expect(screen.getByText("No fields found")).toBeInTheDocument();
+		});
+		// The no-results text lives OUTSIDE the listbox, in a status region…
+		expect(screen.getByRole("status")).toHaveTextContent("No fields found");
+		// …while the (empty) listbox stays mounted so aria-controls stays valid.
+		const listbox = screen.getByRole("listbox");
+		expect(listbox.querySelectorAll('[role="option"]')).toHaveLength(0);
+		expect(input().getAttribute("aria-controls")).toBe(listbox.id);
+	});
+
+	it("clears the visible input text after a jump", async () => {
+		const onJump = vi.fn();
+		renderSearch(THREE, onJump);
+		await typeQuery("alpha");
+		fireEvent.keyDown(input(), { key: "Enter" });
+		expect(onJump).toHaveBeenCalled();
+		expect((input() as HTMLInputElement).value).toBe("");
 	});
 });

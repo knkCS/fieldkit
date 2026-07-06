@@ -12,6 +12,7 @@ import {
 import { Tooltip } from "@knkcs/anker/primitives";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { mergeLabels } from "../renderer/merge-labels";
 import type {
 	FieldContext,
 	FieldTypeCategory,
@@ -108,18 +109,14 @@ function TypePickerInner({
 		return groups;
 	}, [filteredPlugins]);
 
-	// Per-key `??` fallback rather than a blind `{...DEFAULT, ...labels}`
-	// spread: a caller that builds its labels object by mapping through
+	// mergeLabels (rather than a blind `{...DEFAULT, ...labels}` spread)
+	// because a caller that builds its labels object by mapping through
 	// possibly-absent upstream fields (as TypePickerPopover's `pickerLabels`
 	// does when threaded from a CanvasLabels that doesn't set the type* keys)
 	// produces keys present with value `undefined`, not omitted — a spread
 	// would still overwrite the default with that `undefined`.
 	const l = {
-		searchPlaceholder:
-			labels?.searchPlaceholder ?? DEFAULT_TYPE_PICKER_LABELS.searchPlaceholder,
-		searchLabel: labels?.searchLabel ?? DEFAULT_TYPE_PICKER_LABELS.searchLabel,
-		noMatches: labels?.noMatches ?? DEFAULT_TYPE_PICKER_LABELS.noMatches,
-		maxReached: labels?.maxReached ?? DEFAULT_TYPE_PICKER_LABELS.maxReached,
+		...mergeLabels(DEFAULT_TYPE_PICKER_LABELS, labels),
 		categories: {
 			...DEFAULT_TYPE_PICKER_LABELS.categories,
 			...labels?.categories,

@@ -20,6 +20,41 @@ const schema = [
 	makeField("meta", "Meta description"),
 ];
 
+// Two invalid fields on the same tab, for the count≥2 badge-label test below
+// — the schemas above only ever fail one field at a time, so none of them
+// exercises the plural `tabErrors` template (only its singular sibling).
+const twoErrorSchema = [
+	makeField("title", "Title"),
+	makeSection("seo", "SEO"),
+	makeField("meta", "Meta description"),
+	makeField("keywords", "Keywords"),
+];
+
+function TwoErrorHarness() {
+	const methods = useForm({
+		resolver: zodResolver(
+			z.object({
+				title: z.string(),
+				meta: z.string().min(1),
+				keywords: z.string().min(1),
+			}),
+		),
+		defaultValues: { title: "ok", meta: "", keywords: "" },
+	});
+	return (
+		<Provider>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={testPlugins}>
+					<form onSubmit={methods.handleSubmit(() => {})}>
+						<SpecForm schema={twoErrorSchema} />
+						<button type="submit">Save</button>
+					</form>
+				</FieldKitProvider>
+			</FormProvider>
+		</Provider>
+	);
+}
+
 function Harness() {
 	const methods = useForm({
 		resolver: zodResolver(
@@ -71,7 +106,7 @@ function ResetHarness() {
 function PrecedenceHarness({
 	labels,
 }: {
-	labels?: { tabErrors?: string };
+	labels?: { tabErrors?: string; tabErrorsOne?: string };
 } = {}) {
 	const methods = useForm({
 		resolver: zodResolver(
@@ -129,20 +164,27 @@ describe("SpecForm — submit jump", () => {
 		});
 		expect(screen.queryByTestId("tab-dirty-1")).not.toBeInTheDocument();
 		// Only "meta" is invalid, so the badge's accessible name is the
-		// default `tabErrors` label interpolated with count 1 — proves the
-		// `.replace("{count}", …)` wiring at this call site, not just that a
+		// singular `tabErrorsOne` default at count 1 — proves the
+		// `formatCount(...)` wiring at this call site, not just that a
 		// badge with SOME label renders.
 		expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
 			"aria-label",
-			"1 invalid fields",
+			"1 invalid field",
 		);
 	});
 
 	// Finding 2 (review): the `labels.tabErrors` override and its
 	// `.replace("{count}", …)` interpolation were untested — a wrong token
-	// or count source would still pass every prior test.
-	it("interpolates a labels.tabErrors override into the badge's aria-label", async () => {
-		render(<PrecedenceHarness labels={{ tabErrors: "{count} Fehler" }} />);
+	// or count source would still pass every prior test. Count is 1 here, so
+	// `formatCount` picks `tabErrorsOne` over the `tabErrors` plural template
+	// — both overrides are supplied to prove that precedence, not just that
+	// SOME override string renders.
+	it("interpolates labels.tabErrors/tabErrorsOne overrides into the badge's aria-label", async () => {
+		render(
+			<PrecedenceHarness
+				labels={{ tabErrors: "{count} Fehler", tabErrorsOne: "1 Fehler" }}
+			/>,
+		);
 
 		fireEvent.change(screen.getByTestId("field-meta"), {
 			target: { value: "not-an-email" },
@@ -201,5 +243,25 @@ describe("SpecForm — submit jump", () => {
 				"true",
 			);
 		});
+	});
+
+	// Finding 4 (review): every prior badge test in this file fails exactly
+	// one field, so only the singular `tabErrorsOne` default was ever
+	// exercised end to end. Fail both "meta" and "keywords" (same tab) to
+	// prove the plural `tabErrors` template's `{count}` interpolation.
+	it("interpolates the plural tabErrors default when a tab has 2+ invalid fields", async () => {
+		render(<TwoErrorHarness />);
+
+		await act(async () => {
+			fireEvent.click(screen.getByText("Save"));
+		});
+
+		await waitFor(() => {
+			expect(screen.getByTestId("tab-errors-1")).toBeInTheDocument();
+		});
+		expect(screen.getByTestId("tab-errors-1")).toHaveAttribute(
+			"aria-label",
+			"2 invalid fields",
+		);
 	});
 });

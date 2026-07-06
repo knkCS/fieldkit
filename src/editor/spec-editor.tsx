@@ -4,6 +4,7 @@ import { Button, DirtyDot } from "@knkcs/anker/atoms";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { Alert, Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { mergeLabels } from "../renderer/merge-labels";
 import type {
 	FieldContext,
 	FieldTypeCategory,
@@ -27,6 +28,13 @@ export interface EditorLabels {
 	optionalMarker?: string;
 	/** Accessible name for a canvas tab's error badge; "{count}" interpolated. */
 	tabErrors?: string;
+	/** Accessible name for a canvas tab's error badge at count 1. */
+	tabErrorsOne?: string;
+	/** Accessible name for the field-search input (canvas/Try-it). */
+	searchLabel?: string;
+	/** aria-label for per-field + tab dirty dots (canvas/Try-it); the header
+	 * dot uses `dirty`. */
+	unsavedChanges?: string;
 	hiddenField?: string; // e.g. "Hidden field:" prefix
 	groupPreview?: string; // e.g. "Repeating group" — child count appended
 	addField?: string; // aria-label for the ⊕ insertion trigger
@@ -130,6 +138,9 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	noResults: "No fields found",
 	optionalMarker: "(optional)",
 	tabErrors: "{count} invalid fields",
+	tabErrorsOne: "1 invalid field",
+	searchLabel: "Find field",
+	unsavedChanges: "Unsaved changes",
 	hiddenField: "Hidden field:",
 	groupPreview: "Repeating group",
 	addField: "Add field",
@@ -268,7 +279,7 @@ export function SpecEditor({
 	labels,
 }: SpecEditorProps) {
 	const mergedLabels = useMemo<Required<EditorLabels>>(
-		() => ({ ...DEFAULT_EDITOR_LABELS, ...labels }),
+		() => mergeLabels(DEFAULT_EDITOR_LABELS, labels),
 		[labels],
 	);
 
@@ -514,6 +525,9 @@ export function SpecEditor({
 							noResults: mergedLabels.noResults,
 							optionalMarker: mergedLabels.optionalMarker,
 							tabErrors: mergedLabels.tabErrors,
+							searchLabel: mergedLabels.searchLabel,
+							tabErrorsOne: mergedLabels.tabErrorsOne,
+							unsavedChanges: mergedLabels.unsavedChanges,
 						}}
 					/>
 				) : (

@@ -1,7 +1,7 @@
 // src/renderer/spec-form/field-search.tsx
 import { Box, Text } from "@chakra-ui/react";
-import { SearchInput } from "@knkcs/anker/forms";
-import { useCallback, useId, useState } from "react";
+import { SearchInput, type SearchInputHandle } from "@knkcs/anker/forms";
+import { useCallback, useId, useRef, useState } from "react";
 import type { FieldSearchResult } from "./search-index";
 import { searchFields } from "./search-index";
 
@@ -9,6 +9,8 @@ export interface FieldSearchProps {
 	index: FieldSearchResult[];
 	placeholder: string;
 	noResultsLabel: string;
+	/** Accessible name for the search input. */
+	label: string;
 	onJump: (result: FieldSearchResult) => void;
 }
 
@@ -16,11 +18,13 @@ export function FieldSearch({
 	index,
 	placeholder,
 	noResultsLabel,
+	label,
 	onJump,
 }: FieldSearchProps) {
 	const uid = useId();
 	const listboxId = `${uid}-listbox`;
 	const optionId = (i: number) => `${uid}-option-${i}`;
+	const searchRef = useRef<SearchInputHandle>(null);
 
 	const [query, setQuery] = useState("");
 	const [highlighted, setHighlighted] = useState(0);
@@ -35,8 +39,20 @@ export function FieldSearch({
 		? Math.min(Math.max(highlighted, 0), results.length - 1)
 		: 0;
 
+	// anker ≥3.2 exposes a SearchInputHandle here; on anker 3.1 under
+	// React 19 the ref lands on the raw <input> element instead (plain-FC
+	// prop spread), which has no clear() — type-guard the method so the
+	// 3.1 path falls back to the kept setQuery("") behavior instead of
+	// throwing before onJump.
+	const clearInput = () => {
+		const handle = searchRef.current;
+		if (typeof handle?.clear === "function") handle.clear();
+	};
+
 	const jump = (result: FieldSearchResult) => {
 		setQuery("");
+		// Also clear the visible text (anker ≥3.2; guarded no-op on 3.1).
+		clearInput();
 		onJump(result);
 	};
 
@@ -66,6 +82,7 @@ export function FieldSearch({
 			// the drawer's in-progress edits.
 			e.stopPropagation();
 			setQuery("");
+			clearInput();
 		}
 	};
 
@@ -77,11 +94,13 @@ export function FieldSearch({
 			onKeyDown={handleKeyDown}
 		>
 			<SearchInput
+				ref={searchRef}
 				size="sm"
 				placeholder={placeholder}
 				onSearch={handleSearch}
 				data-field-search-input
 				role="combobox"
+				aria-label={label}
 				aria-expanded={open}
 				aria-controls={open ? listboxId : undefined}
 				aria-autocomplete="list"
@@ -91,7 +110,6 @@ export function FieldSearch({
 			/>
 			{open && (
 				<Box
-					id={listboxId}
 					position="absolute"
 					top="100%"
 					right="0"
@@ -103,14 +121,9 @@ export function FieldSearch({
 					borderRadius="md"
 					boxShadow="md"
 					zIndex="dropdown"
-					role="listbox"
 				>
-					{results.length === 0 ? (
-						<Text px="3" py="2" fontSize="sm" color="fg.muted">
-							{noResultsLabel}
-						</Text>
-					) : (
-						results.map((result, i) => (
+					<Box id={listboxId} role="listbox">
+						{results.map((result, i) => (
 							<Box
 								key={result.accessor}
 								id={optionId(i)}
@@ -130,7 +143,12 @@ export function FieldSearch({
 								<Text>{result.label}</Text>
 								<Text color="fg.muted">{result.tabLabel}</Text>
 							</Box>
-						))
+						))}
+					</Box>
+					{results.length === 0 && (
+						<Text role="status" px="3" py="2" fontSize="sm" color="fg.muted">
+							{noResultsLabel}
+						</Text>
 					)}
 				</Box>
 			)}
