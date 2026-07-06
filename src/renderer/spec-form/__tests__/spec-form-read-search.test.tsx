@@ -1,4 +1,5 @@
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -26,6 +27,11 @@ const schema = [
 	// this fixture pins the jump MECHANISM with a realistic nested
 	// accessor, not the escaping itself.
 	makeField("meta.title", "Meta title"),
+	// A second SEO field, distinct from meta.title, so a test can jump to
+	// one and then the other within the same tab — proving the flash
+	// clobber fix (a second jump must clean up the FIRST row's ring, not
+	// just apply a new one to the second).
+	makeField("meta.description", "Meta description"),
 ];
 
 function renderRead() {
@@ -82,18 +88,71 @@ describe("SpecForm read mode — search parity", () => {
 			target: { value: "meta" },
 		});
 		// Debounce (300ms) then let the dropdown render.
-		await vi.advanceTimersByTimeAsync(400);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(400);
+		});
 		// Scoped to the listbox — see the disambiguation note above.
 		fireEvent.click(
 			within(screen.getByRole("listbox")).getByText("Meta title"),
 		);
 		// Flush the jump's rAF (jsdom rAF is timer-backed under fake timers).
-		await vi.advanceTimersByTimeAsync(50);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(50);
+		});
 
 		// Unmount while the 1.5s flash timeout is pending, then advance past
 		// it — the cleared timeout must not touch the detached node or warn;
 		// reaching the end without throwing is the assertion.
 		unmount();
-		await vi.advanceTimersByTimeAsync(2000);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(2000);
+		});
+	});
+
+	it("cleans up the previous row's ring when a second jump lands within the fade window", async () => {
+		vi.useFakeTimers();
+		renderRead();
+
+		const rowFor = (accessor: string) =>
+			document.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape(accessor)}"]`,
+			);
+
+		// First jump: "meta" -> "Meta title".
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "meta" },
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(400);
+		});
+		fireEvent.click(
+			within(screen.getByRole("listbox")).getByText("Meta title"),
+		);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(50);
+		});
+		expect(rowFor("meta.title")?.style.boxShadow).toContain("3px");
+
+		// Second jump, well within the 1.5s fade window, to a DIFFERENT
+		// field: "meta" -> "Meta description".
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "meta" },
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(400);
+		});
+		fireEvent.click(
+			within(screen.getByRole("listbox")).getByText("Meta description"),
+		);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(50);
+		});
+
+		// The second row now carries the ring...
+		expect(rowFor("meta.description")?.style.boxShadow).toContain("3px");
+		// ...and the first row's ring must have been cleaned up, not left
+		// forever — this is the clobber bug.
+		const firstRowShadow = rowFor("meta.title")?.style.boxShadow;
+		expect(firstRowShadow === "none" || firstRowShadow === "").toBe(true);
 	});
 });

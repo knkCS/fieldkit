@@ -150,12 +150,14 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// element inside a still-hidden panel silently fails. Instead, stash
 	// the target and let the effect below do the focusing once `activeTab`
 	// has actually rendered.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: setActiveTab comes from useTabShell (a useState setter), which React guarantees is referentially stable regardless of which hook scope declared it
-	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
-		pendingJumpRef.current = accessor;
-		setJumpToken((t) => t + 1);
-		setActiveTab(`tab-${tabIndex}`);
-	}, []);
+	const jumpTo = useCallback(
+		(accessor: string, tabIndex: number) => {
+			pendingJumpRef.current = accessor;
+			setJumpToken((t) => t + 1);
+			setActiveTab(`tab-${tabIndex}`);
+		},
+		[setActiveTab],
+	);
 
 	// Runs after the jump's target tab has rendered (both state updates in
 	// jumpTo land in the same commit, so `activeTab` already reflects the
@@ -287,6 +289,10 @@ function SpecFormReadTabs({
 	const pendingJumpRef = useRef<string | null>(null);
 	const [jumpToken, setJumpToken] = useState(0);
 	const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// The element currently carrying the flash ring, so a second jump within
+	// the fade window can clean up ITS ring (not just apply a new one to the
+	// next target) — otherwise the first row's highlight never clears.
+	const flashElRef = useRef<HTMLElement | null>(null);
 
 	const jumpTo = useCallback(
 		(accessor: string, tabIndex: number) => {
@@ -310,14 +316,27 @@ function SpecFormReadTabs({
 			);
 			if (!el) return;
 			el.scrollIntoView?.({ block: "center", behavior: "smooth" });
-			el.style.transition = "box-shadow 1.5s ease";
-			el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
+			// A second jump within the fade window must clean the previous
+			// row's ring, or it stays highlighted forever.
 			if (flashTimeoutRef.current != null) {
 				clearTimeout(flashTimeoutRef.current);
+				if (flashElRef.current) {
+					flashElRef.current.style.transition = "none";
+					flashElRef.current.style.boxShadow = "none";
+				}
 			}
+			// Appear instantly (no transition), fade out later: setting the
+			// transition in the same tick as the ring would animate the
+			// APPEARANCE too, leaving the highlight near-invisible right when
+			// the user lands on the row.
+			el.style.transition = "none";
+			el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
+			flashElRef.current = el;
 			flashTimeoutRef.current = setTimeout(() => {
+				el.style.transition = "box-shadow 1.5s ease";
 				el.style.boxShadow = "none";
 				flashTimeoutRef.current = null;
+				flashElRef.current = null;
 			}, 1500);
 		});
 		return () => cancelAnimationFrame(raf);
@@ -329,6 +348,8 @@ function SpecFormReadTabs({
 			if (flashTimeoutRef.current != null) {
 				clearTimeout(flashTimeoutRef.current);
 			}
+			flashTimeoutRef.current = null;
+			flashElRef.current = null;
 		},
 		[],
 	);
