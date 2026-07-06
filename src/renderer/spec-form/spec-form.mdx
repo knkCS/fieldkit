@@ -80,12 +80,22 @@ just the one currently in view.
 
 A search box (`/` keyboard shortcut, unless focus is already in a text
 input/textarea/content-editable element) filters fields by name or accessor
-across every tab. Use `ArrowUp`/`ArrowDown` to move the highlight, `Enter` to
-jump to the highlighted result, `Esc` to clear the query. Jumping switches to
-the target tab, then — one frame later, once the panel is visible — focuses
-the field (edit mode) or scrolls to and briefly highlights its row (read
-mode). The search box is hidden when the schema has fewer than one
-searchable field. Its accessible name is `labels.searchLabel`.
+across every tab. The `/` shortcut has full parity between modes: the
+listener lives in `FieldSearch` itself (not duplicated per mode), so it
+focuses the search box in both edit and read mode alike. If more than one
+`SpecForm`/search box is mounted at once, each mount registers its own
+listener and the last-mounted one wins.
+
+Use `ArrowUp`/`ArrowDown` to move the highlight, `Enter` to jump to the
+highlighted result, `Esc` to clear the query. Jumping switches to the target
+tab, then — one frame later, once the panel is visible — focuses the field
+(edit mode) or scrolls to and briefly highlights its row (read mode). The
+read-mode jump is scoped to this `SpecForm` instance's own root (not
+`document`), and the target accessor is passed through `CSS.escape()` before
+being used in an attribute selector, so dotted/nested accessors and multiple
+mounted instances don't collide. The search box is hidden when the schema
+has fewer than one searchable field. Its accessible name is
+`labels.searchLabel`.
 
 An empty result set renders `labels.noResults` in a `role="status"` element
 outside the listbox — announced to assistive tech — while the (empty)
@@ -97,6 +107,29 @@ already closes the dropdown). On anker 3.1, that imperative clear is
 skipped by a type guard (under React 19 the ref points at the raw input
 element, which has no `clear()`), so the typed text stays visible after a
 jump — behavior matches 0.3.2 there.
+
+### Escape containment inside a host drawer
+
+`Esc` is contained so it never escapes to a dialog/drawer ancestor while the
+dropdown is open. This matters because Ark/zag's dismissable layer (which
+powers anker's `DrawerRoot`) listens for `Escape` on `document` in the
+**capture** phase — capture runs outermost-first, so a bubble-phase
+`stopPropagation()` on the search input would always lose the race and let
+the same keypress close the host drawer, discarding in-progress edits.
+`FieldSearch` instead registers its own `window`-level, capture-phase
+`keydown` listener, but **only while its dropdown is open** (mounted/torn
+down in an effect keyed on that open state). A capture listener on `window`
+always fires before one on `document` — regardless of registration
+order — so it reliably wins and calls `stopPropagation()` before the event
+ever reaches `document`.
+
+The contract: **Escape with the dropdown open clears the query and closes
+only the dropdown — a host drawer never closes on that keypress.** Escape
+pressed again with the dropdown already closed is not intercepted (no
+listener is mounted), so it propagates normally and closes the host drawer.
+See the `InDrawerWithSections` story below and
+`__tests__/drawer-escape.test.tsx` (mounts a real anker `DrawerRoot`, not a
+bare-div stand-in) for the proof.
 
 ## Read Mode
 
@@ -134,7 +167,9 @@ schema. Useful while a spec or its data is still being fetched.
 
 `SpecDataTable`'s `EditDrawer` renders row edits through `SpecForm`. See the
 [SpecDataTable "Editable" story](?path=/story/table-specdatatable--editable)
-for that flow rather than duplicating it here.
+for that flow rather than duplicating it here. For the search dropdown's
+Escape-containment contract specifically, see "Escape containment inside a
+host drawer" above and the `InDrawerWithSections` example below.
 
 ## Examples
 
@@ -172,3 +207,11 @@ A form-free render from a `values` object. The subtitle is omitted from
 The skeleton state, shown while a schema or its data is still loading.
 
 <Canvas of={Stories.Loading} />
+
+### In a Drawer, With Sections
+
+The same sectioned schema as "Horizontal", mounted inside a real anker
+`DrawerRoot` (open a field search, then try `Esc` — it closes only the
+dropdown; press `Esc` again to close the drawer).
+
+<Canvas of={Stories.InDrawerWithSections} />
