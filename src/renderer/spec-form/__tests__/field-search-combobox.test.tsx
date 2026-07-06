@@ -114,4 +114,50 @@ describe("FieldSearch — combobox semantics", () => {
 		});
 		expect(input()).not.toHaveAttribute("aria-activedescendant");
 	});
+
+	it("recovers after arrowing on an empty result set when results grow back", async () => {
+		const onJump = vi.fn();
+		const { rerender } = renderSearch(THREE, onJump);
+		await typeQuery("alpha");
+
+		// Shrink to zero matches (query text unchanged) — dropdown stays
+		// open showing the no-results row.
+		rerender(
+			<ChakraProvider value={defaultSystem}>
+				<FieldSearch
+					index={[]}
+					placeholder="Find field…"
+					noResultsLabel="No fields found"
+					onJump={onJump}
+				/>
+			</ChakraProvider>,
+		);
+		await waitFor(() => {
+			expect(screen.getByText("No fields found")).toBeInTheDocument();
+		});
+		// Pre-fix this stores highlighted = -1.
+		fireEvent.keyDown(input(), { key: "ArrowDown" });
+
+		// Grow the results back without changing the query.
+		rerender(
+			<ChakraProvider value={defaultSystem}>
+				<FieldSearch
+					index={THREE}
+					placeholder="Find field…"
+					noResultsLabel="No fields found"
+					onJump={onJump}
+				/>
+			</ChakraProvider>,
+		);
+		await waitFor(() => {
+			expect(screen.getAllByRole("option")).toHaveLength(3);
+		});
+		expect(input().getAttribute("aria-activedescendant")).toBe(
+			screen.getAllByRole("option")[0].id,
+		);
+		fireEvent.keyDown(input(), { key: "Enter" });
+		expect(onJump).toHaveBeenCalledWith(
+			expect.objectContaining({ accessor: "alpha" }),
+		);
+	});
 });

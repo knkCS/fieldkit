@@ -29,9 +29,10 @@ export function FieldSearch({
 	// Derived clamp: a schema hot-swap can shrink `results` while the query
 	// (and the stale `highlighted` state) survive — deriving instead of
 	// clamping in an effect means Enter can never point past the end, with
-	// no render-timing window.
+	// no render-timing window. Floored too: arrowing while zero results are
+	// shown stores -1, which must not survive a later regrowth.
 	const safeHighlighted = results.length
-		? Math.min(highlighted, results.length - 1)
+		? Math.min(Math.max(highlighted, 0), results.length - 1)
 		: 0;
 
 	const jump = (result: FieldSearchResult) => {
