@@ -13,10 +13,9 @@ import { formatCount, mergeLabels } from "../merge-labels";
 import { FieldSearch } from "./field-search";
 import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
-import { buildSearchIndex } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { TabErrorBadge } from "./tab-error-badge";
-import { useContainerOrientation } from "./use-container-orientation";
+import { TabShell, useTabShell } from "./tab-shell";
 import { useTabIndicators } from "./use-tab-indicators";
 
 function tabKey(tab: SpecTab, index: number): string {
@@ -120,25 +119,18 @@ interface SpecFormTabsProps {
 }
 
 function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
-	const [activeTab, setActiveTab] = useState("tab-0");
-	const { orientation, containerRef } = useContainerOrientation(
-		partition.orientation,
-	);
-	const rootRef = useRef<HTMLDivElement>(null);
+	const {
+		activeTab,
+		setActiveTab,
+		orientation,
+		containerRef,
+		rootRef,
+		searchIndex,
+	} = useTabShell(partition, labels.defaultTab);
 	const indicators = useTabIndicators(partition.tabs);
 	const { setFocus } = useFormContext();
 	const { submitCount, errors } = useFormState();
 	const lastHandledSubmit = useRef(0);
-	const searchIndex = useMemo(
-		() => buildSearchIndex(partition.tabs, labels.defaultTab),
-		[partition, labels.defaultTab],
-	);
-
-	// Reset to the first tab when the partition identity changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
-	useEffect(() => {
-		setActiveTab("tab-0");
-	}, [partition]);
 
 	// Target accessor for an in-flight jump, consumed by the effect below.
 	// A ref (rather than state) because writing it must not itself trigger
@@ -158,11 +150,14 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// element inside a still-hidden panel silently fails. Instead, stash
 	// the target and let the effect below do the focusing once `activeTab`
 	// has actually rendered.
-	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
-		pendingJumpRef.current = accessor;
-		setJumpToken((t) => t + 1);
-		setActiveTab(`tab-${tabIndex}`);
-	}, []);
+	const jumpTo = useCallback(
+		(accessor: string, tabIndex: number) => {
+			pendingJumpRef.current = accessor;
+			setJumpToken((t) => t + 1);
+			setActiveTab(`tab-${tabIndex}`);
+		},
+		[setActiveTab],
+	);
 
 	// Runs after the jump's target tab has rendered (both state updates in
 	// jumpTo land in the same commit, so `activeTab` already reflects the
@@ -206,29 +201,6 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		}
 	}, [submitCount, errors, partition, jumpTo]);
 
-	// "/" focuses the search unless the user is typing in a field.
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "/") return;
-			const active = document.activeElement;
-			if (
-				active instanceof HTMLInputElement ||
-				active instanceof HTMLTextAreaElement ||
-				(active instanceof HTMLElement && active.isContentEditable)
-			)
-				return;
-			const input = rootRef.current?.querySelector<HTMLInputElement>(
-				"[data-field-search-input]",
-			);
-			if (input) {
-				e.preventDefault();
-				input.focus();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, []);
-
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch
 			index={searchIndex}
@@ -239,18 +211,6 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 				jumpTo(result.accessor, result.tabIndex)
 			}
 		/>
-	);
-
-	// Merge the callback ref from useContainerOrientation with a plain
-	// RefObject the "/" shortcut effect can query synchronously. Memoized so
-	// its identity is stable across renders — otherwise React would detach
-	// and reattach containerRef (and its ResizeObserver) on every render.
-	const setRoot = useCallback(
-		(node: HTMLDivElement | null) => {
-			rootRef.current = node;
-			containerRef(node);
-		},
-		[containerRef],
 	);
 
 	const tabTriggers = partition.tabs.map((tab, i) => (
@@ -277,41 +237,23 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	));
 
 	return (
-		<Box ref={setRoot}>
-			{/* Vertical Tabs.Root is a row-flex container (nav column beside
-			    content), so the search must live OUTSIDE it to span the full
-			    width above nav+content instead of becoming a row item. */}
-			{orientation === "vertical" && searchNode && (
-				<Box mb="3">{searchNode}</Box>
-			)}
-			<Tabs.Root
-				value={activeTab}
-				onValueChange={(e) => setActiveTab(e.value)}
-				orientation={orientation}
-				// NEVER pass lazyMount/unmountOnExit: RHF needs all panels in the DOM.
-			>
-				{orientation === "horizontal" ? (
-					<Box
-						display="flex"
-						alignItems="center"
-						justifyContent="space-between"
-						gap="4"
-					>
-						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
-						{searchNode}
+		<TabShell
+			orientation={orientation}
+			containerRef={containerRef}
+			rootRef={rootRef}
+			activeTab={activeTab}
+			onTabChange={setActiveTab}
+			searchNode={searchNode}
+			tabTriggers={tabTriggers}
+		>
+			{partition.tabs.map((tab, i) => (
+				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+					<Box pt="4">
+						<FieldRenderer schema={tab.fields} readOnly={readOnly} />
 					</Box>
-				) : (
-					<Tabs.List>{tabTriggers}</Tabs.List>
-				)}
-				{partition.tabs.map((tab, i) => (
-					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
-						<Box pt="4">
-							<FieldRenderer schema={tab.fields} readOnly={readOnly} />
-						</Box>
-					</Tabs.Content>
-				))}
-			</Tabs.Root>
-		</Box>
+				</Tabs.Content>
+			))}
+		</TabShell>
 	);
 }
 SpecFormTabs.displayName = "SpecFormTabs";
@@ -323,46 +265,94 @@ interface SpecFormReadTabsProps {
 }
 
 // Mirrors SpecFormTabs minus form hooks: no useTabIndicators (no RHF
-// dirty/error state exists in read mode), no submit-jump effect, no
-// setFocus/"/" shortcut. The search jump scrolls+flashes the target row
-// instead of focusing a form control.
+// dirty/error state exists in read mode), no submit-jump effect. The "/"
+// shortcut comes from FieldSearch itself (not duplicated here), and the
+// search jump scrolls+flashes the target row instead of focusing a form
+// control.
 function SpecFormReadTabs({
 	partition,
 	values,
 	labels,
 }: SpecFormReadTabsProps) {
-	const [activeTab, setActiveTab] = useState("tab-0");
-	const { orientation, containerRef } = useContainerOrientation(
-		partition.orientation,
-	);
-	const searchIndex = useMemo(
-		() => buildSearchIndex(partition.tabs, labels.defaultTab),
-		[partition, labels.defaultTab],
+	const {
+		activeTab,
+		setActiveTab,
+		orientation,
+		containerRef,
+		rootRef,
+		searchIndex,
+	} = useTabShell(partition, labels.defaultTab);
+
+	// Same two-phase pattern as SpecFormTabs' jump: stash the target, bump
+	// a token, and do the DOM work in an effect after the tab has rendered
+	// (a lone rAF can fire before the panel's `hidden` flip has committed).
+	const pendingJumpRef = useRef<string | null>(null);
+	const [jumpToken, setJumpToken] = useState(0);
+	const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// The element currently carrying the flash ring, so a second jump within
+	// the fade window can clean up ITS ring (not just apply a new one to the
+	// next target) — otherwise the first row's highlight never clears.
+	const flashElRef = useRef<HTMLElement | null>(null);
+
+	const jumpTo = useCallback(
+		(accessor: string, tabIndex: number) => {
+			pendingJumpRef.current = accessor;
+			setJumpToken((t) => t + 1);
+			setActiveTab(`tab-${tabIndex}`);
+		},
+		[setActiveTab],
 	);
 
-	// Reset to the first tab when the partition identity changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
+	// biome-ignore lint/correctness/useExhaustiveDependencies: jumpToken is a re-run trigger, not read in the effect body — pendingJumpRef carries the value
 	useEffect(() => {
-		setActiveTab("tab-0");
-	}, [partition]);
-
-	const jumpTo = useCallback((accessor: string, tabIndex: number) => {
-		setActiveTab(`tab-${tabIndex}`);
-		// Wait one frame so the target panel is visible before scrolling.
-		requestAnimationFrame(() => {
-			const el = document.querySelector<HTMLElement>(
-				`[data-field-row="${accessor}"]`,
+		const accessor = pendingJumpRef.current;
+		if (accessor == null) return;
+		pendingJumpRef.current = null;
+		const raf = requestAnimationFrame(() => {
+			// Scoped to this instance's root (not document) and escaped:
+			// dotted/nested accessors break a raw attribute selector.
+			const el = rootRef.current?.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape(accessor)}"]`,
 			);
-			el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-			if (el) {
-				el.style.transition = "box-shadow 1.5s ease";
-				el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
-				setTimeout(() => {
-					el.style.boxShadow = "none";
-				}, 1500);
+			if (!el) return;
+			el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+			// A second jump within the fade window must clean the previous
+			// row's ring, or it stays highlighted forever.
+			if (flashTimeoutRef.current != null) {
+				clearTimeout(flashTimeoutRef.current);
+				if (flashElRef.current) {
+					flashElRef.current.style.transition = "none";
+					flashElRef.current.style.boxShadow = "none";
+				}
 			}
+			// Appear instantly (no transition), fade out later: setting the
+			// transition in the same tick as the ring would animate the
+			// APPEARANCE too, leaving the highlight near-invisible right when
+			// the user lands on the row.
+			el.style.transition = "none";
+			el.style.boxShadow = "0 0 0 3px var(--chakra-colors-primary-200)";
+			flashElRef.current = el;
+			flashTimeoutRef.current = setTimeout(() => {
+				el.style.transition = "box-shadow 1.5s ease";
+				el.style.boxShadow = "none";
+				flashTimeoutRef.current = null;
+				flashElRef.current = null;
+			}, 1500);
 		});
-	}, []);
+		return () => cancelAnimationFrame(raf);
+	}, [jumpToken]);
+
+	// A pending flash must not fire against an unmounted tree.
+	useEffect(
+		() => () => {
+			if (flashTimeoutRef.current != null) {
+				clearTimeout(flashTimeoutRef.current);
+			}
+			flashTimeoutRef.current = null;
+			flashElRef.current = null;
+		},
+		[],
+	);
 
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch
@@ -383,40 +373,23 @@ function SpecFormReadTabs({
 	));
 
 	return (
-		<Box ref={containerRef}>
-			{/* Vertical Tabs.Root is a row-flex container (nav column beside
-			    content), so the search must live OUTSIDE it to span the full
-			    width above nav+content instead of becoming a row item. */}
-			{orientation === "vertical" && searchNode && (
-				<Box mb="3">{searchNode}</Box>
-			)}
-			<Tabs.Root
-				value={activeTab}
-				onValueChange={(e) => setActiveTab(e.value)}
-				orientation={orientation}
-			>
-				{orientation === "horizontal" ? (
-					<Box
-						display="flex"
-						alignItems="center"
-						justifyContent="space-between"
-						gap="4"
-					>
-						<Tabs.List flex="1">{tabTriggers}</Tabs.List>
-						{searchNode}
+		<TabShell
+			orientation={orientation}
+			containerRef={containerRef}
+			rootRef={rootRef}
+			activeTab={activeTab}
+			onTabChange={setActiveTab}
+			searchNode={searchNode}
+			tabTriggers={tabTriggers}
+		>
+			{partition.tabs.map((tab, i) => (
+				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
+					<Box pt="4">
+						<ReadTab tab={tab} values={values} />
 					</Box>
-				) : (
-					<Tabs.List>{tabTriggers}</Tabs.List>
-				)}
-				{partition.tabs.map((tab, i) => (
-					<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
-						<Box pt="4">
-							<ReadTab tab={tab} values={values} />
-						</Box>
-					</Tabs.Content>
-				))}
-			</Tabs.Root>
-		</Box>
+				</Tabs.Content>
+			))}
+		</TabShell>
 	);
 }
 SpecFormReadTabs.displayName = "SpecFormReadTabs";

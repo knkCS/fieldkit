@@ -1,5 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@knkcs/anker/atoms";
+import { DrawerRoot } from "@knkcs/anker/components";
 import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { boolean, number, section, select, text } from "../../schema/builders";
 import { defineSpec } from "../../schema/define-spec";
@@ -143,6 +146,36 @@ function EditWrapper({
 	);
 }
 
+// Demonstrates FieldSearch's Escape containment inside a real anker
+// DrawerRoot (not the bare-div stand-in used by the unit tests): with the
+// search dropdown open, Escape clears/closes the dropdown only; a second
+// Escape (dropdown already closed) closes the drawer via anker's own
+// dismissable-layer handling. See drawer-escape.test.tsx for the assertions.
+function DrawerWrapper({ spec }: { spec: ReturnType<typeof defineSpec> }) {
+	const [open, setOpen] = useState(true);
+	const schema = specToZodSchema(spec.fields, builtInFieldTypes);
+	const methods = useForm({
+		resolver: zodResolver(schema),
+		defaultValues: spec.defaultValues,
+		mode: "onBlur",
+	});
+
+	return (
+		<FieldKitProvider plugins={builtInFieldTypes}>
+			<FormProvider {...methods}>
+				<Button onClick={() => setOpen(true)}>Open drawer</Button>
+				<DrawerRoot
+					open={open}
+					onClose={() => setOpen(false)}
+					title="Edit entry"
+				>
+					<SpecForm schema={spec.fields} />
+				</DrawerRoot>
+			</FormProvider>
+		</FieldKitProvider>
+	);
+}
+
 // Read mode never touches react-hook-form — no FormProvider in the tree.
 function ReadWrapper({
 	spec,
@@ -196,6 +229,31 @@ export const ReadMode: Story = {
 	render: () => <ReadWrapper spec={readSpec} values={readValues} />,
 };
 
+// Read mode over a SECTIONED spec: the surface this branch shipped ("/" and
+// cross-tab jump in read mode) had no permanent story of its own — the
+// runtime pass that verified it had to improvise one. This reuses
+// `horizontalSpec` (implicit "General" tab + "SEO" + "Advanced") so the
+// tab strip, per-tab search, and cross-tab jump/flash are all exercisable:
+// try "/" to focus search, then search "meta" and jump to a field in SEO.
+const readSectionedValues: Record<string, unknown> = {
+	title: "Launch Announcement",
+	published: true,
+	meta_title: "Launch Announcement — SEO Title",
+	meta_description: "Everything you need to know about the launch.",
+	priority: 5,
+	visibility: "public",
+};
+
+export const ReadModeSectioned: Story = {
+	render: () => (
+		<ReadWrapper spec={horizontalSpec} values={readSectionedValues} />
+	),
+};
+
 export const Loading: Story = {
 	render: () => <EditWrapper spec={horizontalSpec} loading />,
+};
+
+export const InDrawerWithSections: Story = {
+	render: () => <DrawerWrapper spec={horizontalSpec} />,
 };

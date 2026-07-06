@@ -60,6 +60,7 @@ src/
 ├── renderer/            # Field renderer
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
+│   │   └── tab-shell.tsx # useTabShell() + shared TabShell: state/DOM plumbing behind edit & read tabs, no RHF hooks
 │   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
 │   ├── provider.tsx     # FieldKitProvider (plugins + adapters)
 │   ├── adapters.ts      # Backend adapter interfaces

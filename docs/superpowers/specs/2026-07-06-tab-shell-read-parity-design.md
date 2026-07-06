@@ -81,23 +81,49 @@ through the type-guarded handle
 ref holds the raw input, whose native `.focus` passes the guard) and a
 container-query fallback. Read mode AND the editor canvas search gain
 the shortcut from the single implementation. Known minor (documented in
-the mdx): with multiple search boxes mounted, the last-mounted
-listener wins.
+the mdx): with multiple search boxes mounted, the first-mounted
+listener wins — it runs first (registration order) and synchronously
+focuses its own input, so later listeners' skip-while-typing guard makes
+them early-return.
 
 ### 4. Read-jump parity
 
 Adopts edit mode's pattern: `pendingJumpRef` + token + effect; query
 scoped to `rootRef.current` (from `useTabShell`), selector uses
 `CSS.escape(accessor)`; the rAF is cancelled and the 1.5s flash
-`setTimeout` cleared on unmount. Scroll + box-shadow flash behavior is
-otherwise unchanged.
+`setTimeout` cleared on unmount. One deliberate flash change (from the
+final-review wave): the ring now APPEARS instantly and only the fade-out
+animates (the old same-tick transition+ring assignment animated the
+appearance too, leaving the highlight near-invisible on landing), and a
+re-jump within the fade window cleans the previous row's ring.
 
-### 5. Drawer proof
+### 5. Drawer containment FIX + proof
+
+**Discovery (from the proof test itself):** the believed containment
+was broken in production. Ark/zag's dismissable layer registers its
+Escape listener on `document` in the CAPTURE phase, which always fires
+before FieldSearch's bubble-phase `stopPropagation` — so Escape in an
+open search dropdown inside `EditDrawer` closed the whole drawer,
+losing in-progress edits. The old tests used a bare-div ancestor
+stand-in and could not see this.
+
+**Fix:** FieldSearch's Escape containment moves to a **`window`-level
+capture listener, active only while the dropdown is open**. Capture
+propagation runs outermost-first, so window-capture deterministically
+precedes zag's document-capture listener regardless of registration
+order (no same-node-ordering fragility — the rejected alternative).
+While open: `stopPropagation` + close the dropdown (and clear, as
+today). While closed: the listener no-ops and the drawer's own Escape
+behavior is untouched. The old bubble-phase Escape branch in the input
+keydown handler is removed (redundant — a window-capture stop never
+reaches it). Existing bare-div containment tests must still pass with
+the new mechanism.
 
 - Integration test mounting anker's REAL `DrawerRoot` around a
   sectioned `SpecForm`: with the search dropdown open, Escape closes
   only the dropdown (`onClose` NOT called); a second Escape (dropdown
-  closed) propagates and closes the drawer.
+  closed) propagates and closes the drawer. This is now a regression
+  test for the fix, not just a proof.
 - New Storybook story: drawer + sectioned form (the combination the
   issue notes has no coverage), used by the runtime pass.
 
@@ -107,9 +133,15 @@ otherwise unchanged.
   unmodified (refactor-invisibility pin).
 - New read-mode tests: `/` focuses the read-mode search; cross-tab
   read jump switches tab and scroll+flashes the target row using a
-  DOTTED accessor fixture (proves `CSS.escape`); jump query is scoped
-  to the instance root; unmount with a pending jump/flash under fake
-  timers produces no errors/act warnings.
+  DOTTED accessor fixture — this pins the jump MECHANISM with a
+  realistic nested accessor, not the escaping itself: the jump's quoted
+  attribute selector already tolerates a literal dot, so `CSS.escape`
+  is defensive hardening for characters that would break a quoted
+  selector (`"`, `\`), not something this fixture alone proves; jump
+  query is scoped to the instance root — implemented and
+  code-reviewed, but not yet pinned by a two-SpecForm-instance test
+  fixture (follow-up work); unmount with a pending jump/flash under
+  fake timers produces no errors/act warnings.
 - Drawer Escape pair as above.
 - Runtime pass (Storybook): read-mode story — `/` focuses search,
   jump scrolls+flashes across tabs; drawer story — Escape sequence

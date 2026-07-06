@@ -1,7 +1,7 @@
 // src/renderer/spec-form/field-search.tsx
 import { Box, Text } from "@chakra-ui/react";
 import { SearchInput, type SearchInputHandle } from "@knkcs/anker/forms";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FieldSearchResult } from "./search-index";
 import { searchFields } from "./search-index";
 
@@ -25,6 +25,7 @@ export function FieldSearch({
 	const listboxId = `${uid}-listbox`;
 	const optionId = (i: number) => `${uid}-option-${i}`;
 	const searchRef = useRef<SearchInputHandle>(null);
+	const boxRef = useRef<HTMLDivElement>(null);
 
 	const [query, setQuery] = useState("");
 	const [highlighted, setHighlighted] = useState(0);
@@ -44,10 +45,10 @@ export function FieldSearch({
 	// prop spread), which has no clear() — type-guard the method so the
 	// 3.1 path falls back to the kept setQuery("") behavior instead of
 	// throwing before onJump.
-	const clearInput = () => {
+	const clearInput = useCallback(() => {
 		const handle = searchRef.current;
 		if (typeof handle?.clear === "function") handle.clear();
-	};
+	}, []);
 
 	const jump = (result: FieldSearchResult) => {
 		setQuery("");
@@ -64,6 +65,67 @@ export function FieldSearch({
 		setHighlighted(0);
 	}, []);
 
+	// "/" focuses this search unless the user is typing in a field. Lives
+	// here (not in the tab components) so every mount — edit, read, editor
+	// canvas — gets the shortcut from one implementation. With multiple
+	// search boxes mounted at once, the FIRST-mounted listener wins: it runs
+	// first (listeners fire in registration order) and synchronously focuses
+	// its own input, so by the time later listeners run, `document.activeElement`
+	// is already inside a text input and their own skip-while-typing guard
+	// above makes them early-return.
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "/") return;
+			const active = document.activeElement;
+			if (
+				active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				(active instanceof HTMLElement && active.isContentEditable)
+			)
+				return;
+			e.preventDefault();
+			const handle = searchRef.current;
+			// Same anker-3.1 degrade shape as clearInput(): on 3.1 + React 19
+			// the ref holds the raw <input>, whose native focus() also passes.
+			if (typeof handle?.focus === "function") {
+				handle.focus();
+			} else {
+				boxRef.current
+					?.querySelector<HTMLInputElement>("[data-field-search-input]")
+					?.focus();
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, []);
+
+	// Contain Escape while the dropdown is open: Ark/zag dismissable layers
+	// (e.g. anker's DrawerRoot) listen for Escape on `document` in the
+	// CAPTURE phase, so a bubble-phase stopPropagation on the input never
+	// runs first — a drawer would close (discarding edits) on the same
+	// keypress that dismisses this dropdown. A window-level capture
+	// listener fires before any document-capture listener (outermost-first),
+	// deterministically, regardless of registration order.
+	useEffect(() => {
+		if (!open) return;
+		const onEscapeCapture = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			// Only contain Escape aimed at this search UI: if focus/target is
+			// elsewhere (e.g. a keyboard drag in the editor canvas whose
+			// cancel listens on document-bubble), let it propagate untouched —
+			// an unscoped intercept would swallow it (the same bug class
+			// field-shell's tooltip closeOnEscape={false} defends against).
+			if (!(e.target instanceof Node) || !boxRef.current?.contains(e.target)) {
+				return;
+			}
+			e.stopPropagation();
+			setQuery("");
+			clearInput();
+		};
+		window.addEventListener("keydown", onEscapeCapture, true);
+		return () => window.removeEventListener("keydown", onEscapeCapture, true);
+	}, [open, clearInput]);
+
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (!open) return;
 		if (e.key === "ArrowDown") {
@@ -75,19 +137,12 @@ export function FieldSearch({
 		} else if (e.key === "Enter") {
 			e.preventDefault();
 			if (results[safeHighlighted]) jump(results[safeHighlighted]);
-		} else if (e.key === "Escape") {
-			// Contain the key inside the dropdown: without this, Escape also
-			// bubbles to ancestors — inside EditDrawer, Chakra's drawer closes
-			// on Escape too, so dismissing search results would also lose
-			// the drawer's in-progress edits.
-			e.stopPropagation();
-			setQuery("");
-			clearInput();
 		}
 	};
 
 	return (
 		<Box
+			ref={boxRef}
 			position="relative"
 			maxWidth="64"
 			data-testid="field-search"
