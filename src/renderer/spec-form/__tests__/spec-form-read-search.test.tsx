@@ -155,4 +155,61 @@ describe("SpecForm read mode — search parity", () => {
 		const firstRowShadow = rowFor("meta.title")?.style.boxShadow;
 		expect(firstRowShadow === "none" || firstRowShadow === "").toBe(true);
 	});
+
+	it("scopes the jump to its own instance when two SpecForms share accessors", async () => {
+		render(
+			<Wrapper>
+				<div data-testid="first">
+					<SpecForm schema={schema} mode="read" values={{}} />
+				</div>
+				<div data-testid="second">
+					<SpecForm schema={schema} mode="read" values={{}} />
+				</div>
+			</Wrapper>,
+		);
+		const first = screen.getByTestId("first");
+		const firstSearch = within(first).getByPlaceholderText("Find field…");
+		fireEvent.change(firstSearch, { target: { value: "meta" } });
+		const listbox = await within(first).findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Meta title"));
+
+		await waitFor(() => {
+			const row = first.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape("meta.title")}"]`,
+			);
+			// The FIRST instance's row flashes…
+			expect(row?.style.boxShadow).toContain("3px");
+		});
+		// …and the SECOND instance's identical row does not.
+		const secondRow = screen
+			.getByTestId("second")
+			.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape("meta.title")}"]`,
+			);
+		expect(secondRow?.style.boxShadow ?? "").not.toContain("3px");
+	});
+
+	it("jumps to an accessor containing a double quote (CSS.escape load-bearing)", async () => {
+		const quoted = [
+			makeField("title", "Title"),
+			makeSection("seo", "SEO"),
+			makeField('we"ird', "Weird field"),
+		];
+		render(
+			<Wrapper>
+				<SpecForm schema={quoted} mode="read" values={{}} />
+			</Wrapper>,
+		);
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "weird" },
+		});
+		const listbox = await screen.findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Weird field"));
+		await waitFor(() => {
+			const row = document.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape('we"ird')}"]`,
+			);
+			expect(row?.style.boxShadow).toContain("3px");
+		});
+	});
 });

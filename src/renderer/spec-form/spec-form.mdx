@@ -31,8 +31,8 @@ behaves identically to `FieldRenderer`.
 | `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, markers, and indicator announcements. |
 
 `SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `searchLabel`,
-`noResults`, `optionalMarker`, `tabErrors`, `tabErrorsOne`, `unsavedChanges`)
-are all optional and merge over `DEFAULT_LABELS`.
+`noResults`, `optionalMarker`, `tabErrors`, `tabErrorsOne`, `unsavedChanges`,
+`booleanYes`, `booleanNo`) are all optional and merge over `DEFAULT_LABELS`.
 
 | Label | Default | Description |
 |-------|---------|--------------|
@@ -41,6 +41,8 @@ are all optional and merge over `DEFAULT_LABELS`.
 | `tabErrors` | `"{count} invalid fields"` | Accessible name of a tab's error badge; `{count}` is interpolated. |
 | `tabErrorsOne` | `"1 invalid field"` | Accessible name of a tab's error badge at count 1 — used instead of `tabErrors` so the badge reads as a grammatical singular. |
 | `unsavedChanges` | `"Unsaved changes"` | Accessible name of a tab's dirty dot — and, on anker ≥3.2, of a dirty field's own per-field dot. On anker 3.1 the per-field dot is still labeled, just with anker's hardcoded German default rather than this override, which only takes effect on ≥3.2. |
+| `booleanYes` | `"Yes"` | Read-mode fallback rendering of boolean `true` for plugins with no `cellComponent`. |
+| `booleanNo` | `"No"` | Read-mode fallback rendering of boolean `false` for plugins with no `cellComponent`. |
 
 ## Marker convention
 
@@ -149,8 +151,14 @@ Each field's value is resolved in this order:
    by `SpecDataTable`) renders the value. `group` fields are the exception:
    they bypass their `cellComponent` entirely and instead render each item
    as its own indented row of child fields.
-3. If no `cellComponent` is registered for the field type, the raw value is
-   coerced with `String(value)`.
+3. If no `cellComponent` is registered for the field type, a type-aware
+   fallback formats the value: booleans render as `labels.booleanYes`/
+   `labels.booleanNo` (not `String(value)`'s `"true"`/`"false"`), and arrays
+   of only strings/numbers/booleans are joined with `", "` (booleans inside
+   the array use the same labels). Objects, and arrays containing an object,
+   fall back to the em dash — a plugin with non-string values should ship a
+   `cellComponent` for full control over its read-mode rendering. Anything
+   else (strings, numbers) passes through `String(value)` unchanged.
 
 Because read mode has no form state, there are no dirty dots or error
 badges on its tabs, and no submit-jump behavior.

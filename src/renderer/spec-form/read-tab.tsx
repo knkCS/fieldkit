@@ -16,7 +16,56 @@ function isEmpty(value: unknown): boolean {
 	);
 }
 
-function ReadValue({ field, value }: { field: Field; value: unknown }) {
+interface ReadValueLabels {
+	booleanYes: string;
+	booleanNo: string;
+}
+
+/**
+ * Type-aware fallback for plugins without a cellComponent: booleans and
+ * primitive arrays render readably instead of raw String(value); objects
+ * (and arrays containing objects) fall back to the em-dash convention —
+ * a cellComponent is the API for full control over complex values.
+ * Returns null for "render the em dash".
+ */
+function formatFallback(
+	value: unknown,
+	labels: ReadValueLabels,
+): string | null {
+	if (typeof value === "boolean") {
+		return value ? labels.booleanYes : labels.booleanNo;
+	}
+	if (Array.isArray(value)) {
+		const primitives = value.every(
+			(v) =>
+				typeof v === "string" ||
+				typeof v === "number" ||
+				typeof v === "boolean",
+		);
+		if (!primitives) return null;
+		return value
+			.map((v) =>
+				typeof v === "boolean"
+					? v
+						? labels.booleanYes
+						: labels.booleanNo
+					: String(v),
+			)
+			.join(", ");
+	}
+	if (typeof value === "object") return null;
+	return String(value);
+}
+
+function ReadValue({
+	field,
+	value,
+	labels,
+}: {
+	field: Field;
+	value: unknown;
+	labels: ReadValueLabels;
+}) {
 	const { getPlugin } = useFieldKit();
 	if (isEmpty(value)) return <Text color="fg.muted">{EMPTY}</Text>;
 
@@ -49,6 +98,7 @@ function ReadValue({ field, value }: { field: Field; value: unknown }) {
 												child.config.api_accessor
 											]
 										}
+										labels={labels}
 									/>
 								</DescriptionList.Row>
 							))}
@@ -62,16 +112,20 @@ function ReadValue({ field, value }: { field: Field; value: unknown }) {
 	const Cell = getPlugin(field.field_type)?.cellComponent;
 	if (Cell) return <Cell field={field} value={value} />;
 
-	return <Text>{String(value)}</Text>;
+	const formatted = formatFallback(value, labels);
+	if (formatted == null) return <Text color="fg.muted">{EMPTY}</Text>;
+	return <Text>{formatted}</Text>;
 }
 ReadValue.displayName = "ReadValue";
 
 export function ReadTab({
 	tab,
 	values,
+	labels,
 }: {
 	tab: SpecTab;
 	values: Record<string, unknown>;
+	labels: ReadValueLabels;
 }) {
 	return (
 		<DescriptionList orientation="horizontal">
@@ -82,10 +136,17 @@ export function ReadTab({
 						key={field.config.api_accessor}
 						label={field.config.name}
 					>
-						<Box data-field-row={field.config.api_accessor}>
+						{/* span+block: DescriptionList.Row renders its value inside a
+						    <p>, and a div child triggers React's DOM-nesting warning. */}
+						<Box
+							as="span"
+							display="block"
+							data-field-row={field.config.api_accessor}
+						>
 							<ReadValue
 								field={field}
 								value={values[field.config.api_accessor]}
+								labels={labels}
 							/>
 						</Box>
 					</DescriptionList.Row>

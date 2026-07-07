@@ -22,7 +22,8 @@ function tabKey(tab: SpecTab, index: number): string {
 	return tab.section?.config.api_accessor ?? `implicit-${index}`;
 }
 
-const FOCUSABLE_SELECTOR = "input, textarea, select, button, [tabindex]";
+const FOCUSABLE_SELECTOR =
+	"input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]";
 
 // Focus (and, where possible, scroll to) the control for `accessor` inside
 // `root`. Three fallbacks, in priority order:
@@ -89,6 +90,10 @@ export interface SpecFormLabels {
 	unsavedChanges?: string;
 	/** Accessible name for the field-search input. */
 	searchLabel?: string;
+	/** Read-mode fallback rendering of boolean true (cell-less plugins). */
+	booleanYes?: string;
+	/** Read-mode fallback rendering of boolean false (cell-less plugins). */
+	booleanNo?: string;
 }
 
 export interface SpecFormProps {
@@ -110,6 +115,8 @@ export const DEFAULT_LABELS: Required<SpecFormLabels> = {
 	tabErrorsOne: "1 invalid field",
 	unsavedChanges: "Unsaved changes",
 	searchLabel: "Find field",
+	booleanYes: "Yes",
+	booleanNo: "No",
 };
 
 interface SpecFormTabsProps {
@@ -385,7 +392,14 @@ function SpecFormReadTabs({
 			{partition.tabs.map((tab, i) => (
 				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
 					<Box pt="4">
-						<ReadTab tab={tab} values={values} />
+						<ReadTab
+							tab={tab}
+							values={values}
+							labels={{
+								booleanYes: labels.booleanYes,
+								booleanNo: labels.booleanNo,
+							}}
+						/>
 					</Box>
 				</Tabs.Content>
 			))}
@@ -439,7 +453,16 @@ export function SpecForm({
 	if (mode === "read") {
 		const readValues = values ?? {};
 		if (!partition.hasSections) {
-			return <ReadTab tab={partition.tabs[0]} values={readValues} />;
+			return (
+				<ReadTab
+					tab={partition.tabs[0]}
+					values={readValues}
+					labels={{
+						booleanYes: resolvedLabels.booleanYes,
+						booleanNo: resolvedLabels.booleanNo,
+					}}
+				/>
+			);
 		}
 		return (
 			<SpecFormReadTabs

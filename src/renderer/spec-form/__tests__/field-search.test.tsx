@@ -7,7 +7,13 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SpecForm } from "../spec-form";
-import { makeField, makePickerField, makeSection, Wrapper } from "./helpers";
+import {
+	makeDisabledFirstField,
+	makeField,
+	makePickerField,
+	makeSection,
+	Wrapper,
+} from "./helpers";
 
 const schema = [
 	makeField("title", "Title"),
@@ -168,6 +174,31 @@ describe("SpecForm — field search", () => {
 
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		expect(onWrapperKeyDown).not.toHaveBeenCalled();
+	});
+
+	it("skips disabled controls in the jump focus fallback", async () => {
+		// A picker-style field whose FIRST focusable child is disabled: the
+		// fallback must focus the next enabled control, not no-op on the
+		// disabled one.
+		render(
+			<Wrapper>
+				<SpecForm
+					schema={[
+						makeField("title", "Title"),
+						makeSection("seo", "SEO"),
+						makeDisabledFirstField("locked", "Locked picker"),
+					]}
+				/>
+			</Wrapper>,
+		);
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "locked" },
+		});
+		const listbox = await screen.findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Locked picker"));
+		await waitFor(() => {
+			expect(screen.getByLabelText("enabled-control")).toHaveFocus();
+		});
 	});
 
 	it("lets Escape propagate to ancestors when the dropdown is already closed", () => {
