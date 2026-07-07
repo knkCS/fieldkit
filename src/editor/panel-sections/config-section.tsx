@@ -20,10 +20,11 @@ export interface ConfigSectionProps extends PanelSectionProps {
 	 * committed baseline mid-rename.
 	 *
 	 * The SpecEditor-tracked baseline only applies when `field` is the
-	 * TOP-LEVEL selected field — FieldConfigPanel forwards a drilled-in
-	 * child's OWN (current) accessor here instead, since there is no
-	 * per-child baseline to track; rename-tracking across deselect/reselect
-	 * is therefore a top-level-only feature. */
+	 * TOP-LEVEL selected field — for a drilled-in child, FieldConfigPanel
+	 * forwards the child's accessor FROZEN AT DRILL-IN time (so live-renaming
+	 * a committed child still shows the disconnect warning); what remains
+	 * top-level-only is rename-tracking across deselect/reselect of the
+	 * whole panel. */
 	baselineAccessor: string;
 }
 
