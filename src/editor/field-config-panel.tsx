@@ -114,6 +114,12 @@ export interface FieldConfigPanelProps {
 	 * true committed baseline instead of re-baselining to whatever the field
 	 * currently is). Forwarded straight through to ConfigSection, which uses
 	 * it for the committed-accessor disconnect warning.
+	 *
+	 * This tracked baseline applies to the TOP-LEVEL field ONLY — SpecEditor
+	 * has no notion of a drilled-in group child's selection. A drilled child
+	 * self-scopes to its own current accessor instead (see the `chain.length`
+	 * check below); rename-tracking across deselect/reselect is therefore a
+	 * top-level-only feature.
 	 */
 	baselineAccessor: string;
 	/** T12's DEFAULT_EDITOR_LABELS supplies English defaults; tests pass their own. */
@@ -416,7 +422,20 @@ export function FieldConfigPanel({
 				<ConfigSection
 					{...sectionProps}
 					nameInputRef={nameInputRef}
-					baselineAccessor={baselineAccessor}
+					// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
+					// selected field (see the prop doc below) — it always reflects
+					// the top-level field's committed accessor, never a drilled-in
+					// child's. Forwarding it unconditionally would compare a
+					// drilled child's accessor against its PARENT's baseline (e.g.
+					// child "item_name" !== group baseline "items") and produce a
+					// false-positive disconnect warning for every untouched
+					// committed child. Any drilled frame instead self-scopes to
+					// the active (drilled) field's own committed accessor.
+					baselineAccessor={
+						chain.length === 1
+							? baselineAccessor
+							: activeField.config.api_accessor
+					}
 				/>
 			</Disclosure>
 

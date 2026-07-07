@@ -17,7 +17,13 @@ export interface ConfigSectionProps extends PanelSectionProps {
 	 * the disconnect-warning comparison below; replaces the old locally
 	 * derived `syncedAccessorRef`, which re-baselined to the field's CURRENT
 	 * (draft) accessor on every deselect/reselect and so lost the true
-	 * committed baseline mid-rename. */
+	 * committed baseline mid-rename.
+	 *
+	 * The SpecEditor-tracked baseline only applies when `field` is the
+	 * TOP-LEVEL selected field — FieldConfigPanel forwards a drilled-in
+	 * child's OWN (current) accessor here instead, since there is no
+	 * per-child baseline to track; rename-tracking across deselect/reselect
+	 * is therefore a top-level-only feature. */
 	baselineAccessor: string;
 }
 

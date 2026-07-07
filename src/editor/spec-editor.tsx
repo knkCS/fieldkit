@@ -435,6 +435,15 @@ export function SpecEditor({
 	// delete (further edits happened before Undo was clicked), insertFieldAt
 	// clamps the index rather than throwing — acceptable for a v1 undo.
 	function handleDeleteField(field: Field, flatIndex: number) {
+		// A deleted field's rename-baseline entry (if it had one) is now stale —
+		// its accessor no longer exists in the draft to disconnect-warn about.
+		// If Undo below re-inserts the field, it comes back with its PRE-delete
+		// (i.e. current, possibly already-renamed) accessor and no baseline
+		// entry — equivalent to the field's rename tracking resetting at delete
+		// time, which is acceptable: the alternative (preserving a rename
+		// baseline through a delete/undo round trip) isn't a case the map was
+		// ever designed to survive.
+		renameBaselinesRef.current.delete(field.config.api_accessor);
 		toaster.create({
 			title: mergedLabels.fieldDeleted,
 			type: "info",

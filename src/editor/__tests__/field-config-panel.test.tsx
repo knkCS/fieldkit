@@ -626,6 +626,29 @@ describe("FieldConfigPanel", () => {
 		expect(readDump().children?.[0].config.api_accessor).toBe("renamed_item");
 	});
 
+	it("does not show the disconnect warning for an untouched committed group child", () => {
+		// Both the group ("items") and its child ("item_name") are already
+		// committed. SpecEditor only tracks a rename baseline for the
+		// TOP-LEVEL selected field, so it always forwards "items" here even
+		// once drilled into the child. Comparing the child's own accessor
+		// against the PARENT's baseline ("item_name" !== "items") must NOT
+		// produce a false-positive warning — the child was never renamed.
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={makeGroupField()}
+					committedAccessors={new Set(["items", "item_name"])}
+					baselineAccessor="items"
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.queryByTestId("accessor-warning")).not.toBeInTheDocument();
+	});
+
 	it("keeps the committed-accessor warning after deselect/reselect mid-rename", () => {
 		// Simulates the panel remounting after a deselect/reselect while a
 		// rename is in progress this session: the field's LIVE accessor is
