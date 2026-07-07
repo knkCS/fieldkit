@@ -12,6 +12,13 @@ export interface ConfigSectionProps extends PanelSectionProps {
 	 * for its `data-testid` at runtime (that attribute stays a test hook
 	 * only). */
 	nameInputRef?: Ref<HTMLInputElement>;
+	/** The accessor this field had in the last committed schema — tracked
+	 * across in-session renames by SpecEditor's rename-baseline map. Drives
+	 * the disconnect-warning comparison below; replaces the old locally
+	 * derived `syncedAccessorRef`, which re-baselined to the field's CURRENT
+	 * (draft) accessor on every deselect/reselect and so lost the true
+	 * committed baseline mid-rename. */
+	baselineAccessor: string;
 }
 
 /**
@@ -35,6 +42,7 @@ export function ConfigSection({
 	committedAccessors,
 	labels,
 	nameInputRef,
+	baselineAccessor,
 }: ConfigSectionProps) {
 	// Tracks the last Field object *this component* produced via apply(), so
 	// the resync effect below can tell "field changed because we edited it"
@@ -45,9 +53,6 @@ export function ConfigSection({
 	// selection time, per the baseline-aware rule below) taken manual control
 	// of the accessor, so name edits stop re-deriving it.
 	const manuallyEditedRef = useRef(false);
-	// The accessor as of the last time a *different* field was selected —
-	// the "committed warning" comparison baseline.
-	const syncedAccessorRef = useRef(field.config.api_accessor);
 
 	const [accessorInput, setAccessorInput] = useState(field.config.api_accessor);
 	const [localAccessorError, setLocalAccessorError] = useState<string | null>(
@@ -58,7 +63,6 @@ export function ConfigSection({
 		if (field === appliedFieldRef.current) return; // our own edit, echoed back
 		setAccessorInput(field.config.api_accessor);
 		setLocalAccessorError(null);
-		syncedAccessorRef.current = field.config.api_accessor;
 		// Baseline-aware latch: new-in-draft fields (accessor not yet
 		// committed) start with auto-slug ACTIVE; committed fields never
 		// auto-slug.
@@ -98,7 +102,10 @@ export function ConfigSection({
 	 */
 	function validateAccessor(value: string): string | null {
 		if (value.trim() === "") return labels.accessorEmpty;
-		if (takenAccessors.has(value)) return labels.accessorInUse;
+		// Trim before the collision check: a trailing-whitespace variant of a
+		// taken accessor must be flagged, or blur-in-error-state leaves the
+		// untrimmed value in the draft.
+		if (takenAccessors.has(value.trim())) return labels.accessorInUse;
 		return null;
 	}
 
@@ -186,11 +193,9 @@ export function ConfigSection({
 	}
 
 	const accessorError = localAccessorError ?? externalAccessorError;
-	const isCommittedField = committedAccessors.has(syncedAccessorRef.current);
+	const isCommittedField = committedAccessors.has(baselineAccessor);
 	const showCommittedWarning =
-		!accessorError &&
-		isCommittedField &&
-		accessorInput !== syncedAccessorRef.current;
+		!accessorError && isCommittedField && accessorInput !== baselineAccessor;
 
 	const defaultValue =
 		field.config.default_value != null

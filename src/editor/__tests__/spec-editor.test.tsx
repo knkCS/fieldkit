@@ -1,6 +1,12 @@
 // src/editor/__tests__/spec-editor.test.tsx
 import { toaster } from "@knkcs/anker/primitives";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
@@ -295,6 +301,50 @@ describe("SpecEditor", () => {
 			"shell-b",
 			"shell-c",
 		]);
+	});
+
+	it("undo restores the deleted field AND its panel selection", () => {
+		renderEditor([makeField("title", "Title"), makeField("body", "Body")]);
+
+		fireEvent.click(screen.getByTestId("shell-body"));
+		fireEvent.click(screen.getByLabelText(L.deleteField));
+
+		expect(screen.queryByTestId("shell-body")).not.toBeInTheDocument();
+		// Deleting destroys the panel's selection context along with the field.
+		expect(screen.queryByTestId("field-config-panel")).not.toBeInTheDocument();
+
+		// `.at(-1)`, not `.find(title === …)`: this mocked `toaster.create` is
+		// never reset between tests in this file, so an earlier delete-undo
+		// test's call would otherwise still be the FIRST "fieldDeleted" match.
+		const call = vi.mocked(toaster.create).mock.calls.at(-1)?.[0];
+		act(() => {
+			call?.action?.onClick?.();
+		});
+
+		// The restored field is selected: its config panel shows its name.
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Body");
+	});
+
+	it("discard while in Try-it resets scratch values (nonce bump)", async () => {
+		renderEditor([makeField("title", "Title")]);
+
+		// Dirty the draft via a rename, then enter Try-it.
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Title2" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: L.tryIt }));
+
+		const input = screen.getByLabelText(/Title/);
+		fireEvent.change(input, { target: { value: "scratch" } });
+		expect(input).toHaveValue("scratch");
+
+		// The header's Discard button stays available while in Try-it.
+		fireEvent.click(screen.getByRole("button", { name: L.discard }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText(/Title/)).toHaveValue("");
+		});
 	});
 
 	it("inserting a field via the ⊕ selects it and focuses the panel's Name input", async () => {

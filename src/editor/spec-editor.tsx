@@ -387,6 +387,28 @@ export function SpecEditor({
 		setAutoFocusLabel(true);
 	}
 
+	// Draft-accessor -> last-COMMITTED accessor for fields renamed this
+	// session. The config panel's committed-accessor disconnect warning
+	// compares against this baseline; without it, deselect/reselect
+	// re-baselines to the draft accessor (the panel's own local state is
+	// freshly initialized on every remount) and the warning vanishes
+	// mid-rename. Cleared on a successful save and on discard — see the
+	// `spec.dirty` falling-edge effect and `handleDiscard` below.
+	const renameBaselinesRef = useRef(new Map<string, string>());
+
+	// `dirty` goes true→false in exactly two cases: a successful save
+	// (useSpecDraft's baseline catches up to draft) or an explicit Discard
+	// (which also clears the map directly, below — redundant but harmless
+	// here). Either way, no in-session rename remains to disconnect-warn
+	// about once nothing is dirty, so the map is stale and must be cleared.
+	const wasDirtyRef = useRef(spec.dirty);
+	useEffect(() => {
+		if (wasDirtyRef.current && !spec.dirty) {
+			renameBaselinesRef.current.clear();
+		}
+		wasDirtyRef.current = spec.dirty;
+	}, [spec.dirty]);
+
 	function handlePanelFieldChange(next: Field) {
 		if (selected == null) return;
 		// Functional-updater form: applies against whatever the draft is AT
@@ -396,6 +418,15 @@ export function SpecEditor({
 		// The panel's local collision gate already guarantees uniqueness, so a
 		// changed accessor here is unambiguous — follow the selection to it.
 		if (next.config.api_accessor !== selected) {
+			const baselines = renameBaselinesRef.current;
+			const base = baselines.get(selected) ?? selected;
+			baselines.delete(selected);
+			if (base === next.config.api_accessor) {
+				// Renamed back to its committed accessor — no disconnect.
+				baselines.delete(next.config.api_accessor);
+			} else {
+				baselines.set(next.config.api_accessor, base);
+			}
 			setSelected(next.config.api_accessor);
 		}
 	}
@@ -413,8 +444,11 @@ export function SpecEditor({
 				// this closure was created, so it must apply against the draft
 				// AT UNDO TIME (which may have advanced past the deletion), not
 				// whatever `spec.draft` was when the toast was scheduled.
-				onClick: () =>
-					spec.apply((draft) => insertFieldAt(draft, field, flatIndex)),
+				onClick: () => {
+					spec.apply((draft) => insertFieldAt(draft, field, flatIndex));
+					// Restore the panel context the delete destroyed.
+					setSelected(field.config.api_accessor);
+				},
 			},
 		});
 	}
@@ -430,6 +464,10 @@ export function SpecEditor({
 	function handleDiscard() {
 		spec.discard();
 		setSelected(null);
+		// A Try-it view mounted against the pre-discard draft would keep its
+		// scratch values; remount it against the reset draft.
+		setTryItNonce((n) => n + 1);
+		renameBaselinesRef.current.clear();
 	}
 
 	const tryItButton = (
@@ -554,6 +592,11 @@ export function SpecEditor({
 								onClose={() => handleSelect(null)}
 								autoFocusLabel={autoFocusLabel}
 								committedAccessors={committedAccessors}
+								baselineAccessor={
+									selected != null
+										? (renameBaselinesRef.current.get(selected) ?? selected)
+										: ""
+								}
 								labels={mergedLabels}
 							/>
 						)}

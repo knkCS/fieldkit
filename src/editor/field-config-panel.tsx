@@ -107,6 +107,15 @@ export interface FieldConfigPanelProps {
 	 * disconnecting its data.
 	 */
 	committedAccessors: Set<string>;
+	/**
+	 * The accessor this field had in the last committed schema — tracked
+	 * across in-session renames by SpecEditor's rename-baseline map (keyed by
+	 * the LIVE accessor, so a deselect/reselect mid-rename still recovers the
+	 * true committed baseline instead of re-baselining to whatever the field
+	 * currently is). Forwarded straight through to ConfigSection, which uses
+	 * it for the committed-accessor disconnect warning.
+	 */
+	baselineAccessor: string;
 	/** T12's DEFAULT_EDITOR_LABELS supplies English defaults; tests pass their own. */
 	labels: PanelLabels;
 }
@@ -173,6 +182,7 @@ export function FieldConfigPanel({
 	onClose,
 	autoFocusLabel,
 	committedAccessors,
+	baselineAccessor,
 	labels,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<string[]>([]);
@@ -403,7 +413,11 @@ export function FieldConfigPanel({
 			)}
 
 			<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
-				<ConfigSection {...sectionProps} nameInputRef={nameInputRef} />
+				<ConfigSection
+					{...sectionProps}
+					nameInputRef={nameInputRef}
+					baselineAccessor={baselineAccessor}
+				/>
 			</Disclosure>
 
 			<Disclosure

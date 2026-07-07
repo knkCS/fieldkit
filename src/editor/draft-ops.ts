@@ -101,6 +101,7 @@ export function moveField(
 ): Schema {
 	if (fromIndex < 0 || fromIndex > schema.length - 1) return schema;
 	if (toIndex < 0 || toIndex > schema.length) return schema;
+	if (fromIndex === toIndex) return schema;
 	const next = [...schema];
 	const [moved] = next.splice(fromIndex, 1);
 	next.splice(toIndex, 0, moved);
