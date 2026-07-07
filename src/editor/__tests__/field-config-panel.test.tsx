@@ -649,6 +649,38 @@ describe("FieldConfigPanel", () => {
 		expect(screen.queryByTestId("accessor-warning")).not.toBeInTheDocument();
 	});
 
+	it("shows the disconnect warning while live-renaming a committed drilled child", () => {
+		// Both the group ("items") and its child ("item_name") are already
+		// committed. Drilling into the child must freeze the panel's baseline
+		// at "item_name" — the child's accessor AT DRILL-IN TIME — so that a
+		// LIVE rename to "item_name2" still shows the disconnect warning: the
+		// frozen baseline is committed and differs from the live input. The
+		// buggy live-accessor fallback instead re-derives the baseline from
+		// the field's CURRENT accessor on every keystroke, so
+		// committedAccessors.has(baseline) is always false post-rename and the
+		// warning never appears — this is RED against that fallback.
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={makeGroupField()}
+					committedAccessors={new Set(["items", "item_name"])}
+					baselineAccessor="items"
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+
+		fireEvent.change(screen.getByTestId("panel-accessor-input"), {
+			target: { value: "item_name2" },
+		});
+
+		expect(screen.getByTestId("accessor-warning")).toHaveTextContent(
+			testLabels.committedAccessorWarning,
+		);
+		expect(readDump().children?.[0].config.api_accessor).toBe("item_name2");
+	});
+
 	it("keeps the committed-accessor warning after deselect/reselect mid-rename", () => {
 		// Simulates the panel remounting after a deselect/reselect while a
 		// rename is in progress this session: the field's LIVE accessor is
