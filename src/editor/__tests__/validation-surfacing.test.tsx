@@ -87,17 +87,10 @@ describe("validation surfacing", () => {
 		const dupShells = screen.getAllByTestId("shell-dup");
 		expect(dupShells).toHaveLength(2);
 
-		// Danger outline: the invalid shells' border style differs from a
-		// clean sibling's, and matches each other (both invalid, same style).
+		// data-invalid replaces the old relative border-color comparison (the
+		// #30 E10 fix): it pins the danger outline exactly, without depending
+		// on computed CSS that shifts with theme changes.
 		const okShell = screen.getByTestId("shell-ok");
-		const dupBorder = getComputedStyle(dupShells[0]).borderColor;
-		const okBorder = getComputedStyle(okShell).borderColor;
-		expect(dupBorder).not.toBe(okBorder);
-		expect(getComputedStyle(dupShells[1]).borderColor).toBe(dupBorder);
-
-		// data-invalid: a programmatic hook equivalent to the visual outline,
-		// for consumers (and tests) that shouldn't need to assert on computed
-		// CSS border colors.
 		expect(dupShells[0]).toHaveAttribute("data-invalid", "true");
 		expect(dupShells[1]).toHaveAttribute("data-invalid", "true");
 		expect(okShell).not.toHaveAttribute("data-invalid");
