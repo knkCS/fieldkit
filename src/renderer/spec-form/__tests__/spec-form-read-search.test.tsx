@@ -76,6 +76,10 @@ describe("SpecForm read mode — search parity", () => {
 				`[data-field-row="${CSS.escape("meta.title")}"]`,
 			);
 			expect(row).not.toBeNull();
+			// Pin the div-in-p fix: the row wrapper must stay a block-display
+			// SPAN (DescriptionList.Row renders its value inside a <p>; a div
+			// child regresses to React's DOM-nesting warning).
+			expect(row?.tagName).toBe("SPAN");
 			expect(row?.style.boxShadow).toContain("3px");
 		});
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
@@ -180,12 +184,14 @@ describe("SpecForm read mode — search parity", () => {
 			// The FIRST instance's row flashes…
 			expect(row?.style.boxShadow).toContain("3px");
 		});
-		// …and the SECOND instance's identical row does not.
+		// …and the SECOND instance's identical row does not. Null-guard first
+		// so a missing row can't make the negative assertion pass vacuously.
 		const secondRow = screen
 			.getByTestId("second")
 			.querySelector<HTMLElement>(
 				`[data-field-row="${CSS.escape("meta.title")}"]`,
 			);
+		expect(secondRow).not.toBeNull();
 		expect(secondRow?.style.boxShadow ?? "").not.toContain("3px");
 	});
 

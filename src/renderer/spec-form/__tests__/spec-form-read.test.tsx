@@ -194,6 +194,11 @@ describe("read mode — cell-less fallback formatting", () => {
 		expect(screen.getByText("Ja")).toBeInTheDocument();
 	});
 
+	it("labels override the false branch too", () => {
+		renderRaw(false, { booleanYes: "Ja", booleanNo: "Nein" });
+		expect(screen.getByText("Nein")).toBeInTheDocument();
+	});
+
 	it("joins primitive arrays with a comma separator", () => {
 		renderRaw(["a", 2, true]);
 		expect(screen.getByText("a, 2, Yes")).toBeInTheDocument();
@@ -201,6 +206,11 @@ describe("read mode — cell-less fallback formatting", () => {
 
 	it("renders objects and object-arrays as the empty dash", () => {
 		renderRaw({ nested: 1 });
+		expect(screen.getByText("—")).toBeInTheDocument();
+	});
+
+	it("renders an ARRAY of objects as the empty dash (non-primitive branch)", () => {
+		renderRaw([{ a: 1 }]);
 		expect(screen.getByText("—")).toBeInTheDocument();
 	});
 
