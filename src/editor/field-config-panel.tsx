@@ -301,6 +301,13 @@ export function FieldConfigPanel({
 
 	const chain = resolveChain(field, drillStack);
 	const activeField = chain[chain.length - 1];
+	// The drillStack index of the ACTIVE field's own frame. `chain.length - 2`
+	// (not `drillStack.length - 1`): if a deeper frame failed to resolve (its
+	// child was deleted under an open drill-in), the active field is the last
+	// one that DID resolve, short of the stack's end. Shared by the
+	// rename-follow and the baselineAccessor forwarding so the two can never
+	// drift apart again (#35).
+	const activeFrameIndex = chain.length - 2;
 	// Children don't have a resolvable plugin here (FieldConfigPanel only
 	// receives the top-level field's plugin, not a full registry) — v1
 	// minimal drill-in shows "No additional settings" for a child rather
@@ -322,24 +329,20 @@ export function FieldConfigPanel({
 		// child had when the user drilled in, not wherever it's been renamed to
 		// since.
 		//
-		// The frame to rewrite is resolved the SAME way the baselineAccessor
-		// forwarding above resolves it — `chain.length - 2` into `drillStack`
-		// — NOT unconditionally the stack's last entry. If a DEEPER frame
-		// failed to resolve (its child was deleted out from under an open
-		// drill-in), the active field is the last one that DID resolve, and
-		// its own frame sits at that offset, short of the stack's end. Always
-		// rewriting `s[s.length - 1]` would instead mutate the already-broken
-		// deeper frame, leave the active field's own (now stale) frame
-		// unrewritten, and orphan the whole drill path on the next resolve.
+		// The frame to rewrite is `activeFrameIndex` (shared with the
+		// baselineAccessor forwarding below) — NOT unconditionally the stack's
+		// last entry. Always rewriting `s[s.length - 1]` would mutate an
+		// already-broken deeper frame, leave the active field's own (now
+		// stale) frame unrewritten, and orphan the whole drill path on the
+		// next resolve.
 		const oldActiveAccessor = chain[chain.length - 1].config.api_accessor;
 		if (next.config.api_accessor !== oldActiveAccessor) {
 			setDrillStack((s) => {
-				const activeIndex = chain.length - 2;
-				const activeFrame = s[activeIndex];
+				const activeFrame = s[activeFrameIndex];
 				return [
-					...s.slice(0, activeIndex),
+					...s.slice(0, activeFrameIndex),
 					{ ...activeFrame, accessor: next.config.api_accessor },
-					...s.slice(activeIndex + 1),
+					...s.slice(activeFrameIndex + 1),
 				];
 			});
 		}
@@ -477,15 +480,12 @@ export function FieldConfigPanel({
 					// rename of a committed child still trips the disconnect
 					// warning instead of silently chasing the field's current
 					// accessor and never comparing against anything committed.
-					// Indexed by `chain.length - 2` rather than the stack's last
-					// entry: if a DEEPER frame failed to resolve (its child was
-					// deleted out from under an open drill-in), the active field
-					// is the last one that DID resolve, and its own frame sits at
-					// that offset, not necessarily at the end of `drillStack`.
+					// Indexed by the shared `activeFrameIndex` (see its comment):
+					// the active frame is not necessarily the stack's last entry.
 					baselineAccessor={
 						chain.length === 1
 							? baselineAccessor
-							: (drillStack[chain.length - 2]?.baselineAccessor ??
+							: (drillStack[activeFrameIndex]?.baselineAccessor ??
 								activeField.config.api_accessor)
 					}
 				/>
