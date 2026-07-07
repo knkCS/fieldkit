@@ -89,6 +89,11 @@ describe("field ops", () => {
 		expect(moveField(schema, 0, 3)).toBe(schema);
 	});
 
+	it("moveField(schema, i, i) returns the SAME reference (no-op contract)", () => {
+		const schema: Schema = [f("a"), f("b")];
+		expect(moveField(schema, 1, 1)).toBe(schema);
+	});
+
 	it("updateField with a missing accessor returns the same reference", () => {
 		const schema: Schema = [f("a")];
 		expect(updateField(schema, "nope", f("x"))).toBe(schema);

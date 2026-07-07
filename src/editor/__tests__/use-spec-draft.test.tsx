@@ -147,6 +147,32 @@ describe("useSpecDraft", () => {
 		expect(onDirty).toHaveBeenLastCalledWith(true);
 	});
 
+	it("calls the LATEST onDirtyChange without re-firing on identity churn", () => {
+		const calls: Array<[string, boolean]> = [];
+		const { result, rerender } = renderHook(
+			({ tag }: { tag: string }) =>
+				useSpecDraft(
+					[f("a")],
+					[textPlugin],
+					vi.fn(),
+					// Deliberately unmemoized callback — a new identity every render.
+					(d) => calls.push([tag, d]),
+				),
+			{ initialProps: { tag: "a" } },
+		);
+		const before = calls.length;
+
+		// Re-render with a NEW callback identity but unchanged dirty state:
+		// must NOT re-fire the notification.
+		rerender({ tag: "b" });
+		expect(calls.length).toBe(before);
+
+		// When dirty DOES flip, the LATEST callback (tag "b") is invoked, not
+		// a stale one captured by an earlier render's effect closure.
+		act(() => result.current.apply([]));
+		expect(calls[calls.length - 1]).toEqual(["b", true]);
+	});
+
 	it("apply accepts a functional updater applied against the CURRENT draft", () => {
 		const { result } = renderHook(() =>
 			useSpecDraft([f("a"), f("b")], [textPlugin], vi.fn()),

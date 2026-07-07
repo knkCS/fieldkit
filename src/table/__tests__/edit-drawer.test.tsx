@@ -18,8 +18,10 @@ function TestField({ field }: FieldProps) {
 	const { register } = useFormContext();
 	return (
 		<div data-testid={`field-${field.config.api_accessor}`}>
-			<label>{field.config.name}</label>
-			<input {...register(field.config.api_accessor)} />
+			<label>
+				{field.config.name}
+				<input {...register(field.config.api_accessor)} />
+			</label>
 		</div>
 	);
 }

@@ -174,7 +174,7 @@ function PluginToggle({
 									gap: "8px",
 								}}
 							>
-								<label
+								<span
 									style={{
 										fontSize: "13px",
 										fontWeight: 500,
@@ -182,7 +182,7 @@ function PluginToggle({
 									}}
 								>
 									{field.config.name}
-								</label>
+								</span>
 								<input
 									type="text"
 									value={String(currentValue)}

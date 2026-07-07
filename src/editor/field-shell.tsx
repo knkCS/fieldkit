@@ -72,6 +72,7 @@ export function FieldShell({
 			position="relative"
 			borderWidth="2px"
 			borderColor={borderColor}
+			data-invalid={invalid ? "true" : undefined}
 			borderRadius="md"
 			bg={selected ? "bg-subtle" : undefined}
 			opacity={isDragging ? 0.6 : 1}

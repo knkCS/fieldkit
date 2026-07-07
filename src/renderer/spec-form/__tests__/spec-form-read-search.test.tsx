@@ -76,6 +76,10 @@ describe("SpecForm read mode — search parity", () => {
 				`[data-field-row="${CSS.escape("meta.title")}"]`,
 			);
 			expect(row).not.toBeNull();
+			// Pin the div-in-p fix: the row wrapper must stay a block-display
+			// SPAN (DescriptionList.Row renders its value inside a <p>; a div
+			// child regresses to React's DOM-nesting warning).
+			expect(row?.tagName).toBe("SPAN");
 			expect(row?.style.boxShadow).toContain("3px");
 		});
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
@@ -154,5 +158,64 @@ describe("SpecForm read mode — search parity", () => {
 		// forever — this is the clobber bug.
 		const firstRowShadow = rowFor("meta.title")?.style.boxShadow;
 		expect(firstRowShadow === "none" || firstRowShadow === "").toBe(true);
+	});
+
+	it("scopes the jump to its own instance when two SpecForms share accessors", async () => {
+		render(
+			<Wrapper>
+				<div data-testid="first">
+					<SpecForm schema={schema} mode="read" values={{}} />
+				</div>
+				<div data-testid="second">
+					<SpecForm schema={schema} mode="read" values={{}} />
+				</div>
+			</Wrapper>,
+		);
+		const first = screen.getByTestId("first");
+		const firstSearch = within(first).getByPlaceholderText("Find field…");
+		fireEvent.change(firstSearch, { target: { value: "meta" } });
+		const listbox = await within(first).findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Meta title"));
+
+		await waitFor(() => {
+			const row = first.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape("meta.title")}"]`,
+			);
+			// The FIRST instance's row flashes…
+			expect(row?.style.boxShadow).toContain("3px");
+		});
+		// …and the SECOND instance's identical row does not. Null-guard first
+		// so a missing row can't make the negative assertion pass vacuously.
+		const secondRow = screen
+			.getByTestId("second")
+			.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape("meta.title")}"]`,
+			);
+		expect(secondRow).not.toBeNull();
+		expect(secondRow?.style.boxShadow ?? "").not.toContain("3px");
+	});
+
+	it("jumps to an accessor containing a double quote (CSS.escape load-bearing)", async () => {
+		const quoted = [
+			makeField("title", "Title"),
+			makeSection("seo", "SEO"),
+			makeField('we"ird', "Weird field"),
+		];
+		render(
+			<Wrapper>
+				<SpecForm schema={quoted} mode="read" values={{}} />
+			</Wrapper>,
+		);
+		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
+			target: { value: "weird" },
+		});
+		const listbox = await screen.findByRole("listbox");
+		fireEvent.click(within(listbox).getByText("Weird field"));
+		await waitFor(() => {
+			const row = document.querySelector<HTMLElement>(
+				`[data-field-row="${CSS.escape('we"ird')}"]`,
+			);
+			expect(row?.style.boxShadow).toContain("3px");
+		});
 	});
 });

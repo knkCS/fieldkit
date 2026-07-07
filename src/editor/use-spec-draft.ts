@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	partitionSchemaBySections,
 	type SpecPartition,
@@ -104,9 +104,15 @@ export function useSpecDraft(
 
 	const dirty = draft !== baseline;
 
+	// Call-latest ref: consumers need not memoize onDirtyChange — identity
+	// churn must not re-fire the notification effect.
+	const onDirtyChangeRef = useRef(onDirtyChange);
 	useEffect(() => {
-		onDirtyChange?.(dirty);
-	}, [dirty, onDirtyChange]);
+		onDirtyChangeRef.current = onDirtyChange;
+	});
+	useEffect(() => {
+		onDirtyChangeRef.current?.(dirty);
+	}, [dirty]);
 
 	const apply = useCallback((next: Schema | ((draft: Schema) => Schema)) => {
 		setSaveError(null);

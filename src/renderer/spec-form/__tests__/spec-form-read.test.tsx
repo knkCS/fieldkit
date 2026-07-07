@@ -2,10 +2,12 @@ import { Provider } from "@knkcs/anker/primitives";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
+import type { SpecFormLabels } from "../spec-form";
 import { SpecForm } from "../spec-form";
-import { makeField, makeSection, testPlugins } from "./helpers";
+import { makeField, makeSection, testPlugins, Wrapper } from "./helpers";
 
 function renderRead(ui: React.ReactElement) {
 	// No FormProvider on purpose: read mode must not require a form.
@@ -133,5 +135,87 @@ describe("SpecForm — read mode", () => {
 			</Provider>,
 		);
 		expect(screen.getByTestId("cell").textContent).toBe("Hi!");
+	});
+});
+
+// A plugin with NO cellComponent: read mode must fall back to
+// type-aware formatting, not raw String(value).
+const rawPlugin: FieldTypePlugin = {
+	id: "raw",
+	name: "Raw",
+	description: "",
+	icon: () => null,
+	category: "text",
+	fieldComponent: () => null,
+	toZodType: () => z.unknown(),
+};
+
+function rawField(accessor: string): Field {
+	return {
+		field_type: "raw",
+		config: {
+			name: accessor,
+			api_accessor: accessor,
+			required: false,
+			instructions: "",
+		},
+		settings: null,
+		system: false,
+	};
+}
+
+describe("read mode — cell-less fallback formatting", () => {
+	function renderRaw(value: unknown, labels?: SpecFormLabels) {
+		render(
+			<Wrapper extraPlugins={[rawPlugin]}>
+				<SpecForm
+					schema={[rawField("x")]}
+					mode="read"
+					values={{ x: value }}
+					labels={labels}
+				/>
+			</Wrapper>,
+		);
+	}
+
+	it("renders booleans via the translatable labels", () => {
+		renderRaw(true);
+		expect(screen.getByText("Yes")).toBeInTheDocument();
+	});
+
+	it("boolean false renders No (not the empty dash, not 'false')", () => {
+		renderRaw(false);
+		expect(screen.getByText("No")).toBeInTheDocument();
+		expect(screen.queryByText("false")).toBeNull();
+	});
+
+	it("labels override the boolean strings", () => {
+		renderRaw(true, { booleanYes: "Ja", booleanNo: "Nein" });
+		expect(screen.getByText("Ja")).toBeInTheDocument();
+	});
+
+	it("labels override the false branch too", () => {
+		renderRaw(false, { booleanYes: "Ja", booleanNo: "Nein" });
+		expect(screen.getByText("Nein")).toBeInTheDocument();
+	});
+
+	it("joins primitive arrays with a comma separator", () => {
+		renderRaw(["a", 2, true]);
+		expect(screen.getByText("a, 2, Yes")).toBeInTheDocument();
+	});
+
+	it("renders objects and object-arrays as the empty dash", () => {
+		renderRaw({ nested: 1 });
+		expect(screen.getByText("—")).toBeInTheDocument();
+	});
+
+	it("renders an ARRAY of objects as the empty dash (non-primitive branch)", () => {
+		renderRaw([{ a: 1 }]);
+		expect(screen.getByText("—")).toBeInTheDocument();
+	});
+
+	it("passes strings and numbers through unchanged", () => {
+		renderRaw("plain");
+		expect(screen.getByText("plain")).toBeInTheDocument();
 	});
 });

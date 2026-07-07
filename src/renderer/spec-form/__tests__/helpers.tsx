@@ -66,6 +66,35 @@ function PickerField({ field }: FieldProps) {
 	);
 }
 
+export function makeDisabledFirstField(
+	accessor: string,
+	name = accessor,
+): Field {
+	return {
+		field_type: "disabled-first",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: null,
+		system: false,
+	};
+}
+
+// Picker-style field whose first focusable child is DISABLED — pins the
+// jump fallback's :disabled skip.
+function DisabledFirstField({ field }: FieldProps) {
+	const accessor = field.config.api_accessor;
+	return (
+		<div data-testid={`field-${accessor}`}>
+			<label htmlFor={accessor}>{field.config.name}</label>
+			<button type="button" disabled aria-label="disabled-control">
+				locked
+			</button>
+			<button type="button" aria-label="enabled-control">
+				pick
+			</button>
+		</div>
+	);
+}
+
 export const testPlugins: FieldTypePlugin[] = [
 	{
 		id: "text",
@@ -94,20 +123,33 @@ export const testPlugins: FieldTypePlugin[] = [
 		fieldComponent: PickerField,
 		toZodType: () => z.string(),
 	},
+	{
+		id: "disabled-first",
+		name: "Disabled First",
+		description: "",
+		icon: () => null,
+		category: "reference",
+		fieldComponent: DisabledFirstField,
+		toZodType: () => z.string(),
+	},
 ];
 
 export function Wrapper({
 	children,
 	defaultValues = {},
+	extraPlugins = [],
 }: {
 	children: ReactNode;
 	defaultValues?: Record<string, unknown>;
+	extraPlugins?: FieldTypePlugin[];
 }) {
 	const methods = useForm({ defaultValues });
 	return (
 		<ChakraProvider value={defaultSystem}>
 			<FormProvider {...methods}>
-				<FieldKitProvider plugins={testPlugins}>{children}</FieldKitProvider>
+				<FieldKitProvider plugins={[...testPlugins, ...extraPlugins]}>
+					{children}
+				</FieldKitProvider>
 			</FormProvider>
 		</ChakraProvider>
 	);

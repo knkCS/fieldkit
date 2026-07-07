@@ -215,6 +215,50 @@ describe("FieldShell", () => {
 		expect(onSelect).toHaveBeenCalledTimes(2);
 	});
 
+	it("carries data-invalid when invalid", () => {
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected={false}
+					invalid
+					onSelect={noop}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		expect(screen.getByTestId("shell-title")).toHaveAttribute(
+			"data-invalid",
+			"true",
+		);
+	});
+
+	it("does not carry data-invalid when valid", () => {
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected={false}
+					onSelect={noop}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		expect(screen.getByTestId("shell-title")).not.toHaveAttribute(
+			"data-invalid",
+		);
+	});
+
 	it("system fields show a lock and no delete button", () => {
 		render(
 			<Wrap>

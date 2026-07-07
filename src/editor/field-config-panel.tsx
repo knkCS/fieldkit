@@ -107,6 +107,26 @@ export interface FieldConfigPanelProps {
 	 * disconnecting its data.
 	 */
 	committedAccessors: Set<string>;
+	/**
+	 * The accessor this field had in the last committed schema — tracked
+	 * across in-session renames by SpecEditor's rename-baseline map (keyed by
+	 * the LIVE accessor, so a deselect/reselect mid-rename still recovers the
+	 * true committed baseline instead of re-baselining to whatever the field
+	 * currently is). Forwarded straight through to ConfigSection, which uses
+	 * it for the committed-accessor disconnect warning.
+	 *
+	 * This tracked baseline applies to the TOP-LEVEL field ONLY — SpecEditor
+	 * has no notion of a drilled-in group child's selection. A drilled child
+	 * instead self-scopes to its OWN drill-in frame's `baselineAccessor` (see
+	 * DrillFrame and the `chain.length` check below): the child's accessor
+	 * frozen at the moment the frame was pushed, so a LIVE rename within the
+	 * frame still trips the disconnect warning if that frozen baseline is
+	 * committed. What does NOT persist for a drilled child is rename-tracking
+	 * ACROSS a deselect/reselect of the whole panel (which discards
+	 * `drillStack` entirely) — that recovery is a top-level-only feature,
+	 * since only SpecEditor's map survives the remount.
+	 */
+	baselineAccessor: string;
 	/** T12's DEFAULT_EDITOR_LABELS supplies English defaults; tests pass their own. */
 	labels: PanelLabels;
 }
@@ -148,15 +168,28 @@ function Disclosure({
 }
 Disclosure.displayName = "Disclosure";
 
-/** Walks `drillStack` (a path of child accessors) down from the top-level
+/**
+ * A single level of the drill-in path. `accessor` is the LIVE lookup key —
+ * it follows renames (see the rename-follow logic in
+ * `handleActiveFieldChange`) so `resolveChain` keeps resolving the drilled
+ * child. `baselineAccessor` is captured ONCE, when the frame is pushed (the
+ * child's accessor at that moment), and is never rewritten by a rename — it
+ * is the frozen value the disconnect warning compares the live input against.
+ */
+interface DrillFrame {
+	accessor: string;
+	baselineAccessor: string;
+}
+
+/** Walks `drillStack` (a path of child frames) down from the top-level
  * field, stopping early if a step no longer resolves (e.g. the child was
  * deleted out from under an open drill-in). */
-function resolveChain(field: Field, drillStack: string[]): Field[] {
+function resolveChain(field: Field, drillStack: DrillFrame[]): Field[] {
 	const chain: Field[] = [field];
-	for (const accessor of drillStack) {
+	for (const frame of drillStack) {
 		const parent = chain[chain.length - 1];
 		const found = parent.children?.find(
-			(c) => c.config.api_accessor === accessor,
+			(c) => c.config.api_accessor === frame.accessor,
 		);
 		if (!found) break;
 		chain.push(found);
@@ -173,9 +206,10 @@ export function FieldConfigPanel({
 	onClose,
 	autoFocusLabel,
 	committedAccessors,
+	baselineAccessor,
 	labels,
 }: FieldConfigPanelProps) {
-	const [drillStack, setDrillStack] = useState<string[]>([]);
+	const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const topAccessorRef = useRef<string>(field.config.api_accessor);
 	const prevAutoFocusRef = useRef(false);
@@ -281,10 +315,21 @@ export function FieldConfigPanel({
 		// A rename (manual or auto-slug) changes the drilled child's accessor;
 		// the drillStack entry pointing at it must follow in the same update,
 		// or the stale path would stop resolving and the panel would silently
-		// fall back to editing the PARENT GROUP while still showing Back.
+		// fall back to editing the PARENT GROUP while still showing Back. Only
+		// the frame's LOOKUP KEY (`accessor`) follows the rename — its
+		// `baselineAccessor` is captured once at drill-in and must stay frozen
+		// so the disconnect warning keeps comparing against the accessor the
+		// child had when the user drilled in, not wherever it's been renamed to
+		// since.
 		const oldActiveAccessor = chain[chain.length - 1].config.api_accessor;
 		if (next.config.api_accessor !== oldActiveAccessor) {
-			setDrillStack((s) => [...s.slice(0, -1), next.config.api_accessor]);
+			setDrillStack((s) => {
+				const last = s[s.length - 1];
+				return [
+					...s.slice(0, -1),
+					{ ...last, accessor: next.config.api_accessor },
+				];
+			});
 		}
 		// Rebuild the tree bottom-up, replacing each level's edited child by
 		// its PRE-edit accessor (captured in `chain`) so a rename of the
@@ -403,7 +448,35 @@ export function FieldConfigPanel({
 			)}
 
 			<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
-				<ConfigSection {...sectionProps} nameInputRef={nameInputRef} />
+				<ConfigSection
+					{...sectionProps}
+					nameInputRef={nameInputRef}
+					// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
+					// selected field (see the prop doc below) — it always reflects
+					// the top-level field's committed accessor, never a drilled-in
+					// child's. Forwarding it unconditionally would compare a
+					// drilled child's accessor against its PARENT's baseline (e.g.
+					// child "item_name" !== group baseline "items") and produce a
+					// false-positive disconnect warning for every untouched
+					// committed child. Any drilled frame instead self-scopes to
+					// its OWN drill-in frame's `baselineAccessor` — the child's
+					// accessor AT THE MOMENT it was drilled into, frozen across
+					// renames within the frame (see DrillFrame above) — so a LIVE
+					// rename of a committed child still trips the disconnect
+					// warning instead of silently chasing the field's current
+					// accessor and never comparing against anything committed.
+					// Indexed by `chain.length - 2` rather than the stack's last
+					// entry: if a DEEPER frame failed to resolve (its child was
+					// deleted out from under an open drill-in), the active field
+					// is the last one that DID resolve, and its own frame sits at
+					// that offset, not necessarily at the end of `drillStack`.
+					baselineAccessor={
+						chain.length === 1
+							? baselineAccessor
+							: (drillStack[chain.length - 2]?.baselineAccessor ??
+								activeField.config.api_accessor)
+					}
+				/>
 			</Disclosure>
 
 			<Disclosure
@@ -442,7 +515,19 @@ export function FieldConfigPanel({
 									size="xs"
 									variant="ghost"
 									onClick={() =>
-										setDrillStack((s) => [...s, child.config.api_accessor])
+										// Freeze `baselineAccessor` to the child's accessor AT
+										// THIS MOMENT — the disconnect-warning baseline for the
+										// whole time this frame stays on top of the stack. `accessor`
+										// (the lookup key) starts equal to it but, unlike
+										// `baselineAccessor`, follows subsequent renames — see the
+										// rename-follow logic in `handleActiveFieldChange`.
+										setDrillStack((s) => [
+											...s,
+											{
+												accessor: child.config.api_accessor,
+												baselineAccessor: child.config.api_accessor,
+											},
+										])
 									}
 									data-testid={`panel-child-edit-${child.config.api_accessor}`}
 								>

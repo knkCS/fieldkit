@@ -118,6 +118,7 @@ export function VirtualTableField({
 												</Table.Row>
 											) : (
 												rows.map((row, idx) => (
+													// biome-ignore lint/suspicious/noArrayIndexKey: preview rows are positional; virtual-table records carry no stable id
 													<Table.Row key={idx}>
 														{columns.map((col) => (
 															<Table.Cell key={col.config.api_accessor}>

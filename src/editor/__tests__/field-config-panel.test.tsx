@@ -50,6 +50,7 @@ function Harness({
 	fieldErrors = [],
 	autoFocusLabel = false,
 	onFieldChangeSpy,
+	baselineAccessor,
 }: {
 	initialField: Field;
 	/** Other fields present in the live draft alongside the edited field. */
@@ -59,6 +60,11 @@ function Harness({
 	fieldErrors?: SpecFieldError[];
 	autoFocusLabel?: boolean;
 	onFieldChangeSpy?: (next: Field) => void;
+	/** The accessor `initialField` had in the last committed schema. Defaults
+	 * to `initialField`'s own accessor (the common "nothing renamed yet"
+	 * case) and, like SpecEditor's real rename-baseline map, stays fixed for
+	 * the lifetime of this Harness instance even as `field` state changes. */
+	baselineAccessor?: string;
 }) {
 	const [field, setField] = useState<Field>(initialField);
 	const draft = [field, ...otherFields];
@@ -76,6 +82,7 @@ function Harness({
 				onClose={() => {}}
 				autoFocusLabel={autoFocusLabel}
 				committedAccessors={committedAccessors}
+				baselineAccessor={baselineAccessor ?? initialField.config.api_accessor}
 				labels={testLabels}
 			/>
 			<pre data-testid="dump">{JSON.stringify(field)}</pre>
@@ -108,6 +115,7 @@ describe("FieldConfigPanel", () => {
 					onFieldChange={onFieldChangeSpy}
 					onClose={vi.fn()}
 					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
 					labels={testLabels}
 				/>
 			</EditorWrap>,
@@ -138,6 +146,7 @@ describe("FieldConfigPanel", () => {
 					onFieldChange={onFieldChangeSpy}
 					onClose={vi.fn()}
 					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
 					labels={testLabels}
 				/>
 			</EditorWrap>,
@@ -214,6 +223,7 @@ describe("FieldConfigPanel", () => {
 					onFieldChange={setField}
 					onClose={() => {}}
 					committedAccessors={committed}
+					baselineAccessor={initial.config.api_accessor}
 					labels={testLabels}
 				/>
 			);
@@ -442,6 +452,7 @@ describe("FieldConfigPanel", () => {
 					onFieldChange={vi.fn()}
 					onClose={vi.fn()}
 					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
 					labels={translated}
 				/>
 			</EditorWrap>,
@@ -613,5 +624,114 @@ describe("FieldConfigPanel", () => {
 			"renamed_item",
 		);
 		expect(readDump().children?.[0].config.api_accessor).toBe("renamed_item");
+	});
+
+	it("does not show the disconnect warning for an untouched committed group child", () => {
+		// Both the group ("items") and its child ("item_name") are already
+		// committed. SpecEditor only tracks a rename baseline for the
+		// TOP-LEVEL selected field, so it always forwards "items" here even
+		// once drilled into the child. Comparing the child's own accessor
+		// against the PARENT's baseline ("item_name" !== "items") must NOT
+		// produce a false-positive warning — the child was never renamed.
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={makeGroupField()}
+					committedAccessors={new Set(["items", "item_name"])}
+					baselineAccessor="items"
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.queryByTestId("accessor-warning")).not.toBeInTheDocument();
+	});
+
+	it("shows the disconnect warning while live-renaming a committed drilled child", () => {
+		// Both the group ("items") and its child ("item_name") are already
+		// committed. Drilling into the child must freeze the panel's baseline
+		// at "item_name" — the child's accessor AT DRILL-IN TIME — so that a
+		// LIVE rename to "item_name2" still shows the disconnect warning: the
+		// frozen baseline is committed and differs from the live input. The
+		// buggy live-accessor fallback instead re-derives the baseline from
+		// the field's CURRENT accessor on every keystroke, so
+		// committedAccessors.has(baseline) is always false post-rename and the
+		// warning never appears — this is RED against that fallback.
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={makeGroupField()}
+					committedAccessors={new Set(["items", "item_name"])}
+					baselineAccessor="items"
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+
+		fireEvent.change(screen.getByTestId("panel-accessor-input"), {
+			target: { value: "item_name2" },
+		});
+
+		expect(screen.getByTestId("accessor-warning")).toHaveTextContent(
+			testLabels.committedAccessorWarning,
+		);
+		expect(readDump().children?.[0].config.api_accessor).toBe("item_name2");
+	});
+
+	it("keeps the committed-accessor warning after deselect/reselect mid-rename", () => {
+		// Simulates the panel remounting after a deselect/reselect while a
+		// rename is in progress this session: the field's LIVE accessor is
+		// already "title2" (renamed from "title"), but SpecEditor's
+		// rename-baseline map still knows it was committed as "title" and
+		// passes that through as `baselineAccessor` regardless of the
+		// remount — unlike the field's own local state (freshly initialized
+		// on every mount), which cannot recover that fact on its own.
+		const field = makeField("title2", "Title");
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field]}
+					fieldErrors={[]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set(["title"])}
+					baselineAccessor="title"
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(screen.getByTestId("accessor-warning")).toHaveTextContent(
+			testLabels.committedAccessorWarning,
+		);
+	});
+
+	it("blur with a colliding trimmed accessor never applies the untrimmed value", () => {
+		const field = makeField("my_field", "My Field");
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={field}
+					otherFields={[makeField("body", "Body")]}
+					onFieldChangeSpy={onFieldChangeSpy}
+				/>
+			</EditorWrap>,
+		);
+
+		const accessorInput = screen.getByTestId("panel-accessor-input");
+		fireEvent.change(accessorInput, { target: { value: "body " } });
+		fireEvent.blur(accessorInput);
+
+		expect(screen.getByTestId("accessor-error")).toHaveTextContent(
+			testLabels.accessorInUse,
+		);
+		expect(onFieldChangeSpy).not.toHaveBeenCalled();
+		expect(readDump().config.api_accessor).toBe("my_field");
 	});
 });
