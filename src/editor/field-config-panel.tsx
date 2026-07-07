@@ -306,7 +306,9 @@ export function FieldConfigPanel({
 	// child was deleted under an open drill-in), the active field is the last
 	// one that DID resolve, short of the stack's end. Shared by the
 	// rename-follow and the baselineAccessor forwarding so the two can never
-	// drift apart again (#35).
+	// drift apart again (#35). Only meaningful when `chain.length >= 2` —
+	// it's -1 at the top level; both consumers guard on that, and any new
+	// consumer must too (an unguarded -1 silently changes slice semantics).
 	const activeFrameIndex = chain.length - 2;
 	// Children don't have a resolvable plugin here (FieldConfigPanel only
 	// receives the top-level field's plugin, not a full registry) — v1
