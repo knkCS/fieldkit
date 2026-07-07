@@ -27,7 +27,7 @@ most consumers won't need it directly.
 |-----------------|--------------------------------------|---------|-------------------------------------------------------------------------------|
 | `schema`        | `Schema`                             | —       | The **committed** specification. See the schema-prop stability contract below. |
 | `onCommit`      | `(schema: Schema) => void \| Promise<void>` | —  | Called with the draft when the author clicks Save. May return a Promise; a rejection surfaces an error toast and keeps the draft dirty. |
-| `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard. |
+| `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard (need not be memoized — the hook latches the latest callback). |
 | `plugins`       | `FieldTypePlugin[]`                  | —       | The field-type registry available to insert, render, and validate against.  |
 | `context`       | `FieldContext`                       | —       | Restricts which plugins the type picker offers (`plugin.availableIn`).       |
 | `title`         | `ReactNode`                          | —       | Header-left slot, next to the dirty indicator — put a spec/content-type name here. |

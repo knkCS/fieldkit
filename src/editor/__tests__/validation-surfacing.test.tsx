@@ -94,6 +94,13 @@ describe("validation surfacing", () => {
 		const okBorder = getComputedStyle(okShell).borderColor;
 		expect(dupBorder).not.toBe(okBorder);
 		expect(getComputedStyle(dupShells[1]).borderColor).toBe(dupBorder);
+
+		// data-invalid: a programmatic hook equivalent to the visual outline,
+		// for consumers (and tests) that shouldn't need to assert on computed
+		// CSS border colors.
+		expect(dupShells[0]).toHaveAttribute("data-invalid", "true");
+		expect(dupShells[1]).toHaveAttribute("data-invalid", "true");
+		expect(okShell).not.toHaveAttribute("data-invalid");
 	});
 
 	it("cross-tab duplicate accessors badge every tab containing the accessor", () => {
