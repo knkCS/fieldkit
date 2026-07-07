@@ -321,13 +321,25 @@ export function FieldConfigPanel({
 		// so the disconnect warning keeps comparing against the accessor the
 		// child had when the user drilled in, not wherever it's been renamed to
 		// since.
+		//
+		// The frame to rewrite is resolved the SAME way the baselineAccessor
+		// forwarding above resolves it — `chain.length - 2` into `drillStack`
+		// — NOT unconditionally the stack's last entry. If a DEEPER frame
+		// failed to resolve (its child was deleted out from under an open
+		// drill-in), the active field is the last one that DID resolve, and
+		// its own frame sits at that offset, short of the stack's end. Always
+		// rewriting `s[s.length - 1]` would instead mutate the already-broken
+		// deeper frame, leave the active field's own (now stale) frame
+		// unrewritten, and orphan the whole drill path on the next resolve.
 		const oldActiveAccessor = chain[chain.length - 1].config.api_accessor;
 		if (next.config.api_accessor !== oldActiveAccessor) {
 			setDrillStack((s) => {
-				const last = s[s.length - 1];
+				const activeIndex = chain.length - 2;
+				const activeFrame = s[activeIndex];
 				return [
-					...s.slice(0, -1),
-					{ ...last, accessor: next.config.api_accessor },
+					...s.slice(0, activeIndex),
+					{ ...activeFrame, accessor: next.config.api_accessor },
+					...s.slice(activeIndex + 1),
 				];
 			});
 		}

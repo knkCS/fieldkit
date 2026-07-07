@@ -626,6 +626,111 @@ describe("FieldConfigPanel", () => {
 		expect(readDump().children?.[0].config.api_accessor).toBe("renamed_item");
 	});
 
+	it("rename-follow updates the ACTIVE frame when a deeper frame is broken", () => {
+		// Build a drill chain two deep: group -> child_group -> grandchild.
+		// The GRANDCHILD is then removed OUT FROM UNDER the open drill-in by an
+		// EXTERNAL change (not one routed through the panel) — resolveChain
+		// stops early at child_group, so the ACTIVE field becomes child_group,
+		// one entry short of drillStack's last (now-broken) frame. Renaming
+		// the active field via the accessor input must follow into ITS OWN
+		// frame (drillStack[chain.length - 2]) — the same offset the baseline
+		// forwarding above already uses — not the stack's last frame.
+		const grandchild = makeField("grandchild", "Grandchild");
+		const childGroup: Field = {
+			field_type: "group",
+			config: {
+				name: "Child Group",
+				api_accessor: "child_group",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: [grandchild],
+			system: false,
+		};
+		const topGroup: Field = {
+			field_type: "group",
+			config: {
+				name: "Group",
+				api_accessor: "group",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: [childGroup],
+			system: false,
+		};
+
+		function BrokenFrameHarness() {
+			const [field, setField] = useState<Field>(topGroup);
+			return (
+				<div>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={setField}
+						onClose={() => {}}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+					<button
+						type="button"
+						data-testid="external-delete-grandchild"
+						onClick={() =>
+							setField((f) => ({
+								...f,
+								children: (f.children ?? []).map((c) =>
+									c.config.api_accessor === "child_group"
+										? { ...c, children: [] }
+										: c,
+								),
+							}))
+						}
+					/>
+					<pre data-testid="dump">{JSON.stringify(field)}</pre>
+				</div>
+			);
+		}
+
+		render(
+			<EditorWrap>
+				<BrokenFrameHarness />
+			</EditorWrap>,
+		);
+
+		// Drill in two levels: group -> child_group -> grandchild.
+		fireEvent.click(screen.getByTestId("panel-child-edit-child_group"));
+		fireEvent.click(screen.getByTestId("panel-child-edit-grandchild"));
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Grandchild");
+
+		// Externally delete the grandchild — the DEEPER frame ("grandchild")
+		// no longer resolves, but drillStack still holds both frames. The
+		// panel must fall back to the deepest RESOLVABLE frame: child_group.
+		fireEvent.click(screen.getByTestId("external-delete-grandchild"));
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Child Group");
+
+		// Rename the ACTIVE field (child_group) via the accessor input.
+		fireEvent.change(screen.getByTestId("panel-accessor-input"), {
+			target: { value: "child_group_renamed" },
+		});
+
+		// The panel must keep resolving and displaying the renamed ACTIVE
+		// field — not fall back to the top-level group (pre-fix: the rename
+		// rewrote the broken LAST frame, so the FIRST frame's stale lookup key
+		// stopped matching and resolveChain collapsed to the top-level field).
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Child Group");
+		expect(screen.getByTestId("panel-accessor-input")).toHaveValue(
+			"child_group_renamed",
+		);
+		expect(readDump().children?.[0].config.api_accessor).toBe(
+			"child_group_renamed",
+		);
+	});
+
 	it("does not show the disconnect warning for an untouched committed group child", () => {
 		// Both the group ("items") and its child ("item_name") are already
 		// committed. SpecEditor only tracks a rename baseline for the
