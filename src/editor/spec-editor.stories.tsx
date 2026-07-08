@@ -46,6 +46,22 @@ const invalidSpec: Schema = [
 	...section("Details", [text("duplicate", { name: "Last Name" })]),
 ];
 
+// System fields as a host would inject them (server-canonical definitions,
+// e.g. mediahub's asset name/description): locked in the panel, draggable
+// on the canvas, undeletable. Mixed with one customer field.
+const systemSpec: Schema = [
+	{
+		...text("name", {
+			name: "Name",
+			required: true,
+			instructions: "The name of the asset.",
+		}),
+		system: true,
+	},
+	{ ...text("description", { name: "Description" }), system: true },
+	text("internal_ref", { name: "Internal reference" }),
+];
+
 /* ------------------------------------------------------------------ */
 /*  Wrapper                                                            */
 /* ------------------------------------------------------------------ */
@@ -189,6 +205,23 @@ export const InvalidDraft: Story = {
 					selecting either field shows the inline duplicate-accessor message.{" "}
 					<strong>Save</strong> and <strong>Try it</strong> stay disabled until
 					the collision is resolved.
+				</>
+			}
+		/>
+	),
+};
+
+export const SystemFields: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={systemSpec}
+			note={
+				<>
+					<code>Name</code> and <code>Description</code> are system fields (
+					<code>field.system</code>): the ⋮ toolbar shows a lock and no delete,
+					the config panel renders a read-only summary, and dragging still
+					works. <code>Internal reference</code> is a normal editable field.
+					Duplicating a system field produces an editable copy.
 				</>
 			}
 		/>

@@ -125,7 +125,7 @@ select it — a floating toolbar appears above the shell (drag handle, Edit,
 Duplicate, a cross-tab "Move to section" menu when the spec has 2+ tabs, and
 Delete), and the [config panel](#config-panel--live-preview) opens to its
 right. System fields (`field.system`) show a lock badge in place of Delete —
-see [System-Field Locking](#system-field-locking).
+see [System Fields](#system-fields).
 
 ### ⊕ insertion
 
@@ -229,13 +229,23 @@ already-committed field (even validly) shows a non-blocking warning
 (`labels.committedAccessorWarning`) — the data stored under the old
 accessor won't follow.
 
-### System-field locking
+## System Fields
 
-Fields marked `system: true` (typically framework-managed fields like an
-id or timestamps) show a lock badge instead of a Delete button in the
-selection toolbar, and their accessor input is disabled in the panel. Their
-*name*, instructions, and settings remain editable. Duplicating a system
-field produces a normal, unlocked (`system: false`) copy.
+Fields with `system: true` are host-owned definitions (typically injected
+server-side and re-canonicalized on every read). The editor treats them as
+locked content:
+
+- The config panel renders a **read-only summary** (`panelSystemNotice` +
+  accessor/required/instructions) instead of the editable sections — nothing
+  interactive is mounted, including the plugin's `settingsComponent`.
+- The shell toolbar shows a lock, hides **Delete**, and keeps **drag**
+  enabled — authors arrange system fields freely among their own.
+- **Duplicate** produces a copy with `system: false` — a copy is always
+  user-owned.
+
+The editor never *creates* system fields; they arrive via the `schema` prop.
+Hosts are responsible for re-canonicalizing system definitions on read so a
+stored spec can never drift from the application's truth.
 
 ## Try-it Mode
 
@@ -326,6 +336,7 @@ are shown.
 | `panelBack` | `"Back"` | Panel drill-in Back button |
 | `panelClose` | `"Close"` | Panel close button aria-label |
 | `panelLocalizable` | `"Localizable"` | Localizable checkbox label |
+| `panelSystemNotice` | `"System field — its definition is managed by the application. You can reposition it on the canvas."` | Notice atop the read-only panel summary for system fields. |
 | `accessorInUse` | `"This accessor is already in use"` | Accessor collision error |
 | `accessorEmpty` | `"Accessor is required"` | Empty accessor error |
 | `committedAccessorWarning` | `"Changing the accessor of a saved field disconnects its existing data"` | Non-blocking warning on an already-committed field |

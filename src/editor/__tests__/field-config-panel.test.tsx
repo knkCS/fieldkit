@@ -1,6 +1,6 @@
 // src/editor/__tests__/field-config-panel.test.tsx
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -36,6 +36,7 @@ const testLabels: PanelLabels = {
 	pattern: "Pattern (regex)",
 	patternMessage: "Pattern message",
 	unique: "Unique",
+	panelSystemNotice: "System field notice",
 };
 
 function readDump(): Field {
@@ -838,5 +839,60 @@ describe("FieldConfigPanel", () => {
 		);
 		expect(onFieldChangeSpy).not.toHaveBeenCalled();
 		expect(readDump().config.api_accessor).toBe("my_field");
+	});
+});
+
+describe("system fields — panel lock", () => {
+	function renderPanel(system: boolean) {
+		const field = makeField("name", "Name");
+		field.system = system;
+		field.config.instructions = "The name of the asset.";
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field]}
+					fieldErrors={[]}
+					onFieldChange={onFieldChangeSpy}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+		return onFieldChangeSpy;
+	}
+
+	it("renders a read-only summary instead of the editable sections", () => {
+		renderPanel(true);
+		expect(screen.getByTestId("panel-system-summary")).toBeInTheDocument();
+		expect(screen.getByTestId("panel-system-notice")).toBeInTheDocument();
+		// None of the editable machinery mounts:
+		expect(screen.queryByTestId("panel-name-input")).toBeNull();
+		expect(screen.queryByTestId("panel-accessor-input")).toBeNull();
+		expect(screen.queryByTestId("panel-required-input")).toBeNull();
+		expect(screen.queryByTestId("panel-toggle-general")).toBeNull();
+		expect(screen.queryByTestId("panel-toggle-validation")).toBeNull();
+		expect(screen.queryByTestId("panel-toggle-type-settings")).toBeNull();
+		// The strongest guarantee: zero form controls in the whole panel.
+		expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+		expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+	});
+
+	it("summary shows accessor, required state, and instructions", () => {
+		renderPanel(true);
+		const summary = within(screen.getByTestId("panel-system-summary"));
+		expect(summary.getByText("name")).toBeInTheDocument(); // mono accessor
+		expect(summary.getByText("The name of the asset.")).toBeInTheDocument();
+	});
+
+	it("non-system fields keep the editable panel (regression)", () => {
+		renderPanel(false);
+		expect(screen.queryByTestId("panel-system-summary")).toBeNull();
+		expect(screen.getByTestId("panel-name-input")).toBeInTheDocument();
+		expect(screen.getByTestId("panel-toggle-validation")).toBeInTheDocument();
 	});
 });

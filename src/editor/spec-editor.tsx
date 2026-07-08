@@ -91,6 +91,8 @@ export interface EditorLabels {
 	accessorInUse?: string;
 	accessorEmpty?: string;
 	committedAccessorWarning?: string;
+	/** Notice shown in the config panel for system fields (read-only). */
+	panelSystemNotice?: string;
 	/**
 	 * Flagged addition beyond the T12 brief's literal EditorLabels snippet:
 	 * FieldConfigPanel's PanelLabels (T9, binding) requires a non-optional
@@ -207,6 +209,8 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	accessorEmpty: "Accessor is required",
 	committedAccessorWarning:
 		"Changing the accessor of a saved field disconnects its existing data",
+	panelSystemNotice:
+		"System field — its definition is managed by the application. You can reposition it on the canvas.",
 	editChild: "Edit",
 
 	name: "Name",
