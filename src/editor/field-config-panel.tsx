@@ -8,6 +8,7 @@ import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
+import { SystemFieldSummary } from "./panel-sections/system-summary";
 import { ValidationSection } from "./panel-sections/validation-section";
 import type { EditorLabels } from "./spec-editor";
 
@@ -56,6 +57,8 @@ export type PanelLabels = Pick<
 	| "accessorInUse"
 	| "accessorEmpty"
 	| "committedAccessorWarning"
+	// System field read-only summary (SystemFieldSummary).
+	| "panelSystemNotice"
 	// The group children list's per-row "Edit" button label.
 	| "editChild"
 	// ConfigSection's and ValidationSection's control labels.
@@ -449,108 +452,122 @@ export function FieldConfigPanel({
 				</IconButton>
 			</Flex>
 
-			{isDuplicateSelection && (
-				<Box
-					borderWidth="1px"
-					borderColor="danger.600"
-					borderRadius="md"
-					p="2"
-					mb="4"
-					data-testid="panel-duplicate-banner"
-				>
-					<Text fontSize="xs" fontWeight="semibold" color="danger.600">
-						{accessorError}
-					</Text>
-				</Box>
-			)}
-
-			<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
-				<ConfigSection
-					{...sectionProps}
-					nameInputRef={nameInputRef}
-					// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
-					// selected field (see the prop doc below) — it always reflects
-					// the top-level field's committed accessor, never a drilled-in
-					// child's. Forwarding it unconditionally would compare a
-					// drilled child's accessor against its PARENT's baseline (e.g.
-					// child "item_name" !== group baseline "items") and produce a
-					// false-positive disconnect warning for every untouched
-					// committed child. Any drilled frame instead self-scopes to
-					// its OWN drill-in frame's `baselineAccessor` — the child's
-					// accessor AT THE MOMENT it was drilled into, frozen across
-					// renames within the frame (see DrillFrame above) — so a LIVE
-					// rename of a committed child still trips the disconnect
-					// warning instead of silently chasing the field's current
-					// accessor and never comparing against anything committed.
-					// Indexed by the shared `activeFrameIndex` (see its comment):
-					// the active frame is not necessarily the stack's last entry.
-					baselineAccessor={
-						chain.length === 1
-							? baselineAccessor
-							: (drillStack[activeFrameIndex]?.baselineAccessor ??
-								activeField.config.api_accessor)
-					}
+			{activeField.system ? (
+				<SystemFieldSummary
+					field={activeField}
+					plugin={activePlugin}
+					labels={labels}
 				/>
-			</Disclosure>
+			) : (
+				<>
+					{isDuplicateSelection && (
+						<Box
+							borderWidth="1px"
+							borderColor="danger.600"
+							borderRadius="md"
+							p="2"
+							mb="4"
+							data-testid="panel-duplicate-banner"
+						>
+							<Text fontSize="xs" fontWeight="semibold" color="danger.600">
+								{accessorError}
+							</Text>
+						</Box>
+					)}
 
-			<Disclosure
-				title={labels.panelValidation}
-				defaultOpen={false}
-				testId="validation"
-			>
-				<ValidationSection {...sectionProps} />
-			</Disclosure>
+					<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
+						<ConfigSection
+							{...sectionProps}
+							nameInputRef={nameInputRef}
+							// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
+							// selected field (see the prop doc below) — it always reflects
+							// the top-level field's committed accessor, never a drilled-in
+							// child's. Forwarding it unconditionally would compare a
+							// drilled child's accessor against its PARENT's baseline (e.g.
+							// child "item_name" !== group baseline "items") and produce a
+							// false-positive disconnect warning for every untouched
+							// committed child. Any drilled frame instead self-scopes to
+							// its OWN drill-in frame's `baselineAccessor` — the child's
+							// accessor AT THE MOMENT it was drilled into, frozen across
+							// renames within the frame (see DrillFrame above) — so a LIVE
+							// rename of a committed child still trips the disconnect
+							// warning instead of silently chasing the field's current
+							// accessor and never comparing against anything committed.
+							// Indexed by the shared `activeFrameIndex` (see its comment):
+							// the active frame is not necessarily the stack's last entry.
+							baselineAccessor={
+								chain.length === 1
+									? baselineAccessor
+									: (drillStack[activeFrameIndex]?.baselineAccessor ??
+										activeField.config.api_accessor)
+							}
+						/>
+					</Disclosure>
 
-			<Disclosure
-				title={labels.panelTypeSettings}
-				defaultOpen={false}
-				testId="type-settings"
-			>
-				<SettingsSection {...sectionProps} />
-			</Disclosure>
+					<Disclosure
+						title={labels.panelValidation}
+						defaultOpen={false}
+						testId="validation"
+					>
+						<ValidationSection {...sectionProps} />
+					</Disclosure>
 
-			{activeField.field_type === "group" && (
-				<Disclosure title={labels.panelChildren} defaultOpen testId="children">
-					<Box>
-						{children.map((child) => (
-							<Flex
-								key={child.config.api_accessor}
-								align="center"
-								justify="space-between"
-								py="1"
-							>
-								<Box>
-									<Text fontSize="sm">{child.config.name}</Text>
-									<Text fontSize="xs" color="fg.muted">
-										{child.field_type}
-									</Text>
-								</Box>
-								<Button
-									size="xs"
-									variant="ghost"
-									onClick={() =>
-										// Freeze `baselineAccessor` to the child's accessor AT
-										// THIS MOMENT — the disconnect-warning baseline for the
-										// whole time this frame stays on top of the stack. `accessor`
-										// (the lookup key) starts equal to it but, unlike
-										// `baselineAccessor`, follows subsequent renames — see the
-										// rename-follow logic in `handleActiveFieldChange`.
-										setDrillStack((s) => [
-											...s,
-											{
-												accessor: child.config.api_accessor,
-												baselineAccessor: child.config.api_accessor,
-											},
-										])
-									}
-									data-testid={`panel-child-edit-${child.config.api_accessor}`}
-								>
-									{labels.editChild}
-								</Button>
-							</Flex>
-						))}
-					</Box>
-				</Disclosure>
+					<Disclosure
+						title={labels.panelTypeSettings}
+						defaultOpen={false}
+						testId="type-settings"
+					>
+						<SettingsSection {...sectionProps} />
+					</Disclosure>
+
+					{activeField.field_type === "group" && (
+						<Disclosure
+							title={labels.panelChildren}
+							defaultOpen
+							testId="children"
+						>
+							<Box>
+								{children.map((child) => (
+									<Flex
+										key={child.config.api_accessor}
+										align="center"
+										justify="space-between"
+										py="1"
+									>
+										<Box>
+											<Text fontSize="sm">{child.config.name}</Text>
+											<Text fontSize="xs" color="fg.muted">
+												{child.field_type}
+											</Text>
+										</Box>
+										<Button
+											size="xs"
+											variant="ghost"
+											onClick={() =>
+												// Freeze `baselineAccessor` to the child's accessor AT
+												// THIS MOMENT — the disconnect-warning baseline for the
+												// whole time this frame stays on top of the stack. `accessor`
+												// (the lookup key) starts equal to it but, unlike
+												// `baselineAccessor`, follows subsequent renames — see the
+												// rename-follow logic in `handleActiveFieldChange`.
+												setDrillStack((s) => [
+													...s,
+													{
+														accessor: child.config.api_accessor,
+														baselineAccessor: child.config.api_accessor,
+													},
+												])
+											}
+											data-testid={`panel-child-edit-${child.config.api_accessor}`}
+										>
+											{labels.editChild}
+										</Button>
+									</Flex>
+								))}
+							</Box>
+						</Disclosure>
+					)}
+				</>
 			)}
 		</Box>
 	);

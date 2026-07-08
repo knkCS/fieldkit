@@ -278,4 +278,29 @@ describe("FieldShell", () => {
 		expect(screen.getByLabelText("System field")).toBeInTheDocument();
 		expect(screen.queryByLabelText("Delete field")).not.toBeInTheDocument();
 	});
+
+	it("system field: lock badge shown, delete hidden, drag handle kept", () => {
+		const sysField: Field = { ...field, system: true };
+		render(
+			<Wrap>
+				<FieldShell
+					field={sysField}
+					selected={true}
+					onSelect={noop}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		expect(screen.getByLabelText(shellLabels.systemLocked)).toBeInTheDocument();
+		expect(screen.queryByLabelText(shellLabels.deleteField)).toBeNull();
+		expect(screen.getByLabelText(shellLabels.dragField)).toBeInTheDocument();
+		expect(
+			screen.getByLabelText(shellLabels.duplicateField),
+		).toBeInTheDocument();
+	});
 });
