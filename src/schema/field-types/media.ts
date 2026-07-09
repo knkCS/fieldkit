@@ -31,5 +31,8 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 	},
 
 	defaultSettings: { accept: undefined, max_items: undefined },
+
+	defaultValue: () => [],
+
 	availableIn: ["blueprint", "task", "form"],
 };

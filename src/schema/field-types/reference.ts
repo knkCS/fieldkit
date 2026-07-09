@@ -42,5 +42,9 @@ export const referencePlugin: FieldTypePlugin<ReferenceSettings> = {
 	},
 
 	defaultSettings: { max_items: undefined },
+
+	defaultValue: (field: Field<ReferenceSettings>) =>
+		field.settings?.max_items === 1 ? "" : [],
+
 	availableIn: ["blueprint", "task", "form"],
 };

@@ -38,5 +38,8 @@ export const codePlugin: FieldTypePlugin<CodeSettings> = {
 	},
 
 	defaultSettings: { language: undefined },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };

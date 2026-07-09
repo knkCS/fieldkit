@@ -19,5 +19,7 @@ export const booleanPlugin: FieldTypePlugin<null> = {
 		return z.boolean();
 	},
 
+	defaultValue: () => false,
+
 	availableIn: ["blueprint", "task", "form"],
 };

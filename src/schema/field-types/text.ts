@@ -47,5 +47,8 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 	},
 
 	defaultSettings: { placeholder: "" },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };

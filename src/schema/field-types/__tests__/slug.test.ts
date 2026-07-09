@@ -45,12 +45,12 @@ describe("slugPlugin", () => {
 		expect(zodType.safeParse("").success).toBe(false); // Changed: empty string now fails
 	});
 
-	it("should reject empty string but allow undefined when optional via specToZodSchema", () => {
+	it("should accept empty string when optional via specToZodSchema (#38: optional strings are 'empty or valid')", () => {
 		const field = createField({ required: false });
 		const schema = specToZodSchema([field], [slugPlugin]);
-		// Empty string must NOT bypass the regex constraint
+		// Empty string is allowed for optional fields (Task 3 behavior)
 		expect(schema.safeParse({ [field.config.api_accessor]: "" }).success).toBe(
-			false,
+			true,
 		);
 		// undefined is allowed because the field is optional
 		expect(

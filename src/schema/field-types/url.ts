@@ -25,5 +25,8 @@ export const urlPlugin: FieldTypePlugin<UrlSettings> = {
 	},
 
 	defaultSettings: { placeholder: "" },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };

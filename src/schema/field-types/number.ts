@@ -39,5 +39,8 @@ export const numberPlugin: FieldTypePlugin<NumberSettings> = {
 	},
 
 	defaultSettings: {},
+
+	defaultValue: () => 0,
+
 	availableIn: ["blueprint", "task", "form"],
 };

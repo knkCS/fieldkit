@@ -57,5 +57,8 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 	},
 
 	defaultSettings: { allowed_blocks: [] },
+
+	defaultValue: () => [],
+
 	availableIn: ["blueprint", "task", "form"],
 };

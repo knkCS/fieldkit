@@ -32,5 +32,8 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 	},
 
 	defaultSettings: { mode: "dynamic" },
+
+	defaultValue: () => [],
+
 	availableIn: ["blueprint", "task", "form"],
 };

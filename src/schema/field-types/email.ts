@@ -25,5 +25,8 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 	},
 
 	defaultSettings: { placeholder: "" },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };

@@ -28,5 +28,8 @@ export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
 	},
 
 	defaultSettings: { options: {} },
+
+	defaultValue: () => [],
+
 	availableIn: ["blueprint", "task", "form"],
 };

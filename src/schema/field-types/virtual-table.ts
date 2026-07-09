@@ -26,5 +26,8 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	},
 
 	defaultSettings: { max_records_per_page: 25 },
+
+	defaultValue: () => [],
+
 	availableIn: ["blueprint"],
 };

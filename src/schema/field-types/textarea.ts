@@ -39,5 +39,8 @@ export const textareaPlugin: FieldTypePlugin<TextareaSettings> = {
 	},
 
 	defaultSettings: { placeholder: "", rows: 4 },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };

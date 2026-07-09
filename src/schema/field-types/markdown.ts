@@ -38,5 +38,8 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 	},
 
 	defaultSettings: { placeholder: "" },
+
+	defaultValue: () => "",
+
 	availableIn: ["blueprint", "task", "form"],
 };
