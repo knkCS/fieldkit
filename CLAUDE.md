@@ -97,7 +97,7 @@ an architectural choice.
 ### Adding a New Field Type Plugin
 
 1. Create `src/schema/field-types/<name>.ts`:
-   - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`
+   - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`, and — when a safe one exists — `defaultValue` (function returning the value-level form default; see #38)
    - Define a `<Name>Settings` interface if the field has configurable settings (plus a `settingsComponent` for the editor's config panel)
    - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
 2. Register the plugin in `src/schema/field-types/index.ts`

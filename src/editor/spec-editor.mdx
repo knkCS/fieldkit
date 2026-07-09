@@ -116,6 +116,15 @@ data) after the fact will revert the baseline backwards for a clean draft.
 Passing a fresh array with unchanged content on every render (normal React
 hygiene) is always safe.
 
+### Save-failure description (`formatSaveError`)
+
+When `onCommit` rejects, the `saveFailed` toast now carries a description:
+by default the rejection's `Error.message` (non-`Error` reasons are
+stringified). Pass `formatSaveError={(reason) => string | null}` to
+translate or sanitize the text; return `null` to suppress the description
+entirely (the pre-0.7 title-only toast). The `saveFailed` label itself is
+unchanged.
+
 ## Build Mode
 
 ### Selection & toolbar
