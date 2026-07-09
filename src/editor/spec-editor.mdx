@@ -32,6 +32,7 @@ most consumers won't need it directly.
 | `context`       | `FieldContext`                       | —       | Restricts which plugins the type picker offers (`plugin.availableIn`).       |
 | `title`         | `ReactNode`                          | —       | Header-left slot, next to the dirty indicator — put a spec/content-type name here. |
 | `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
+| `formatSaveError` | `(reason: unknown) => string \| null` | —     | Formats a rejected `onCommit` reason into the `saveFailed` toast description; return `null` to suppress it. See [Save-failure description](#save-failure-description-formatsaveerror) below. |
 
 ### FieldKitProvider requirement
 
@@ -92,7 +93,11 @@ moment ago."
 ### Schema-prop stability contract
 
 `schema` is compared to `baseline` whenever the schema prop's reference
-changes, by content (`JSON.stringify` equality):
+changes, by content — via an internal deep comparison that is
+key-order-insensitive (`undefined`-valued keys are treated as absent; arrays
+stay order-sensitive). This means a Postgres jsonb round-trip echo, which
+reorders object keys on read-back, is content-equal to what was sent and
+does **not** count as genuinely different content:
 
 - **Same reference, or a new array with equal content** — ignored. This is
   the common case of a consumer re-rendering with a schema built fresh each
