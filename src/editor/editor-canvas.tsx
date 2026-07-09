@@ -246,9 +246,9 @@ export function EditorCanvas({
 	// re-run redundantly on every render even though only one of the three
 	// call sites actually needed a fresh value on any given render.
 	const { defaults, serialized: serializedDefaults } = useMemo(() => {
-		const next = getDefaultValues(draft);
+		const next = getDefaultValues(draft, plugins);
 		return { defaults: next, serialized: JSON.stringify(next) };
-	}, [draft]);
+	}, [draft, plugins]);
 
 	// Scratch form so real field components render authentic defaults.
 	const methods = useForm({ defaultValues: defaults });

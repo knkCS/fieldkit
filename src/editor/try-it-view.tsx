@@ -42,7 +42,7 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 	);
 	const methods = useForm({
 		resolver: zodResolver(zodSchema),
-		defaultValues: getDefaultValues(schema),
+		defaultValues: getDefaultValues(schema, plugins),
 	});
 
 	const onValid = () => {

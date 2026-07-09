@@ -35,9 +35,9 @@ export function EditDrawer({
 	);
 
 	const defaults = useMemo(() => {
-		const specDefaults = getDefaultValues(schema);
+		const specDefaults = getDefaultValues(schema, plugins);
 		return { ...specDefaults, ...initialValues };
-	}, [schema, initialValues]);
+	}, [schema, plugins, initialValues]);
 
 	const methods = useForm({
 		resolver: zodResolver(zodSchema),

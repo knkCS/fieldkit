@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { boolean, number, section, select, text } from "../builders";
 import { defineSpec } from "../define-spec";
+import { builtInFieldTypes } from "../field-types";
 
 describe("defineSpec", () => {
 	it("should produce a fields array from builder calls", () => {
@@ -63,5 +64,44 @@ describe("defineSpec", () => {
 			name: "Untitled",
 			active: true,
 		});
+	});
+
+	it("seeds plugin defaults when options.plugins is passed (#38)", () => {
+		const spec = defineSpec(
+			[
+				{
+					field_type: "boolean",
+					config: {
+						name: "Flag",
+						api_accessor: "flag",
+						required: false,
+						instructions: "",
+					},
+					settings: null,
+					children: null,
+					system: false,
+				},
+			],
+			{ plugins: builtInFieldTypes },
+		);
+		expect(spec.defaultValues).toEqual({ flag: false });
+	});
+
+	it("stays sparse without options (back-compat)", () => {
+		const spec = defineSpec([
+			{
+				field_type: "boolean",
+				config: {
+					name: "Flag",
+					api_accessor: "flag",
+					required: false,
+					instructions: "",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		]);
+		expect(spec.defaultValues).toEqual({});
 	});
 });

@@ -1,7 +1,7 @@
 // @knkcs/fieldkit/schema — Field types, registry, Zod generation, defineSpec()
 
 export { boolean, number, section, select, text } from "./builders";
-export type { SpecDefinition } from "./define-spec";
+export type { DefineSpecOptions, SpecDefinition } from "./define-spec";
 // Builder API
 export { defineSpec } from "./define-spec";
 export type {
