@@ -5,7 +5,11 @@ import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { getDefaultValues, specToZodSchema } from "../zod-builder";
 
-function mockPlugin(id: string, zodType: z.ZodTypeAny): FieldTypePlugin {
+function mockPlugin(
+	id: string,
+	zodType: z.ZodTypeAny,
+	defaultValue?: (field: Field) => unknown,
+): FieldTypePlugin {
 	return {
 		id,
 		name: id,
@@ -14,6 +18,7 @@ function mockPlugin(id: string, zodType: z.ZodTypeAny): FieldTypePlugin {
 		category: "text",
 		fieldComponent: () => null,
 		toZodType: () => zodType,
+		...(defaultValue ? { defaultValue } : {}),
 	};
 }
 
@@ -395,5 +400,61 @@ describe("getDefaultValues", () => {
 		const defaults = getDefaultValues(fields);
 		expect(defaults).not.toHaveProperty("hidden_field");
 		expect(defaults).toEqual({ visible_field: "kept" });
+	});
+
+	describe("getDefaultValues with plugins (#38)", () => {
+		const boolPlugin = mockPlugin("boolean", z.boolean(), () => false);
+		const textPlugin = mockPlugin("text", z.string(), () => "");
+		const noDefaultPlugin = mockPlugin("mystery", z.unknown());
+		const mk = (
+			type: string,
+			accessor: string,
+			extra?: Partial<Field["config"]>,
+		): Field => ({
+			field_type: type,
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+				...extra,
+			},
+			settings: null,
+			children: null,
+			system: false,
+		});
+
+		it("stays sparse without plugins (back-compat)", () => {
+			expect(getDefaultValues([mk("boolean", "flag")])).toEqual({});
+		});
+
+		it("seeds plugin defaults for visible fields", () => {
+			const out = getDefaultValues(
+				[mk("boolean", "flag"), mk("text", "title")],
+				[boolPlugin, textPlugin],
+			);
+			expect(out).toEqual({ flag: false, title: "" });
+		});
+
+		it("explicit config.default_value wins over the plugin default", () => {
+			const out = getDefaultValues(
+				[mk("boolean", "flag", { default_value: true })],
+				[boolPlugin],
+			);
+			expect(out).toEqual({ flag: true });
+		});
+
+		it("leaves fields of default-less plugins unseeded (key absent)", () => {
+			const out = getDefaultValues([mk("mystery", "m")], [noDefaultPlugin]);
+			expect("m" in out).toBe(false);
+		});
+
+		it("skips hidden and structural fields", () => {
+			const out = getDefaultValues(
+				[mk("boolean", "hiddenFlag", { hidden: true }), mk("section", "s")],
+				[boolPlugin, mockPlugin("section", z.unknown(), () => "NEVER")],
+			);
+			expect(out).toEqual({});
+		});
 	});
 });

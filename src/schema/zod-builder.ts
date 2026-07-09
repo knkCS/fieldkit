@@ -50,13 +50,27 @@ export function specToZodSchema(
 	return z.object(shape);
 }
 
-export function getDefaultValues(fields: Field[]): Record<string, unknown> {
+export function getDefaultValues(
+	fields: Field[],
+	plugins?: FieldTypePlugin[],
+): Record<string, unknown> {
+	const pluginMap = plugins
+		? new Map(plugins.map((p) => [p.id, p]))
+		: undefined;
 	const defaults: Record<string, unknown> = {};
 
 	for (const field of fields) {
+		if (STRUCTURAL_TYPES.has(field.field_type)) continue;
 		if (field.config.hidden) continue;
 		if (field.config.default_value !== undefined) {
 			defaults[field.config.api_accessor] = field.config.default_value;
+			continue;
+		}
+		const defaultValue = pluginMap?.get(field.field_type)?.defaultValue;
+		if (defaultValue) {
+			defaults[field.config.api_accessor] = defaultValue(
+				field as Field<unknown>,
+			);
 		}
 	}
 

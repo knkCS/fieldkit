@@ -51,6 +51,13 @@ export interface FieldTypePlugin<S = unknown> {
 	toZodType: (field: Field<S>) => ZodTypeAny;
 
 	defaultSettings?: S;
+	/** Sane form-value default for fields of this type when the spec has no
+	 * explicit `config.default_value` (value-level — `defaultSettings` seeds
+	 * settings, not values). Always a function: settings-dependent shapes
+	 * are natural, and array/object defaults stay fresh per call instead of
+	 * being shared across forms. Omit when no safe default exists — the
+	 * field then stays undefined. */
+	defaultValue?: (field: Field<S>) => unknown;
 	maxPerSpec?: number;
 	availableIn?: FieldContext[];
 }
