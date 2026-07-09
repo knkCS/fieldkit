@@ -260,6 +260,10 @@ function collectAccessorsRecursively(fields: Schema, into: Set<string>): void {
 	}
 }
 
+/** Default `formatSaveError`: Error → message, otherwise String(reason). */
+const defaultFormatSaveError = (reason: unknown): string | null =>
+	reason instanceof Error ? reason.message : String(reason);
+
 export interface SpecEditorProps {
 	schema: Schema;
 	/** Called with the draft on Save. May return a Promise — a rejection
@@ -271,6 +275,11 @@ export interface SpecEditorProps {
 	/** Header left slot, beside the dirty indicator. Flagged spec addition. */
 	title?: ReactNode;
 	labels?: EditorLabels;
+	/** Formats a rejected onCommit reason into the saveFailed toast
+	 * description. Return null (or "") to suppress the description and get
+	 * the pre-0.7 title-only toast. Default: Error → message, otherwise
+	 * String(reason). */
+	formatSaveError?: (reason: unknown) => string | null;
 }
 
 export function SpecEditor({
@@ -281,6 +290,7 @@ export function SpecEditor({
 	context,
 	title,
 	labels,
+	formatSaveError,
 }: SpecEditorProps) {
 	const mergedLabels = useMemo<Required<EditorLabels>>(
 		() => mergeLabels(DEFAULT_EDITOR_LABELS, labels),
@@ -305,10 +315,16 @@ export function SpecEditor({
 	const lastSaveErrorRef = useRef<unknown | null>(null);
 	useEffect(() => {
 		if (spec.saveError != null && spec.saveError !== lastSaveErrorRef.current) {
-			toaster.create({ title: mergedLabels.saveFailed, type: "error" });
+			const format = formatSaveError ?? defaultFormatSaveError;
+			const description = format(spec.saveError);
+			toaster.create({
+				title: mergedLabels.saveFailed,
+				...(description ? { description } : {}),
+				type: "error",
+			});
 		}
 		lastSaveErrorRef.current = spec.saveError;
-	}, [spec.saveError, mergedLabels.saveFailed]);
+	}, [spec.saveError, mergedLabels.saveFailed, formatSaveError]);
 
 	// Toast on the RISING EDGE of baselineConflict only (mirrors saveError
 	// above) — it flips true once when a background schema change arrives

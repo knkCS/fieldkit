@@ -213,9 +213,107 @@ describe("SpecEditor", () => {
 
 		expect(toaster.create).toHaveBeenCalledWith({
 			title: L.saveFailed,
+			description: "api down",
 			type: "error",
 		});
 		expect(screen.getByRole("button", { name: L.save })).not.toBeDisabled();
+	});
+
+	it("saveFailed toast carries the Error message as description by default (#36)", async () => {
+		const onCommit = vi.fn().mockRejectedValue(new Error("Server said no"));
+		renderEditor([makeField("title", "Title")], onCommit);
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: L.save }));
+		});
+
+		expect(toaster.create).toHaveBeenCalledWith({
+			title: L.saveFailed,
+			description: "Server said no",
+			type: "error",
+		});
+	});
+
+	it("stringifies non-Error rejections", async () => {
+		const onCommit = vi.fn().mockRejectedValue("quota exceeded");
+		renderEditor([makeField("title", "Title")], onCommit);
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: L.save }));
+		});
+
+		expect(toaster.create).toHaveBeenCalledWith({
+			title: L.saveFailed,
+			description: "quota exceeded",
+			type: "error",
+		});
+	});
+
+	it("formatSaveError overrides the default formatter", async () => {
+		const onCommit = vi.fn().mockRejectedValue(new Error("raw"));
+		render(
+			<EditorWrap>
+				<SpecEditor
+					schema={[makeField("title", "Title")]}
+					onCommit={onCommit}
+					plugins={testPlugins}
+					formatSaveError={() => "translated"}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: L.save }));
+		});
+
+		expect(toaster.create).toHaveBeenCalledWith({
+			title: L.saveFailed,
+			description: "translated",
+			type: "error",
+		});
+	});
+
+	it("formatSaveError returning null suppresses the description", async () => {
+		const onCommit = vi.fn().mockRejectedValue(new Error("raw server text"));
+		render(
+			<EditorWrap>
+				<SpecEditor
+					schema={[makeField("title", "Title")]}
+					onCommit={onCommit}
+					plugins={testPlugins}
+					formatSaveError={() => null}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-title"));
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Headline" },
+		});
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: L.save }));
+		});
+
+		expect(toaster.create).toHaveBeenCalledWith({
+			title: L.saveFailed,
+			type: "error",
+		});
 	});
 
 	it("Try-it passes label overrides through to SpecForm (e.g. a translated default tab)", () => {
