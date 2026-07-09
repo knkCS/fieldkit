@@ -9,6 +9,7 @@ import {
 	type SpecValidationResult,
 	validateSpec,
 } from "../schema/validate-spec";
+import { deepEqual } from "./deep-equal";
 
 export interface SpecDraft {
 	draft: Schema;
@@ -68,21 +69,19 @@ export function useSpecDraft(
 	// run — so this effect can see new-content `schema` vs. the still-stale
 	// `baseline` while `dirty` is (at that instant, truthfully) still true.
 	// That is NOT a background conflict: if the incoming content matches the
-	// CURRENT DRAFT byte-for-byte, it can only be our own save's echo,
-	// regardless of timing — adopt it as the new baseline silently instead
-	// of latching a false "changed in the background" warning.
-	// baselineJson is recomputed only when `baseline` itself changes, not on
-	// every render that hands this effect a fresh-identity `schema` (the
-	// common case — consumers may build a new array every render). The
-	// incoming `schema` still gets stringified per identity-change below;
-	// that half is unavoidable since it's the value actually varying.
-	const baselineJson = useMemo(() => JSON.stringify(baseline), [baseline]);
+	// CURRENT DRAFT, it can only be our own save's echo, regardless of
+	// timing — adopt it as the new baseline silently instead of latching a
+	// false "changed in the background" warning.
+	// Comparisons are deepEqual, not JSON.stringify byte-equality: backends
+	// that store the schema in Postgres jsonb re-order object keys on
+	// read-back, so a post-save echo is content-equal but never
+	// byte-identical (#37).
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline/baselineJson but must run only on prop change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
-		if (JSON.stringify(schema) === baselineJson) return;
-		if (JSON.stringify(schema) === JSON.stringify(draft)) {
+		if (deepEqual(schema, baseline)) return;
+		if (deepEqual(schema, draft)) {
 			setBaseline(schema);
 			return;
 		}

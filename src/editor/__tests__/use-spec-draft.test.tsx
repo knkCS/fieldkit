@@ -30,6 +30,21 @@ function f(accessor: string): Field {
 	};
 }
 
+/** Recursively rebuilds objects with reversed key order — simulates a
+ * Postgres jsonb round-trip, which preserves content but not key order. */
+function reorderKeys<T>(value: T): T {
+	if (Array.isArray(value)) {
+		return value.map(reorderKeys) as unknown as T;
+	}
+	if (value !== null && typeof value === "object") {
+		const entries = Object.entries(value as Record<string, unknown>);
+		return Object.fromEntries(
+			entries.reverse().map(([k, v]) => [k, reorderKeys(v)]),
+		) as T;
+	}
+	return value;
+}
+
 describe("useSpecDraft", () => {
 	it("seeds from schema, not dirty", () => {
 		const { result } = renderHook(() =>
@@ -283,5 +298,40 @@ describe("useSpecDraft", () => {
 		});
 		expect(result.current.baselineConflict).toBe(false);
 		expect(result.current.dirty).toBe(false);
+	});
+
+	it("adopts a key-reordered echo of the baseline silently (jsonb round-trip)", () => {
+		const b0: Schema = [f("a")];
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
+			{ initialProps: { schema: b0 as Schema } },
+		);
+
+		// A backend that stores the schema in Postgres jsonb echoes it back
+		// with re-ordered object keys — same content, new identity.
+		rerender({ schema: reorderKeys(structuredClone(b0)) });
+
+		expect(result.current.baselineConflict).toBe(false);
+		expect(result.current.dirty).toBe(false);
+		expect(result.current.draft).toBe(b0);
+	});
+
+	it("does not flag baselineConflict for a reordered echo while dirty", () => {
+		const b0: Schema = [f("a")];
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], vi.fn()),
+			{ initialProps: { schema: b0 as Schema } },
+		);
+		const edited: Schema = [f("a"), f("mine")];
+		act(() => result.current.apply(edited));
+
+		// A key-reordered echo of the ORIGINAL baseline arrives while the
+		// author still has unsaved edits — this must not read as a genuine
+		// background conflict, only a jsonb round-trip of stale content.
+		rerender({ schema: reorderKeys(structuredClone(b0)) });
+
+		expect(result.current.baselineConflict).toBe(false);
+		expect(result.current.dirty).toBe(true);
+		expect(result.current.draft).toBe(edited);
 	});
 });
