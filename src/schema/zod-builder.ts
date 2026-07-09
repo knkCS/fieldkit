@@ -28,21 +28,13 @@ export function specToZodSchema(
 		let zodType = plugin.toZodType(field as Field<unknown>);
 
 		if (!field.config.required) {
-			// For string-validated types (email, url, slug), allow empty string
-			// so forms can submit with an empty optional field.
-			// Only apply .or(z.literal("")) when the ZodString has no
-			// length or pattern checks (min, max, regex) — otherwise the
-			// empty-string branch would silently bypass those constraints.
+			// Optional strings are "empty or valid" (#38): a cleared text
+			// control produces "" and must not fail min/regex checks — an
+			// optional slug you can't empty isn't optional. "" is kept in the
+			// parsed output. Required fields are unaffected ("" still fails
+			// their checks).
 			if (zodType._def.typeName === z.ZodFirstPartyTypeKind.ZodString) {
-				const zodString = zodType as z.ZodString;
-				const hasConstraints = zodString._def.checks.some(
-					(c) => c.kind === "min" || c.kind === "max" || c.kind === "regex",
-				);
-				if (hasConstraints) {
-					zodType = zodType.optional() as ZodTypeAny;
-				} else {
-					zodType = zodType.or(z.literal("")).optional() as ZodTypeAny;
-				}
+				zodType = zodType.or(z.literal("")).optional() as ZodTypeAny;
 			} else {
 				zodType = zodType.optional() as ZodTypeAny;
 			}

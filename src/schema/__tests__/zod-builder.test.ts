@@ -217,7 +217,7 @@ describe("specToZodSchema", () => {
 		expect(schema.safeParse({ title: undefined }).success).toBe(true);
 	});
 
-	it("should NOT allow empty string bypass for optional string fields WITH constraints", () => {
+	it("should allow empty string for optional string fields WITH constraints (#38)", () => {
 		const constrainedPlugin = mockPlugin("text", z.string().min(2));
 		const fields: Field[] = [
 			{
@@ -236,8 +236,8 @@ describe("specToZodSchema", () => {
 		const schema = specToZodSchema(fields, [constrainedPlugin]);
 		// undefined should be allowed (optional)
 		expect(schema.safeParse({ title: undefined }).success).toBe(true);
-		// empty string should NOT pass — it must respect min(2)
-		expect(schema.safeParse({ title: "" }).success).toBe(false);
+		// empty string SHOULD pass — optional fields can be cleared (#38)
+		expect(schema.safeParse({ title: "" }).success).toBe(true);
 		// valid value should pass
 		expect(schema.safeParse({ title: "ab" }).success).toBe(true);
 	});
@@ -260,6 +260,41 @@ describe("specToZodSchema", () => {
 		const schema = specToZodSchema(fields, plugins);
 		expect(schema.safeParse({ count: undefined }).success).toBe(true);
 		expect(schema.safeParse({ count: "" }).success).toBe(false);
+	});
+
+	describe("optional constrained strings accept empty string (#38)", () => {
+		const slugLike = mockPlugin(
+			"slug",
+			z.string().regex(/^[a-z0-9-]+$/, "invalid slug"),
+		);
+		const field = (required: boolean): Field => ({
+			field_type: "slug",
+			config: {
+				name: "Slug",
+				api_accessor: "slug",
+				required,
+				instructions: "",
+			},
+			settings: null,
+			children: null,
+			system: false,
+		});
+
+		it("optional: empty string passes despite the regex check", () => {
+			const schema = specToZodSchema([field(false)], [slugLike]);
+			expect(schema.safeParse({ slug: "" }).success).toBe(true);
+		});
+
+		it("optional: non-empty values still hit the regex", () => {
+			const schema = specToZodSchema([field(false)], [slugLike]);
+			expect(schema.safeParse({ slug: "valid-slug" }).success).toBe(true);
+			expect(schema.safeParse({ slug: "Not Valid!" }).success).toBe(false);
+		});
+
+		it("required: empty string still fails", () => {
+			const schema = specToZodSchema([field(true)], [slugLike]);
+			expect(schema.safeParse({ slug: "" }).success).toBe(false);
+		});
 	});
 });
 
