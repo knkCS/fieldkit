@@ -7,6 +7,7 @@ import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { FieldKitProvider } from "../../renderer/provider";
+import { booleanPlugin } from "../../schema/field-types";
 import type { FieldProps, FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
 import { SpecEditor } from "../spec-editor";
@@ -34,6 +35,19 @@ function makeSection(accessor: string, name: string): Field {
 		field_type: "section",
 		config: { name, api_accessor: accessor, required: false, instructions: "" },
 		settings: {},
+		system: false,
+	};
+}
+
+function makeBooleanField(
+	accessor: string,
+	name: string,
+	required = false,
+): Field {
+	return {
+		field_type: "boolean",
+		config: { name, api_accessor: accessor, required, instructions: "" },
+		settings: null,
 		system: false,
 	};
 }
@@ -81,10 +95,17 @@ const LABELS = {
 	testSubmitSuccess: "Form submitted successfully",
 };
 
-function Wrap({ children }: { children: ReactNode }) {
+function Wrap({
+	children,
+	plugins: pluginsProp = plugins,
+}: {
+	children: ReactNode;
+	/** Defaults to the module-level `plugins` fixture used by the other tests. */
+	plugins?: FieldTypePlugin[];
+}) {
 	return (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={plugins}>{children}</FieldKitProvider>
+			<FieldKitProvider plugins={pluginsProp}>{children}</FieldKitProvider>
 		</ChakraProvider>
 	);
 }
@@ -191,6 +212,60 @@ describe("TryItView", () => {
 			target: { value: "Hello" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: LABELS.testSubmit }));
+
+		await waitFor(() => {
+			expect(toaster.create).toHaveBeenCalledWith({
+				title: LABELS.testSubmitSuccess,
+				type: "success",
+			});
+		});
+		expect(screen.queryByTestId(/tab-errors-/)).not.toBeInTheDocument();
+	});
+
+	// Finding 1 (review, #38): nothing in this suite renders a real
+	// value-producing plugin through TryItView, so a regression that drops
+	// the `plugins` argument from `getDefaultValues(schema, plugins)` in
+	// try-it-view.tsx would still pass every other test here. A plain
+	// checked/unchecked assertion on the switch can't catch that regression:
+	// anker's `SwitchField` renders `checked={field.value || false}`, so an
+	// unseeded `undefined` and a seeded `false` both paint as "off" — the DOM
+	// looks identical either way. What *does* differ is what RHF hands to
+	// zod on submit: a required `z.boolean()` field rejects `undefined` but
+	// accepts `false`. So an untouched submit of a required boolean only
+	// succeeds when `getDefaultValues` actually seeded `false` — that's the
+	// discriminating half missing from the checked-attribute alone.
+	it("try-it seeds plugin value defaults — required boolean submits clean from seeded false (#38)", async () => {
+		vi.mocked(toaster.create).mockClear();
+		const schema: Schema = [
+			makeSection("s1", "General"),
+			makeBooleanField("flag", "Flag", true),
+		];
+		const pluginsWithBoolean: FieldTypePlugin[] = [...plugins, booleanPlugin];
+
+		render(
+			<Wrap plugins={pluginsWithBoolean}>
+				<TryItView
+					schema={schema}
+					plugins={pluginsWithBoolean}
+					labels={LABELS}
+				/>
+			</Wrap>,
+		);
+
+		const input = screen.getByRole("checkbox", {
+			name: "Flag",
+		}) as HTMLInputElement;
+		expect(input.checked).toBe(false);
+
+		// Submit without ever touching the switch — this is the part that
+		// discriminates: it only passes zod validation if `flag` was already
+		// seeded to `false` by getDefaultValues(schema, plugins). Dispatch the
+		// submit event directly on the form (rather than clicking the submit
+		// button) so jsdom's native HTML5 constraint validation — which
+		// treats a `required` *checkbox* as needing `checked=true`, an
+		// unrelated quirk of the native input type — doesn't block the event
+		// before RHF's zod-backed handler ever runs.
+		fireEvent.submit(screen.getByTestId("try-it-form"));
 
 		await waitFor(() => {
 			expect(toaster.create).toHaveBeenCalledWith({

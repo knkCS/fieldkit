@@ -242,9 +242,9 @@ export function EditorCanvas({
 
 	// Computed ONCE per draft identity (rather than separately for the
 	// useForm initializer, the reset-guard ref's initializer, and the effect
-	// below) — getDefaultValues(draft) + its JSON serialization were each
-	// re-run redundantly on every render even though only one of the three
-	// call sites actually needed a fresh value on any given render.
+	// below) — getDefaultValues(draft, plugins) + its JSON serialization were
+	// each re-run redundantly on every render even though only one of the
+	// three call sites actually needed a fresh value on any given render.
 	const { defaults, serialized: serializedDefaults } = useMemo(() => {
 		const next = getDefaultValues(draft, plugins);
 		return { defaults: next, serialized: JSON.stringify(next) };
