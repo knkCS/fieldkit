@@ -74,6 +74,12 @@ export {
 	type SpecPartition,
 	type SpecTab,
 } from "./partition";
+// Card partition (within one tab)
+export {
+	type CardGroup,
+	type CardPartition,
+	partitionTabByCards,
+} from "./partition-cards";
 // Plugin types
 export type {
 	CellProps,
