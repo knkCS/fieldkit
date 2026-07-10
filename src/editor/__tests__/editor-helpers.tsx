@@ -24,6 +24,15 @@ export function makeSection(accessor: string, name = accessor): Field {
 	};
 }
 
+export function makeCard(accessor: string, name = ""): Field {
+	return {
+		field_type: "card",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: {},
+		system: false,
+	};
+}
+
 function TestField({ field }: FieldProps) {
 	return (
 		<input
@@ -47,6 +56,15 @@ export const testPlugins: FieldTypePlugin[] = [
 	{
 		id: "section",
 		name: "Section",
+		description: "Structural",
+		icon: () => null,
+		category: "structural",
+		fieldComponent: () => null,
+		toZodType: () => z.never(),
+	},
+	{
+		id: "card",
+		name: "Card",
 		description: "Structural",
 		icon: () => null,
 		category: "structural",

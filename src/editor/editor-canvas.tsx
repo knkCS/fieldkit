@@ -38,25 +38,31 @@ import {
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { formatCount } from "../renderer/merge-labels";
+import { CardSurface } from "../renderer/spec-form/card-surface";
 import { FieldSearch } from "../renderer/spec-form/field-search";
 import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
+import { partitionSchemaBySections } from "../schema/partition";
+import { partitionTabByCards } from "../schema/partition-cards";
 import type {
 	FieldContext,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
-import type { Field } from "../schema/types";
+import type { Field, Schema } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
+import { CardFrame } from "./card-frame";
 import {
 	addSection,
 	createField,
 	deleteSection,
 	duplicateField,
 	flatInsertIndex,
+	insertCard,
 	insertFieldAt,
+	moveCard,
 	moveField,
 	moveFieldToSection,
 	moveSection,
@@ -91,6 +97,18 @@ function TabDropZone({
 }
 TabDropZone.displayName = "TabDropZone";
 
+/** The card marker owning `field`: the nearest preceding `card` in the
+ * flat schema, cut off at a `section` boundary (cards never span tabs).
+ * Null for loose fields with no marker before them in their tab. */
+function owningCard(schema: Schema, field: Field): Field | null {
+	const index = schema.indexOf(field);
+	for (let i = index - 1; i >= 0; i--) {
+		if (schema[i].field_type === "section") return null;
+		if (schema[i].field_type === "card") return schema[i];
+	}
+	return null;
+}
+
 /**
  * Flat EditorLabels key names throughout (including the field-shell toolbar
  * labels — dragField/editField/duplicateField/deleteField/systemLocked —
@@ -121,6 +139,15 @@ export interface CanvasLabels
 			| "addSection" // "+ Section" button label
 			| "newSectionName" // default name for a freshly added section
 			| "sectionNameInput" // aria-label for the inline rename input
+			| "addCard" // "+ Card" button label
+			| "cardUntitled" // italic placeholder title for unnamed cards
+			| "dragCard" // card header drag handle aria-label (block move)
+			| "cardMenu" // "{card}" interpolated — aria-label for the ⋯ trigger
+			| "renameCard"
+			| "deleteCardMerge" // marker-only delete; fields merge into a neighbor
+			| "deleteCardWithFields"
+			// "{card}" interpolated — destructive-confirm message
+			| "deleteCardWithFieldsConfirm"
 		> {
 	// Type-picker passthrough (⊕ insertion popover). Kept optional here (unlike
 	// the Required<EditorLabels> Pick above) so hosts driving EditorCanvas
@@ -470,6 +497,59 @@ export function EditorCanvas({
 		const activeAccessor = String(active.id);
 		const overId = String(over.id);
 
+		// Card block move — checked BEFORE the tabdrop branch: releasing a
+		// card header over a tab trigger must be a no-op (moveFieldToSection
+		// would relocate only the MARKER, orphaning its fields). v1 has no
+		// cross-tab card drag.
+		const activeField = draft.find(
+			(f) => f.config.api_accessor === activeAccessor,
+		);
+		if (activeField?.field_type === "card") {
+			if (overId.startsWith("tabdrop-")) return;
+			const overField = draft.find((f) => f.config.api_accessor === overId);
+			if (!overField) return;
+			// Resolve the card OWNING the drop target: the target marker
+			// itself, or a field's nearest preceding marker — block moves snap
+			// to card boundaries (a mid-card insertion would split the target
+			// card in the flat model).
+			const targetCard =
+				overField.field_type === "card"
+					? overField
+					: owningCard(draft, overField);
+			if (!targetCard || targetCard.config.api_accessor === activeAccessor) {
+				return;
+			}
+			// Tab-scoping guard (review-mandated, Task 5 carry-forward): moveCard
+			// mechanically permits a CROSS-TAB block move (cardBlockRange/
+			// targetRange don't know about tabs at all) — the tabdrop- check
+			// above only catches releasing over a TAB TRIGGER, not a card/field
+			// that merely happens to live in a different, currently-inactive
+			// tab (all tabs stay mounted with the `hidden` attribute, and
+			// dnd-kit's keyboard sensor enumerates every registered droppable
+			// regardless of visibility, so it CAN resolve a cross-tab target).
+			// v1 has no cross-tab card drag, so no-op instead of relocating.
+			const sourceTabIndex = partition.tabs.findIndex((tab) =>
+				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
+			);
+			const targetTabIndex = partition.tabs.findIndex((tab) =>
+				tab.fields.some(
+					(f) => f.config.api_accessor === targetCard.config.api_accessor,
+				),
+			);
+			if (sourceTabIndex !== targetTabIndex) return;
+			const fromIndex = draft.indexOf(activeField);
+			const toIndex = draft.indexOf(targetCard);
+			apply(
+				moveCard(
+					draft,
+					activeAccessor,
+					targetCard.config.api_accessor,
+					fromIndex < toIndex ? "after" : "before",
+				),
+			);
+			return;
+		}
+
 		if (overId.startsWith("tabdrop-")) {
 			const tabIndex = Number(overId.slice("tabdrop-".length));
 			// Releasing over the field's OWN tab trigger must be a no-op:
@@ -541,6 +621,33 @@ export function EditorCanvas({
 	const addSectionButton = (
 		<Button variant="ghost" size="xs" onClick={handleAddSection}>
 			{labels.addSection}
+		</Button>
+	);
+
+	const handleAddCard = () => {
+		const activeIndex = Number(activeTab.replace("tab-", ""));
+		// Sectionless canvases have one tab (index 0) and no Tabs.Root driving
+		// activeTab — clamp so the untouched "tab-0" default always resolves.
+		const tabIndex = Math.min(
+			Number.isNaN(activeIndex) ? 0 : activeIndex,
+			Math.max(0, partition.tabs.length - 1),
+		);
+		const next = insertCard(draft, tabIndex);
+		if (next === draft) return; // no tab to add to
+		apply(next);
+		// insertCard's contract: the freshly appended card is the LAST card
+		// marker of the target tab — select it via onEdit, which also pulses
+		// the panel's Name autofocus so the author can title it immediately.
+		const newTab = partitionSchemaBySections(next).tabs[tabIndex];
+		const added = [...(newTab?.fields ?? [])]
+			.reverse()
+			.find((f) => f.field_type === "card");
+		if (added) onEdit(added.config.api_accessor);
+	};
+
+	const addCardButton = (
+		<Button variant="ghost" size="xs" onClick={handleAddCard}>
+			{labels.addCard}
 		</Button>
 	);
 
@@ -617,11 +724,12 @@ export function EditorCanvas({
 			/>
 			<Box position="relative" bg="bg-surface" borderRadius="full">
 				<TypePickerPopover
-					// "section" is inserted only via the strip's "+ Section" button
-					// (addSectionButton) — offering it here too would give authors two
-					// competing ways to add one, and this path skips the section-marker
-					// bookkeeping (addSection) that keeps tabs consistent.
-					plugins={plugins.filter((p) => p.id !== "section")}
+					// "section"/"card" are inserted only via the strip's "+ Section"
+					// and "+ Card" buttons — offering them here too would give
+					// authors two competing ways to add one, and this path skips
+					// the marker bookkeeping (addSection / insertCard's auto-wrap)
+					// that keeps tabs and cards consistent.
+					plugins={plugins.filter((p) => p.id !== "section" && p.id !== "card")}
 					context={context}
 					currentSpec={draft}
 					onPick={insertAt(tabIndex, position)}
@@ -645,46 +753,107 @@ export function EditorCanvas({
 			occurrences.set(accessor, n + 1);
 			return n === 0 ? accessor : `${accessor}-${n}`;
 		};
+
+		const shellFor = (field: Field, tabPosition: number) => (
+			<Fragment key={keyFor(field.config.api_accessor)}>
+				<Box position="relative">
+					{insertionBoundary(tabIndex, tabPosition, "overlay")}
+					<FieldShell
+						field={field}
+						selected={selectedAccessor === field.config.api_accessor}
+						invalid={invalidAccessors.has(field.config.api_accessor)}
+						onSelect={(a) => onSelect(a)}
+						onEdit={onEdit}
+						onDuplicate={handleDuplicate}
+						// Position-based (F2b): closes over THIS exact field object
+						// and its flat-draft index, ignoring whatever accessor
+						// FieldShell's internal onClick passes — required so the
+						// second of two duplicate-accessor shells deletes only
+						// itself, not both.
+						onDelete={() => handleDeleteField(field, draft.indexOf(field))}
+						duplicateDisabled={isDuplicateDisabled(field)}
+						moveMenu={buildMoveMenu(field, tabIndex)}
+						labels={labels}
+					>
+						<ShellContent field={field} labels={labels} />
+					</FieldShell>
+				</Box>
+			</Fragment>
+		);
+
+		const cardPartition = partitionTabByCards(fields);
+
+		if (!cardPartition.hasCards) {
+			return (
+				<SortableContext
+					items={fields.map((f) => f.config.api_accessor)}
+					strategy={verticalListSortingStrategy}
+				>
+					<Stack gap="5">
+						{fields.map((field, i) => shellFor(field, i))}
+						{insertionBoundary(
+							tabIndex,
+							fields.length,
+							"flow",
+							fields.length === 0, // empty tab: visible drop zone
+						)}
+					</Stack>
+				</SortableContext>
+			);
+		}
+
+		// Carded tab. Drag stays ONE-DIMENSIONAL: a single flat sortable list
+		// — markers AND fields — regardless of how the frames render them
+		// (dropping a field into another card is just crossing the marker in
+		// flat order; the card header handle block-moves via handleDragEnd's
+		// card branch). `position` runs over tab.fields (markers included) so
+		// each insertion boundary keeps speaking flatInsertIndex's
+		// position-within-tab dialect.
+		let position = 0;
 		return (
 			<SortableContext
 				items={fields.map((f) => f.config.api_accessor)}
 				strategy={verticalListSortingStrategy}
 			>
 				<Stack gap="5">
-					{fields.map((field, i) => (
-						<Fragment key={keyFor(field.config.api_accessor)}>
-							<Box position="relative">
-								{insertionBoundary(tabIndex, i, "overlay")}
-								<FieldShell
-									field={field}
-									selected={selectedAccessor === field.config.api_accessor}
-									invalid={invalidAccessors.has(field.config.api_accessor)}
-									onSelect={(a) => onSelect(a)}
-									onEdit={onEdit}
-									onDuplicate={handleDuplicate}
-									// Position-based (F2b): closes over THIS exact field object
-									// and its flat-draft index, ignoring whatever accessor
-									// FieldShell's internal onClick passes — required so the
-									// second of two duplicate-accessor shells deletes only
-									// itself, not both.
-									onDelete={() =>
-										handleDeleteField(field, draft.indexOf(field))
-									}
-									duplicateDisabled={isDuplicateDisabled(field)}
-									moveMenu={buildMoveMenu(field, tabIndex)}
-									labels={labels}
-								>
-									<ShellContent field={field} labels={labels} />
-								</FieldShell>
-							</Box>
-						</Fragment>
-					))}
-					{insertionBoundary(
-						tabIndex,
-						fields.length,
-						"flow",
-						fields.length === 0, // empty tab: visible drop zone
-					)}
+					{cardPartition.cards.map((group) => {
+						if (group.card) position++; // the marker occupies one position
+						const bodyStart = position;
+						position += group.fields.length;
+						const body = (
+							<Stack gap="5">
+								{group.fields.map((field, j) => shellFor(field, bodyStart + j))}
+								{insertionBoundary(
+									tabIndex,
+									bodyStart + group.fields.length,
+									"flow",
+									group.fields.length === 0, // empty card: visible drop zone
+								)}
+							</Stack>
+						);
+						if (!group.card) {
+							// Implicit leading group (hand-written schemas only — the
+							// editor never produces loose fields in a carded tab):
+							// degrade exactly like the renderer, an untitled frame.
+							// validateSpec flags each loose field, so its shell
+							// outlines in the danger color inside the frame.
+							// partitionTabByCards only ever produces this card:null
+							// group as the FIRST entry (fields before any marker) —
+							// so a fixed key is safe, no array index needed.
+							return <CardSurface key="implicit-leading">{body}</CardSurface>;
+						}
+						return (
+							<CardFrame
+								key={keyFor(group.card.config.api_accessor)}
+								card={group.card}
+								selected={selectedAccessor === group.card.config.api_accessor}
+								onSelect={(a) => onSelect(a)}
+								labels={labels}
+							>
+								{body}
+							</CardFrame>
+						);
+					})}
 				</Stack>
 			</SortableContext>
 		);
@@ -721,7 +890,8 @@ export function EditorCanvas({
 						<Box ref={containerRef}>
 							{/* mb="5": the first field's overlay boundary reaches 20px above
 							    the shell — this margin is the space it fills. */}
-							<Flex justify="flex-end" mb="5">
+							<Flex justify="flex-end" gap="1" mb="5">
+								{addCardButton}
 								{addSectionButton}
 							</Flex>
 							{renderFields(partition.tabs[0].fields, 0)}
@@ -837,7 +1007,10 @@ export function EditorCanvas({
 										);
 									})}
 								</Tabs.List>
-								{addSectionButton}
+								<Flex gap="1">
+									{addCardButton}
+									{addSectionButton}
+								</Flex>
 								<FieldSearch
 									index={searchIndex}
 									placeholder={labels.searchPlaceholder}
