@@ -273,7 +273,9 @@ function translateFieldError(
 			? labels.errorDuplicateAccessor
 			: error.code === "empty_name"
 				? labels.errorEmptyName
-				: labels.errorEmptyAccessor;
+				: error.code === "loose_field_in_carded_tab"
+					? labels.errorLooseFieldInCardedTab
+					: labels.errorEmptyAccessor;
 	return { ...error, message: template.replace("{accessor}", error.accessor) };
 }
 

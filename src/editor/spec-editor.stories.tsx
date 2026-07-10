@@ -3,7 +3,7 @@ import { type ReactNode, useState } from "react";
 import { FieldKitProvider } from "../renderer/provider";
 import { boolean, number, section, select, text } from "../schema/builders";
 import { builtInFieldTypes } from "../schema/field-types";
-import type { Schema } from "../schema/types";
+import type { Field, Schema } from "../schema/types";
 import { SpecEditor } from "./spec-editor";
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +60,29 @@ const systemSpec: Schema = [
 	},
 	{ ...text("description", { name: "Description" }), system: true },
 	text("internal_ref", { name: "Internal reference" }),
+];
+
+// Cards are authored via "+ Card" — this marker literal is exactly what
+// draft-ops' insertCard produces (plus a name, set via the config panel).
+function cardMarker(name: string, accessor: string): Field {
+	return {
+		field_type: "card",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: {},
+		system: false,
+	};
+}
+
+const cardedSpec: Schema = [
+	cardMarker("Basics", "card_basics"),
+	text("title", { name: "Title", required: true }),
+	boolean("published", { name: "Published" }),
+	cardMarker("", "card_untitled"),
+	text("notes", { name: "Notes" }),
+	...section("SEO", [
+		cardMarker("Meta", "card_meta"),
+		text("meta_title", { name: "Meta Title" }),
+	]),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -222,6 +245,25 @@ export const SystemFields: Story = {
 					the config panel renders a read-only summary, and dragging still
 					works. <code>Internal reference</code> is a normal editable field.
 					Duplicating a system field produces an editable copy.
+				</>
+			}
+		/>
+	),
+};
+
+export const BuildWithCards: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={cardedSpec}
+			note={
+				<>
+					The "General" tab groups its fields into two cards (one untitled —
+					italic placeholder). Try the card header: drag its handle to move the
+					whole card, click it to rename via the panel, or open ⋯ for the two
+					delete flavors ("Delete card" merges fields into a neighbor; "Delete
+					card and fields" confirms first). "+ Card" on a tab with loose fields
+					auto-wraps them. Click <strong>Try it</strong> to see the rendered
+					card layout as a real form.
 				</>
 			}
 		/>

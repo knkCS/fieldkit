@@ -54,9 +54,12 @@ import type {
 import type { Field, Schema } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
+import { CardMenu } from "./card-menu";
 import {
 	addSection,
 	createField,
+	deleteCardMerge,
+	deleteCardWithFields,
 	deleteSection,
 	duplicateField,
 	flatInsertIndex,
@@ -478,6 +481,44 @@ export function EditorCanvas({
 		apply(deleteSection(draft, accessor));
 	};
 
+	const handleDeleteCardMerge = (accessor: string) => {
+		if (selectedAccessor === accessor) onSelect(null);
+		apply(deleteCardMerge(draft, accessor));
+	};
+
+	const handleDeleteCardWithFields = async (accessor: string, name: string) => {
+		const ok = await confirm({
+			title: labels.deleteCardWithFields,
+			message: labels.deleteCardWithFieldsConfirm.replace(
+				"{card}",
+				name.trim() || labels.cardUntitled,
+			),
+			colorPalette: "red",
+		});
+		if (!ok) return;
+		// Clearing only a selected MARKER is needed here — a selected field
+		// inside the block simply stops resolving (SpecEditor's selectedField
+		// lookup misses), which closes the panel on its own.
+		if (selectedAccessor === accessor) onSelect(null);
+		apply(deleteCardWithFields(draft, accessor));
+	};
+
+	const buildCardMenu = (card: Field) => (
+		<CardMenu
+			cardAccessor={card.config.api_accessor}
+			onRename={onEdit}
+			onDeleteMerge={handleDeleteCardMerge}
+			onDeleteWithFields={(a) =>
+				handleDeleteCardWithFields(a, card.config.name)
+			}
+			labels={labels}
+			triggerAriaLabel={labels.cardMenu.replace(
+				"{card}",
+				card.config.name.trim() || labels.cardUntitled,
+			)}
+		/>
+	);
+
 	// Hovering a tab-trigger drop zone while dragging activates that tab so
 	// the user can see where the field will land before releasing.
 	const handleDragOver = (event: DragOverEvent) => {
@@ -848,6 +889,7 @@ export function EditorCanvas({
 								card={group.card}
 								selected={selectedAccessor === group.card.config.api_accessor}
 								onSelect={(a) => onSelect(a)}
+								menu={buildCardMenu(group.card)}
 								labels={labels}
 							>
 								{body}
