@@ -34,7 +34,9 @@ export function CardedFields({
 				<CardSurface
 					key={group.card?.config.api_accessor ?? `implicit-${i}`}
 					title={
-						group.card?.config.name.trim() ? group.card.config.name : undefined
+						group.card?.config.name.trim()
+							? group.card.config.name.trim()
+							: undefined
 					}
 				>
 					{/* FieldRenderer keeps the 20px field rhythm inside the card. */}
@@ -77,7 +79,9 @@ export function CardedReadTab({
 				<CardSurface
 					key={group.card?.config.api_accessor ?? `implicit-${i}`}
 					title={
-						group.card?.config.name.trim() ? group.card.config.name : undefined
+						group.card?.config.name.trim()
+							? group.card.config.name.trim()
+							: undefined
 					}
 				>
 					<ReadTab

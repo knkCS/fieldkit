@@ -40,6 +40,21 @@ describe("SpecForm — carded edit mode", () => {
 		expect(within(surfaces[1]).queryByRole("heading")).not.toBeInTheDocument();
 	});
 
+	// Final-review fix wave (Fix 2): the truthiness check already used
+	// `.trim()`, but the heading rendered the RAW (untrimmed) name — a
+	// card titled with stray leading/trailing whitespace leaked it into the
+	// rendered heading. getByRole's accessible-name computation normalizes
+	// whitespace, so this asserts on textContent directly to catch it.
+	it("renders a whitespace-padded card title trimmed", () => {
+		render(
+			<Wrapper>
+				<SpecForm schema={[makeCard("c1", "  Basics  "), makeField("a")]} />
+			</Wrapper>,
+		);
+		const heading = screen.getByRole("heading", { name: "Basics" });
+		expect(heading.textContent).toBe("Basics");
+	});
+
 	it("card markers render no form control of their own", () => {
 		render(
 			<Wrapper>

@@ -8,7 +8,7 @@ import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
 import type { SpecFieldError } from "../../schema/validate-spec";
 import { FieldConfigPanel, type PanelLabels } from "../field-config-panel";
-import { EditorWrap, makeField } from "./editor-helpers";
+import { EditorWrap, makeCard, makeField } from "./editor-helpers";
 
 const testLabels: PanelLabels = {
 	panelGeneral: "General",
@@ -894,5 +894,57 @@ describe("system fields — panel lock", () => {
 		expect(screen.queryByTestId("panel-system-summary")).toBeNull();
 		expect(screen.getByTestId("panel-name-input")).toBeInTheDocument();
 		expect(screen.getByTestId("panel-toggle-validation")).toBeInTheDocument();
+	});
+
+	// Final-review fix wave (Fix 3): the card branch used to precede the
+	// `system` check, so a hand-authored `system: true` card marker (never
+	// produced by insertCard, which always emits `system: false` — but a
+	// consumer schema is data, not something the editor controls) got the
+	// editable Name input instead of the locked read-only summary.
+	it("a hand-authored system:true card marker gets the locked summary, not the editable Name input", () => {
+		const card = makeCard("c1", "Basics");
+		card.system = true;
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={card}
+					plugin={undefined}
+					draft={[card]}
+					fieldErrors={[]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={card.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+		expect(screen.getByTestId("panel-system-summary")).toBeInTheDocument();
+		expect(screen.queryByTestId("panel-card-notice")).toBeNull();
+		expect(screen.queryByTestId("panel-card-name-input")).toBeNull();
+	});
+
+	// Regression guard: insertCard's normal (`system: false`) card markers
+	// must keep the editable Name input the reorder must not have flipped
+	// this the other way.
+	it("a normal (system: false) card marker keeps the editable Name input", () => {
+		const card = makeCard("c1", "Basics");
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={card}
+					plugin={undefined}
+					draft={[card]}
+					fieldErrors={[]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={card.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+		expect(screen.queryByTestId("panel-system-summary")).toBeNull();
+		expect(screen.getByTestId("panel-card-name-input")).toBeInTheDocument();
 	});
 });

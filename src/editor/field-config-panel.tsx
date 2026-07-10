@@ -460,12 +460,22 @@ export function FieldConfigPanel({
 				</IconButton>
 			</Flex>
 
-			{activeField.field_type === "card" ? (
+			{activeField.system ? (
+				<SystemFieldSummary
+					field={activeField}
+					plugin={activePlugin}
+					labels={labels}
+				/>
+			) : activeField.field_type === "card" ? (
 				// A card's ONE setting is its Name (title, optional) — no
 				// accessor/validation/type-settings sections. Live draft edits
 				// with the same semantics as field renames: apply per keystroke,
 				// trim on blur. The accessor is never touched (no auto-slug).
 				// (fieldkit#42's panel→tabs redesign subsumes this trivially.)
+				// The `system` check above wins first: hand-authored system
+				// markers are consumer-supplied (insertCard always emits
+				// `system: false`), so a `system: true` card must still get the
+				// locked read-only summary, not the editable Name input.
 				<Box>
 					<Text
 						fontSize="xs"
@@ -504,12 +514,6 @@ export function FieldConfigPanel({
 						/>
 					</Box>
 				</Box>
-			) : activeField.system ? (
-				<SystemFieldSummary
-					field={activeField}
-					plugin={activePlugin}
-					labels={labels}
-				/>
 			) : (
 				<>
 					{isDuplicateSelection && (

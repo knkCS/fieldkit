@@ -43,6 +43,21 @@ describe("SpecForm — carded read mode", () => {
 		expect(within(surfaces[1]).queryByRole("heading")).not.toBeInTheDocument();
 	});
 
+	// Final-review fix wave (Fix 2): same trim gap as edit mode's CardedFields
+	// — assert on textContent since getByRole's accessible-name computation
+	// normalizes whitespace and would mask an untrimmed heading.
+	it("renders a whitespace-padded card title trimmed", () => {
+		renderRead(
+			<SpecForm
+				schema={[makeCard("c1", "  Basics  "), makeField("a")]}
+				mode="read"
+				values={{}}
+			/>,
+		);
+		const heading = screen.getByRole("heading", { name: "Basics" });
+		expect(heading.textContent).toBe("Basics");
+	});
+
 	it("card markers add no label/value row of their own", () => {
 		renderRead(<SpecForm schema={cardedSchema} mode="read" values={{}} />);
 		// "Basics" appears exactly once: as the card heading, never as a row
