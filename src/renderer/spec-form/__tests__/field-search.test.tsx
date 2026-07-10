@@ -172,8 +172,14 @@ describe("SpecForm — field search", () => {
 
 		fireEvent.keyDown(input, { key: "Escape" });
 
-		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		// The dropdown teardown can defer past the synchronous dispatch under
+		// load (observed once on a CI runner — fieldkit#39); the point of this
+		// test is CONTAINMENT, which IS provable synchronously: if Escape were
+		// going to bubble, onWrapperKeyDown fired during the dispatch above.
 		expect(onWrapperKeyDown).not.toHaveBeenCalled();
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
 	});
 
 	it("skips disabled controls in the jump focus fallback", async () => {
