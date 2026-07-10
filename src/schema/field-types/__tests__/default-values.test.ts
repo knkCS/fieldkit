@@ -32,6 +32,7 @@ const UNSEEDED = [
 	"rich_text",
 	"toc_reference",
 	"section",
+	"card",
 ];
 
 function fieldOf(type: string, settings: unknown = null): Field {

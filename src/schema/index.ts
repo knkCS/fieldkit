@@ -34,6 +34,7 @@ export {
 	blocksPlugin,
 	booleanPlugin,
 	builtInFieldTypes,
+	cardPlugin,
 	checkboxesPlugin,
 	codePlugin,
 	colorPlugin,

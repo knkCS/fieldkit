@@ -164,6 +164,33 @@ describe("getCellForFieldType", () => {
 		expect(columns[0].id).toBe("title");
 	});
 
+	it("should skip card fields (layout markers, no data)", () => {
+		const schema: Schema = [
+			makeField({
+				field_type: "text",
+				config: {
+					name: "Title",
+					api_accessor: "title",
+					required: true,
+					instructions: "",
+				},
+			}),
+			makeField({
+				field_type: "card",
+				config: {
+					name: "Details",
+					api_accessor: "details_card",
+					required: false,
+					instructions: "",
+				},
+			}),
+		];
+
+		const columns = getCellForFieldType(schema, plugins);
+		expect(columns).toHaveLength(1);
+		expect(columns[0].id).toBe("title");
+	});
+
 	it("should skip hidden fields", () => {
 		const schema: Schema = [
 			makeField({

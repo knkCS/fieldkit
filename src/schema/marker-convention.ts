@@ -7,7 +7,7 @@ export type MarkerConvention = "asterisk" | "optional-text";
  * mostly-required fields mark the optionals ("optional-text"); forms
  * with mostly-optional fields mark the required ones ("asterisk").
  *
- * Counts fields that render a label: `section` markers and hidden
+ * Counts fields that render a label: `section`/`card` markers and hidden
  * fields are excluded (a hidden field renders nothing, so its children
  * are skipped too, mirroring the renderer and zod-builder). Group
  * children are recursed into like validateSpec's accessor walk — but
@@ -27,7 +27,7 @@ function countFields(fields: Field[]): { required: number; optional: number } {
 	let required = 0;
 	let optional = 0;
 	for (const field of fields) {
-		if (field.field_type === "section") continue;
+		if (field.field_type === "section" || field.field_type === "card") continue;
 		if (field.config.hidden) continue;
 		if (field.config.required) required++;
 		else optional++;

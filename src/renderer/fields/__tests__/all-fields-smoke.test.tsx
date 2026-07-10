@@ -19,7 +19,8 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 }
 
 const fieldTypes = builtInFieldTypes
-	.filter((p) => p.id !== "section") // Section renders null — tested separately
+	// Structural markers render null — tested separately
+	.filter((p) => p.id !== "section" && p.id !== "card")
 	.map((p) => p.id);
 
 describe.each(fieldTypes)("Field type: %s", (fieldType) => {
