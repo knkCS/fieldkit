@@ -28,6 +28,15 @@ export function makeSection(
 	};
 }
 
+export function makeCard(accessor: string, name = ""): Field {
+	return {
+		field_type: "card",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: {},
+		system: false,
+	};
+}
+
 export function makePickerField(accessor: string, name = accessor): Field {
 	return {
 		field_type: "picker",
@@ -108,6 +117,15 @@ export const testPlugins: FieldTypePlugin[] = [
 	{
 		id: "section",
 		name: "Section",
+		description: "",
+		icon: () => null,
+		category: "structural",
+		fieldComponent: () => null,
+		toZodType: () => z.never(),
+	},
+	{
+		id: "card",
+		name: "Card",
 		description: "",
 		icon: () => null,
 		category: "structural",
