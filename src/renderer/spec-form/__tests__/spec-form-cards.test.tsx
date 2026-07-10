@@ -57,7 +57,38 @@ describe("SpecForm — carded edit mode", () => {
 			</Wrapper>,
 		);
 		expect(screen.queryAllByTestId("card-surface")).toEqual([]);
-		expect(screen.getByTestId("field-a")).toBeInTheDocument();
+		const fieldA = screen.getByTestId("field-a");
+		expect(fieldA).toBeInTheDocument();
+		// Verify no wrapper exists between field and FieldRenderer: field's direct
+		// parent must be the FieldRenderer container (data-testid="field-renderer").
+		// This catches accidental wrapping like `!hasCards && <Box>{FieldRenderer}</Box>`.
+		expect(fieldA.parentElement).toHaveAttribute(
+			"data-testid",
+			"field-renderer",
+		);
+		// Harden: verify no wrapper exists between field-renderer and tab content.
+		// Count ancestors from field-renderer up to the tab panel. Any inserted
+		// wrapper increments this count, exposing accidental wrapping like
+		// `!hasCards && <Box>{FieldRenderer}</Box>`.
+		const fieldRenderer = fieldA.parentElement;
+		expect(fieldRenderer).toHaveAttribute("data-testid", "field-renderer");
+		// Walk up from FieldRenderer until we find an element with role="tabpanel"
+		// (the Tabs.Content), counting intermediate elements.
+		let current: HTMLElement | null = fieldRenderer;
+		const intermediates: HTMLElement[] = [];
+		while (current && current.getAttribute("role") !== "tabpanel") {
+			current = current.parentElement;
+			if (current && current.getAttribute("role") !== "tabpanel") {
+				intermediates.push(current);
+			}
+		}
+		// With no wrapper: field-renderer -> several Chakra ancestors.
+		// With an added wrapper: field-renderer -> wrapper -> several Chakra ancestors.
+		// The count increases by 1 with a wrapper. Currently there are 3 ancestor elements.
+		expect(intermediates.length).toBeLessThanOrEqual(
+			3,
+			`Found ${intermediates.length} intermediate elements. A wrapper added to CardedFields' !hasCards branch would increase this count to 4+.`,
+		);
 	});
 
 	it("degrades gracefully: leading loose fields render INSIDE an implicit untitled card", () => {
