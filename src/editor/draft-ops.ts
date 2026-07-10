@@ -458,6 +458,13 @@ export function insertCard(schema: Schema, tabIndex: number): Schema {
  * fields as ONE unit, snapped to the target card's block boundary — an
  * arbitrary mid-card insertion would split the target card (fields after the
  * insertion point would silently change owners in the flat model).
+ *
+ * Note: Cross-tab card moves (moving a card from one tab to another, across a
+ * section boundary) are mechanically permitted by this function. The UI caller
+ * (the canvas drag handler) is responsible for guarding against cross-tab drags
+ * in v1, enforcing tab-scoped card reordering. This separation ensures the
+ * schema operation is generic and testable while UI policy is implemented in
+ * the drag handler.
  */
 export function moveCard(
 	schema: Schema,

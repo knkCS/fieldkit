@@ -109,6 +109,39 @@ describe("moveCard", () => {
 		]);
 	});
 
+	it("cross-tab move: source block stays bounded by section, target crosses into different tab", () => {
+		// v1 UI guards against this, but the operation is mechanically sound:
+		// c1 moves across the s1 boundary into the second tab.
+		const schema: Schema = [s("s1"), c("c1"), f("a"), s("s2"), c("c2"), f("b")];
+		const out = moveCard(schema, "c1", "c2", "after");
+		// c1's source block is [c1, a] — stops at s2, doesn't absorb it.
+		// c2's block is [c2, b]. After c2 → [s1, s2, c2, b, c1, a].
+		expect(ids(out)).toEqual([
+			"section:s1",
+			"section:s2",
+			"card:c2",
+			"text:b",
+			"card:c1",
+			"text:a",
+		]);
+	});
+
+	it("source block termination: the SOURCE card's block ends at a section marker", () => {
+		// Proves the source side (cardBlockRange) is bounded correctly.
+		const schema: Schema = [c("c1"), f("a"), c("c2"), f("b"), s("s1"), f("z")];
+		const out = moveCard(schema, "c2", "c1", "before");
+		// c2's source block is [c2, b] only — stops at s1, doesn't absorb it.
+		// Result: [c2, b, c1, a, s1, z].
+		expect(ids(out)).toEqual([
+			"card:c2",
+			"text:b",
+			"card:c1",
+			"text:a",
+			"section:s1",
+			"text:z",
+		]);
+	});
+
 	it("no-ops (same reference) for self, missing card, or missing target", () => {
 		const schema: Schema = [c("c1"), f("a"), c("c2")];
 		expect(moveCard(schema, "c1", "c1", "after")).toBe(schema);
@@ -142,6 +175,14 @@ describe("deleteCardMerge", () => {
 		const out = deleteCardMerge(schema, "c1");
 		// c1 is the FIRST card of ITS tab; there is no next card → bare state.
 		expect(ids(out)).toEqual(["card:c0", "text:z", "section:s1", "text:a"]);
+	});
+
+	it("first-card where the next marker is a section (no next card)", () => {
+		const schema: Schema = [c("c1"), f("a"), s("s1"), f("z")];
+		const out = deleteCardMerge(schema, "c1");
+		// c1 is the only card; next marker is a section, not a card.
+		// Tab returns to bare state; s1 must NOT hoist.
+		expect(ids(out)).toEqual(["text:a", "section:s1", "text:z"]);
 	});
 
 	it("no-ops for a missing card", () => {
