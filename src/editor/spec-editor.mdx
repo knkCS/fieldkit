@@ -184,8 +184,10 @@ card in the rendered form.
 
 Every card renders a **header bar**: a drag handle (moves the whole card —
 marker plus contained fields — as one block; the canvas stays a single
-flat sortable list, so dragging a *field* between cards is unchanged), the
-title, and a ⋯ menu. Clicking the header selects the card; the config
+flat sortable list, so dragging a *field* over another field reorders it
+exactly as before, while dragging a field over a card's header FRAME snaps
+it inside that card, at the top of its contents), the title, and a ⋯ menu.
+Clicking the header selects the card; the config
 panel then shows its one setting (Name) with the same live-edit semantics
 as field renames. The ⋯ menu offers **Rename** (focuses the panel's Name
 input), **Delete card** (removes only the marker — its fields merge into

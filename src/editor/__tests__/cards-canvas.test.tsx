@@ -438,4 +438,179 @@ describe("EditorCanvas — cards", () => {
 
 		rectSpy.mockRestore();
 	});
+
+	// Reviewer-mandated (final-review fix wave, Fix 1): the GENERIC field-drop
+	// branch of handleDragEnd used a raw moveField(draft, fromIndex, toIndex)
+	// — on an upward drag (fromIndex > toIndex) that lands the field BEFORE
+	// the target marker instead of inside the card it was dropped onto. When
+	// the target is the tab's FIRST card, "before the marker" means "before
+	// every card in the tab" — a loose_field_in_carded_tab violation. This
+	// pins the fixed behavior: dropping a field UP onto a card's frame must
+	// snap the field INSIDE that card (at its top), not in front of it.
+	it("dragging a field UP onto the tab's first card frame drops it INSIDE that card", async () => {
+		// Single flat column (uniform 60px rows, all sharing x=0) covering BOTH
+		// card frames and field shells — unlike the block-move tests above,
+		// this drag must traverse markers AND fields one step at a time (m0 →
+		// f1 → f2 → m3 → f4 in top order), so there's no reason to push shells
+		// off to a separate column here.
+		const rectSpy = vi
+			.spyOn(Element.prototype, "getBoundingClientRect")
+			.mockImplementation(function (this: Element) {
+				const rect = (top: number) =>
+					({
+						top,
+						left: 0,
+						width: 100,
+						height: 50,
+						bottom: top + 50,
+						right: 100,
+						x: 0,
+						y: top,
+						toJSON() {
+							return this;
+						},
+					}) as DOMRect;
+				const testId = this.getAttribute("data-testid") ?? "";
+				if (testId.startsWith("card-frame-") || testId.startsWith("shell-")) {
+					const items = Array.from(
+						document.querySelectorAll(
+							'[data-testid^="card-frame-"], [data-testid^="shell-"]',
+						),
+					);
+					return rect(items.indexOf(this) * 60);
+				}
+				return rect(0);
+			});
+
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeCard("m0", "One"),
+						makeField("f1"),
+						makeField("f2"),
+						makeCard("m3", "Two"),
+						makeField("f4"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		// Select f4 — FieldShell only mounts its drag handle once selected.
+		fireEvent.click(screen.getByTestId("shell-f4"));
+		const handle = screen.getByLabelText("Drag to reorder");
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		// Four steps up the flat column: f4 → m3 → f2 → f1 → m0.
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
+
+		// f4 must land INSIDE m0's card frame (at its top), not loose in front
+		// of the marker.
+		const frames = screen.getAllByTestId(/^card-frame-/);
+		expect(within(frames[0]).getByTestId("shell-f4")).toBeInTheDocument();
+		// A field stranded BEFORE the tab's first marker would violate
+		// loose_field_in_carded_tab and outline invalid — confirm it's clean.
+		expect(screen.getByTestId("shell-f4")).not.toHaveAttribute("data-invalid");
+
+		rectSpy.mockRestore();
+	});
+
+	// Reviewer-mandated (final-review fix wave, Fix 5): the block-move tests
+	// above only ever exercise tab 0 (the implicit General tab) — this pins
+	// the identical drag working within a SECOND tab (schema with a section
+	// marker), so a card block-move can't silently regress the moment a
+	// schema has more than one tab.
+	it("card header drag reorders within the SECOND tab", async () => {
+		const rectSpy = vi
+			.spyOn(Element.prototype, "getBoundingClientRect")
+			.mockImplementation(function (this: Element) {
+				const rect = (top: number, left: number) =>
+					({
+						top,
+						left,
+						width: 100,
+						height: 50,
+						bottom: top + 50,
+						right: left + 100,
+						x: left,
+						y: top,
+						toJSON() {
+							return this;
+						},
+					}) as DOMRect;
+				const testId = this.getAttribute("data-testid") ?? "";
+				if (testId.startsWith("card-frame-")) {
+					const frames = Array.from(
+						document.querySelectorAll('[data-testid^="card-frame-"]'),
+					);
+					return rect(frames.indexOf(this) * 300, 0);
+				}
+				if (testId.startsWith("shell-")) {
+					const shells = Array.from(
+						document.querySelectorAll('[data-testid^="shell-"]'),
+					);
+					return rect(60 + shells.indexOf(this) * 300, 1000);
+				}
+				return rect(0, 0);
+			});
+
+		const { container } = render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("x"),
+						makeSection("s1", "SEO"),
+						makeCard("c1", "One"),
+						makeField("a"),
+						makeCard("c2", "Two"),
+						makeField("b"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
+		});
+
+		// c1 is the only carded tab's first frame — index 0 among ALL
+		// card-frame testids (the General tab has no cards of its own).
+		const handle = screen.getAllByLabelText("Drag to move card")[0];
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowDown" });
+		fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
+
+		// c2's block (marker + shell-b) now precedes c1's — reordered WITHIN
+		// the SEO tab — while the General tab's loose field is untouched.
+		const order = Array.from(
+			container.querySelectorAll(
+				'[data-testid^="card-frame-"], [data-testid^="shell-"]',
+			),
+		).map((el) => el.getAttribute("data-testid"));
+		expect(order).toEqual([
+			"shell-x",
+			"card-frame-c2",
+			"shell-b",
+			"card-frame-c1",
+			"shell-a",
+		]);
+		const seoPanel = screen
+			.getByTestId("card-frame-c1")
+			.closest("[role='tabpanel']");
+		expect(
+			screen.getByTestId("card-frame-c2").closest("[role='tabpanel']"),
+		).toBe(seoPanel);
+		expect(screen.getByTestId("shell-x").closest("[role='tabpanel']")).not.toBe(
+			seoPanel,
+		);
+
+		rectSpy.mockRestore();
+	});
 });

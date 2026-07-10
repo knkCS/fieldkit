@@ -610,7 +610,23 @@ export function EditorCanvas({
 		);
 		const toIndex = draft.findIndex((f) => f.config.api_accessor === overId);
 		if (fromIndex === -1 || toIndex === -1) return;
-		apply(moveField(draft, fromIndex, toIndex));
+		// Dropping a FIELD onto a `card` MARKER must land it INSIDE that card,
+		// not before it in the flat array. A plain moveField(fromIndex, toIndex)
+		// treats the marker like any other sortable item: on a DOWNWARD drag
+		// (fromIndex < toIndex) splicing at toIndex already lands right after
+		// the marker (toIndex shifts down by one once the source is removed) —
+		// correctly inside the card. But on an UPWARD drag (fromIndex >
+		// toIndex) splicing at toIndex lands BEFORE the marker, which — for a
+		// tab's FIRST card — strands the field ahead of every card in the tab
+		// (a loose_field_in_carded_tab violation) instead of inside the target
+		// card. Snap upward drags one slot past the marker so they land inside
+		// it too, matching the downward case.
+		const overField = draft[toIndex];
+		const targetIndex =
+			overField.field_type === "card" && fromIndex > toIndex
+				? toIndex + 1
+				: toIndex;
+		apply(moveField(draft, fromIndex, targetIndex));
 	};
 
 	// Built per-field so the canvas (not FieldShell) owns the cross-section
