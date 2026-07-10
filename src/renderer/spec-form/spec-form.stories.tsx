@@ -46,6 +46,19 @@ function dateField(accessor: string, name: string): Field {
 	};
 }
 
+// No `card()` builder exists (cards are authored in SpecEditor via "+ Card"),
+// so the carded stories construct the marker directly — exactly what the
+// editor's insertCard produces.
+function cardMarker(name: string, accessor: string): Field {
+	return {
+		field_type: "card",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: {},
+		children: null,
+		system: false,
+	};
+}
+
 /* ------------------------------------------------------------------ */
 /*  Specs                                                              */
 /* ------------------------------------------------------------------ */
@@ -104,6 +117,25 @@ const readValues: Record<string, unknown> = {
 	// for empty values.
 	published: true,
 	publish_date: "2026-01-15",
+};
+
+const cardedSpec = defineSpec([
+	cardMarker("Basics", "card_basics"),
+	text("title", { name: "Title", required: true }),
+	boolean("published", { name: "Published" }),
+	cardMarker("", "card_untitled"),
+	text("notes", { name: "Notes" }),
+	section("SEO", [
+		cardMarker("Meta", "card_meta"),
+		text("meta_title", { name: "Meta Title" }),
+	]),
+]);
+
+const cardedReadValues: Record<string, unknown> = {
+	title: "Launch Announcement",
+	published: true,
+	notes: "Ship it.",
+	meta_title: "Launch Announcement — SEO Title",
 };
 
 /* ------------------------------------------------------------------ */
@@ -256,4 +288,12 @@ export const Loading: Story = {
 
 export const InDrawerWithSections: Story = {
 	render: () => <DrawerWrapper spec={horizontalSpec} />,
+};
+
+export const Carded: Story = {
+	render: () => <EditWrapper spec={cardedSpec} />,
+};
+
+export const CardedReadMode: Story = {
+	render: () => <ReadWrapper spec={cardedSpec} values={cardedReadValues} />,
 };

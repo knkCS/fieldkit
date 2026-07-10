@@ -10,9 +10,8 @@ import { partitionSchemaBySections } from "../../schema/partition";
 import { partitionTabByCards } from "../../schema/partition-cards";
 import type { Schema } from "../../schema/types";
 import { formatCount, mergeLabels } from "../merge-labels";
-import { CardedFields } from "./carded-fields";
+import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
-import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { TabErrorBadge } from "./tab-error-badge";
@@ -393,7 +392,7 @@ function SpecFormReadTabs({
 			{partition.tabs.map((tab, i) => (
 				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
 					<Box pt="4">
-						<ReadTab
+						<CardedReadTab
 							tab={tab}
 							values={values}
 							labels={{
@@ -463,7 +462,7 @@ export function SpecForm({
 		const readValues = values ?? {};
 		if (!partition.hasSections) {
 			return (
-				<ReadTab
+				<CardedReadTab
 					tab={partition.tabs[0]}
 					values={readValues}
 					labels={{
