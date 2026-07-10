@@ -1,10 +1,13 @@
+import { partitionSchemaBySections } from "./partition";
+import { partitionTabByCards } from "./partition-cards";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
 
 export type SpecFieldErrorCode =
 	| "duplicate_accessor"
 	| "empty_name"
-	| "empty_accessor";
+	| "empty_accessor"
+	| "loose_field_in_carded_tab";
 
 export interface SpecFieldError {
 	accessor: string;
@@ -54,6 +57,7 @@ export function validateSpec(
 	// `Field.children`. Documented-by-design; resolveMarkerConvention
 	// shares the same boundary (see its docstring).
 	checkAccessors(fields, fieldErrors);
+	checkCardLayout(fields, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -65,7 +69,10 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 	const seen = new Map<string, number>();
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
-		if (!field.config.name.trim()) {
+		// Card markers are exempt from the empty-name rule: a card's title is
+		// OPTIONAL (empty = untitled, card-layout Decision 3). Accessor rules
+		// below apply to them unchanged.
+		if (field.field_type !== "card" && !field.config.name.trim()) {
 			fieldErrors.push({
 				accessor,
 				code: "empty_name",
@@ -91,6 +98,29 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				accessor,
 				code: "duplicate_accessor",
 				message: `Duplicate accessor "${accessor}"`,
+			});
+		}
+	}
+}
+
+/**
+ * Card-layout Decision 4: once a tab contains a card marker, every field in
+ * that tab lives in a card — a field BEFORE the tab's first marker is an
+ * error, flagged per field so shells outline and tab badges count it. The
+ * editor's insertCard auto-wrap never produces this state; the rule catches
+ * hand-written schemas. The renderer still degrades gracefully (implicit
+ * untitled card) — a schema is data; this rule only reports the violation.
+ * Top-level only: cards inside groups are a non-goal.
+ */
+function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
+	for (const tab of partitionSchemaBySections(fields).tabs) {
+		const { cards, hasCards } = partitionTabByCards(tab.fields);
+		if (!hasCards || cards.length === 0 || cards[0].card !== null) continue;
+		for (const loose of cards[0].fields) {
+			fieldErrors.push({
+				accessor: loose.config.api_accessor,
+				code: "loose_field_in_carded_tab",
+				message: `Field "${loose.config.api_accessor}" must be inside a card`,
 			});
 		}
 	}
