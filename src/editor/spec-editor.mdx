@@ -480,6 +480,11 @@ Visual-only rework — **no API changes**:
   `panelTabValidation`, `panelTabType` — while the old `panelGeneral`/
   `panelValidation`/`panelTypeSettings` keys still exist (keys are frozen)
   but are no longer rendered anywhere.
+- **Keyboard Tab order through a SELECTED shell changed:** the drag grip
+  used to be the selection toolbar's first button; it is now a standalone
+  always-visible control that follows the toolbar in DOM order, so Tab
+  visits Edit → Duplicate → Move → Delete → grip (previously grip-first).
+  Unselected shells are unaffected (the grip is their only control).
 - All three tab bodies stay **mounted** (inactive ones `hidden`): a
   plugin's `settingsComponent` now mounts as soon as its field is selected,
   not when the Type-settings section is first expanded.
