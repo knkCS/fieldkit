@@ -250,7 +250,7 @@ the renderer's read-time search, the editor's index **includes hidden
 fields** (`config.hidden`) — they're real, selectable rows in Build mode
 (rendered as an italic "Hidden field: {name}" placeholder instead of their
 live input), since an author must be able to find and edit them even though
-end users in Try-it/production never see them.
+end users in Preview/production never see them.
 
 ### Delete-undo toast
 
@@ -456,7 +456,7 @@ are shown.
 Visual-only rework — **no API changes**:
 
 - The header's mode buttons and the canvas's floating "+ Card + Section"
-  row merged into one toolbar. All props and all label KEYS are unchanged.
+  row merged into one toolbar. All props are unchanged and no existing label key was renamed.
 - The `tryIt` label's **default string** changed from `"Try it"` to
   `"Preview"`. Hosts overriding `labels.tryIt` keep their own string,
   untouched. Tests targeting the mode controls by role: the two mode
@@ -557,7 +557,7 @@ hover) so there's always an obvious way to add the first field.
 Two fields on *different tabs* share the same accessor. Both shells outline
 red, **both** tab triggers carry an error-count badge (a duplicate-accessor
 error badges every tab containing a field with that accessor), and
-Save/Try-it stay disabled until the collision is resolved.
+Save and the Preview segment stay disabled until the collision is resolved.
 
 <Canvas of={Stories.InvalidDraft} />
 
