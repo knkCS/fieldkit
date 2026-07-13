@@ -608,27 +608,32 @@ export function SpecEditor({
 					</Stack>
 				)}
 
+				{/* p=5 on both mode containers: the editor owns its chrome, so it
+				    (not the host) insets the canvas/preview from its own edges —
+				    matching how hosts pad an embedded SpecForm. */}
 				{mode === "tryit" ? (
-					<TryItView
-						key={tryItNonce}
-						schema={spec.draft}
-						plugins={plugins}
-						labels={{
-							testSubmit: mergedLabels.testSubmit,
-							testSubmitSuccess: mergedLabels.testSubmitSuccess,
-							defaultTab: mergedLabels.defaultTab,
-							searchPlaceholder: mergedLabels.searchPlaceholder,
-							noResults: mergedLabels.noResults,
-							optionalMarker: mergedLabels.optionalMarker,
-							tabErrors: mergedLabels.tabErrors,
-							searchLabel: mergedLabels.searchLabel,
-							tabErrorsOne: mergedLabels.tabErrorsOne,
-							unsavedChanges: mergedLabels.unsavedChanges,
-						}}
-					/>
+					<Box p="5">
+						<TryItView
+							key={tryItNonce}
+							schema={spec.draft}
+							plugins={plugins}
+							labels={{
+								testSubmit: mergedLabels.testSubmit,
+								testSubmitSuccess: mergedLabels.testSubmitSuccess,
+								defaultTab: mergedLabels.defaultTab,
+								searchPlaceholder: mergedLabels.searchPlaceholder,
+								noResults: mergedLabels.noResults,
+								optionalMarker: mergedLabels.optionalMarker,
+								tabErrors: mergedLabels.tabErrors,
+								searchLabel: mergedLabels.searchLabel,
+								tabErrorsOne: mergedLabels.tabErrorsOne,
+								unsavedChanges: mergedLabels.unsavedChanges,
+							}}
+						/>
+					</Box>
 				) : (
 					<Flex align="stretch">
-						<Box flex="1" minWidth="0">
+						<Box flex="1" minWidth="0" p="5">
 							<EditorCanvas
 								spec={spec}
 								plugins={plugins}
