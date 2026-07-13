@@ -463,6 +463,10 @@ Visual-only rework — **no API changes**:
   buttons are now segments of a radio-group-based segmented control
   (`role="radio"`, no longer `role="button"`).
 - `title` renders above the toolbar instead of inside the header row.
+- Re-clicking the already-active Preview segment is a no-op (a radio group
+  does not re-fire selection). Every ENTRY into Preview from Build still
+  mounts a fresh scratch form, as before — only the redundant re-click
+  behavior changed (the old Try-it button re-mounted on every click).
 - One new label key: `addCardDisabledEmpty` — tooltip on the disabled
   "+ Card" over an empty spec (previously the button was simply absent on
   an empty canvas).
