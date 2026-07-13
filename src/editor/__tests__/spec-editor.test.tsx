@@ -408,7 +408,10 @@ describe("SpecEditor", () => {
 			call?.[0].action?.onClick();
 		});
 
-		const shells = screen.getAllByTestId(/^shell-/);
+		// Exclude `shell-toolbar-*` (persistent-grip refinement, #41): undo
+		// restores selection too (see the next test), so the restored
+		// field's toolbar mounts under the same "shell-" testid prefix.
+		const shells = screen.getAllByTestId(/^shell-(?!toolbar-)/);
 		expect(shells.map((el) => el.dataset.testid)).toEqual([
 			"shell-a",
 			"shell-b",
@@ -539,5 +542,18 @@ describe("SpecEditor", () => {
 		expect(
 			screen.getByTestId("shell-b").closest("[role='tabpanel']"),
 		).not.toHaveAttribute("hidden");
+	});
+
+	it("every shell carries its own grip; selecting adds none (the toolbar grip is gone)", () => {
+		renderEditor([makeField("a"), makeField("b")]);
+		// Unselected shells already expose their handles (#41).
+		expect(screen.getAllByLabelText(L.dragField)).toHaveLength(2);
+
+		fireEvent.click(screen.getByTestId("shell-a"));
+		// The selection toolbar is up (Edit proves it) but contributed NO
+		// grip — pre-0.10 this whole screen had exactly ONE handle, the
+		// selected toolbar's.
+		expect(screen.getByLabelText(L.editField)).toBeInTheDocument();
+		expect(screen.getAllByLabelText(L.dragField)).toHaveLength(2);
 	});
 });

@@ -435,9 +435,10 @@ describe("EditorCanvas — cards", () => {
 			</EditorWrap>,
 		);
 
-		// Select f4 — FieldShell only mounts its drag handle once selected.
-		fireEvent.click(screen.getByTestId("shell-f4"));
-		const handle = screen.getByLabelText("Drag to reorder");
+		// Persistent grip (0.10.0): the handle lives on the unselected shell.
+		const handle = within(screen.getByTestId("shell-f4")).getByLabelText(
+			"Drag to reorder",
+		);
 		handle.focus();
 		fireEvent.keyDown(handle, { code: "Space" });
 		await new Promise((resolve) => setTimeout(resolve, 0));

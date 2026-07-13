@@ -128,8 +128,13 @@ describe("EditorCanvas insertion points", () => {
 			fireEvent.click(option);
 		});
 
+		// Exclude `shell-toolbar-*` (persistent-grip refinement, #41): the
+		// inserted field is auto-selected, so its selection toolbar mounts
+		// too, and its testid shares the "shell-" prefix.
 		const shells = Array.from(
-			document.querySelectorAll('[data-testid^="shell-"]'),
+			document.querySelectorAll(
+				'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
+			),
 		).map((el) => el.getAttribute("data-testid"));
 		expect(shells).toEqual(["shell-a", "shell-text", "shell-b"]);
 

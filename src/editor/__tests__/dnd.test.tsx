@@ -1,5 +1,5 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -171,8 +171,12 @@ describe("EditorCanvas drag & drop", () => {
 			</EditorWrap>,
 		);
 
-		fireEvent.click(screen.getByTestId("shell-a"));
-		const handle = screen.getByLabelText("Drag to reorder");
+		// Persistent grip (0.10.0): the handle lives on the UNSELECTED shell —
+		// no selection click. Discriminating against the old
+		// selection-toolbar-only handle (#41).
+		const handle = within(screen.getByTestId("shell-a")).getByLabelText(
+			"Drag to reorder",
+		);
 		handle.focus();
 		fireEvent.keyDown(handle, { code: "Space" });
 		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
@@ -243,8 +247,12 @@ describe("EditorCanvas drag & drop", () => {
 			</EditorWrap>,
 		);
 
-		fireEvent.click(screen.getByTestId("shell-a"));
-		const handle = screen.getByLabelText("Drag to reorder");
+		// Persistent grip (0.10.0): the handle lives on the UNSELECTED shell —
+		// no selection click. Discriminating against the old
+		// selection-toolbar-only handle (#41).
+		const handle = within(screen.getByTestId("shell-a")).getByLabelText(
+			"Drag to reorder",
+		);
 		handle.focus();
 		fireEvent.keyDown(handle, { code: "Space" });
 		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
@@ -276,8 +284,12 @@ describe("EditorCanvas drag & drop", () => {
 			3,
 		);
 
-		fireEvent.click(screen.getByTestId("shell-a"));
-		const handle = screen.getByLabelText("Drag to reorder");
+		// Persistent grip (0.10.0): the handle lives on the UNSELECTED shell —
+		// no selection click. Discriminating against the old
+		// selection-toolbar-only handle (#41).
+		const handle = within(screen.getByTestId("shell-a")).getByLabelText(
+			"Drag to reorder",
+		);
 		handle.focus();
 		fireEvent.keyDown(handle, { code: "Space" });
 		// dnd-kit's KeyboardSensor attaches its document keydown listener in a
