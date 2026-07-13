@@ -240,6 +240,20 @@ export function FieldConfigPanel({
 		prevAutoFocusRef.current = Boolean(autoFocusLabel);
 		if (!rising) return;
 
+		// Final-review fix wave (Fix 1): land back on General BEFORE scheduling
+		// the focus chain below. A same-field Edit pulse (e.g. the toolbar
+		// Edit-pencil clicked again on the ALREADY-selected field, or the
+		// +Section/+Card rename pulse) rises here without `chain.length` or the
+		// active accessor changing, so the tabIdentity reset effect below never
+		// fires. Left as-is, the two-rAF focus() call at nameInputRef would
+		// silently no-op whenever the Validation/Type-settings tab was active,
+		// since that input lives inside a `hidden` tabpanel. This also hardens
+		// the DIFFERENT-field path (where tabIdentity's effect already resets
+		// the tab) against zag's controlled-value sync timing — this effect's
+		// setActiveTab runs in the same passive-effect flush, so it can't lose
+		// a race with anything zag schedules afterward.
+		setActiveTab("general");
+
 		if (focusChainRef.current) {
 			cancelAnimationFrame(focusChainRef.current.raf1);
 			if (focusChainRef.current.raf2 !== undefined) {

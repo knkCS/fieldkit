@@ -494,22 +494,31 @@ describe("FieldConfigPanel", () => {
 		);
 		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
 
-		const field = makeField("my_field", "My Field");
-		render(
-			<EditorWrap>
-				<Harness initialField={field} autoFocusLabel />
-			</EditorWrap>,
-		);
+		// Final-review fix wave (Fix 2): try/finally around the stubbed
+		// section. Without it, an assertion failure between the stub calls
+		// above and the restore calls below (e.g. a regression in the focus
+		// chain) would leave fake timers AND the stubbed rAF/cAF globals
+		// installed — poisoning every later test in this file, since
+		// `vi.unstubAllGlobals()` would never run. Behavior on the green path
+		// is unchanged.
+		try {
+			const field = makeField("my_field", "My Field");
+			render(
+				<EditorWrap>
+					<Harness initialField={field} autoFocusLabel />
+				</EditorWrap>,
+			);
 
-		// Rising edge (mount with autoFocusLabel=true) focuses the name input
-		// once both frames drain.
-		act(() => {
-			vi.runAllTimers();
-		});
-		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
-
-		vi.useRealTimers();
-		vi.unstubAllGlobals();
+			// Rising edge (mount with autoFocusLabel=true) focuses the name input
+			// once both frames drain.
+			act(() => {
+				vi.runAllTimers();
+			});
+			expect(screen.getByTestId("panel-name-input")).toHaveFocus();
+		} finally {
+			vi.useRealTimers();
+			vi.unstubAllGlobals();
+		}
 
 		// Editing another control must NOT re-trigger the focus effect even
 		// though the field object changes identity on every applied edit.
@@ -517,6 +526,70 @@ describe("FieldConfigPanel", () => {
 		instructions.focus();
 		fireEvent.change(instructions, { target: { value: "Some help text" } });
 		expect(instructions).toHaveFocus();
+	});
+
+	// Final-review fix wave (Fix 1): an Edit pulse (autoFocusLabel's rising
+	// edge) arriving while the SAME field stays selected — e.g. the toolbar
+	// Edit-pencil clicked again, or a rename pulse — used to only schedule the
+	// two-rAF focus chain at nameInputRef. If a non-General tab (Validation/
+	// Type settings) was active, that input lives inside a `hidden` tabpanel
+	// and the focus() call silently no-ops. The tabIdentity reset effect
+	// doesn't help here either: it only fires when `chain.length` or the
+	// active field's accessor CHANGES, and neither does on a same-field Edit
+	// pulse. The fix: the autoFocusLabel rising-edge effect itself must also
+	// flip the panel back to General.
+	it("Edit pulse (autoFocusLabel rising edge) flips the panel back to the General tab even from Validation", async () => {
+		const field = makeField("my_field", "My Field");
+
+		function PulseHarness() {
+			const [autoFocusLabel, setAutoFocusLabel] = useState(false);
+			return (
+				<div>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={() => {}}
+						onClose={() => {}}
+						autoFocusLabel={autoFocusLabel}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+					<button
+						type="button"
+						data-testid="fire-edit-pulse"
+						onClick={() => setAutoFocusLabel(true)}
+					/>
+				</div>
+			);
+		}
+
+		render(
+			<EditorWrap>
+				<PulseHarness />
+			</EditorWrap>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// Same field stays selected throughout — only autoFocusLabel rises,
+		// exactly like the toolbar Edit-pencil on an already-selected field.
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("fire-edit-pulse"));
+		});
+
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
 	});
 
 	it("renders plugin settingsComponent and applies its onChange to field.settings", () => {
