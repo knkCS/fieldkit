@@ -40,9 +40,15 @@ describe("SpecForm search inside a real DrawerRoot", () => {
 
 		// Escape #1: contained by FieldSearch — dropdown closes, drawer lives.
 		fireEvent.keyDown(input, { key: "Escape" });
-		await waitFor(() => {
-			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-		});
+		// Generous timeout: the zag teardown exceeded waitFor's 1s default once
+		// under CI runner load (v0.9.0 publish run) — same flake class as the
+		// field-search deflake (fieldkit#39).
+		await waitFor(
+			() => {
+				expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+			},
+			{ timeout: 5000 },
+		);
 		expect(onClose).not.toHaveBeenCalled();
 
 		// Escape #2 (dropdown closed): FieldSearch's handler early-returns,

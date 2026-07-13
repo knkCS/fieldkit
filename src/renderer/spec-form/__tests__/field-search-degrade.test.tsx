@@ -1,6 +1,6 @@
 // src/renderer/spec-form/__tests__/field-search-degrade.test.tsx
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FieldSearch } from "../field-search";
 import type { FieldSearchResult } from "../search-index";
@@ -72,7 +72,7 @@ describe("FieldSearch — anker 3.1 degrade (ref lands on raw <input>, no clear(
 		);
 	});
 
-	it("Escape clears the query and closes the dropdown without throwing", () => {
+	it("Escape clears the query and closes the dropdown without throwing", async () => {
 		renderSearch();
 
 		fireEvent.change(input(), { target: { value: "alpha" } });
@@ -81,6 +81,9 @@ describe("FieldSearch — anker 3.1 degrade (ref lands on raw <input>, no clear(
 		expect(() => {
 			fireEvent.keyDown(input(), { key: "Escape" });
 		}).not.toThrow();
-		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		// waitFor: teardown can defer past the dispatch under load (fieldkit#39).
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
 	});
 });
