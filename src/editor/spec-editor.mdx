@@ -165,6 +165,45 @@ first section is deleted). The confirm dialog's message
 (`labels.deleteSectionConfirm`) says so explicitly; nothing is destroyed.
 "+ Section" appends a new section and immediately opens its rename input.
 
+### Cards
+
+A tab's fields can be grouped into stacked, full-width **cards** — `card`
+layout markers in the flat schema, one level below sections (fields after a
+marker belong to that card until the next `card`/`section` marker). Cards
+are purely visual: fields keep their top-level accessors and stored values
+are byte-identical with or without markers.
+
+**"+ Card"** (next to "+ Section") appends an empty, untitled card to the
+active tab. Adding the FIRST card to a tab that already has loose fields
+auto-wraps those fields into an untitled card first, then appends the new
+card after it — a carded tab is always all-in-cards. The new card is
+selected and the config panel's Name input focused so it can be titled
+immediately. A card's title is optional (`config.name`): empty shows the
+italic `cardUntitled` placeholder on the canvas and a plain, headerless
+card in the rendered form.
+
+Every card renders a **header bar**: a drag handle (moves the whole card —
+marker plus contained fields — as one block; the canvas stays a single
+flat sortable list, so dragging a *field* over another field reorders it
+exactly as before, while dragging a field over a card's header FRAME snaps
+it inside that card, at the top of its contents), the title, and a ⋯ menu.
+Clicking the header selects the card; the config
+panel then shows its one setting (Name) with the same live-edit semantics
+as field renames. The ⋯ menu offers **Rename** (focuses the panel's Name
+input), **Delete card** (removes only the marker — its fields merge into
+the previous card; a first card's fields merge into the next; deleting the
+only card returns the tab to the legal card-less state; nothing is
+destroyed), and **Delete card and fields** (destructive, behind the
+standard confirm dialog).
+
+Hand-written schemas violating the all-in-cards rule (a loose field before
+a tab's first marker) are flagged by `validateSpec` as
+`loose_field_in_carded_tab` on each loose field — those shells outline in
+the danger color and Save/Try-it disable — while the canvas and renderer
+still degrade gracefully by framing them as an implicit untitled card.
+The ⊕ insertion popover never offers the `card` type; "+ Card" is the only
+way to add one (it owns the auto-wrap bookkeeping).
+
 ### Drag & drop, including cross-tab
 
 Fields reorder within a tab via a drag handle (pointer or keyboard — see
@@ -335,6 +374,15 @@ are shown.
 | `orientationV` | `"Vertical tabs"` | Orientation toggle (when currently horizontal) |
 | `sectionMenu` | `"Section menu: {section}"` | Section menu trigger aria-label (`{section}` interpolated) |
 | `moveToSection` | `"Move to section"` | Cross-tab move menu trigger, toolbar |
+| `addCard` | `"+ Card"` | Add-card button |
+| `cardUntitled` | `"Untitled card"` | Placeholder title for an untitled card (canvas header, panel header/placeholder, menu aria interpolation) |
+| `dragCard` | `"Drag to move card"` | Card header drag-handle aria-label/tooltip (moves the whole card block) |
+| `cardMenu` | `"Card menu: {card}"` | Card ⋯ menu trigger aria-label (`{card}` interpolated) |
+| `renameCard` | `"Rename"` | Card menu item (opens the panel's Name input) |
+| `deleteCardMerge` | `"Delete card"` | Card menu item — removes the marker only; fields merge into a neighbor card |
+| `deleteCardWithFields` | `"Delete card and fields"` | Card menu item / confirm dialog title |
+| `deleteCardWithFieldsConfirm` | `'Delete card "{card}" and all of its fields?'` | Confirm dialog message (`{card}` interpolated) |
+| `panelCardNotice` | `"Card — a visual group. Fields inside keep their own accessors and stored values."` | Notice atop the card config panel |
 | `dragField` | `"Drag to reorder"` | Drag handle aria-label / tooltip |
 | `editField` | `"Edit field"` | Toolbar Edit button |
 | `duplicateField` | `"Duplicate field"` | Toolbar Duplicate button |
@@ -371,6 +419,7 @@ are shown.
 | `errorDuplicateAccessor` | `'Duplicate accessor "{accessor}"'` | Validation-section error message (`{accessor}` interpolated) |
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
+| `errorLooseFieldInCardedTab` | `'Field "{accessor}" must be inside a card'` | Validation message for a loose field in a carded tab (`{accessor}` interpolated) |
 
 ## Migration from 0.1
 
@@ -465,3 +514,12 @@ error badges every tab containing a field with that accessor), and
 Save/Try-it stay disabled until the collision is resolved.
 
 <Canvas of={Stories.InvalidDraft} />
+
+### Build, With Cards
+
+The "General" tab's fields grouped into two cards (one untitled). Card
+headers carry a drag handle (block move), the title, and a ⋯ menu; "+ Card"
+auto-wraps loose fields on first use in a tab. Flip to **Try it** to see
+the rendered card layout.
+
+<Canvas of={Stories.BuildWithCards} />

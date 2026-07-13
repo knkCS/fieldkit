@@ -70,6 +70,20 @@ export interface EditorLabels {
 	orientationV?: string;
 	sectionMenu?: string; // "{section}" interpolated aria
 	moveToSection?: string;
+	// cards
+	addCard?: string;
+	/** Placeholder title for an untitled card (canvas header, panel, menu aria). */
+	cardUntitled?: string;
+	/** aria-label/tooltip for a card header's drag handle (block move). */
+	dragCard?: string;
+	cardMenu?: string; // "{card}" interpolated aria-label for the ⋯ trigger
+	renameCard?: string;
+	/** Menu item: removes the marker only — fields merge into a neighbor card. */
+	deleteCardMerge?: string;
+	deleteCardWithFields?: string;
+	deleteCardWithFieldsConfirm?: string; // "{card}" interpolated
+	/** Notice atop the card config panel (a card's only setting is its Name). */
+	panelCardNotice?: string;
 	// shell toolbar
 	dragField?: string;
 	editField?: string;
@@ -132,6 +146,7 @@ export interface EditorLabels {
 	errorDuplicateAccessor?: string;
 	errorEmptyName?: string;
 	errorEmptyAccessor?: string;
+	errorLooseFieldInCardedTab?: string;
 }
 
 export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
@@ -188,6 +203,17 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	sectionMenu: "Section menu: {section}",
 	moveToSection: "Move to section",
 
+	addCard: "+ Card",
+	cardUntitled: "Untitled card",
+	dragCard: "Drag to move card",
+	cardMenu: "Card menu: {card}",
+	renameCard: "Rename",
+	deleteCardMerge: "Delete card",
+	deleteCardWithFields: "Delete card and fields",
+	deleteCardWithFieldsConfirm: 'Delete card "{card}" and all of its fields?',
+	panelCardNotice:
+		"Card — a visual group. Fields inside keep their own accessors and stored values.",
+
 	dragField: "Drag to reorder",
 	editField: "Edit field",
 	duplicateField: "Duplicate field",
@@ -232,6 +258,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	errorDuplicateAccessor: 'Duplicate accessor "{accessor}"',
 	errorEmptyName: "Name must not be empty",
 	errorEmptyAccessor: "Accessor must not be empty",
+	errorLooseFieldInCardedTab: 'Field "{accessor}" must be inside a card',
 };
 
 /** Maps a SpecFieldError's code to its labeled, `{accessor}`-interpolated
@@ -246,7 +273,9 @@ function translateFieldError(
 			? labels.errorDuplicateAccessor
 			: error.code === "empty_name"
 				? labels.errorEmptyName
-				: labels.errorEmptyAccessor;
+				: error.code === "loose_field_in_carded_tab"
+					? labels.errorLooseFieldInCardedTab
+					: labels.errorEmptyAccessor;
 	return { ...error, message: template.replace("{accessor}", error.accessor) };
 }
 

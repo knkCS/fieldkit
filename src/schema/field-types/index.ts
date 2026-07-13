@@ -2,6 +2,7 @@ import type { FieldTypePlugin } from "../plugin";
 import { arrayPlugin } from "./array";
 import { blocksPlugin } from "./blocks";
 import { booleanPlugin } from "./boolean";
+import { cardPlugin } from "./card";
 import { checkboxesPlugin } from "./checkboxes";
 import { codePlugin } from "./code";
 import { colorPlugin } from "./color";
@@ -48,6 +49,7 @@ export const selectionFieldTypes: FieldTypePlugin<any>[] = [
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const structuralFieldTypes: FieldTypePlugin<any>[] = [
 	sectionPlugin,
+	cardPlugin,
 	groupPlugin,
 	blocksPlugin,
 	arrayPlugin,
@@ -93,6 +95,7 @@ export {
 	radioPlugin,
 	checkboxesPlugin,
 	sectionPlugin,
+	cardPlugin,
 	groupPlugin,
 	blocksPlugin,
 	arrayPlugin,

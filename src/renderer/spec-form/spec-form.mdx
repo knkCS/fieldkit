@@ -69,6 +69,39 @@ flat `schema` array at each `section` field:
   from the **first** section's `settings.orientation` only; later sections
   cannot override it.
 
+## Card Layout
+
+A `card` field is a layout marker one level below `section`: within a tab,
+fields after a `card` marker belong to that card until the next `card` or
+`section` marker (`partitionTabByCards`, pure and shared with the spec
+editor). Cards are purely visual — fields keep their top-level accessors
+and stored values are byte-identical with or without markers.
+
+- **Stacked**: one full-width card per row, in schema order — no
+  side-by-side grid, no per-card widths.
+- **Title optional**: the marker's `config.name`, rendered as a small
+  heading when non-empty; an untitled card is a plain box with no header.
+- **All-in-cards per tab**: once a tab contains a card marker, every field
+  in that tab should live in a card. `validateSpec` flags violations per
+  loose field (`loose_field_in_carded_tab`) — but **rendering never breaks
+  on a violation** (normative): leading loose fields render as an implicit
+  untitled card.
+- Tabs without cards render exactly as before — no wrapper element.
+- Read mode renders the same card boxes with description-list rows inside.
+- Field search, cross-tab jump, submit-jump-to-first-error, and tab error
+  badges are unchanged — they operate on the flat field list and DOM ids;
+  card markers are never search results.
+- The loading skeleton draws its rows inside card frames when the first
+  tab has cards.
+- `EditDrawer` inherits cards through `SpecForm`; `SpecDataTable` ignores
+  card markers exactly as it ignores sections.
+
+<Canvas of={Stories.Carded} />
+
+### Carded, read mode
+
+<Canvas of={Stories.CardedReadMode} />
+
 ## Mounted-Hidden Panels
 
 All tab panels stay mounted in the DOM at all times (`Tabs.Root` is never

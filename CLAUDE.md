@@ -40,7 +40,8 @@ src/
 │   ├── plugin.ts        # FieldTypePlugin, FieldProps, CellProps, SettingsProps
 │   ├── registry.ts      # Plugin registry
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
-│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children)
+│   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
+│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
@@ -51,6 +52,8 @@ src/
 │   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
 │   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd, insertion boundaries
 │   ├── field-shell.tsx  # Per-field wrapper: selection, toolbar, inert content
+│   ├── card-frame.tsx   # Card header-bar frame on the canvas (block drag, select)
+│   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel (live edits, accessor gate, group drill-in)
 │   ├── panel-sections/  # Config / validation / type-settings panel sections
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)

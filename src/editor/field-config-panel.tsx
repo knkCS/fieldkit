@@ -1,5 +1,5 @@
 // src/editor/field-config-panel.tsx
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex, Input, Text } from "@chakra-ui/react";
 import { Button, IconButton } from "@knkcs/anker/atoms";
 import { ChevronDown, ChevronLeft, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -74,6 +74,9 @@ export type PanelLabels = Pick<
 	| "pattern"
 	| "patternMessage"
 	| "unique"
+	// Card panel: the one-setting (Name) body.
+	| "cardUntitled"
+	| "panelCardNotice"
 >;
 
 export interface FieldConfigPanelProps {
@@ -434,7 +437,12 @@ export function FieldConfigPanel({
 
 			<Flex align="center" justify="space-between" mb="4">
 				<Box>
-					<Text fontWeight="semibold">{activeField.config.name}</Text>
+					<Text fontWeight="semibold">
+						{activeField.field_type === "card" &&
+						!activeField.config.name.trim()
+							? labels.cardUntitled
+							: activeField.config.name}
+					</Text>
 					{activePlugin && (
 						<Text fontSize="xs" color="fg.muted">
 							{activePlugin.name}
@@ -458,6 +466,54 @@ export function FieldConfigPanel({
 					plugin={activePlugin}
 					labels={labels}
 				/>
+			) : activeField.field_type === "card" ? (
+				// A card's ONE setting is its Name (title, optional) — no
+				// accessor/validation/type-settings sections. Live draft edits
+				// with the same semantics as field renames: apply per keystroke,
+				// trim on blur. The accessor is never touched (no auto-slug).
+				// (fieldkit#42's panel→tabs redesign subsumes this trivially.)
+				// The `system` check above wins first: hand-authored system
+				// markers are consumer-supplied (insertCard always emits
+				// `system: false`), so a `system: true` card must still get the
+				// locked read-only summary, not the editable Name input.
+				<Box>
+					<Text
+						fontSize="xs"
+						color="fg.muted"
+						mb="3"
+						data-testid="panel-card-notice"
+					>
+						{labels.panelCardNotice}
+					</Text>
+					<Box as="label" display="block" mb="3">
+						<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
+							{labels.name}
+						</Text>
+						<Input
+							ref={nameInputRef}
+							size="sm"
+							mt="1"
+							value={activeField.config.name}
+							placeholder={labels.cardUntitled}
+							onChange={(e) =>
+								guardedFieldChange({
+									...activeField,
+									config: { ...activeField.config, name: e.target.value },
+								})
+							}
+							onBlur={() => {
+								const trimmed = activeField.config.name.trim();
+								if (trimmed !== activeField.config.name) {
+									guardedFieldChange({
+										...activeField,
+										config: { ...activeField.config, name: trimmed },
+									});
+								}
+							}}
+							data-testid="panel-card-name-input"
+						/>
+					</Box>
+				</Box>
 			) : (
 				<>
 					{isDuplicateSelection && (

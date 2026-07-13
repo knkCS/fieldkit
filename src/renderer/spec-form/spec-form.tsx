@@ -7,11 +7,11 @@ import { useFormContext, useFormState } from "react-hook-form";
 import { resolveMarkerConvention } from "../../schema/marker-convention";
 import type { SpecPartition, SpecTab } from "../../schema/partition";
 import { partitionSchemaBySections } from "../../schema/partition";
+import { partitionTabByCards } from "../../schema/partition-cards";
 import type { Schema } from "../../schema/types";
-import { FieldRenderer } from "../field-renderer";
 import { formatCount, mergeLabels } from "../merge-labels";
+import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
-import { ReadTab } from "./read-tab";
 import type { FieldSearchResult } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { TabErrorBadge } from "./tab-error-badge";
@@ -256,7 +256,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 			{partition.tabs.map((tab, i) => (
 				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
 					<Box pt="4">
-						<FieldRenderer schema={tab.fields} readOnly={readOnly} />
+						<CardedFields fields={tab.fields} readOnly={readOnly} />
 					</Box>
 				</Tabs.Content>
 			))}
@@ -392,7 +392,7 @@ function SpecFormReadTabs({
 			{partition.tabs.map((tab, i) => (
 				<Tabs.Content key={tabKey(tab, i)} value={`tab-${i}`}>
 					<Box pt="4">
-						<ReadTab
+						<CardedReadTab
 							tab={tab}
 							values={values}
 							labels={{
@@ -437,10 +437,18 @@ export function SpecForm({
 	// consumer fetching the spec itself passes `schema={[]} loading` until
 	// the real spec arrives, and needs the skeleton rather than nothing.
 	if (loading) {
+		// Skeleton draws inside card frames when the FIRST tab is carded —
+		// the first tab is what's visible while loading.
+		const firstTabCards = partitionTabByCards(partition.tabs[0]?.fields ?? []);
 		return (
 			<SpecFormSkeleton
 				fieldCount={schema.length}
 				showTabStrip={partition.hasSections}
+				cardSizes={
+					firstTabCards.hasCards
+						? firstTabCards.cards.map((c) => c.fields.length)
+						: undefined
+				}
 			/>
 		);
 	}
@@ -454,7 +462,7 @@ export function SpecForm({
 		const readValues = values ?? {};
 		if (!partition.hasSections) {
 			return (
-				<ReadTab
+				<CardedReadTab
 					tab={partition.tabs[0]}
 					values={readValues}
 					labels={{
@@ -476,7 +484,7 @@ export function SpecForm({
 	if (!partition.hasSections) {
 		return (
 			<FormMarkersProvider value={markers}>
-				<FieldRenderer schema={partition.tabs[0].fields} readOnly={readOnly} />
+				<CardedFields fields={partition.tabs[0].fields} readOnly={readOnly} />
 			</FormMarkersProvider>
 		);
 	}

@@ -3,8 +3,10 @@ import { type ZodObject, type ZodRawShape, type ZodTypeAny, z } from "zod";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
 
-/** Structural field types that don't produce a value in the form data. */
-const STRUCTURAL_TYPES = new Set(["section"]);
+/** Structural field types that don't produce a value in the form data.
+ * One set covers BOTH paths: specToZodSchema (schema) and getDefaultValues
+ * (defaults) skip these before any plugin/config lookup. */
+const STRUCTURAL_TYPES = new Set(["section", "card"]);
 
 export interface ZodBuilderOptions {
 	overrides?: Record<string, (base: ZodTypeAny) => ZodTypeAny>;

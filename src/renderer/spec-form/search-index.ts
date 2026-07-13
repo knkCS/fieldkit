@@ -22,6 +22,10 @@ export function buildSearchIndex(
 	const includeHidden = opts?.includeHidden ?? false;
 	return tabs.flatMap((tab, tabIndex) =>
 		tab.fields
+			// Card markers are layout, not fields — they have no focusable
+			// control or read-mode row to jump to, so (like section markers,
+			// which never appear in tab.fields at all) they are not results.
+			.filter((field) => field.field_type !== "card")
 			.filter((field) => includeHidden || !field.config.hidden)
 			.map((field) => ({
 				accessor: field.config.api_accessor,

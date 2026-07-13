@@ -380,3 +380,152 @@ export function moveFieldToSection(
 	);
 	return insertFieldAt(without, field, insertAfter + 1);
 }
+
+/** A card block = the marker plus every field up to the next `card` or
+ * `section` marker (cards never span tabs) — the card-layout sibling of
+ * `sectionBlockRange`. */
+function cardBlockRange(
+	schema: Schema,
+	cardAccessor: string,
+): [number, number] | null {
+	const start = schema.findIndex(
+		(f) => f.field_type === "card" && f.config.api_accessor === cardAccessor,
+	);
+	if (start === -1) return null;
+	let end = schema.length;
+	for (let i = start + 1; i < schema.length; i++) {
+		if (schema[i].field_type === "card" || schema[i].field_type === "section") {
+			end = i;
+			break;
+		}
+	}
+	return [start, end];
+}
+
+/**
+ * Appends an untitled, empty card to the end of tab `tabIndex`. Decision 4
+ * (all-in-cards): adding the FIRST card to a tab that already has loose
+ * fields first wraps them by inserting another untitled marker at the tab's
+ * start, THEN appends the new card after them. Contract relied on by the
+ * canvas: the NEW empty card is always the LAST card marker of the target
+ * tab. Markers are untitled (name "") — the title is optional and authored
+ * in the config panel — with accessors from `nextAccessor(…, "card")`
+ * (card, card_2, card_3, …).
+ */
+export function insertCard(schema: Schema, tabIndex: number): Schema {
+	const partition = partitionSchemaBySections(schema);
+	const tab = partition.tabs[tabIndex];
+	if (!tab) return schema;
+
+	const makeMarker = (current: Schema): Field => ({
+		field_type: "card",
+		config: {
+			name: "",
+			api_accessor: nextAccessor(current, "card"),
+			required: false,
+			instructions: "",
+		},
+		settings: {},
+		system: false,
+	});
+
+	let next = schema;
+	const hasCards = tab.fields.some((f) => f.field_type === "card");
+	if (!hasCards && tab.fields.length > 0) {
+		next = insertFieldAt(
+			next,
+			makeMarker(next),
+			flatInsertIndex(next, partition, tabIndex, 0),
+		);
+	}
+
+	// Re-partition: the wrap marker (if inserted) changed the tab's length.
+	const nextPartition = partitionSchemaBySections(next);
+	return insertFieldAt(
+		next,
+		makeMarker(next),
+		flatInsertIndex(
+			next,
+			nextPartition,
+			tabIndex,
+			nextPartition.tabs[tabIndex].fields.length,
+		),
+	);
+}
+
+/**
+ * Block move for the card header's drag handle: relocates marker + contained
+ * fields as ONE unit, snapped to the target card's block boundary — an
+ * arbitrary mid-card insertion would split the target card (fields after the
+ * insertion point would silently change owners in the flat model).
+ *
+ * Note: Cross-tab card moves (moving a card from one tab to another, across a
+ * section boundary) are mechanically permitted by this function. The UI caller
+ * (the canvas drag handler) is responsible for guarding against cross-tab drags
+ * in v1, enforcing tab-scoped card reordering. This separation ensures the
+ * schema operation is generic and testable while UI policy is implemented in
+ * the drag handler.
+ */
+export function moveCard(
+	schema: Schema,
+	cardAccessor: string,
+	targetCardAccessor: string,
+	position: "before" | "after",
+): Schema {
+	if (cardAccessor === targetCardAccessor) return schema;
+	const range = cardBlockRange(schema, cardAccessor);
+	if (!range) return schema;
+	const [start, end] = range;
+	const block = schema.slice(start, end);
+	const rest = [...schema.slice(0, start), ...schema.slice(end)];
+	const targetRange = cardBlockRange(rest, targetCardAccessor);
+	if (!targetRange) return schema;
+	const insertAt = position === "before" ? targetRange[0] : targetRange[1];
+	return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
+}
+
+/**
+ * "Delete card" (non-destructive): removes ONLY the marker.
+ * - A previous card exists in the same tab → its fields absorb them (flat
+ *   order already does this once the marker is gone).
+ * - FIRST card of its tab with another card after it → the next card's
+ *   marker is hoisted above the orphaned fields, so they merge into the
+ *   NEXT card instead of going loose (which would violate all-in-cards).
+ * - ONLY card of its tab → the tab returns to the bare card-less state,
+ *   which is legal again.
+ */
+export function deleteCardMerge(schema: Schema, cardAccessor: string): Schema {
+	const range = cardBlockRange(schema, cardAccessor);
+	if (!range) return schema;
+	const [start, end] = range;
+
+	// A preceding card marker before any section boundary means a previous
+	// card exists in the SAME tab — plain marker removal merges into it.
+	for (let i = start - 1; i >= 0; i--) {
+		if (schema[i].field_type === "section") break;
+		if (schema[i].field_type === "card") {
+			return removeFieldAt(schema, start);
+		}
+	}
+
+	// First card of its tab. cardBlockRange guarantees schema[end] is the
+	// next card marker, a section marker, or past the end.
+	const nextIsCard = end < schema.length && schema[end].field_type === "card";
+	const without = removeFieldAt(schema, start);
+	if (!nextIsCard) return without; // only card → bare card-less tab
+	// In `without` the next marker sits at end-1; hoist it to `start` so the
+	// orphaned fields join the NEXT card (at its front).
+	return moveField(without, end - 1, start);
+}
+
+/** "Delete card and fields" (destructive; caller confirms): removes the
+ * whole block — marker and every contained field. */
+export function deleteCardWithFields(
+	schema: Schema,
+	cardAccessor: string,
+): Schema {
+	const range = cardBlockRange(schema, cardAccessor);
+	if (!range) return schema;
+	const [start, end] = range;
+	return [...schema.slice(0, start), ...schema.slice(end)];
+}

@@ -165,3 +165,121 @@ describe("validateSpec — accessor checks", () => {
 		).toEqual([]);
 	});
 });
+
+describe("validateSpec — card layout", () => {
+	const plugins = new Map([
+		["text", mockPlugin("text")],
+		["card", mockPlugin("card")],
+		["section", mockPlugin("section")],
+	]);
+
+	function field(accessor: string): Field {
+		return {
+			field_type: "text",
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: null,
+			system: false,
+		};
+	}
+
+	function card(accessor: string, name = ""): Field {
+		return {
+			field_type: "card",
+			config: {
+				name,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			children: null,
+			system: false,
+		};
+	}
+
+	function sectionMarker(accessor: string): Field {
+		return {
+			field_type: "section",
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			children: null,
+			system: false,
+		};
+	}
+
+	it("flags EACH loose field before a carded tab's first marker", () => {
+		const result = validateSpec(
+			[field("a"), field("b"), card("c1"), field("x")],
+			plugins,
+		);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "a",
+			code: "loose_field_in_carded_tab",
+			message: 'Field "a" must be inside a card',
+		});
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "b",
+			code: "loose_field_in_carded_tab",
+			message: 'Field "b" must be inside a card',
+		});
+		// The field AFTER the marker is inside the card — not flagged.
+		expect(result.fieldErrors.filter((e) => e.accessor === "x")).toEqual([]);
+	});
+
+	it("is scoped per tab: a card in one tab doesn't constrain another tab", () => {
+		const result = validateSpec(
+			[
+				field("loose_in_general"), // implicit tab, no cards here
+				sectionMarker("s1"),
+				card("c1", "Meta"),
+				field("x"),
+			],
+			plugins,
+		);
+		expect(result.valid).toBe(true);
+		expect(result.fieldErrors).toEqual([]);
+	});
+
+	it("accepts an all-in-cards tab and a card-less tab alike", () => {
+		expect(
+			validateSpec([card("c1"), field("a"), card("c2"), field("b")], plugins)
+				.valid,
+		).toBe(true);
+		expect(validateSpec([field("a"), field("b")], plugins).valid).toBe(true);
+	});
+
+	it("allows an UNTITLED card (empty name is NOT empty_name)", () => {
+		const result = validateSpec([card("c1", ""), field("a")], plugins);
+		expect(result.valid).toBe(true);
+		expect(result.fieldErrors.filter((e) => e.code === "empty_name")).toEqual(
+			[],
+		);
+	});
+
+	it("still enforces accessor rules on card markers", () => {
+		const empty = card("");
+		const result = validateSpec([empty, field("a")], plugins);
+		expect(result.fieldErrors).toContainEqual({
+			accessor: "",
+			code: "empty_accessor",
+			message: "Accessor must not be empty",
+		});
+
+		const dup = validateSpec([card("dup"), field("dup")], plugins);
+		expect(dup.fieldErrors.some((e) => e.code === "duplicate_accessor")).toBe(
+			true,
+		);
+	});
+});

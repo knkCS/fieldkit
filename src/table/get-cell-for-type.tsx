@@ -7,7 +7,7 @@ import type { Schema } from "../schema/types";
 /**
  * Generates TanStack Table ColumnDef[] from a Schema and plugins.
  *
- * Skips section (structural) fields and hidden fields.
+ * Skips section/card (structural) fields and hidden fields.
  * Uses plugin cellComponent when available, otherwise falls back to
  * simple string rendering.
  */
@@ -19,8 +19,9 @@ export function getCellForFieldType(
 
 	return schema
 		.filter((field) => {
-			// Skip section fields (structural only, no data)
+			// Skip section/card fields (structural layout markers, no data)
 			if (field.field_type === "section") return false;
+			if (field.field_type === "card") return false;
 			// Skip hidden fields
 			if (field.config.hidden) return false;
 			return true;
