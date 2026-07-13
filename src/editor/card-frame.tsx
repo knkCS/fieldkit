@@ -70,7 +70,7 @@ export function CardFrame({
 			<Flex
 				align="center"
 				gap="2"
-				px="3"
+				px="5"
 				py="2"
 				borderBottomWidth="1px"
 				borderColor="border"
@@ -121,7 +121,9 @@ export function CardFrame({
 					<Box onClick={(e) => e.stopPropagation()}>{menu}</Box>
 				)}
 			</Flex>
-			<Box p="3">{children}</Box>
+			{/* p=5 matches the renderer's CardSurface padding — Build canvas and
+			    rendered form must present cards with the same rhythm. */}
+			<Box p="5">{children}</Box>
 		</Box>
 	);
 }
