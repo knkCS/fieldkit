@@ -189,11 +189,17 @@ describe("SpecEditor — unified toolbar (A2)", () => {
 		}
 	});
 
-	it("sectionless schema: exactly ONE + Card and ONE + Section in the toolbar", () => {
+	it("sectionless schema: inserts exist exactly once DOCUMENT-WIDE, inside the toolbar", () => {
+		// Screen-level counts (not bar-scoped) — a reintroduced floating row in
+		// the sectionless canvas branch must fail this; same idiom as the
+		// sectioned depth-pin above.
 		renderEditor([makeField("a"), makeField("b")]);
-		const bar = toolbar();
-		expect(bar.getAllByRole("button", { name: L.addCard })).toHaveLength(1);
-		expect(bar.getAllByRole("button", { name: L.addSection })).toHaveLength(1);
+		const bar = screen.getByTestId("editor-toolbar");
+		for (const label of [L.addCard, L.addSection]) {
+			const hits = screen.getAllByText(label);
+			expect(hits).toHaveLength(1);
+			expect(bar.contains(hits[0])).toBe(true);
+		}
 	});
 
 	it("empty spec: exactly ONE + Section anywhere (the empty-state ghost button is gone too) and it works", async () => {
