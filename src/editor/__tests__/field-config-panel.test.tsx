@@ -972,6 +972,130 @@ describe("FieldConfigPanel", () => {
 			"true",
 		);
 	});
+
+	it("panel width is FIXED (#40): same width token for custom and system selections, no min-width", () => {
+		function panelFor(field: Field) {
+			return (
+				<EditorWrap>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={vi.fn()}
+						onClose={vi.fn()}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+				</EditorWrap>
+			);
+		}
+		const widthOf = () =>
+			window.getComputedStyle(screen.getByTestId("field-config-panel")).width;
+
+		const { rerender } = render(panelFor(makeField("a", "A")));
+		// Chakra resolves the `width` token to its CSS var in jsdom; the OLD
+		// minWidth-only panel computes width "" here — the discriminating
+		// assert (probe-verified against the installed Chakra v3).
+		expect(widthOf()).toBe("var(--chakra-sizes-72)");
+		expect(
+			window.getComputedStyle(screen.getByTestId("field-config-panel"))
+				.minWidth,
+		).toBe("");
+
+		rerender(panelFor({ ...makeField("name", "Name"), system: true }));
+		expect(widthOf()).toBe("var(--chakra-sizes-72)");
+	});
+
+	it("duplicate-accessor banner renders ABOVE the tab strip — visible from the Validation tab", () => {
+		const field = makeField("dup", "Dup A");
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field, makeField("dup", "Dup B")]}
+					fieldErrors={[
+						{
+							accessor: "dup",
+							code: "duplicate_accessor",
+							message: 'Duplicate accessor "dup"',
+						},
+					]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+
+		const banner = screen.getByTestId("panel-duplicate-banner");
+		// Visible while a NON-General tab is active: a banner living inside
+		// the General body would be `hidden` right now.
+		expect(banner).toBeVisible();
+		expect(banner.closest("[role='tabpanel']")).toBeNull();
+		// And ABOVE the strip in document order (Decision 4).
+		const tablist = screen.getByRole("tablist");
+		expect(
+			banner.compareDocumentPosition(tablist) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
+	it("four selection states render the right chrome: tabs / summary / card Name / Back+tabs", () => {
+		function panelFor(field: Field) {
+			return (
+				<EditorWrap>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={vi.fn()}
+						onClose={vi.fn()}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+				</EditorWrap>
+			);
+		}
+
+		// (1) normal field: the full tab strip, no Back row.
+		const normal = render(panelFor(makeField("a", "A")));
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		expect(screen.queryByTestId("panel-back")).toBeNull();
+		normal.unmount();
+
+		// (2) system field: the read-only summary REPLACES the tabs entirely.
+		const system = render(
+			panelFor({ ...makeField("name", "Name"), system: true }),
+		);
+		expect(screen.getByTestId("panel-system-summary")).toBeInTheDocument();
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
+		system.unmount();
+
+		// (3) card marker: single Name body, NO tab strip.
+		const card = render(panelFor(makeCard("c1", "Basics")));
+		expect(screen.getByTestId("panel-card-name-input")).toBeInTheDocument();
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
+		card.unmount();
+
+		// (4) drill-in child: Back row + the full tab strip.
+		render(
+			<EditorWrap>
+				<Harness initialField={makeGroupField()} />
+			</EditorWrap>,
+		);
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+	});
 });
 
 describe("system fields — panel lock", () => {

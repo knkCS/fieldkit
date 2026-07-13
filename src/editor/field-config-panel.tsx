@@ -410,7 +410,10 @@ export function FieldConfigPanel({
 			borderLeftWidth="1px"
 			borderColor="border"
 			p="4"
-			minWidth="72"
+			// #40 (absorbed into the tabs spec, Decision 7): FIXED width. The old
+			// minWidth let intrinsic content stretch the panel, so system/custom/
+			// card selections rendered three different panel sizes.
+			width="72"
 			data-testid="field-config-panel"
 		>
 			{drillStack.length > 0 && (
