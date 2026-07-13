@@ -196,12 +196,12 @@ export const TryIt: Story = {
 			initialSchema={sectionedSpec}
 			note={
 				<>
-					Try-it mode is internal state on <code>SpecEditor</code> — there is no
-					prop to force it open on mount, so this story renders the same as
-					Build. Click <strong>Try it</strong> in the header above to preview
-					the schema as a live, submittable form; click <strong>Build</strong>{" "}
-					to return. The button is disabled whenever the draft has validation
-					errors.
+					Preview mode is internal state on <code>SpecEditor</code> — there is
+					no prop to force it open on mount, so this story renders the same as
+					Build. Select <strong>Preview</strong> in the toolbar's mode control
+					above to render the schema as a live, submittable form; select{" "}
+					<strong>Build</strong> to return. The Preview segment is disabled
+					whenever the draft has validation errors.
 				</>
 			}
 		/>
@@ -226,8 +226,8 @@ export const InvalidDraft: Story = {
 					the accessor <code>duplicate</code>. Both tab triggers carry an
 					error-count badge, both shells outline in the danger color, and
 					selecting either field shows the inline duplicate-accessor message.{" "}
-					<strong>Save</strong> and <strong>Try it</strong> stay disabled until
-					the collision is resolved.
+					<strong>Save</strong> and the <strong>Preview</strong> segment stay
+					disabled until the collision is resolved.
 				</>
 			}
 		/>
@@ -261,9 +261,9 @@ export const BuildWithCards: Story = {
 					italic placeholder). Try the card header: drag its handle to move the
 					whole card, click it to rename via the panel, or open ⋯ for the two
 					delete flavors ("Delete card" merges fields into a neighbor; "Delete
-					card and fields" confirms first). "+ Card" on a tab with loose fields
-					auto-wraps them. Click <strong>Try it</strong> to see the rendered
-					card layout as a real form.
+					card and fields" confirms first). "+ Card" (in the toolbar) on a tab
+					with loose fields auto-wraps them. Select <strong>Preview</strong> to
+					see the rendered card layout as a real form.
 				</>
 			}
 		/>

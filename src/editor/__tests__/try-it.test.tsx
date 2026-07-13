@@ -1,7 +1,13 @@
 // src/editor/__tests__/try-it.test.tsx
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { toaster } from "@knkcs/anker/primitives";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -181,7 +187,13 @@ describe("TryItView", () => {
 			</Wrap>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Try it" }));
+		// The SegmentedControl's underlying zag radio-group machine settles
+		// asynchronously (same rationale as the Tabs.Root clicks elsewhere in
+		// the editor suite) — flush it before the Test submit button is
+		// queried, or the query still sees the Build-mode canvas.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("radio", { name: "Preview" }));
+		});
 		fireEvent.click(screen.getByRole("button", { name: LABELS.testSubmit }));
 
 		await waitFor(() => {

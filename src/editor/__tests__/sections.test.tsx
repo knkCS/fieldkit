@@ -105,8 +105,6 @@ const LABELS = {
 	orientationH: "Horizontal tabs",
 	orientationV: "Vertical tabs",
 	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
 	sectionNameInput: "Section name",
 };
 
@@ -119,6 +117,7 @@ function Harness({
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [activeTabIndex, setActiveTabIndex] = useState(0);
 	return (
 		<ConfirmModalProvider>
 			<EditorCanvas
@@ -128,32 +127,14 @@ function Harness({
 				onSelect={setSelected}
 				onEdit={setSelected}
 				labels={LABELS}
+				activeTabIndex={activeTabIndex}
+				onActiveTabChange={setActiveTabIndex}
 			/>
 		</ConfirmModalProvider>
 	);
 }
 
 describe("EditorCanvas section strip editing", () => {
-	it("+ Section appends a tab and enters rename mode", async () => {
-		render(
-			<EditorWrap>
-				<Harness schema={[makeField("a")]} />
-			</EditorWrap>,
-		);
-
-		await act(async () => {
-			fireEvent.click(screen.getByText("+ Section"));
-		});
-
-		const input = screen.getByDisplayValue("New section");
-		expect(input).toBeInTheDocument();
-
-		fireEvent.change(input, { target: { value: "Details" } });
-		fireEvent.keyDown(input, { key: "Enter" });
-
-		expect(screen.getByRole("tab", { name: /Details/ })).toBeInTheDocument();
-	});
-
 	it("rename via menu commits on Enter", async () => {
 		render(
 			<EditorWrap>

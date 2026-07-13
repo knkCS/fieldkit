@@ -54,8 +54,6 @@ const LABELS = {
 	orientationH: "Horizontal tabs",
 	orientationV: "Vertical tabs",
 	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
 	sectionNameInput: "Section name",
 };
 
@@ -74,6 +72,7 @@ function Harness({
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [activeTabIndex, setActiveTabIndex] = useState(0);
 	return (
 		<ConfirmModalProvider>
 			<EditorCanvas
@@ -89,6 +88,8 @@ function Harness({
 				}}
 				labels={LABELS}
 				plugins={plugins}
+				activeTabIndex={activeTabIndex}
+				onActiveTabChange={setActiveTabIndex}
 			/>
 		</ConfirmModalProvider>
 	);

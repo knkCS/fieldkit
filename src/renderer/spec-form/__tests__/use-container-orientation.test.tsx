@@ -77,6 +77,7 @@ describe("useContainerOrientation", () => {
 	});
 
 	it("falls back to configured when ResizeObserver is unavailable", () => {
+		vi.stubGlobal("ResizeObserver", undefined);
 		render(<Probe configured="vertical" />);
 		expect(screen.getByTestId("probe").textContent).toBe("vertical");
 	});

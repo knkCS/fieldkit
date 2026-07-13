@@ -13,7 +13,7 @@ Fieldkit is a specification-driven field system for the knk software group. It p
 Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five layers:
 
 1. **`/schema`** — Zero React dependency. Field types, plugin registry, Zod schema generation, `defineSpec()` builder API. Core types: `Field<T>`, `FieldConfig`, `FieldValidation`, `FieldTypePlugin`, `Schema`.
-2. **`/editor`** — WYSIWYG specification editor. `SpecEditor` (draft session, Build/Try-it modes, side config panel), `TypePicker`. Uses dnd-kit for reordering.
+2. **`/editor`** — WYSIWYG specification editor. `SpecEditor` (draft session, Build/Preview modes, side config panel), `TypePicker`. Uses dnd-kit for reordering.
 3. **`/renderer`** — Form renderer from specifications. `FieldRenderer`, `SpecForm` (section tabs, field search, read mode), `FieldComponent`, `FieldKitProvider`. Consumes external React Hook Form `FormProvider`.
 4. **`/table`** — Spec-driven data table. `SpecDataTable` extends anker's `DataTable`. Auto-generates columns from spec. `EditDrawer` uses `SpecForm` for row editing.
 5. **`/rich-text-spec`** — Rich text editor specification. `EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`. Configures which TipTap nodes/marks are available.
@@ -47,7 +47,8 @@ src/
 │   ├── builders.ts      # text(), section(), … spec builders
 │   └── field-types/     # Built-in field type plugin definitions
 ├── editor/              # WYSIWYG specification editor
-│   ├── spec-editor.tsx  # Public shell: header, Build/Try-it, Save/Discard, labels
+│   ├── spec-editor.tsx  # Public shell: Build/Preview modes, Save/Discard, labels, insert handlers
+│   ├── editor-toolbar.tsx # Unified toolbar row: + Card/+ Section, mode control, Discard/Save
 │   ├── use-spec-draft.ts# Draft session (baseline = last committed content)
 │   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
 │   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd, insertion boundaries

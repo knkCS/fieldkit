@@ -7,8 +7,9 @@ import * as Stories from "./spec-editor.stories";
 
 A WYSIWYG editor for `Field[]` specifications: authors add, arrange, and
 configure fields directly on a live preview of the form they're building, in
-a **Build** mode, then flip to a **Try-it** mode to fill out and submit the
-real thing. `SpecEditor` owns an internal draft session (see
+a **Build** mode, then flip to a **Preview** mode (label key `tryIt` — the
+key predates the 0.9.0 rename) to fill out and submit the real thing.
+`SpecEditor` owns an internal draft session (see
 [The Draft Model](#the-draft-model)) and commits it back to the host only
 when the author clicks Save.
 
@@ -30,7 +31,7 @@ most consumers won't need it directly.
 | `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard (need not be memoized — the hook latches the latest callback). |
 | `plugins`       | `FieldTypePlugin[]`                  | —       | The field-type registry available to insert, render, and validate against.  |
 | `context`       | `FieldContext`                       | —       | Restricts which plugins the type picker offers (`plugin.availableIn`).       |
-| `title`         | `ReactNode`                          | —       | Header-left slot, next to the dirty indicator — put a spec/content-type name here. |
+| `title`         | `ReactNode`                          | —       | Rendered on its own line **above the toolbar** — put a spec/content-type name here. Nothing renders when omitted. |
 | `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
 | `formatSaveError` | `(reason: unknown) => string \| null` | —     | Formats a rejected `onCommit` reason into the `saveFailed` toast description; return `null` to suppress it. See [Save-failure description](#save-failure-description-formatsaveerror) below. |
 
@@ -130,6 +131,31 @@ translate or sanitize the text; return `null` to suppress the description
 entirely (the pre-0.7 title-only toast). The `saveFailed` label itself is
 unchanged.
 
+## The Toolbar
+
+All editor chrome is ONE row (0.9.0, composition A2), left to right:
+
+- **+ Card** and **+ Section** — outline buttons carrying the structural
+  plugins' own icons (`PanelTop`, `LayoutDashboard`) beside their labels
+  (`addCard`/`addSection`, defaults unchanged). "+ Card" appends an untitled
+  card to the **active tab** (auto-wrap semantics unchanged — see
+  [Cards](#cards)); "+ Section" appends a section and opens its inline
+  rename input. Both are **disabled, never hidden**, in Preview mode — the
+  bar keeps its shape across modes. "+ Card" is additionally disabled while
+  the spec has no fields, with a tooltip (`labels.addCardDisabledEmpty`);
+  "+ Section" works on an empty spec.
+- **Dirty dot** — the unsaved-changes indicator (`labels.dirty`), beside
+  the action cluster whose state it describes.
+- **Build | Preview** — a segmented control (anker `SegmentedControl`; a
+  radio group under the hood, so tests target `role="radio"`). The Preview
+  segment is disabled while the draft has validation errors, with the
+  `fixValidationFirst` tooltip. Switching semantics are unchanged: every
+  entry into Preview mounts a fresh scratch form.
+- **Discard** and **Save** (solid primary) — behavior unchanged.
+
+The `title` prop renders on its own line above the bar; the bar itself
+never contains it.
+
 ## Build Mode
 
 ### Selection & toolbar
@@ -163,7 +189,8 @@ removes its marker field** — every field that belonged to it survives and
 merges into the *previous* tab (or becomes the implicit first tab, if the
 first section is deleted). The confirm dialog's message
 (`labels.deleteSectionConfirm`) says so explicitly; nothing is destroyed.
-"+ Section" appends a new section and immediately opens its rename input.
+"+ Section" (in the toolbar) appends a new section and immediately opens
+its rename input.
 
 ### Cards
 
@@ -173,8 +200,9 @@ marker belong to that card until the next `card`/`section` marker). Cards
 are purely visual: fields keep their top-level accessors and stored values
 are byte-identical with or without markers.
 
-**"+ Card"** (next to "+ Section") appends an empty, untitled card to the
-active tab. Adding the FIRST card to a tab that already has loose fields
+**"+ Card"** (in the toolbar, next to "+ Section") appends an empty,
+untitled card to the active tab. Adding the FIRST card to a tab that
+already has loose fields
 auto-wraps those fields into an untitled card first, then appends the new
 card after it — a carded tab is always all-in-cards. The new card is
 selected and the config panel's Name input focused so it can be titled
@@ -199,7 +227,7 @@ standard confirm dialog).
 Hand-written schemas violating the all-in-cards rule (a loose field before
 a tab's first marker) are flagged by `validateSpec` as
 `loose_field_in_carded_tab` on each loose field — those shells outline in
-the danger color and Save/Try-it disable — while the canvas and renderer
+the danger color and Save/Preview disable — while the canvas and renderer
 still degrade gracefully by framing them as an implicit untitled card.
 The ⊕ insertion popover never offers the `card` type; "+ Card" is the only
 way to add one (it owns the auto-wrap bookkeeping).
@@ -222,7 +250,7 @@ the renderer's read-time search, the editor's index **includes hidden
 fields** (`config.hidden`) — they're real, selectable rows in Build mode
 (rendered as an italic "Hidden field: {name}" placeholder instead of their
 live input), since an author must be able to find and edit them even though
-end users in Try-it/production never see them.
+end users in Preview/production never see them.
 
 ### Delete-undo toast
 
@@ -240,9 +268,9 @@ enough to make the original position ambiguous.
 Every draft change re-runs `validateSpec`. A field with an error (currently:
 duplicate accessor, empty name, empty accessor) gets a danger-colored shell
 outline; any tab containing an errored field shows a numeric badge on its
-trigger counting that tab's errors. **Save and Try-it are both disabled**
-while `validation.valid` is `false` — Try-it's disabled state carries a
-tooltip (`labels.fixValidationFirst`) explaining why. See the `InvalidDraft`
+trigger counting that tab's errors. **Save and the Preview segment are both
+disabled** while `validation.valid` is `false` — Preview's disabled state
+carries a tooltip (`labels.fixValidationFirst`) explaining why. See the `InvalidDraft`
 story below.
 
 ### Config panel & live preview
@@ -266,7 +294,7 @@ convention the rendered form will use, derived **live** from the draft
 (`resolveMarkerConvention`): toggling a field's Required checkbox in the
 panel can flip every preview's markers — asterisks on the required fields
 versus a muted `(optional)` after the optional ones — the instant the
-majority changes, without leaving Build mode. Try-it mode applies the
+majority changes, without leaving Build mode. Preview mode applies the
 identical convention through the real `SpecForm`, so both modes render
 markers exactly as the finished form will.
 
@@ -300,15 +328,16 @@ The editor never *creates* system fields; they arrive via the `schema` prop.
 Hosts are responsible for re-canonicalizing system definitions on read so a
 stored spec can never drift from the application's truth.
 
-## Try-it Mode
+## Preview Mode
 
-Clicking **Try it** (disabled when the draft is invalid) mounts the draft
+Selecting **Preview** in the toolbar's mode control (disabled when the
+draft is invalid) mounts the draft
 schema as a real, independent form — its own `react-hook-form` instance and
 Zod resolver, sharing nothing with Build mode's scratch preview form or with
 any host form. Submitting shows a success toast (`labels.testSubmitSuccess`);
-nothing is persisted anywhere. **Every entry into Try-it force-remounts the
+nothing is persisted anywhere. **Every entry into Preview force-remounts the
 view** (via a bump counter), so scratch data typed in a previous visit can
-never leak into or survive a later one. Clicking **Build** returns to
+never leak into or survive a later one. Selecting **Build** returns to
 editing without losing the draft.
 
 ## Keyboard Support
@@ -338,12 +367,12 @@ are shown.
 |---|---|---|
 | `defaultTab` | `"General"` | Implicit first tab's name (no sections before it) |
 | `searchPlaceholder` | `"Find field…"` | Field search input |
-| `searchLabel` | `"Find field"` | Field search input's accessible name (aria-label; canvas + Try-it) |
+| `searchLabel` | `"Find field"` | Field search input's accessible name (aria-label; canvas + Preview) |
 | `noResults` | `"No fields found"` | Field search, empty result set |
 | `tabErrors` | `"{count} invalid fields"` | Accessible name of a canvas tab's error badge; `{count}` interpolated |
-| `tabErrorsOne` | `"1 invalid field"` | Accessible name of a canvas tab's error badge at count 1 (canvas + Try-it) |
-| `optionalMarker` | `"(optional)"` | §10 optional marker in canvas previews and Try-it (pass-through to SpecForm) |
-| `unsavedChanges` | `"Unsaved changes"` | aria-label for per-field and per-tab dirty dots on the canvas and in Try-it (both pass through to `SpecForm`'s marker/tab-dot labels); the header's own dirty dot uses `dirty` instead |
+| `tabErrorsOne` | `"1 invalid field"` | Accessible name of a canvas tab's error badge at count 1 (canvas + Preview) |
+| `optionalMarker` | `"(optional)"` | §10 optional marker in canvas previews and Preview mode (pass-through to SpecForm) |
+| `unsavedChanges` | `"Unsaved changes"` | aria-label for per-field and per-tab dirty dots on the canvas and in Preview (both pass through to `SpecForm`'s marker/tab-dot labels); the toolbar's own dirty dot uses `dirty` instead |
 | `hiddenField` | `"Hidden field:"` | Prefix before a hidden field's name on the canvas |
 | `groupPreview` | `"Repeating group"` | Group field's framed preview label |
 | `addField` | `"Add field"` | ⊕ insertion trigger aria-label |
@@ -355,14 +384,14 @@ are shown.
 | `typeCategories` | `{ text: "Text", number: "Number", date: "Date", selection: "Selection", boolean: "Boolean", structural: "Structural", reference: "Reference", media: "Media" }` | Type picker's category group headings, keyed by `FieldTypeCategory` |
 | `save` | `"Save"` | Header Save button |
 | `discard` | `"Discard"` | Header Discard button |
-| `build` | `"Build"` | Header Build-mode toggle |
-| `tryIt` | `"Try it"` | Header Try-it-mode toggle |
-| `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on a disabled Try-it button |
+| `build` | `"Build"` | Toolbar mode control, Build segment |
+| `tryIt` | `"Preview"` | Toolbar mode control, Preview segment (key unchanged from the pre-0.9 "Try it" era; hosts overriding it are untouched) |
+| `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on the disabled Preview segment |
 | `saveFailed` | `"Save failed"` | Error toast title on a rejected `onCommit` |
-| `dirty` | `"Unsaved changes"` | Header dirty-dot indicator's aria-label |
-| `testSubmit` | `"Test submit"` | Try-it's submit button |
-| `testSubmitSuccess` | `"Form submitted successfully"` | Try-it's success toast |
-| `addSection` | `"+ Section"` | Add-section button |
+| `dirty` | `"Unsaved changes"` | Toolbar dirty-dot indicator's aria-label |
+| `testSubmit` | `"Test submit"` | Preview mode's submit button |
+| `testSubmitSuccess` | `"Form submitted successfully"` | Preview mode's success toast |
+| `addSection` | `"+ Section"` | Toolbar add-section button (rendered with the section plugin's icon) |
 | `newSectionName` | `"New section"` | Default name for a freshly added section |
 | `sectionNameInput` | `"Section name"` | Inline rename input's aria-label |
 | `renameSection` | `"Rename"` | Section menu item |
@@ -374,7 +403,8 @@ are shown.
 | `orientationV` | `"Vertical tabs"` | Orientation toggle (when currently horizontal) |
 | `sectionMenu` | `"Section menu: {section}"` | Section menu trigger aria-label (`{section}` interpolated) |
 | `moveToSection` | `"Move to section"` | Cross-tab move menu trigger, toolbar |
-| `addCard` | `"+ Card"` | Add-card button |
+| `addCard` | `"+ Card"` | Toolbar add-card button (rendered with the card plugin's icon) |
+| `addCardDisabledEmpty` | `"Add a field before adding cards"` | Tooltip on the disabled + Card while the spec has no fields (Build mode) |
 | `cardUntitled` | `"Untitled card"` | Placeholder title for an untitled card (canvas header, panel header/placeholder, menu aria interpolation) |
 | `dragCard` | `"Drag to move card"` | Card header drag-handle aria-label/tooltip (moves the whole card block) |
 | `cardMenu` | `"Card menu: {card}"` | Card ⋯ menu trigger aria-label (`{card}` interpolated) |
@@ -420,6 +450,26 @@ are shown.
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
 | `errorLooseFieldInCardedTab` | `'Field "{accessor}" must be inside a card'` | Validation message for a loose field in a carded tab (`{accessor}` interpolated) |
+
+## Migration to 0.9.0
+
+Visual-only rework — **no API changes**:
+
+- The header's mode buttons and the canvas's floating "+ Card + Section"
+  row merged into one toolbar. All props are unchanged and no existing label key was renamed.
+- The `tryIt` label's **default string** changed from `"Try it"` to
+  `"Preview"`. Hosts overriding `labels.tryIt` keep their own string,
+  untouched. Tests targeting the mode controls by role: the two mode
+  buttons are now segments of a radio-group-based segmented control
+  (`role="radio"`, no longer `role="button"`).
+- `title` renders above the toolbar instead of inside the header row.
+- Re-clicking the already-active Preview segment is a no-op (a radio group
+  does not re-fire selection). Every ENTRY into Preview from Build still
+  mounts a fresh scratch form, as before — only the redundant re-click
+  behavior changed (the old Try-it button re-mounted on every click).
+- One new label key: `addCardDisabledEmpty` — tooltip on the disabled
+  "+ Card" over an empty spec (previously the button was simply absent on
+  an empty canvas).
 
 ## Migration from 0.1
 
@@ -467,7 +517,7 @@ every edit) is replaced by the draft session described above:
   but the renderer doesn't evaluate conditions yet, so an authoring UI for
   them is deferred until that lands.
 - **Toasts.** SpecEditor mounts anker's `<Toaster />` for its own toasts
-  (save errors, delete-undo, Try-it submit). Hosts that mount a global
+  (save errors, delete-undo, Preview submit). Hosts that mount a global
   `<Toaster />` are fine on anker ≥ 3.1.1, which dedupes mounted regions
   (each toast renders once); on anker 3.1.0 both regions render and
   toasts appear twice while the editor is mounted.
@@ -487,9 +537,9 @@ each `onCommit` call.
 
 ### Try It
 
-Same spec as Build. `SpecEditor` keeps its Build/Try-it mode as internal
-state with no prop to force it open on mount, so click **Try it** in the
-header to preview the schema as a real, submittable form.
+Same spec as Build. `SpecEditor` keeps its Build/Preview mode as internal
+state with no prop to force it open on mount, so select **Preview** in the
+toolbar's mode control to render the schema as a real, submittable form.
 
 <Canvas of={Stories.TryIt} />
 
@@ -511,15 +561,15 @@ hover) so there's always an obvious way to add the first field.
 Two fields on *different tabs* share the same accessor. Both shells outline
 red, **both** tab triggers carry an error-count badge (a duplicate-accessor
 error badges every tab containing a field with that accessor), and
-Save/Try-it stay disabled until the collision is resolved.
+Save and the Preview segment stay disabled until the collision is resolved.
 
 <Canvas of={Stories.InvalidDraft} />
 
 ### Build, With Cards
 
 The "General" tab's fields grouped into two cards (one untitled). Card
-headers carry a drag handle (block move), the title, and a ⋯ menu; "+ Card"
-auto-wraps loose fields on first use in a tab. Flip to **Try it** to see
-the rendered card layout.
+headers carry a drag handle (block move), the title, and a ⋯ menu; the
+toolbar's "+ Card" auto-wraps loose fields on first use in a tab. Flip to
+**Preview** to see the rendered card layout.
 
 <Canvas of={Stories.BuildWithCards} />

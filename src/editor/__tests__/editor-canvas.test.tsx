@@ -35,8 +35,6 @@ const LABELS = {
 	orientationH: "Horizontal tabs",
 	orientationV: "Vertical tabs",
 	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
 	sectionNameInput: "Section name",
 };
 
@@ -49,6 +47,7 @@ function Harness({
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [activeTabIndex, setActiveTabIndex] = useState(0);
 	return (
 		<ConfirmModalProvider>
 			<EditorCanvas
@@ -58,6 +57,8 @@ function Harness({
 				onSelect={setSelected}
 				onEdit={setSelected}
 				labels={LABELS}
+				activeTabIndex={activeTabIndex}
+				onActiveTabChange={setActiveTabIndex}
 			/>
 		</ConfirmModalProvider>
 	);
@@ -159,5 +160,81 @@ describe("EditorCanvas", () => {
 		expect(
 			screen.getByTestId("shell-meta").closest("[role='tabpanel']"),
 		).not.toHaveAttribute("hidden");
+	});
+});
+
+describe("EditorCanvas — controlled active tab (lifted state)", () => {
+	function ControlledHarness({
+		schema,
+		activeTabIndex,
+		onActiveTabChange,
+	}: {
+		schema: Schema;
+		activeTabIndex: number;
+		onActiveTabChange: (index: number) => void;
+	}) {
+		const spec = useSpecDraft(schema, testPlugins, vi.fn());
+		return (
+			<ConfirmModalProvider>
+				<EditorCanvas
+					spec={spec}
+					plugins={testPlugins}
+					selectedAccessor={null}
+					onSelect={vi.fn()}
+					onEdit={vi.fn()}
+					labels={LABELS}
+					activeTabIndex={activeTabIndex}
+					onActiveTabChange={onActiveTabChange}
+				/>
+			</ConfirmModalProvider>
+		);
+	}
+
+	const sectioned: Schema = [
+		makeField("a"),
+		makeSection("s1", "SEO"),
+		makeField("b"),
+	];
+
+	it("renders the tab given by activeTabIndex", () => {
+		render(
+			<EditorWrap>
+				<ControlledHarness
+					schema={sectioned}
+					activeTabIndex={1}
+					onActiveTabChange={vi.fn()}
+				/>
+			</EditorWrap>,
+		);
+		expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
+
+	it("reports tab clicks through onActiveTabChange WITHOUT switching on its own (fully controlled)", async () => {
+		const spy = vi.fn();
+		render(
+			<EditorWrap>
+				<ControlledHarness
+					schema={sectioned}
+					activeTabIndex={0}
+					onActiveTabChange={spy}
+				/>
+			</EditorWrap>,
+		);
+		// zag's Tabs machine transitions asynchronously — matches the
+		// act-wrapping convention used for every other tab-click assertion in
+		// this suite (sections/dnd/cards-canvas tests).
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
+		});
+		expect(spy).toHaveBeenCalledWith(1);
+		// The parent ignored the report — a canvas with leftover INTERNAL tab
+		// state would have switched anyway. This is the discriminating half.
+		expect(screen.getByRole("tab", { name: /General/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
 	});
 });

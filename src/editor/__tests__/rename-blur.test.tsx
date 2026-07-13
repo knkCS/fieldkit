@@ -1,11 +1,8 @@
-import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
-import { EditorCanvas } from "../editor-canvas";
-import { useSpecDraft } from "../use-spec-draft";
+import { SpecEditor } from "../spec-editor";
 import {
 	EditorWrap,
 	makeField,
@@ -44,59 +41,18 @@ async function selectRenameMenuItem() {
 	});
 }
 
-const LABELS = {
-	defaultTab: "General",
-	searchPlaceholder: "Find field…",
-	noResults: "No fields found",
-	hiddenField: "Hidden field:",
-	groupPreview: "Repeating group",
-	addField: "Add field",
-	emptySpec: "No fields yet. Add the first one:",
-	dragField: "Drag to reorder",
-	editField: "Edit field",
-	duplicateField: "Duplicate field",
-	deleteField: "Delete field",
-	systemLocked: "System field",
-	moveToSection: "Move to section",
-	renameSection: "Rename",
-	moveLeft: "Move left",
-	moveRight: "Move right",
-	deleteSection: "Delete section",
-	deleteSectionConfirm:
-		'Delete section "{section}"? Its fields move to the previous tab.',
-	orientationH: "Horizontal tabs",
-	orientationV: "Vertical tabs",
-	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
-	sectionNameInput: "Section name",
-};
-
-function Harness({ schema }: { schema: Schema }) {
-	const spec = useSpecDraft(schema, testPlugins, vi.fn());
-	const [selected, setSelected] = useState<string | null>(null);
-	return (
-		<ConfirmModalProvider>
-			<EditorCanvas
-				spec={spec}
-				plugins={testPlugins}
-				selectedAccessor={selected}
-				onSelect={setSelected}
-				onEdit={setSelected}
-				labels={LABELS}
-			/>
-		</ConfirmModalProvider>
+function renderEditor(schema: Schema) {
+	return render(
+		<EditorWrap>
+			<SpecEditor schema={schema} onCommit={vi.fn()} plugins={testPlugins} />
+		</EditorWrap>,
 	);
 }
 
-describe("EditorCanvas rename blur ordering", () => {
-	it("commits an in-progress rename before + Section acts (native blur ordering)", async () => {
+describe("SpecEditor rename blur ordering (toolbar + Section)", () => {
+	it("commits an in-progress rename before + Section acts (native blur ordering across the toolbar boundary)", async () => {
 		const user = userEvent.setup();
-		render(
-			<EditorWrap>
-				<Harness schema={[makeSection("s1", "SEO"), makeField("b")]} />
-			</EditorWrap>,
-		);
+		renderEditor([makeSection("s1", "SEO"), makeField("b")]);
 
 		// Enter rename mode via the section menu (sections.test.tsx idiom).
 		await act(async () => {
@@ -111,16 +67,18 @@ describe("EditorCanvas rename blur ordering", () => {
 		await user.clear(input);
 		await user.type(input, "Renamed");
 
-		// user.click moves real focus to the "+ Section" button first, which
-		// fires a native blur on the still-focused rename input BEFORE the
-		// button's own click handler runs — fireEvent.click cannot emulate
-		// this focus traversal, only userEvent can.
+		// user.click moves real focus to the toolbar's "+ Section" button
+		// first, which fires a native blur on the still-focused rename input
+		// (inside the canvas) BEFORE the button's own click handler runs in
+		// SpecEditor — fireEvent.click cannot emulate this focus traversal.
+		// getByText: with the canvas's floating row deleted, exactly ONE
+		// "+ Section" exists — this query doubles as a single-source pin.
 		await user.click(screen.getByText("+ Section"));
 
 		// The rename committed via blur BEFORE the new section was added.
 		expect(screen.getByRole("tab", { name: /Renamed/ })).toBeInTheDocument();
-		// And the new section (which itself enters rename mode, defaulting
-		// to "New section") exists too.
+		// And the new section (which itself enters rename mode via the pulse,
+		// defaulting to "New section") exists too.
 		expect(screen.getByDisplayValue("New section")).toBeInTheDocument();
 	});
 });
