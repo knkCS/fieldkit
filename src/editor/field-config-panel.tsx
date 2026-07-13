@@ -1,8 +1,9 @@
 // src/editor/field-config-panel.tsx
 import { Box, Flex, Input, Text } from "@chakra-ui/react";
 import { Button, IconButton } from "@knkcs/anker/atoms";
-import { ChevronDown, ChevronLeft, X } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Tabs } from "@knkcs/anker/primitives";
+import { ChevronLeft, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
@@ -39,16 +40,16 @@ export interface PanelSectionProps {
 
 /**
  * A Pick of EditorLabels — the panel consumes the SAME flat key names as
- * EditorLabels (general→panelGeneral, validation→panelValidation, etc.)
- * instead of its own shorter names, so a host's merged EditorLabels
- * satisfies this type structurally with no per-key renaming layer required
- * at the call site.
+ * EditorLabels (tab captions → panelTabGeneral/panelTabValidation/
+ * panelTabType, etc.) instead of its own shorter names, so a host's merged
+ * EditorLabels satisfies this type structurally with no per-key renaming
+ * layer required at the call site.
  */
 export type PanelLabels = Pick<
 	Required<EditorLabels>,
-	| "panelGeneral"
-	| "panelValidation"
-	| "panelTypeSettings"
+	| "panelTabGeneral"
+	| "panelTabValidation"
+	| "panelTabType"
 	| "panelNoSettings"
 	| "panelChildren"
 	| "panelBack"
@@ -137,42 +138,10 @@ export interface FieldConfigPanelProps {
 	labels: PanelLabels;
 }
 
-function Disclosure({
-	title,
-	defaultOpen,
-	testId,
-	children,
-}: {
-	title: string;
-	defaultOpen: boolean;
-	testId: string;
-	children: ReactNode;
-}) {
-	const [open, setOpen] = useState(defaultOpen);
-	return (
-		<Box borderBottomWidth="1px" borderColor="border" pb="3" mb="3">
-			<Button
-				variant="ghost"
-				width="full"
-				justifyContent="space-between"
-				px="0"
-				onClick={() => setOpen((o) => !o)}
-				aria-expanded={open}
-				data-testid={`panel-toggle-${testId}`}
-			>
-				<Text fontSize="sm" fontWeight="semibold">
-					{title}
-				</Text>
-				<ChevronDown
-					size={14}
-					style={{ transform: open ? "rotate(180deg)" : undefined }}
-				/>
-			</Button>
-			{open && <Box pt="2">{children}</Box>}
-		</Box>
-	);
-}
-Disclosure.displayName = "Disclosure";
+/** The config panel's three tab ids (0.10.0 tabs redesign). Captions come
+ * from PanelLabels' panelTab* keys; these ids are internal state and the
+ * Tabs value dialect only — never author-facing. */
+type PanelTab = "general" | "validation" | "type-settings";
 
 /**
  * A single level of the drill-in path. `accessor` is the LIVE lookup key —
@@ -216,6 +185,10 @@ export function FieldConfigPanel({
 	labels,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
+	// Panel-local active tab (spec Decision 3). General is the default; the
+	// reset effect below (after `chain` resolves) returns here whenever the
+	// panel starts showing a different field.
+	const [activeTab, setActiveTab] = useState<PanelTab>("general");
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const topAccessorRef = useRef<string>(field.config.api_accessor);
 	const prevAutoFocusRef = useRef(false);
@@ -321,6 +294,24 @@ export function FieldConfigPanel({
 	// minimal drill-in shows "No additional settings" for a child rather
 	// than risk rendering the wrong type's settings UI.
 	const activePlugin = chain.length === 1 ? plugin : undefined;
+
+	// The active tab RESETS to General whenever the panel starts showing a
+	// DIFFERENT field (spec Decision 3): selecting another top-level field,
+	// drilling into a child, popping a frame with Back — and the broken-frame
+	// fallback (a drilled child deleted externally drops the active field to
+	// its deepest resolvable ancestor). `chain.length` + the active accessor
+	// capture all of these. A RENAME also changes the active accessor, but
+	// renames are only ever typed in the General tab's inputs, so that reset
+	// is always a same-value no-op (React bails on same-state updates).
+	// Ref-compare (not a bare dependency effect) so it can't fire on mount.
+	const tabIdentity = `${chain.length}:${activeField.config.api_accessor}`;
+	const tabIdentityRef = useRef(tabIdentity);
+	useEffect(() => {
+		if (tabIdentityRef.current !== tabIdentity) {
+			tabIdentityRef.current = tabIdentity;
+			setActiveTab("general");
+		}
+	}, [tabIdentity]);
 
 	function handleActiveFieldChange(next: Field) {
 		if (chain.length === 1) {
@@ -531,98 +522,119 @@ export function FieldConfigPanel({
 						</Box>
 					)}
 
-					<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
-						<ConfigSection
-							{...sectionProps}
-							nameInputRef={nameInputRef}
-							// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
-							// selected field (see the prop doc below) — it always reflects
-							// the top-level field's committed accessor, never a drilled-in
-							// child's. Forwarding it unconditionally would compare a
-							// drilled child's accessor against its PARENT's baseline (e.g.
-							// child "item_name" !== group baseline "items") and produce a
-							// false-positive disconnect warning for every untouched
-							// committed child. Any drilled frame instead self-scopes to
-							// its OWN drill-in frame's `baselineAccessor` — the child's
-							// accessor AT THE MOMENT it was drilled into, frozen across
-							// renames within the frame (see DrillFrame above) — so a LIVE
-							// rename of a committed child still trips the disconnect
-							// warning instead of silently chasing the field's current
-							// accessor and never comparing against anything committed.
-							// Indexed by the shared `activeFrameIndex` (see its comment):
-							// the active frame is not necessarily the stack's last entry.
-							baselineAccessor={
-								chain.length === 1
-									? baselineAccessor
-									: (drillStack[activeFrameIndex]?.baselineAccessor ??
-										activeField.config.api_accessor)
-							}
-						/>
-					</Disclosure>
-
-					<Disclosure
-						title={labels.panelValidation}
-						defaultOpen={false}
-						testId="validation"
+					{/* The tab strip (spec Decisions 2–4). Structure order: banner
+					    ABOVE the strip (rendered just before this Tabs.Root, so it
+					    is visible from any tab), strip, body. All three bodies
+					    stay MOUNTED (zag Tabs' default `hidden` attribute — the
+					    editor-canvas idiom): `unmountOnExit` would reset
+					    ConfigSection's local accessor state and auto-slug latch on
+					    every tab switch, changing live-edit semantics. */}
+					<Tabs.Root
+						value={activeTab}
+						onValueChange={(e) => setActiveTab(e.value as PanelTab)}
 					>
-						<ValidationSection {...sectionProps} />
-					</Disclosure>
+						<Tabs.List>
+							<Tabs.Trigger value="general">
+								{labels.panelTabGeneral}
+							</Tabs.Trigger>
+							<Tabs.Trigger value="validation">
+								{labels.panelTabValidation}
+							</Tabs.Trigger>
+							<Tabs.Trigger value="type-settings">
+								{labels.panelTabType}
+							</Tabs.Trigger>
+						</Tabs.List>
 
-					<Disclosure
-						title={labels.panelTypeSettings}
-						defaultOpen={false}
-						testId="type-settings"
-					>
-						<SettingsSection {...sectionProps} />
-					</Disclosure>
-
-					{activeField.field_type === "group" && (
-						<Disclosure
-							title={labels.panelChildren}
-							defaultOpen
-							testId="children"
-						>
-							<Box>
-								{children.map((child) => (
-									<Flex
-										key={child.config.api_accessor}
-										align="center"
-										justify="space-between"
-										py="1"
-									>
-										<Box>
-											<Text fontSize="sm">{child.config.name}</Text>
-											<Text fontSize="xs" color="fg.muted">
-												{child.field_type}
-											</Text>
-										</Box>
-										<Button
-											size="xs"
-											variant="ghost"
-											onClick={() =>
-												// Freeze `baselineAccessor` to the child's accessor AT
-												// THIS MOMENT — the disconnect-warning baseline for the
-												// whole time this frame stays on top of the stack. `accessor`
-												// (the lookup key) starts equal to it but, unlike
-												// `baselineAccessor`, follows subsequent renames — see the
-												// rename-follow logic in `handleActiveFieldChange`.
-												setDrillStack((s) => [
-													...s,
-													{
-														accessor: child.config.api_accessor,
-														baselineAccessor: child.config.api_accessor,
-													},
-												])
-											}
-											data-testid={`panel-child-edit-${child.config.api_accessor}`}
-										>
-											{labels.editChild}
-										</Button>
-									</Flex>
-								))}
+						<Tabs.Content value="general">
+							<Box pt="2">
+								<ConfigSection
+									{...sectionProps}
+									nameInputRef={nameInputRef}
+									// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
+									// selected field (see the prop doc below) — it always reflects
+									// the top-level field's committed accessor, never a drilled-in
+									// child's. Forwarding it unconditionally would compare a
+									// drilled child's accessor against its PARENT's baseline (e.g.
+									// child "item_name" !== group baseline "items") and produce a
+									// false-positive disconnect warning for every untouched
+									// committed child. Any drilled frame instead self-scopes to
+									// its OWN drill-in frame's `baselineAccessor` — the child's
+									// accessor AT THE MOMENT it was drilled into, frozen across
+									// renames within the frame (see DrillFrame above) — so a LIVE
+									// rename of a committed child still trips the disconnect
+									// warning instead of silently chasing the field's current
+									// accessor and never comparing against anything committed.
+									// Indexed by the shared `activeFrameIndex` (see its comment):
+									// the active frame is not necessarily the stack's last entry.
+									baselineAccessor={
+										chain.length === 1
+											? baselineAccessor
+											: (drillStack[activeFrameIndex]?.baselineAccessor ??
+												activeField.config.api_accessor)
+									}
+								/>
+								{activeField.field_type === "group" && (
+									<Box mt="4" pt="3" borderTopWidth="1px" borderColor="border">
+										{/* The locked tab set has no fourth tab — the group
+										    children list lives in the General body under its own
+										    heading (plan refinement 1). */}
+										<Text fontSize="sm" fontWeight="semibold" mb="1">
+											{labels.panelChildren}
+										</Text>
+										{children.map((child) => (
+											<Flex
+												key={child.config.api_accessor}
+												align="center"
+												justify="space-between"
+												py="1"
+											>
+												<Box>
+													<Text fontSize="sm">{child.config.name}</Text>
+													<Text fontSize="xs" color="fg.muted">
+														{child.field_type}
+													</Text>
+												</Box>
+												<Button
+													size="xs"
+													variant="ghost"
+													onClick={() =>
+														// Freeze `baselineAccessor` to the child's accessor AT
+														// THIS MOMENT — the disconnect-warning baseline for the
+														// whole time this frame stays on top of the stack. `accessor`
+														// (the lookup key) starts equal to it but, unlike
+														// `baselineAccessor`, follows subsequent renames — see the
+														// rename-follow logic in `handleActiveFieldChange`.
+														setDrillStack((s) => [
+															...s,
+															{
+																accessor: child.config.api_accessor,
+																baselineAccessor: child.config.api_accessor,
+															},
+														])
+													}
+													data-testid={`panel-child-edit-${child.config.api_accessor}`}
+												>
+													{labels.editChild}
+												</Button>
+											</Flex>
+										))}
+									</Box>
+								)}
 							</Box>
-						</Disclosure>
-					)}
+						</Tabs.Content>
+
+						<Tabs.Content value="validation">
+							<Box pt="2">
+								<ValidationSection {...sectionProps} />
+							</Box>
+						</Tabs.Content>
+
+						<Tabs.Content value="type-settings">
+							<Box pt="2">
+								<SettingsSection {...sectionProps} />
+							</Box>
+						</Tabs.Content>
+					</Tabs.Root>
 				</>
 			)}
 		</Box>

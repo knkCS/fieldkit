@@ -11,9 +11,9 @@ import { FieldConfigPanel, type PanelLabels } from "../field-config-panel";
 import { EditorWrap, makeCard, makeField } from "./editor-helpers";
 
 const testLabels: PanelLabels = {
-	panelGeneral: "General",
-	panelValidation: "Validation",
-	panelTypeSettings: "Type Settings",
+	panelTabGeneral: "General",
+	panelTabValidation: "Validation",
+	panelTabType: "Type settings",
 	panelNoSettings: "No additional settings",
 	panelChildren: "Children",
 	panelBack: "Back",
@@ -467,8 +467,9 @@ describe("FieldConfigPanel", () => {
 		expect(screen.getByText("Oculto")).toBeInTheDocument();
 		expect(screen.getByText("Solo lectura")).toBeInTheDocument();
 
-		// Validation section starts collapsed — open it.
-		fireEvent.click(screen.getByTestId("panel-toggle-validation"));
+		// Switch to the Validation tab (all bodies are mounted-but-hidden —
+		// the click keeps the interaction honest).
+		fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
 		expect(screen.getByText("Longitud mínima")).toBeInTheDocument();
 		expect(screen.getByText("Longitud máxima")).toBeInTheDocument();
 		expect(screen.getByText("Patrón (regex)")).toBeInTheDocument();
@@ -545,8 +546,9 @@ describe("FieldConfigPanel", () => {
 			</EditorWrap>,
 		);
 
-		// Type Settings is collapsed by default (only General starts open).
-		fireEvent.click(screen.getByTestId("panel-toggle-type-settings"));
+		// Switch to the Type settings tab (the body is mounted either way —
+		// the click keeps the interaction honest).
+		fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
 		fireEvent.change(screen.getByTestId("settings-placeholder-input"), {
 			target: { value: "Hello" },
 		});
@@ -840,6 +842,136 @@ describe("FieldConfigPanel", () => {
 		expect(onFieldChangeSpy).not.toHaveBeenCalled();
 		expect(readDump().config.api_accessor).toBe("my_field");
 	});
+
+	it("renders General | Validation | Type settings tabs; switching shows the right body", async () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={makeField("my_field", "My Field")} />
+			</EditorWrap>,
+		);
+
+		expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+			"General",
+			"Validation",
+			"Type settings",
+		]);
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		// All three bodies stay MOUNTED (ConfigSection's local accessor state
+		// and auto-slug latch must survive tab switches) — VISIBILITY is what
+		// flips, driven by the inactive tabpanels' `hidden` attribute. The
+		// inactive panels start hidden synchronously on mount (their Presence
+		// starts in the "unmounted" state directly since they never were
+		// present), so this initial check is reliable.
+		expect(screen.getByTestId("panel-name-input")).toBeVisible();
+		expect(screen.getByTestId("panel-min-length-input")).not.toBeVisible();
+
+		// zag's Tabs machine transitions asynchronously — matches the
+		// act-wrapping convention used for every other tab-click assertion in
+		// this suite (sections/dnd/cards-canvas/editor-canvas tests). Entering
+		// a tab un-hides its content synchronously with the click (Presence's
+		// "MOUNT" branch); only asserting the tab being LEFT becomes hidden
+		// would additionally depend on Presence's exit-transition completing,
+		// which needs a real "animationend"/rAF-driven completion signal jsdom
+		// cannot reliably provide across a whole shared test file (verified:
+		// this hangs/flakes depending on how many earlier tests in this file
+		// already rendered) — so only the entering side is asserted here.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByTestId("panel-min-length-input")).toBeVisible();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
+		});
+		expect(screen.getByText(testLabels.panelNoSettings)).toBeVisible();
+	});
+
+	it("active tab RESETS to General when a different field is selected (panel stays mounted)", async () => {
+		const fieldA = makeField("field_a", "Field A");
+		const fieldB = makeField("field_b", "Field B");
+		function SwitchHarness() {
+			const [selected, setSelected] = useState<Field>(fieldA);
+			return (
+				<div>
+					<FieldConfigPanel
+						field={selected}
+						plugin={undefined}
+						draft={[fieldA, fieldB]}
+						fieldErrors={[]}
+						onFieldChange={() => {}}
+						onClose={() => {}}
+						committedAccessors={new Set()}
+						baselineAccessor={selected.config.api_accessor}
+						labels={testLabels}
+					/>
+					<button
+						type="button"
+						data-testid="select-b"
+						onClick={() => setSelected(fieldB)}
+					/>
+				</div>
+			);
+		}
+		render(
+			<EditorWrap>
+				<SwitchHarness />
+			</EditorWrap>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// Select a DIFFERENT field: the panel does NOT remount (same component
+		// instance, new `field` prop) — panel-local tab state would survive
+		// without the reset effect. This is the discriminating half.
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("select-b"));
+		});
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Field B");
+	});
+
+	it("active tab resets to General when a drill frame pops (Back)", async () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={makeGroupField()} />
+			</EditorWrap>,
+		);
+
+		// Drill into the child (from the General tab, where the list lives).
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+		// The drilled child gets the FULL tab strip (spec Decision 5)…
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// …and popping the frame is a field change: back to General. (A panel
+		// remembering Validation here would silently show the PARENT group's
+		// validation — not what the author was looking at.)
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("panel-back"));
+		});
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
 });
 
 describe("system fields — panel lock", () => {
@@ -874,9 +1006,8 @@ describe("system fields — panel lock", () => {
 		expect(screen.queryByTestId("panel-name-input")).toBeNull();
 		expect(screen.queryByTestId("panel-accessor-input")).toBeNull();
 		expect(screen.queryByTestId("panel-required-input")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-general")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-validation")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-type-settings")).toBeNull();
+		// The summary REPLACES the tabs entirely (0.6.0 contract; Decision 5).
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
 		// The strongest guarantee: zero form controls in the whole panel.
 		expect(screen.queryAllByRole("textbox")).toHaveLength(0);
 		expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
@@ -893,7 +1024,7 @@ describe("system fields — panel lock", () => {
 		renderPanel(false);
 		expect(screen.queryByTestId("panel-system-summary")).toBeNull();
 		expect(screen.getByTestId("panel-name-input")).toBeInTheDocument();
-		expect(screen.getByTestId("panel-toggle-validation")).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "Validation" })).toBeInTheDocument();
 	});
 
 	// Final-review fix wave (Fix 3): the card branch used to precede the
