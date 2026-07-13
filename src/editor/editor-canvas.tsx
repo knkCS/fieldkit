@@ -15,7 +15,7 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Button, IconButton } from "@knkcs/anker/atoms";
+import { IconButton } from "@knkcs/anker/atoms";
 import { useConfirmModal } from "@knkcs/anker/feedback";
 import { type FormMarkers, FormMarkersProvider } from "@knkcs/anker/forms";
 import {
@@ -44,7 +44,6 @@ import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
-import { partitionSchemaBySections } from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
 	FieldContext,
@@ -56,14 +55,12 @@ import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
 import { CardMenu } from "./card-menu";
 import {
-	addSection,
 	createField,
 	deleteCardMerge,
 	deleteCardWithFields,
 	deleteSection,
 	duplicateField,
 	flatInsertIndex,
-	insertCard,
 	insertFieldAt,
 	moveCard,
 	moveField,
@@ -139,10 +136,7 @@ export interface CanvasLabels
 			// "{section}" interpolated — MUST say fields survive (move to the previous tab)
 			| "deleteSectionConfirm"
 			| "sectionMenu" // "{section}" interpolated — aria-label for the menu trigger
-			| "addSection" // "+ Section" button label
-			| "newSectionName" // default name for a freshly added section
 			| "sectionNameInput" // aria-label for the inline rename input
-			| "addCard" // "+ Card" button label
 			| "cardUntitled" // italic placeholder title for unnamed cards
 			| "dragCard" // card header drag handle aria-label (block move)
 			| "cardMenu" // "{card}" interpolated — aria-label for the ⋯ trigger
@@ -448,16 +442,6 @@ export function EditorCanvas({
 		if (trimmed) apply(renameSection(draft, accessor, trimmed));
 	};
 
-	const handleAddSection = () => {
-		const next = addSection(draft, labels.newSectionName);
-		const added = next[next.length - 1];
-		apply(next);
-		// Appending a section always adds exactly one tab at the end,
-		// regardless of the current tab count (0, 1 implicit, or many).
-		onActiveTabChange(partition.tabs.length);
-		startRename(added.config.api_accessor);
-	};
-
 	// F9: moveSection reorders section BLOCKS but the canvas's activeTab is a
 	// numeric index into that order — moving the currently-viewed section
 	// (or the neighbor it swaps with) left an unadjusted index pointing at
@@ -700,38 +684,6 @@ export function EditorCanvas({
 		(tab) => tab.section !== null,
 	);
 
-	const addSectionButton = (
-		<Button variant="ghost" size="xs" onClick={handleAddSection}>
-			{labels.addSection}
-		</Button>
-	);
-
-	const handleAddCard = () => {
-		// Sectionless canvases have one tab (index 0) — clamp so any stale
-		// controlled index still resolves to a real tab.
-		const tabIndex = Math.min(
-			activeTabIndex,
-			Math.max(0, partition.tabs.length - 1),
-		);
-		const next = insertCard(draft, tabIndex);
-		if (next === draft) return; // no tab to add to
-		apply(next);
-		// insertCard's contract: the freshly appended card is the LAST card
-		// marker of the target tab — select it via onEdit, which also pulses
-		// the panel's Name autofocus so the author can title it immediately.
-		const newTab = partitionSchemaBySections(next).tabs[tabIndex];
-		const added = [...(newTab?.fields ?? [])]
-			.reverse()
-			.find((f) => f.field_type === "card");
-		if (added) onEdit(added.config.api_accessor);
-	};
-
-	const addCardButton = (
-		<Button variant="ghost" size="xs" onClick={handleAddCard}>
-			{labels.addCard}
-		</Button>
-	);
-
 	const pickerLabels: TypePickerLabels = {
 		searchPlaceholder: labels.typeSearchPlaceholder,
 		searchLabel: labels.typeSearchLabel,
@@ -805,8 +757,8 @@ export function EditorCanvas({
 			/>
 			<Box position="relative" bg="bg-surface" borderRadius="full">
 				<TypePickerPopover
-					// "section"/"card" are inserted only via the strip's "+ Section"
-					// and "+ Card" buttons — offering them here too would give
+					// "section"/"card" are inserted only via the TOOLBAR's "+ Section"
+					// and "+ Card" buttons (SpecEditor) — offering them here too would give
 					// authors two competing ways to add one, and this path skips
 					// the marker bookkeeping (addSection / insertCard's auto-wrap)
 					// that keeps tabs and cards consistent.
@@ -949,7 +901,6 @@ export function EditorCanvas({
 						<Stack gap="3" align="center">
 							<Text color="fg.muted">{labels.emptySpec}</Text>
 							{insertionBoundary(0, 0, "flow", true)}
-							{addSectionButton}
 						</Stack>
 					</Box>
 				</FormMarkersProvider>
@@ -969,13 +920,10 @@ export function EditorCanvas({
 						onDragEnd={handleDragEnd}
 						onDragCancel={handleDragCancel}
 					>
+						{/* The first field's overlay boundary reaches 20px above the
+						    shell — SpecEditor's p="5" mode container (0.8.2) provides
+						    exactly that space now that the floating insert row is gone. */}
 						<Box ref={containerRef}>
-							{/* mb="5": the first field's overlay boundary reaches 20px above
-							    the shell — this margin is the space it fills. */}
-							<Flex justify="flex-end" gap="1" mb="5">
-								{addCardButton}
-								{addSectionButton}
-							</Flex>
 							{renderFields(partition.tabs[0].fields, 0)}
 						</Box>
 					</DndContext>
@@ -1091,10 +1039,6 @@ export function EditorCanvas({
 										);
 									})}
 								</Tabs.List>
-								<Flex gap="1">
-									{addCardButton}
-									{addSectionButton}
-								</Flex>
 								<FieldSearch
 									index={searchIndex}
 									placeholder={labels.searchPlaceholder}

@@ -61,10 +61,7 @@ const LABELS = {
 	orientationH: "Horizontal tabs",
 	orientationV: "Vertical tabs",
 	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
 	sectionNameInput: "Section name",
-	addCard: "+ Card",
 	cardUntitled: "Untitled card",
 	dragCard: "Drag to move card",
 	cardMenu: "Card menu: {card}",
@@ -77,11 +74,9 @@ const LABELS = {
 function Harness({
 	schema,
 	onSelectSpy,
-	onEditSpy,
 }: {
 	schema: Schema;
 	onSelectSpy?: (a: string | null) => void;
-	onEditSpy?: (a: string) => void;
 }) {
 	const spec = useSpecDraft(schema, testPlugins, vi.fn());
 	const [selected, setSelected] = useState<string | null>(null);
@@ -96,10 +91,7 @@ function Harness({
 					onSelectSpy?.(a);
 					setSelected(a);
 				}}
-				onEdit={(a) => {
-					onEditSpy?.(a);
-					setSelected(a);
-				}}
+				onEdit={(a) => setSelected(a)}
 				labels={LABELS}
 				activeTabIndex={activeTabIndex}
 				onActiveTabChange={setActiveTabIndex}
@@ -109,62 +101,6 @@ function Harness({
 }
 
 describe("EditorCanvas — cards", () => {
-	it("+ Card auto-wraps loose fields into an untitled card, then appends a new empty card", async () => {
-		const onEditSpy = vi.fn();
-		render(
-			<EditorWrap>
-				<Harness
-					schema={[makeField("a"), makeField("b")]}
-					onEditSpy={onEditSpy}
-				/>
-			</EditorWrap>,
-		);
-
-		await act(async () => {
-			fireEvent.click(screen.getByText("+ Card"));
-		});
-
-		const frames = screen.getAllByTestId(/^card-frame-/);
-		expect(frames).toHaveLength(2);
-		// The wrap card holds BOTH loose fields — a skipped wrap would leave
-		// one frame with the shells outside any frame.
-		expect(within(frames[0]).getByTestId("shell-a")).toBeInTheDocument();
-		expect(within(frames[0]).getByTestId("shell-b")).toBeInTheDocument();
-		expect(within(frames[1]).queryAllByTestId(/^shell-/)).toEqual([]);
-		// Both markers are untitled → italic placeholder in each header.
-		expect(screen.getAllByText("Untitled card")).toHaveLength(2);
-		// The NEW card ("card_2" — the wrap took "card") goes through onEdit,
-		// which selects it AND pulses the panel's Name autofocus.
-		expect(onEditSpy).toHaveBeenCalledWith("card_2");
-	});
-
-	it("+ Card appends to the ACTIVE tab only", async () => {
-		render(
-			<EditorWrap>
-				<Harness
-					schema={[makeField("a"), makeSection("s1", "SEO"), makeField("b")]}
-				/>
-			</EditorWrap>,
-		);
-		await act(async () => {
-			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
-		});
-		await act(async () => {
-			fireEvent.click(screen.getByText("+ Card"));
-		});
-
-		const frames = screen.getAllByTestId(/^card-frame-/);
-		expect(frames).toHaveLength(2); // wrap for "b" + new card, both in SEO
-		const seoPanel = screen.getByTestId("shell-b").closest("[role='tabpanel']");
-		for (const frame of frames) {
-			expect(frame.closest("[role='tabpanel']")).toBe(seoPanel);
-		}
-		// The implicit General tab keeps its loose field un-carded.
-		expect(
-			screen.getByTestId("shell-a").closest("[data-testid^='card-frame-']"),
-		).toBeNull();
-	});
-
 	it("clicking a card header selects the card", () => {
 		const onSelectSpy = vi.fn();
 		render(

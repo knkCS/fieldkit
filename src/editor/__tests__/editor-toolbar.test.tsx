@@ -169,4 +169,24 @@ describe("SpecEditor — unified toolbar (A2)", () => {
 			heading.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
 	});
+
+	it("the old floating canvas row is GONE: inserts render only in the toolbar", () => {
+		renderEditor([makeField("a"), makeSection("s1", "SEO"), makeField("b")]);
+		const bar = screen.getByTestId("editor-toolbar");
+		for (const label of [L.addCard, L.addSection]) {
+			const hits = screen.getAllByText(label);
+			expect(hits).toHaveLength(1);
+			expect(bar.contains(hits[0])).toBe(true);
+		}
+	});
+
+	it("empty spec: exactly ONE + Section anywhere (the empty-state ghost button is gone too) and it works", async () => {
+		renderEditor([]);
+		// getByText throws on >1 match — fails while the canvas empty state
+		// still renders its own "+ Section".
+		await act(async () => {
+			fireEvent.click(screen.getByText(L.addSection));
+		});
+		expect(screen.getByDisplayValue(L.newSectionName)).toBeInTheDocument();
+	});
 });

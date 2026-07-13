@@ -54,8 +54,6 @@ const LABELS = {
 	orientationH: "Horizontal tabs",
 	orientationV: "Vertical tabs",
 	sectionMenu: "Section menu: {section}",
-	addSection: "+ Section",
-	newSectionName: "New section",
 	sectionNameInput: "Section name",
 };
 
