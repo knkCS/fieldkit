@@ -74,6 +74,7 @@ function Harness({
 }) {
 	const spec = useSpecDraft(schema, testPlugins, onCommit);
 	const [selected, setSelected] = useState<string | null>(null);
+	const [activeTabIndex, setActiveTabIndex] = useState(0);
 	return (
 		<ConfirmModalProvider>
 			<EditorCanvas
@@ -89,6 +90,8 @@ function Harness({
 				}}
 				labels={LABELS}
 				plugins={plugins}
+				activeTabIndex={activeTabIndex}
+				onActiveTabChange={setActiveTabIndex}
 			/>
 		</ConfirmModalProvider>
 	);

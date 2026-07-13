@@ -10,7 +10,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
-import { EditorWrap, makeField, testPlugins } from "./editor-helpers";
+import {
+	EditorWrap,
+	makeField,
+	makeSection,
+	testPlugins,
+} from "./editor-helpers";
 
 // Mock only the `toaster` export — SpecEditor (via SpecForm/EditorCanvas)
 // imports other members (Tabs, Tooltip, Toaster) from the same module, so
@@ -500,5 +505,25 @@ describe("SpecEditor", () => {
 
 		// rAF/cAF stubs are cleared by the file's afterEach (vi.unstubAllGlobals()).
 		vi.useRealTimers();
+	});
+
+	it("owns the canvas's active tab: clicking a tab shows that tab's panel (lifted-state wiring)", async () => {
+		renderEditor([makeField("a"), makeSection("s1", "SEO"), makeField("b")]);
+
+		// zag's Tabs machine transitions asynchronously — every other
+		// tab-click assertion in this suite (sections/dnd/cards-canvas tests)
+		// wraps the click in `await act(async () => …)` for the same reason;
+		// a plain fireEvent.click leaves aria-selected stale even pre-migration.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
+		});
+
+		expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(
+			screen.getByTestId("shell-b").closest("[role='tabpanel']"),
+		).not.toHaveAttribute("hidden");
 	});
 });

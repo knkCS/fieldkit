@@ -331,6 +331,12 @@ export function SpecEditor({
 	const [selected, setSelected] = useState<string | null>(null);
 	const [autoFocusLabel, setAutoFocusLabel] = useState(false);
 	const [tryItNonce, setTryItNonce] = useState(0);
+	// Active canvas tab, LIFTED from EditorCanvas (toolbar spec 2026-07-13):
+	// the toolbar's "+ Card" targets it (Task 2a), and future tab-scoped
+	// features (deep-linking, per-tab actions) read it here. EditorCanvas is
+	// fully controlled — every internal cause of a tab change reports back
+	// through onActiveTabChange.
+	const [activeTabIndex, setActiveTabIndex] = useState(0);
 
 	// autoFocusLabel is a PULSE: reset right after so the NEXT Edit produces a
 	// fresh rising edge in the panel even without it unmounting in between.
@@ -643,6 +649,8 @@ export function SpecEditor({
 								onEdit={handleEdit}
 								onDeleteField={handleDeleteField}
 								labels={mergedLabels}
+								activeTabIndex={activeTabIndex}
+								onActiveTabChange={setActiveTabIndex}
 							/>
 						</Box>
 						{selectedField && (
