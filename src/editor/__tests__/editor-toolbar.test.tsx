@@ -50,8 +50,8 @@ function renderEditor(schema: Schema, title?: ReactNode) {
 	);
 }
 
-/** Queries scoped to the bar — while Task 2b hasn't deleted the canvas's
- * floating row yet, "+ Card"/"+ Section" exist twice. */
+/** Queries scoped to the bar — the toolbar is the single insertion source,
+ * pinned by tests that verify exact button counts document-wide. */
 function toolbar() {
 	return within(screen.getByTestId("editor-toolbar"));
 }
@@ -144,7 +144,16 @@ describe("SpecEditor — unified toolbar (A2)", () => {
 		}
 		// The NEW card (not the wrap) is selected: the panel opens on its
 		// (empty) Name input — insertCard's last-marker contract via onEdit.
-		expect(screen.getByTestId("panel-card-name-input")).toHaveValue("");
+		const nameInput = screen.getByTestId("panel-card-name-input");
+		expect(nameInput).toHaveValue("");
+		// Discriminate which card is selected by typing a distinctive title.
+		// If the wrap card were selected, this would land on the first frame;
+		// we assert it lands on the last frame instead.
+		await act(async () => {
+			fireEvent.change(nameInput, { target: { value: "New One" } });
+		});
+		expect(within(frames[0]).getByText(L.cardUntitled)).toBeInTheDocument();
+		expect(within(frames[1]).getByText("New One")).toBeInTheDocument();
 	});
 
 	it("+ Section appends a tab and opens its inline rename input (pulse across the toolbar boundary)", async () => {
@@ -178,6 +187,13 @@ describe("SpecEditor — unified toolbar (A2)", () => {
 			expect(hits).toHaveLength(1);
 			expect(bar.contains(hits[0])).toBe(true);
 		}
+	});
+
+	it("sectionless schema: exactly ONE + Card and ONE + Section in the toolbar", () => {
+		renderEditor([makeField("a"), makeField("b")]);
+		const bar = toolbar();
+		expect(bar.getAllByRole("button", { name: L.addCard })).toHaveLength(1);
+		expect(bar.getAllByRole("button", { name: L.addSection })).toHaveLength(1);
 	});
 
 	it("empty spec: exactly ONE + Section anywhere (the empty-state ghost button is gone too) and it works", async () => {
