@@ -135,21 +135,21 @@ describe("SpecEditor — card menu, panel, validation surfacing", () => {
 		expect(screen.getAllByTestId(/^card-frame-/)).toHaveLength(1);
 	});
 
-	it("hand-written loose fields in a carded tab outline invalid and disable Try it", () => {
+	it("hand-written loose fields in a carded tab outline invalid and disable Preview", () => {
 		renderEditor([makeField("a"), makeCard("c1", "One"), makeField("b")]);
 
 		expect(screen.getByTestId("shell-a")).toHaveAttribute(
 			"data-invalid",
 			"true",
 		);
-		expect(screen.getByRole("button", { name: "Try it" })).toBeDisabled();
+		expect(screen.getByRole("radio", { name: "Preview" })).toBeDisabled();
 	});
 
 	it("Try-it smoke: a carded draft renders as a real form with card headings", async () => {
 		renderEditor([makeCard("c1", "Basics"), makeField("a", "Alpha")]);
 
 		await act(async () => {
-			fireEvent.click(screen.getByRole("button", { name: "Try it" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Preview" }));
 		});
 
 		const form = screen.getByTestId("try-it-form");

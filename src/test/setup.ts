@@ -16,3 +16,20 @@ if (typeof window !== "undefined" && !window.matchMedia) {
 		dispatchEvent: () => false,
 	});
 }
+
+// jsdom doesn't implement ResizeObserver. anker's SegmentedControl (zag-js
+// SegmentGroup) observes its indicator on mount to position it, and several
+// other anker primitives (Popover/Menu positioning via @floating-ui/dom) rely
+// on it too — any test rendering one crashes with an uncaught
+// "ResizeObserver is not a constructor" otherwise. Individual test files
+// historically stubbed this locally (still fine — vi.stubGlobal layers over
+// this and vi.unstubAllGlobals() falls back to it), but the editor toolbar's
+// always-mounted SegmentedControl (0.9.0) means practically every SpecEditor
+// render now needs it, so it's provided globally here instead.
+if (typeof window !== "undefined" && !window.ResizeObserver) {
+	window.ResizeObserver = class ResizeObserver {
+		observe() {}
+		unobserve() {}
+		disconnect() {}
+	};
+}

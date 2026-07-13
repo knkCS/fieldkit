@@ -1,10 +1,10 @@
 // src/editor/spec-editor.tsx
 import { Box, Flex, Stack } from "@chakra-ui/react";
-import { Button, DirtyDot } from "@knkcs/anker/atoms";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { Alert, Toaster, Tooltip, toaster } from "@knkcs/anker/primitives";
+import { Alert, Toaster, toaster } from "@knkcs/anker/primitives";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { mergeLabels } from "../renderer/merge-labels";
+import { partitionSchemaBySections } from "../schema/partition";
 import type {
 	FieldContext,
 	FieldTypeCategory,
@@ -12,8 +12,14 @@ import type {
 } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
-import { insertFieldAt, updateField } from "./draft-ops";
+import {
+	addSection,
+	insertCard,
+	insertFieldAt,
+	updateField,
+} from "./draft-ops";
 import { EditorCanvas } from "./editor-canvas";
+import { EditorToolbar } from "./editor-toolbar";
 import { FieldConfigPanel } from "./field-config-panel";
 import { TryItView } from "./try-it-view";
 import { useSpecDraft } from "./use-spec-draft";
@@ -72,6 +78,10 @@ export interface EditorLabels {
 	moveToSection?: string;
 	// cards
 	addCard?: string;
+	/** Tooltip on the toolbar's disabled "+ Card" while the spec has no
+	 * fields (Build mode only — Preview disables the whole insert cluster
+	 * without a tooltip). */
+	addCardDisabledEmpty?: string;
 	/** Placeholder title for an untitled card (canvas header, panel, menu aria). */
 	cardUntitled?: string;
 	/** aria-label/tooltip for a card header's drag handle (block move). */
@@ -181,7 +191,9 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	save: "Save",
 	discard: "Discard",
 	build: "Build",
-	tryIt: "Try it",
+	// 0.9.0: default STRING renamed to "Preview"; the KEY is frozen (hosts
+	// overriding `tryIt` are untouched by the rename).
+	tryIt: "Preview",
 	fixValidationFirst: "Fix validation errors before trying the form",
 	saveFailed: "Save failed",
 	dirty: "Unsaved changes",
@@ -204,6 +216,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	moveToSection: "Move to section",
 
 	addCard: "+ Card",
+	addCardDisabledEmpty: "Add a field before adding cards",
 	cardUntitled: "Untitled card",
 	dragCard: "Drag to move card",
 	cardMenu: "Card menu: {card}",
@@ -337,12 +350,25 @@ export function SpecEditor({
 	// fully controlled — every internal cause of a tab change reports back
 	// through onActiveTabChange.
 	const [activeTabIndex, setActiveTabIndex] = useState(0);
+	// "+ Section" lives in the toolbar (here) but the new section's inline
+	// rename input lives inside EditorCanvas — the accessor crosses that
+	// boundary as a one-shot pulse (same idiom as autoFocusLabel below).
+	const [sectionRenamePulse, setSectionRenamePulse] = useState<string | null>(
+		null,
+	);
 
 	// autoFocusLabel is a PULSE: reset right after so the NEXT Edit produces a
 	// fresh rising edge in the panel even without it unmounting in between.
 	useEffect(() => {
 		if (autoFocusLabel) setAutoFocusLabel(false);
 	}, [autoFocusLabel]);
+
+	// sectionRenamePulse is the same kind of PULSE: the canvas consumes it
+	// (child effects run before parent effects), then this reset re-arms the
+	// rising edge for back-to-back "+ Section" clicks.
+	useEffect(() => {
+		if (sectionRenamePulse != null) setSectionRenamePulse(null);
+	}, [sectionRenamePulse]);
 
 	// Toast on a NEW save failure only (not on every render while saveError
 	// stays set) — the draft stays dirty (useSpecDraft's guarantee), so the
@@ -534,67 +560,72 @@ export function SpecEditor({
 		renameBaselinesRef.current.clear();
 	}
 
-	const tryItButton = (
-		<Button
-			variant={mode === "tryit" ? "solid" : "ghost"}
-			size="sm"
-			disabled={!spec.validation.valid}
-			onClick={handleEnterTryIt}
-		>
-			{mergedLabels.tryIt}
-		</Button>
-	);
+	function handleModeChange(next: "build" | "tryit") {
+		if (next === "build") setMode("build");
+		else handleEnterTryIt();
+	}
+
+	// Toolbar "+ Card": appends an untitled card to the ACTIVE tab — the
+	// lifted activeTabIndex is exactly why the tab state lives here. Ported
+	// from EditorCanvas's pre-toolbar handleAddCard; insertCard semantics
+	// unchanged (incl. the first-card auto-wrap).
+	function handleAddCard() {
+		// Sectionless drafts have one tab (index 0) — clamp so a stale index
+		// always resolves to a real tab.
+		const tabIndex = Math.min(
+			activeTabIndex,
+			Math.max(0, spec.partition.tabs.length - 1),
+		);
+		const next = insertCard(spec.draft, tabIndex);
+		if (next === spec.draft) return; // empty spec: no tab to add to
+		spec.apply(next);
+		// insertCard's contract: the freshly appended card is the LAST card
+		// marker of the target tab — select it via handleEdit, which also
+		// pulses the panel's Name autofocus so the author can title it.
+		const newTab = partitionSchemaBySections(next).tabs[tabIndex];
+		const added = [...(newTab?.fields ?? [])]
+			.reverse()
+			.find((f) => f.field_type === "card");
+		if (added) handleEdit(added.config.api_accessor);
+	}
+
+	// Toolbar "+ Section": addSection semantics unchanged (append + open the
+	// inline rename input, which lives in the canvas — hence the pulse).
+	function handleAddSection() {
+		const next = addSection(spec.draft, mergedLabels.newSectionName);
+		const added = next[next.length - 1];
+		spec.apply(next);
+		// Appending a section always adds exactly one tab at the end,
+		// regardless of the current tab count (0, 1 implicit, or many).
+		setActiveTabIndex(spec.partition.tabs.length);
+		setSectionRenamePulse(added.config.api_accessor);
+	}
 
 	return (
 		<ConfirmModalProvider>
 			<Box data-testid="spec-editor" display="flex" flexDirection="column">
 				<Toaster />
-				<Flex
-					as="header"
-					align="center"
-					justify="space-between"
-					borderBottomWidth="1px"
-					bg="bg-subtle"
-					p="2"
-				>
-					<Flex align="center" gap="2">
+				{/* Title on its own line ABOVE the toolbar (spec Decision 4: no
+				    title inside the bar — hosts like mediahub already render a
+				    page heading; nothing is duplicated). */}
+				{title != null && (
+					<Box px="2" pt="2">
 						{title}
-						<DirtyDot active={spec.dirty} label={mergedLabels.dirty} />
-					</Flex>
-					<Flex align="center" gap="2">
-						<Button
-							variant={mode === "build" ? "solid" : "ghost"}
-							size="sm"
-							onClick={() => setMode("build")}
-						>
-							{mergedLabels.build}
-						</Button>
-						{spec.validation.valid ? (
-							tryItButton
-						) : (
-							<Tooltip content={mergedLabels.fixValidationFirst}>
-								{tryItButton}
-							</Tooltip>
-						)}
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={!spec.dirty || spec.saving}
-							onClick={handleDiscard}
-						>
-							{mergedLabels.discard}
-						</Button>
-						<Button
-							variant="solid"
-							size="sm"
-							disabled={!spec.dirty || !spec.validation.valid || spec.saving}
-							loading={spec.saving}
-							onClick={() => spec.save()}
-						>
-							{mergedLabels.save}
-						</Button>
-					</Flex>
-				</Flex>
+					</Box>
+				)}
+				<EditorToolbar
+					mode={mode}
+					dirty={spec.dirty}
+					saving={spec.saving}
+					canPreview={spec.validation.valid}
+					specEmpty={spec.draft.length === 0}
+					labels={mergedLabels}
+					onAddCard={handleAddCard}
+					onAddSection={handleAddSection}
+					onModeChange={handleModeChange}
+					onDiscard={handleDiscard}
+					onSave={() => spec.save()}
+				/>
 
 				{nonFieldErrors.length > 0 && (
 					<Stack gap="1" p="2">
@@ -651,6 +682,7 @@ export function SpecEditor({
 								labels={mergedLabels}
 								activeTabIndex={activeTabIndex}
 								onActiveTabChange={setActiveTabIndex}
+								renameSectionPulse={sectionRenamePulse}
 							/>
 						</Box>
 						{selectedField && (

@@ -201,6 +201,10 @@ export interface EditorCanvasProps {
 	 * (tab click, tabdrop hover, section move/delete, shrink reset) here. */
 	activeTabIndex: number;
 	onActiveTabChange: (index: number) => void;
+	/** One-shot pulse (autoFocusLabel idiom): when it rises to a section
+	 * accessor, the canvas opens that section's inline rename input. Set by
+	 * SpecEditor's toolbar "+ Section", reset by SpecEditor right after. */
+	renameSectionPulse?: string | null;
 }
 
 function ShellContent({
@@ -253,6 +257,7 @@ export function EditorCanvas({
 	onDeleteField,
 	activeTabIndex,
 	onActiveTabChange,
+	renameSectionPulse,
 }: EditorCanvasProps) {
 	const { partition, draft, apply } = spec;
 	// Fully controlled active tab (lifted to SpecEditor): this derived string
@@ -328,6 +333,16 @@ export function EditorCanvas({
 			onActiveTabChange(0);
 		}
 	}, [partition.tabs.length, activeTabIndex, onActiveTabChange]);
+
+	// The toolbar's "+ Section" (SpecEditor) can't reach this canvas-internal
+	// rename state — the new section's accessor arrives as a one-shot pulse.
+	// startRename's body is inlined so the effect's deps stay exact.
+	useEffect(() => {
+		if (renameSectionPulse != null) {
+			skipBlurRef.current = false;
+			setRenaming(renameSectionPulse);
+		}
+	}, [renameSectionPulse]);
 
 	// Editor-side index: unlike the renderer's default buildSearchIndex call,
 	// HIDDEN fields are included — they render as selectable rows on the canvas.
