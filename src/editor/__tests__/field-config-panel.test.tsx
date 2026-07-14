@@ -11,9 +11,9 @@ import { FieldConfigPanel, type PanelLabels } from "../field-config-panel";
 import { EditorWrap, makeCard, makeField } from "./editor-helpers";
 
 const testLabels: PanelLabels = {
-	panelGeneral: "General",
-	panelValidation: "Validation",
-	panelTypeSettings: "Type Settings",
+	panelTabGeneral: "General",
+	panelTabValidation: "Validation",
+	panelTabType: "Type settings",
 	panelNoSettings: "No additional settings",
 	panelChildren: "Children",
 	panelBack: "Back",
@@ -467,8 +467,9 @@ describe("FieldConfigPanel", () => {
 		expect(screen.getByText("Oculto")).toBeInTheDocument();
 		expect(screen.getByText("Solo lectura")).toBeInTheDocument();
 
-		// Validation section starts collapsed — open it.
-		fireEvent.click(screen.getByTestId("panel-toggle-validation"));
+		// Switch to the Validation tab (all bodies are mounted-but-hidden —
+		// the click keeps the interaction honest).
+		fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
 		expect(screen.getByText("Longitud mínima")).toBeInTheDocument();
 		expect(screen.getByText("Longitud máxima")).toBeInTheDocument();
 		expect(screen.getByText("Patrón (regex)")).toBeInTheDocument();
@@ -493,22 +494,31 @@ describe("FieldConfigPanel", () => {
 		);
 		vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
 
-		const field = makeField("my_field", "My Field");
-		render(
-			<EditorWrap>
-				<Harness initialField={field} autoFocusLabel />
-			</EditorWrap>,
-		);
+		// Final-review fix wave (Fix 2): try/finally around the stubbed
+		// section. Without it, an assertion failure between the stub calls
+		// above and the restore calls below (e.g. a regression in the focus
+		// chain) would leave fake timers AND the stubbed rAF/cAF globals
+		// installed — poisoning every later test in this file, since
+		// `vi.unstubAllGlobals()` would never run. Behavior on the green path
+		// is unchanged.
+		try {
+			const field = makeField("my_field", "My Field");
+			render(
+				<EditorWrap>
+					<Harness initialField={field} autoFocusLabel />
+				</EditorWrap>,
+			);
 
-		// Rising edge (mount with autoFocusLabel=true) focuses the name input
-		// once both frames drain.
-		act(() => {
-			vi.runAllTimers();
-		});
-		expect(screen.getByTestId("panel-name-input")).toHaveFocus();
-
-		vi.useRealTimers();
-		vi.unstubAllGlobals();
+			// Rising edge (mount with autoFocusLabel=true) focuses the name input
+			// once both frames drain.
+			act(() => {
+				vi.runAllTimers();
+			});
+			expect(screen.getByTestId("panel-name-input")).toHaveFocus();
+		} finally {
+			vi.useRealTimers();
+			vi.unstubAllGlobals();
+		}
 
 		// Editing another control must NOT re-trigger the focus effect even
 		// though the field object changes identity on every applied edit.
@@ -516,6 +526,70 @@ describe("FieldConfigPanel", () => {
 		instructions.focus();
 		fireEvent.change(instructions, { target: { value: "Some help text" } });
 		expect(instructions).toHaveFocus();
+	});
+
+	// Final-review fix wave (Fix 1): an Edit pulse (autoFocusLabel's rising
+	// edge) arriving while the SAME field stays selected — e.g. the toolbar
+	// Edit-pencil clicked again, or a rename pulse — used to only schedule the
+	// two-rAF focus chain at nameInputRef. If a non-General tab (Validation/
+	// Type settings) was active, that input lives inside a `hidden` tabpanel
+	// and the focus() call silently no-ops. The tabIdentity reset effect
+	// doesn't help here either: it only fires when `chain.length` or the
+	// active field's accessor CHANGES, and neither does on a same-field Edit
+	// pulse. The fix: the autoFocusLabel rising-edge effect itself must also
+	// flip the panel back to General.
+	it("Edit pulse (autoFocusLabel rising edge) flips the panel back to the General tab even from Validation", async () => {
+		const field = makeField("my_field", "My Field");
+
+		function PulseHarness() {
+			const [autoFocusLabel, setAutoFocusLabel] = useState(false);
+			return (
+				<div>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={() => {}}
+						onClose={() => {}}
+						autoFocusLabel={autoFocusLabel}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+					<button
+						type="button"
+						data-testid="fire-edit-pulse"
+						onClick={() => setAutoFocusLabel(true)}
+					/>
+				</div>
+			);
+		}
+
+		render(
+			<EditorWrap>
+				<PulseHarness />
+			</EditorWrap>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// Same field stays selected throughout — only autoFocusLabel rises,
+		// exactly like the toolbar Edit-pencil on an already-selected field.
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("fire-edit-pulse"));
+		});
+
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
 	});
 
 	it("renders plugin settingsComponent and applies its onChange to field.settings", () => {
@@ -545,8 +619,9 @@ describe("FieldConfigPanel", () => {
 			</EditorWrap>,
 		);
 
-		// Type Settings is collapsed by default (only General starts open).
-		fireEvent.click(screen.getByTestId("panel-toggle-type-settings"));
+		// Switch to the Type settings tab (the body is mounted either way —
+		// the click keeps the interaction honest).
+		fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
 		fireEvent.change(screen.getByTestId("settings-placeholder-input"), {
 			target: { value: "Hello" },
 		});
@@ -840,6 +915,260 @@ describe("FieldConfigPanel", () => {
 		expect(onFieldChangeSpy).not.toHaveBeenCalled();
 		expect(readDump().config.api_accessor).toBe("my_field");
 	});
+
+	it("renders General | Validation | Type settings tabs; switching shows the right body", async () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={makeField("my_field", "My Field")} />
+			</EditorWrap>,
+		);
+
+		expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+			"General",
+			"Validation",
+			"Type settings",
+		]);
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		// All three bodies stay MOUNTED (ConfigSection's local accessor state
+		// and auto-slug latch must survive tab switches) — VISIBILITY is what
+		// flips, driven by the inactive tabpanels' `hidden` attribute. The
+		// inactive panels start hidden synchronously on mount (their Presence
+		// starts in the "unmounted" state directly since they never were
+		// present), so this initial check is reliable.
+		expect(screen.getByTestId("panel-name-input")).toBeVisible();
+		expect(screen.getByTestId("panel-min-length-input")).not.toBeVisible();
+
+		// zag's Tabs machine transitions asynchronously — matches the
+		// act-wrapping convention used for every other tab-click assertion in
+		// this suite (sections/dnd/cards-canvas/editor-canvas tests). Entering
+		// a tab un-hides its content synchronously with the click (Presence's
+		// "MOUNT" branch); only asserting the tab being LEFT becomes hidden
+		// would additionally depend on Presence's exit-transition completing,
+		// which needs a real "animationend"/rAF-driven completion signal jsdom
+		// cannot reliably provide across a whole shared test file (verified:
+		// this hangs/flakes depending on how many earlier tests in this file
+		// already rendered) — so only the entering side is asserted here.
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByTestId("panel-min-length-input")).toBeVisible();
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
+		});
+		expect(screen.getByText(testLabels.panelNoSettings)).toBeVisible();
+	});
+
+	it("active tab RESETS to General when a different field is selected (panel stays mounted)", async () => {
+		const fieldA = makeField("field_a", "Field A");
+		const fieldB = makeField("field_b", "Field B");
+		function SwitchHarness() {
+			const [selected, setSelected] = useState<Field>(fieldA);
+			return (
+				<div>
+					<FieldConfigPanel
+						field={selected}
+						plugin={undefined}
+						draft={[fieldA, fieldB]}
+						fieldErrors={[]}
+						onFieldChange={() => {}}
+						onClose={() => {}}
+						committedAccessors={new Set()}
+						baselineAccessor={selected.config.api_accessor}
+						labels={testLabels}
+					/>
+					<button
+						type="button"
+						data-testid="select-b"
+						onClick={() => setSelected(fieldB)}
+					/>
+				</div>
+			);
+		}
+		render(
+			<EditorWrap>
+				<SwitchHarness />
+			</EditorWrap>,
+		);
+
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// Select a DIFFERENT field: the panel does NOT remount (same component
+		// instance, new `field` prop) — panel-local tab state would survive
+		// without the reset effect. This is the discriminating half.
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("select-b"));
+		});
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Field B");
+	});
+
+	it("active tab resets to General when a drill frame pops (Back)", async () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={makeGroupField()} />
+			</EditorWrap>,
+		);
+
+		// Drill into the child (from the General tab, where the list lives).
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+		// The drilled child gets the FULL tab strip (spec Decision 5)…
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		expect(screen.getByRole("tab", { name: "Validation" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// …and popping the frame is a field change: back to General. (A panel
+		// remembering Validation here would silently show the PARENT group's
+		// validation — not what the author was looking at.)
+		await act(async () => {
+			fireEvent.click(screen.getByTestId("panel-back"));
+		});
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
+
+	it("panel width is FIXED (#40): same width token for custom and system selections, no min-width", () => {
+		function panelFor(field: Field) {
+			return (
+				<EditorWrap>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={vi.fn()}
+						onClose={vi.fn()}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+				</EditorWrap>
+			);
+		}
+		const widthOf = () =>
+			window.getComputedStyle(screen.getByTestId("field-config-panel")).width;
+
+		const { rerender } = render(panelFor(makeField("a", "A")));
+		// Chakra resolves the `width` token to its CSS var in jsdom; the OLD
+		// minWidth-only panel computes width "" here — the discriminating
+		// assert (probe-verified against the installed Chakra v3).
+		expect(widthOf()).toBe("var(--chakra-sizes-72)");
+		expect(
+			window.getComputedStyle(screen.getByTestId("field-config-panel"))
+				.minWidth,
+		).toBe("");
+
+		rerender(panelFor({ ...makeField("name", "Name"), system: true }));
+		expect(widthOf()).toBe("var(--chakra-sizes-72)");
+	});
+
+	it("duplicate-accessor banner renders ABOVE the tab strip — visible from the Validation tab", () => {
+		const field = makeField("dup", "Dup A");
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[field, makeField("dup", "Dup B")]}
+					fieldErrors={[
+						{
+							accessor: "dup",
+							code: "duplicate_accessor",
+							message: 'Duplicate accessor "dup"',
+						},
+					]}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+
+		const banner = screen.getByTestId("panel-duplicate-banner");
+		// Visible while a NON-General tab is active: a banner living inside
+		// the General body would be `hidden` right now.
+		expect(banner).toBeVisible();
+		expect(banner.closest("[role='tabpanel']")).toBeNull();
+		// And ABOVE the strip in document order (Decision 4).
+		const tablist = screen.getByRole("tablist");
+		expect(
+			banner.compareDocumentPosition(tablist) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
+	it("four selection states render the right chrome: tabs / summary / card Name / Back+tabs", () => {
+		function panelFor(field: Field) {
+			return (
+				<EditorWrap>
+					<FieldConfigPanel
+						field={field}
+						plugin={undefined}
+						draft={[field]}
+						fieldErrors={[]}
+						onFieldChange={vi.fn()}
+						onClose={vi.fn()}
+						committedAccessors={new Set()}
+						baselineAccessor={field.config.api_accessor}
+						labels={testLabels}
+					/>
+				</EditorWrap>
+			);
+		}
+
+		// (1) normal field: the full tab strip, no Back row.
+		const normal = render(panelFor(makeField("a", "A")));
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		expect(screen.queryByTestId("panel-back")).toBeNull();
+		normal.unmount();
+
+		// (2) system field: the read-only summary REPLACES the tabs entirely.
+		const system = render(
+			panelFor({ ...makeField("name", "Name"), system: true }),
+		);
+		expect(screen.getByTestId("panel-system-summary")).toBeInTheDocument();
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
+		system.unmount();
+
+		// (3) card marker: single Name body, NO tab strip.
+		const card = render(panelFor(makeCard("c1", "Basics")));
+		expect(screen.getByTestId("panel-card-name-input")).toBeInTheDocument();
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
+		card.unmount();
+
+		// (4) drill-in child: Back row + the full tab strip.
+		render(
+			<EditorWrap>
+				<Harness initialField={makeGroupField()} />
+			</EditorWrap>,
+		);
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+	});
 });
 
 describe("system fields — panel lock", () => {
@@ -874,9 +1203,8 @@ describe("system fields — panel lock", () => {
 		expect(screen.queryByTestId("panel-name-input")).toBeNull();
 		expect(screen.queryByTestId("panel-accessor-input")).toBeNull();
 		expect(screen.queryByTestId("panel-required-input")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-general")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-validation")).toBeNull();
-		expect(screen.queryByTestId("panel-toggle-type-settings")).toBeNull();
+		// The summary REPLACES the tabs entirely (0.6.0 contract; Decision 5).
+		expect(screen.queryAllByRole("tab")).toHaveLength(0);
 		// The strongest guarantee: zero form controls in the whole panel.
 		expect(screen.queryAllByRole("textbox")).toHaveLength(0);
 		expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
@@ -893,7 +1221,7 @@ describe("system fields — panel lock", () => {
 		renderPanel(false);
 		expect(screen.queryByTestId("panel-system-summary")).toBeNull();
 		expect(screen.getByTestId("panel-name-input")).toBeInTheDocument();
-		expect(screen.getByTestId("panel-toggle-validation")).toBeInTheDocument();
+		expect(screen.getByRole("tab", { name: "Validation" })).toBeInTheDocument();
 	});
 
 	// Final-review fix wave (Fix 3): the card branch used to precede the

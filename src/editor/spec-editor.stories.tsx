@@ -241,9 +241,10 @@ export const SystemFields: Story = {
 			note={
 				<>
 					<code>Name</code> and <code>Description</code> are system fields (
-					<code>field.system</code>): the ⋮ toolbar shows a lock and no delete,
-					the config panel renders a read-only summary, and dragging still
-					works. <code>Internal reference</code> is a normal editable field.
+					<code>field.system</code>): the toolbar shows a lock and no delete,
+					the config panel renders a read-only summary with no tab strip, and
+					dragging still works from the shell's always-visible grip.{" "}
+					<code>Internal reference</code> is a normal editable field.
 					Duplicating a system field produces an editable copy.
 				</>
 			}

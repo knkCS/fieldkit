@@ -1,7 +1,7 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { Field } from "../../schema/types";
@@ -140,7 +140,7 @@ describe("FieldShell", () => {
 		expect(onSelect).not.toHaveBeenCalled();
 	});
 
-	it("keyboard drag lifecycle works from the toolbar drag handle", async () => {
+	it("keyboard drag lifecycle works from the grip of an UNSELECTED shell", async () => {
 		const onDragStart = vi.fn();
 		const onDragCancel = vi.fn();
 		const second: Field = {
@@ -153,7 +153,7 @@ describe("FieldShell", () => {
 					<SortableContext items={["title", "body"]}>
 						<FieldShell
 							field={field}
-							selected
+							selected={false}
 							onSelect={noop}
 							onEdit={noop}
 							onDuplicate={noop}
@@ -177,7 +177,11 @@ describe("FieldShell", () => {
 				</DndContext>
 			</ChakraProvider>,
 		);
-		const handle = screen.getByLabelText("Drag to reorder");
+		// Two shells render, each with its own persistent grip — scope to the
+		// one under test.
+		const handle = within(screen.getByTestId("shell-title")).getByLabelText(
+			"Drag to reorder",
+		);
 		handle.focus();
 		fireEvent.keyDown(handle, { key: "Enter", code: "Enter" });
 		expect(onDragStart).toHaveBeenCalledTimes(1);
@@ -302,5 +306,54 @@ describe("FieldShell", () => {
 		expect(
 			screen.getByLabelText(shellLabels.duplicateField),
 		).toBeInTheDocument();
+	});
+
+	it("renders the drag grip WITHOUT selection (persistent handle, #41)", () => {
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected={false}
+					onSelect={noop}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		const grip = screen.getByLabelText(shellLabels.dragField);
+		expect(grip).toBeInTheDocument();
+		// It must live OUTSIDE the inert preview wrapper — an inert grip
+		// would be unfocusable and undraggable.
+		expect(grip.closest("[inert]")).toBeNull();
+	});
+
+	it("the selection toolbar contains NO grip — the shell grip is the single handle", () => {
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected
+					onSelect={noop}
+					onEdit={noop}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		// The toolbar is up (Edit proves it) and grip-free; exactly ONE grip
+		// exists on a selected shell — pre-0.10 the toolbar carried it.
+		const toolbar = screen.getByTestId("shell-toolbar-title");
+		expect(
+			within(toolbar).getByLabelText(shellLabels.editField),
+		).toBeInTheDocument();
+		expect(within(toolbar).queryByLabelText(shellLabels.dragField)).toBeNull();
+		expect(screen.getAllByLabelText(shellLabels.dragField)).toHaveLength(1);
 	});
 });

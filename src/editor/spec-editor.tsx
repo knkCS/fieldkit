@@ -104,8 +104,20 @@ export interface EditorLabels {
 	fieldDeleted?: string;
 	undo?: string;
 	// panel
+	/** Caption of the config panel's General tab (0.10.0 tabs redesign). */
+	panelTabGeneral?: string;
+	/** Caption of the config panel's Validation tab (0.10.0). */
+	panelTabValidation?: string;
+	/** Caption of the config panel's Type-settings tab (0.10.0). */
+	panelTabType?: string;
+	/** @deprecated Unused since 0.10.0 — the panel's collapsible section
+	 * headings became tabs, captioned by `panelTabGeneral`. The key stays
+	 * (label KEYS are frozen) so hosts passing it don't break; its value is
+	 * no longer rendered anywhere. */
 	panelGeneral?: string;
+	/** @deprecated Unused since 0.10.0 — see `panelTabValidation`. */
 	panelValidation?: string;
+	/** @deprecated Unused since 0.10.0 — see `panelTabType`. */
 	panelTypeSettings?: string;
 	panelNoSettings?: string;
 	panelChildren?: string;
@@ -236,6 +248,11 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	fieldDeleted: "Field deleted",
 	undo: "Undo",
 
+	panelTabGeneral: "General",
+	panelTabValidation: "Validation",
+	panelTabType: "Type settings",
+	// Deprecated trio (unused since 0.10.0) — kept because label KEYS are
+	// frozen and Required<EditorLabels> still demands values for them.
 	panelGeneral: "General",
 	panelValidation: "Validation",
 	panelTypeSettings: "Type settings",

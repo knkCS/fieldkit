@@ -76,7 +76,11 @@ export function FieldShell({
 			borderRadius="md"
 			bg={selected ? "bg-subtle" : undefined}
 			opacity={isDragging ? 0.6 : 1}
-			p="2"
+			py="2"
+			pr="2"
+			// pl clears the absolutely-positioned persistent grip below — the
+			// inert preview must not render underneath it.
+			pl="10"
 			cursor="pointer"
 			role="button"
 			tabIndex={0}
@@ -106,6 +110,7 @@ export function FieldShell({
 					borderRadius="md"
 					boxShadow="sm"
 					zIndex="docked"
+					data-testid={`shell-toolbar-${accessor}`}
 					onClick={(e) => e.stopPropagation()}
 				>
 					{field.system && (
@@ -119,20 +124,6 @@ export function FieldShell({
 							<Lock size={12} />
 						</Box>
 					)}
-					{/* closeOnEscape=false: the open tooltip's Escape handler stops
-					    propagation at the document (capture phase), which would
-					    swallow the Escape that cancels a keyboard drag. */}
-					<Tooltip content={labels.dragField} closeOnEscape={false}>
-						<IconButton
-							aria-label={labels.dragField}
-							size="2xs"
-							variant="ghost"
-							{...attributes}
-							{...listeners}
-						>
-							<GripVertical size={14} />
-						</IconButton>
-					</Tooltip>
 					<Tooltip content={labels.editField}>
 						<IconButton
 							aria-label={labels.editField}
@@ -170,6 +161,30 @@ export function FieldShell({
 					)}
 				</Flex>
 			)}
+			{/* Persistent drag handle (panel-tabs spec 2026-07-13, Decision 6):
+			    THE handle — always visible, before the field content, the
+			    card-header grip idiom (same GripVertical, same 2xs IconButton).
+			    The selection toolbar above no longer carries one. Absolutely
+			    positioned into the shell's pl="10" gutter so the F8 inert
+			    wrapper below stays byte-identical.
+			    closeOnEscape=false: the open tooltip's Escape handler stops
+			    propagation at the document (capture phase), which would swallow
+			    the Escape that cancels a keyboard drag. A plain click on the
+			    grip (under PointerSensor's 8px activation distance) bubbles to
+			    the shell's onClick and selects — the card-header behavior. */}
+			<Box position="absolute" top="2" left="1.5">
+				<Tooltip content={labels.dragField} closeOnEscape={false}>
+					<IconButton
+						aria-label={labels.dragField}
+						size="2xs"
+						variant="ghost"
+						{...attributes}
+						{...listeners}
+					>
+						<GripVertical size={14} />
+					</IconButton>
+				</Tooltip>
+			</Box>
 			{/* F8: the JSX boolean shorthand `inert` (i.e. passing the JS boolean
 			    `true`) is only recognized as a boolean DOM property by React 19.
 			    The peer range allows React >=18, where React DOM logs "Received

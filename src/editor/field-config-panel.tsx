@@ -1,8 +1,9 @@
 // src/editor/field-config-panel.tsx
 import { Box, Flex, Input, Text } from "@chakra-ui/react";
 import { Button, IconButton } from "@knkcs/anker/atoms";
-import { ChevronDown, ChevronLeft, X } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Tabs } from "@knkcs/anker/primitives";
+import { ChevronLeft, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
@@ -39,16 +40,16 @@ export interface PanelSectionProps {
 
 /**
  * A Pick of EditorLabels — the panel consumes the SAME flat key names as
- * EditorLabels (general→panelGeneral, validation→panelValidation, etc.)
- * instead of its own shorter names, so a host's merged EditorLabels
- * satisfies this type structurally with no per-key renaming layer required
- * at the call site.
+ * EditorLabels (tab captions → panelTabGeneral/panelTabValidation/
+ * panelTabType, etc.) instead of its own shorter names, so a host's merged
+ * EditorLabels satisfies this type structurally with no per-key renaming
+ * layer required at the call site.
  */
 export type PanelLabels = Pick<
 	Required<EditorLabels>,
-	| "panelGeneral"
-	| "panelValidation"
-	| "panelTypeSettings"
+	| "panelTabGeneral"
+	| "panelTabValidation"
+	| "panelTabType"
 	| "panelNoSettings"
 	| "panelChildren"
 	| "panelBack"
@@ -137,42 +138,10 @@ export interface FieldConfigPanelProps {
 	labels: PanelLabels;
 }
 
-function Disclosure({
-	title,
-	defaultOpen,
-	testId,
-	children,
-}: {
-	title: string;
-	defaultOpen: boolean;
-	testId: string;
-	children: ReactNode;
-}) {
-	const [open, setOpen] = useState(defaultOpen);
-	return (
-		<Box borderBottomWidth="1px" borderColor="border" pb="3" mb="3">
-			<Button
-				variant="ghost"
-				width="full"
-				justifyContent="space-between"
-				px="0"
-				onClick={() => setOpen((o) => !o)}
-				aria-expanded={open}
-				data-testid={`panel-toggle-${testId}`}
-			>
-				<Text fontSize="sm" fontWeight="semibold">
-					{title}
-				</Text>
-				<ChevronDown
-					size={14}
-					style={{ transform: open ? "rotate(180deg)" : undefined }}
-				/>
-			</Button>
-			{open && <Box pt="2">{children}</Box>}
-		</Box>
-	);
-}
-Disclosure.displayName = "Disclosure";
+/** The config panel's three tab ids (0.10.0 tabs redesign). Captions come
+ * from PanelLabels' panelTab* keys; these ids are internal state and the
+ * Tabs value dialect only — never author-facing. */
+type PanelTab = "general" | "validation" | "type-settings";
 
 /**
  * A single level of the drill-in path. `accessor` is the LIVE lookup key —
@@ -216,14 +185,14 @@ export function FieldConfigPanel({
 	labels,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
+	// Panel-local active tab (spec Decision 3). General is the default; the
+	// reset effect below (after `chain` resolves) returns here whenever the
+	// panel starts showing a different field.
+	const [activeTab, setActiveTab] = useState<PanelTab>("general");
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const topAccessorRef = useRef<string>(field.config.api_accessor);
 	const prevAutoFocusRef = useRef(false);
-	const focusChainRef = useRef<{
-		accessor: string;
-		raf1: number;
-		raf2?: number;
-	} | null>(null);
+	const focusChainRef = useRef<{ accessor: string; raf: number } | null>(null);
 
 	// Selecting a different top-level field resets any open drill-in — the
 	// child path belongs to the previously selected group, not the new field.
@@ -241,66 +210,119 @@ export function FieldConfigPanel({
 	// panel control. T12 resets autoFocusLabel to false on plain select and
 	// sets it true on Edit — each Edit produces a fresh rising edge.
 	//
-	// DOUBLE requestAnimationFrame: the ⊕ popover (zag-js Popover) restores
-	// focus to its trigger button on close via a SINGLE rAF. If this effect
-	// focused the name input synchronously (or after only one rAF), zag's
-	// restore — scheduled afterward on close — would still win the race and
-	// steal focus back to the "Add field" trigger, verified live in Storybook
-	// via Playwright (activeElement ended up on the trigger button, not the
-	// name input). Waiting two frames guarantees this focus call runs strictly
-	// after zag's single-rAF restore, regardless of whether autoFocusLabel
-	// rose from an insertion or a toolbar Edit click.
+	// BOUNDED RETRY-UNTIL-FOCUSABLE LOOP (runtime-gate fix, replacing a fixed
+	// two-rAF wait): the ⊕ popover (zag-js Popover) restores focus to its
+	// trigger button on close via a SINGLE rAF, so this effect must not focus
+	// the name input synchronously or after only one rAF — zag's restore
+	// would still win the race and steal focus back to the "Add field"
+	// trigger (verified live in Storybook via Playwright). A FIXED two-rAF
+	// wait was tried next, but a real-browser measurement (deterministic 3/3)
+	// showed the INSERT-via-⊕ flow — where a non-General tab was previously
+	// active — commits the General tabpanel's `hidden` removal ~47ms AFTER
+	// the second rAF's focus() call: the same frame budget also carries the
+	// popover unmount and the canvas re-render, so two frames is not always
+	// enough. `focus()` silently no-ops on an element inside a `hidden`
+	// subtree, so the fixed schedule could lose the race with no error. The
+	// Edit-pencil path (a lighter frame, no popover/canvas churn) always
+	// happened to make the two-frame deadline, which is why it never
+	// surfaced this. The fix: each rAF tick, check whether the name input is
+	// ACTUALLY out of a `hidden` ancestor before focusing; if not yet,
+	// reschedule; give up silently after ~20 frames (a generous ceiling for
+	// pathological cases — matches the old silent-failure behavior rather
+	// than throwing or looping forever).
+	//
+	// Visibility predicate: `!el.closest("[hidden]")`, NOT `el.offsetParent
+	// !== null`. jsdom (this suite's test environment) never computes layout,
+	// so `offsetParent` is null for every element regardless of visibility —
+	// unusable as a predicate here. zag's Tabs sets the inactive tabpanel's
+	// `hidden` attribute directly (`hidden: !selected`,
+	// @zag-js/tabs/tabs.connect.mjs), and jsdom DOES model the `hidden`
+	// attribute/CSS (`[hidden] { display: none }`), so `closest("[hidden]")`
+	// is both the real-browser-correct check AND the one jsdom can verify.
 	//
 	// The chain is deliberately NOT cancelled by a RETURNED cleanup tied to
 	// [autoFocusLabel]. spec-editor.tsx's "pulse" resets autoFocusLabel back
 	// to false immediately after setting it true (so the NEXT Edit also gets
 	// a fresh rising edge) — that reset lands in the SAME passive-effect
-	// flush, before either scheduled frame has had a chance to fire. A
-	// cleanup keyed to the dependency change would cancel the chain on that
-	// falling edge and autofocus would never happen. Instead: a NEW rising
-	// edge cancels any still-pending chain from a previous one (guarded
-	// below), true unmount cancels via the ref-cleanup effect right after,
-	// and the final callback re-checks the accessor in case the selected
-	// field genuinely changed while the two frames were in flight.
+	// flush, before any scheduled frame has had a chance to fire. A cleanup
+	// keyed to the dependency change would cancel the chain on that falling
+	// edge and autofocus would never happen. Instead: a NEW rising edge
+	// cancels any still-pending chain from a previous one (guarded below),
+	// true unmount cancels via the ref-cleanup effect right after, and every
+	// tick re-checks the accessor in case the selected field genuinely
+	// changed while frames were in flight (bailing immediately rather than
+	// only at the end, now that "the end" isn't a fixed frame count).
+	//
+	// Card selections reuse this SAME effect and nameInputRef (the card
+	// branch's Name input is the only control it renders), so the loop must
+	// — and does — work there identically; nothing here is General-tab- or
+	// custom-field-specific.
 	useEffect(() => {
 		const rising = Boolean(autoFocusLabel) && !prevAutoFocusRef.current;
 		prevAutoFocusRef.current = Boolean(autoFocusLabel);
 		if (!rising) return;
 
+		// Final-review fix wave (Fix 1): land back on General BEFORE scheduling
+		// the focus loop below. A same-field Edit pulse (e.g. the toolbar
+		// Edit-pencil clicked again on the ALREADY-selected field, or the
+		// +Section/+Card rename pulse) rises here without `chain.length` or the
+		// active accessor changing, so the tabIdentity reset effect below never
+		// fires. Left as-is, the retry loop's focus() calls at nameInputRef
+		// would keep no-op'ing (and eventually give up) whenever the
+		// Validation/Type-settings tab was active, since that input lives
+		// inside a `hidden` tabpanel. This also hardens the DIFFERENT-field
+		// path (where tabIdentity's effect already resets the tab) against
+		// zag's controlled-value sync timing — this effect's setActiveTab runs
+		// in the same passive-effect flush, so it can't lose a race with
+		// anything zag schedules afterward.
+		setActiveTab("general");
+
 		if (focusChainRef.current) {
-			cancelAnimationFrame(focusChainRef.current.raf1);
-			if (focusChainRef.current.raf2 !== undefined) {
-				cancelAnimationFrame(focusChainRef.current.raf2);
-			}
+			cancelAnimationFrame(focusChainRef.current.raf);
 		}
 
 		const accessor = topAccessorRef.current;
-		const focusChain: { accessor: string; raf1: number; raf2?: number } = {
+		const MAX_ATTEMPTS = 20;
+		let attempt = 0;
+		const focusChain: { accessor: string; raf: number } = {
 			accessor,
-			raf1: 0,
+			raf: 0,
 		};
-		focusChain.raf1 = requestAnimationFrame(() => {
-			focusChain.raf2 = requestAnimationFrame(() => {
+
+		function tick() {
+			// The selected field may have changed since this loop was
+			// scheduled — only keep trying (and only ever focus) while the
+			// panel is still showing the field the chain was scheduled for.
+			if (topAccessorRef.current !== accessor) {
 				focusChainRef.current = null;
-				// The selected field may have changed in the two frames since
-				// this chain was scheduled — only focus if the panel is still
-				// showing the field the chain was scheduled for.
-				if (topAccessorRef.current !== accessor) return;
-				nameInputRef.current?.focus();
-			});
-		});
+				return;
+			}
+			const el = nameInputRef.current;
+			attempt += 1;
+			if (el && !el.closest("[hidden]")) {
+				focusChainRef.current = null;
+				el.focus();
+				return;
+			}
+			if (attempt >= MAX_ATTEMPTS) {
+				// Give up silently — the pre-existing behavior for pathological
+				// cases (e.g. the panel closing/reopening in a way this effect
+				// doesn't otherwise anticipate).
+				focusChainRef.current = null;
+				return;
+			}
+			focusChain.raf = requestAnimationFrame(tick);
+		}
+		focusChain.raf = requestAnimationFrame(tick);
 		focusChainRef.current = focusChain;
 	}, [autoFocusLabel]);
 
-	// Cancel any still-pending focus chain on unmount (e.g. the panel closes
-	// entirely — the parent stops rendering it — while a chain is in flight).
+	// Cancel any still-pending focus loop on unmount (e.g. the panel closes
+	// entirely — the parent stops rendering it — while a retry is in flight).
 	useEffect(() => {
 		return () => {
 			if (focusChainRef.current) {
-				cancelAnimationFrame(focusChainRef.current.raf1);
-				if (focusChainRef.current.raf2 !== undefined) {
-					cancelAnimationFrame(focusChainRef.current.raf2);
-				}
+				cancelAnimationFrame(focusChainRef.current.raf);
 			}
 		};
 	}, []);
@@ -321,6 +343,24 @@ export function FieldConfigPanel({
 	// minimal drill-in shows "No additional settings" for a child rather
 	// than risk rendering the wrong type's settings UI.
 	const activePlugin = chain.length === 1 ? plugin : undefined;
+
+	// The active tab RESETS to General whenever the panel starts showing a
+	// DIFFERENT field (spec Decision 3): selecting another top-level field,
+	// drilling into a child, popping a frame with Back — and the broken-frame
+	// fallback (a drilled child deleted externally drops the active field to
+	// its deepest resolvable ancestor). `chain.length` + the active accessor
+	// capture all of these. A RENAME also changes the active accessor, but
+	// renames are only ever typed in the General tab's inputs, so that reset
+	// is always a same-value no-op (React bails on same-state updates).
+	// Ref-compare (not a bare dependency effect) so it can't fire on mount.
+	const tabIdentity = `${chain.length}:${activeField.config.api_accessor}`;
+	const tabIdentityRef = useRef(tabIdentity);
+	useEffect(() => {
+		if (tabIdentityRef.current !== tabIdentity) {
+			tabIdentityRef.current = tabIdentity;
+			setActiveTab("general");
+		}
+	}, [tabIdentity]);
 
 	function handleActiveFieldChange(next: Field) {
 		if (chain.length === 1) {
@@ -419,7 +459,10 @@ export function FieldConfigPanel({
 			borderLeftWidth="1px"
 			borderColor="border"
 			p="4"
-			minWidth="72"
+			// #40 (absorbed into the tabs spec, Decision 7): FIXED width. The old
+			// minWidth let intrinsic content stretch the panel, so system/custom/
+			// card selections rendered three different panel sizes.
+			width="72"
 			data-testid="field-config-panel"
 		>
 			{drillStack.length > 0 && (
@@ -531,98 +574,119 @@ export function FieldConfigPanel({
 						</Box>
 					)}
 
-					<Disclosure title={labels.panelGeneral} defaultOpen testId="general">
-						<ConfigSection
-							{...sectionProps}
-							nameInputRef={nameInputRef}
-							// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
-							// selected field (see the prop doc below) — it always reflects
-							// the top-level field's committed accessor, never a drilled-in
-							// child's. Forwarding it unconditionally would compare a
-							// drilled child's accessor against its PARENT's baseline (e.g.
-							// child "item_name" !== group baseline "items") and produce a
-							// false-positive disconnect warning for every untouched
-							// committed child. Any drilled frame instead self-scopes to
-							// its OWN drill-in frame's `baselineAccessor` — the child's
-							// accessor AT THE MOMENT it was drilled into, frozen across
-							// renames within the frame (see DrillFrame above) — so a LIVE
-							// rename of a committed child still trips the disconnect
-							// warning instead of silently chasing the field's current
-							// accessor and never comparing against anything committed.
-							// Indexed by the shared `activeFrameIndex` (see its comment):
-							// the active frame is not necessarily the stack's last entry.
-							baselineAccessor={
-								chain.length === 1
-									? baselineAccessor
-									: (drillStack[activeFrameIndex]?.baselineAccessor ??
-										activeField.config.api_accessor)
-							}
-						/>
-					</Disclosure>
-
-					<Disclosure
-						title={labels.panelValidation}
-						defaultOpen={false}
-						testId="validation"
+					{/* The tab strip (spec Decisions 2–4). Structure order: banner
+					    ABOVE the strip (rendered just before this Tabs.Root, so it
+					    is visible from any tab), strip, body. All three bodies
+					    stay MOUNTED (zag Tabs' default `hidden` attribute — the
+					    editor-canvas idiom): `unmountOnExit` would reset
+					    ConfigSection's local accessor state and auto-slug latch on
+					    every tab switch, changing live-edit semantics. */}
+					<Tabs.Root
+						value={activeTab}
+						onValueChange={(e) => setActiveTab(e.value as PanelTab)}
 					>
-						<ValidationSection {...sectionProps} />
-					</Disclosure>
+						<Tabs.List>
+							<Tabs.Trigger value="general">
+								{labels.panelTabGeneral}
+							</Tabs.Trigger>
+							<Tabs.Trigger value="validation">
+								{labels.panelTabValidation}
+							</Tabs.Trigger>
+							<Tabs.Trigger value="type-settings">
+								{labels.panelTabType}
+							</Tabs.Trigger>
+						</Tabs.List>
 
-					<Disclosure
-						title={labels.panelTypeSettings}
-						defaultOpen={false}
-						testId="type-settings"
-					>
-						<SettingsSection {...sectionProps} />
-					</Disclosure>
-
-					{activeField.field_type === "group" && (
-						<Disclosure
-							title={labels.panelChildren}
-							defaultOpen
-							testId="children"
-						>
-							<Box>
-								{children.map((child) => (
-									<Flex
-										key={child.config.api_accessor}
-										align="center"
-										justify="space-between"
-										py="1"
-									>
-										<Box>
-											<Text fontSize="sm">{child.config.name}</Text>
-											<Text fontSize="xs" color="fg.muted">
-												{child.field_type}
-											</Text>
-										</Box>
-										<Button
-											size="xs"
-											variant="ghost"
-											onClick={() =>
-												// Freeze `baselineAccessor` to the child's accessor AT
-												// THIS MOMENT — the disconnect-warning baseline for the
-												// whole time this frame stays on top of the stack. `accessor`
-												// (the lookup key) starts equal to it but, unlike
-												// `baselineAccessor`, follows subsequent renames — see the
-												// rename-follow logic in `handleActiveFieldChange`.
-												setDrillStack((s) => [
-													...s,
-													{
-														accessor: child.config.api_accessor,
-														baselineAccessor: child.config.api_accessor,
-													},
-												])
-											}
-											data-testid={`panel-child-edit-${child.config.api_accessor}`}
-										>
-											{labels.editChild}
-										</Button>
-									</Flex>
-								))}
+						<Tabs.Content value="general">
+							<Box pt="2">
+								<ConfigSection
+									{...sectionProps}
+									nameInputRef={nameInputRef}
+									// SpecEditor's rename-baseline map only tracks the TOP-LEVEL
+									// selected field (see the prop doc below) — it always reflects
+									// the top-level field's committed accessor, never a drilled-in
+									// child's. Forwarding it unconditionally would compare a
+									// drilled child's accessor against its PARENT's baseline (e.g.
+									// child "item_name" !== group baseline "items") and produce a
+									// false-positive disconnect warning for every untouched
+									// committed child. Any drilled frame instead self-scopes to
+									// its OWN drill-in frame's `baselineAccessor` — the child's
+									// accessor AT THE MOMENT it was drilled into, frozen across
+									// renames within the frame (see DrillFrame above) — so a LIVE
+									// rename of a committed child still trips the disconnect
+									// warning instead of silently chasing the field's current
+									// accessor and never comparing against anything committed.
+									// Indexed by the shared `activeFrameIndex` (see its comment):
+									// the active frame is not necessarily the stack's last entry.
+									baselineAccessor={
+										chain.length === 1
+											? baselineAccessor
+											: (drillStack[activeFrameIndex]?.baselineAccessor ??
+												activeField.config.api_accessor)
+									}
+								/>
+								{activeField.field_type === "group" && (
+									<Box mt="4" pt="3" borderTopWidth="1px" borderColor="border">
+										{/* The locked tab set has no fourth tab — the group
+										    children list lives in the General body under its own
+										    heading (plan refinement 1). */}
+										<Text fontSize="sm" fontWeight="semibold" mb="1">
+											{labels.panelChildren}
+										</Text>
+										{children.map((child) => (
+											<Flex
+												key={child.config.api_accessor}
+												align="center"
+												justify="space-between"
+												py="1"
+											>
+												<Box>
+													<Text fontSize="sm">{child.config.name}</Text>
+													<Text fontSize="xs" color="fg.muted">
+														{child.field_type}
+													</Text>
+												</Box>
+												<Button
+													size="xs"
+													variant="ghost"
+													onClick={() =>
+														// Freeze `baselineAccessor` to the child's accessor AT
+														// THIS MOMENT — the disconnect-warning baseline for the
+														// whole time this frame stays on top of the stack. `accessor`
+														// (the lookup key) starts equal to it but, unlike
+														// `baselineAccessor`, follows subsequent renames — see the
+														// rename-follow logic in `handleActiveFieldChange`.
+														setDrillStack((s) => [
+															...s,
+															{
+																accessor: child.config.api_accessor,
+																baselineAccessor: child.config.api_accessor,
+															},
+														])
+													}
+													data-testid={`panel-child-edit-${child.config.api_accessor}`}
+												>
+													{labels.editChild}
+												</Button>
+											</Flex>
+										))}
+									</Box>
+								)}
 							</Box>
-						</Disclosure>
-					)}
+						</Tabs.Content>
+
+						<Tabs.Content value="validation">
+							<Box pt="2">
+								<ValidationSection {...sectionProps} />
+							</Box>
+						</Tabs.Content>
+
+						<Tabs.Content value="type-settings">
+							<Box pt="2">
+								<SettingsSection {...sectionProps} />
+							</Box>
+						</Tabs.Content>
+					</Tabs.Root>
 				</>
 			)}
 		</Box>
