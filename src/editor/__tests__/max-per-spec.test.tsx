@@ -22,6 +22,7 @@ const LABELS = {
 	editField: "Edit field",
 	duplicateField: "Duplicate field",
 	deleteField: "Delete field",
+	viewField: "View definition",
 	systemLocked: "System field",
 	moveToSection: "Move to section",
 	renameSection: "Rename",

@@ -111,7 +111,7 @@ function owningCard(schema: Schema, field: Field): Field | null {
 
 /**
  * Flat EditorLabels key names throughout (including the field-shell toolbar
- * labels — dragField/editField/duplicateField/deleteField/systemLocked —
+ * labels — dragField/editField/duplicateField/deleteField/viewField —
  * flattened directly onto this type instead of a nested `shell` sub-object)
  * so a host's merged EditorLabels satisfies this type structurally, with no
  * per-key renaming layer required at the call site.
@@ -131,7 +131,7 @@ export interface CanvasLabels
 			| "editField"
 			| "duplicateField"
 			| "deleteField"
-			| "systemLocked"
+			| "viewField"
 			| "moveToSection" // aria-label/tooltip for the "Move to section…" toolbar trigger
 			// "{section}" interpolated — MUST say fields survive (move to the previous tab)
 			| "deleteSectionConfirm"

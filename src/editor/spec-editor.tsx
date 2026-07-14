@@ -99,6 +99,14 @@ export interface EditorLabels {
 	editField?: string;
 	duplicateField?: string;
 	deleteField?: string;
+	/** aria-label/tooltip for the fully-locked-field toolbar button (an Eye
+	 * replacing Edit) that opens the read-only definition summary — same
+	 * destination as clicking the shell (`onSelect`, not `onEdit`). */
+	viewField?: string;
+	/** @deprecated Unused since 0.10.1 — the system-field lock badge was
+	 * retired in favor of the toolbar's Eye ("View definition") affordance
+	 * (see `viewField`). The key stays (label KEYS are frozen) so hosts
+	 * passing it don't break; its value is no longer rendered anywhere. */
 	systemLocked?: string;
 	// delete undo
 	fieldDeleted?: string;
@@ -243,6 +251,9 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	editField: "Edit field",
 	duplicateField: "Duplicate field",
 	deleteField: "Delete field",
+	viewField: "View definition",
+	// Deprecated (unused since 0.10.1) — kept because label KEYS are frozen
+	// and Required<EditorLabels> still demands a value for it.
 	systemLocked: "System field",
 
 	fieldDeleted: "Field deleted",
