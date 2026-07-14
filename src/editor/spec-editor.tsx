@@ -99,6 +99,14 @@ export interface EditorLabels {
 	editField?: string;
 	duplicateField?: string;
 	deleteField?: string;
+	/** aria-label/tooltip for the fully-locked-field toolbar button (an Eye
+	 * replacing Edit) that opens the read-only definition summary — same
+	 * destination as clicking the shell (`onSelect`, not `onEdit`). */
+	viewField?: string;
+	/** @deprecated Unused since 0.10.1 — the system-field lock badge was
+	 * retired in favor of the toolbar's Eye ("View definition") affordance
+	 * (see `viewField`). The key stays (label KEYS are frozen) so hosts
+	 * passing it don't break; its value is no longer rendered anywhere. */
 	systemLocked?: string;
 	// delete undo
 	fieldDeleted?: string;
@@ -206,7 +214,10 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	// 0.9.0: default STRING renamed to "Preview"; the KEY is frozen (hosts
 	// overriding `tryIt` are untouched by the rename).
 	tryIt: "Preview",
-	fixValidationFirst: "Fix validation errors before trying the form",
+	// 0.10.1: default STRING updated to match the segment it explains
+	// ("Preview", renamed from "Try it" in 0.9.0) — the KEY is frozen (hosts
+	// overriding `fixValidationFirst` are untouched by this copy change).
+	fixValidationFirst: "Fix validation errors before previewing the form",
 	saveFailed: "Save failed",
 	dirty: "Unsaved changes",
 
@@ -243,6 +254,9 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	editField: "Edit field",
 	duplicateField: "Duplicate field",
 	deleteField: "Delete field",
+	viewField: "View definition",
+	// Deprecated (unused since 0.10.1) — kept because label KEYS are frozen
+	// and Required<EditorLabels> still demands a value for it.
 	systemLocked: "System field",
 
 	fieldDeleted: "Field deleted",
@@ -386,6 +400,58 @@ export function SpecEditor({
 	useEffect(() => {
 		if (sectionRenamePulse != null) setSectionRenamePulse(null);
 	}, [sectionRenamePulse]);
+
+	// fieldkit#44: handleAddCard/handleAddSection below mutate spec.draft
+	// through apply()'s FUNCTIONAL-updater form, recomputing the partition
+	// and target tabIndex from the updater's OWN `draft` argument — not the
+	// outer `spec.draft`/`spec.partition` closed over at render time, which
+	// can be stale if an earlier same-tick call (e.g. two clicks with no
+	// render flush between them) hasn't landed yet. That means the tabIndex
+	// a given click actually used isn't knowable SYNCHRONOUSLY inside the
+	// handler for a same-tick second click — these refs let each updater
+	// hand its own result over to the effects below, which run once the
+	// mutation has genuinely committed to spec.draft/spec.partition. A
+	// same-tick double click still resolves correctly: the second updater's
+	// ref write overwrites the first's before either effect gets to read it,
+	// so the effects always target the LAST card/section actually inserted.
+	const pendingCardTabIndexRef = useRef<number | null>(null);
+	const pendingSectionRef = useRef<{
+		tabIndex: number;
+		accessor: string;
+	} | null>(null);
+
+	// Both continuations share ONE effect (rather than two, each keyed to
+	// spec.partition) because the section branch below only reads its own
+	// ref, never spec.partition's VALUE — a second effect depending on
+	// spec.partition without reading it would trip
+	// useExhaustiveDependencies as a genuinely unnecessary dependency.
+	useEffect(() => {
+		// Selects + autofocuses the card handleAddCard just inserted.
+		// insertCard's contract: the new card is the LAST card marker of its
+		// target tab — reliably readable only from the freshly committed
+		// spec.partition, not a value stashed at MUTATION time.
+		const tabIndex = pendingCardTabIndexRef.current;
+		if (tabIndex != null) {
+			pendingCardTabIndexRef.current = null;
+			const newTab = spec.partition.tabs[tabIndex];
+			const added = [...(newTab?.fields ?? [])]
+				.reverse()
+				.find((f) => f.field_type === "card");
+			if (added) {
+				setSelected(added.config.api_accessor);
+				setAutoFocusLabel(true);
+			}
+		}
+
+		// Moves the active tab to the section handleAddSection just inserted
+		// and pulses its inline rename input open.
+		const pendingSection = pendingSectionRef.current;
+		if (pendingSection) {
+			pendingSectionRef.current = null;
+			setActiveTabIndex(pendingSection.tabIndex);
+			setSectionRenamePulse(pendingSection.accessor);
+		}
+	}, [spec.partition]);
 
 	// Toast on a NEW save failure only (not on every render while saveError
 	// stays set) — the draft stays dirty (useSpecDraft's guarantee), so the
@@ -586,36 +652,48 @@ export function SpecEditor({
 	// lifted activeTabIndex is exactly why the tab state lives here. Ported
 	// from EditorCanvas's pre-toolbar handleAddCard; insertCard semantics
 	// unchanged (incl. the first-card auto-wrap).
+	//
+	// fieldkit#44: mutates via apply()'s FUNCTIONAL-updater form — the
+	// partition/tabIndex clamp is recomputed from the updater's OWN `draft`
+	// argument (see the pendingCardTabIndexRef comment above), not the outer
+	// `spec.draft`/`spec.partition`, so two same-tick clicks chain correctly
+	// instead of the second silently overwriting the first.
 	function handleAddCard() {
-		// Sectionless drafts have one tab (index 0) — clamp so a stale index
-		// always resolves to a real tab.
-		const tabIndex = Math.min(
-			activeTabIndex,
-			Math.max(0, spec.partition.tabs.length - 1),
-		);
-		const next = insertCard(spec.draft, tabIndex);
-		if (next === spec.draft) return; // empty spec: no tab to add to
-		spec.apply(next);
-		// insertCard's contract: the freshly appended card is the LAST card
-		// marker of the target tab — select it via handleEdit, which also
-		// pulses the panel's Name autofocus so the author can title it.
-		const newTab = partitionSchemaBySections(next).tabs[tabIndex];
-		const added = [...(newTab?.fields ?? [])]
-			.reverse()
-			.find((f) => f.field_type === "card");
-		if (added) handleEdit(added.config.api_accessor);
+		spec.apply((draft) => {
+			// Sectionless drafts have one tab (index 0) — clamp so a stale
+			// index always resolves to a real tab.
+			const partition = partitionSchemaBySections(draft);
+			const tabIndex = Math.min(
+				activeTabIndex,
+				Math.max(0, partition.tabs.length - 1),
+			);
+			const next = insertCard(draft, tabIndex);
+			// empty spec: no tab to add to — nothing for the effect above to
+			// select.
+			pendingCardTabIndexRef.current = next === draft ? null : tabIndex;
+			return next;
+		});
 	}
 
 	// Toolbar "+ Section": addSection semantics unchanged (append + open the
 	// inline rename input, which lives in the canvas — hence the pulse).
+	//
+	// fieldkit#44: same functional-updater fix as handleAddCard — the new
+	// tab's index is recomputed from the updater's OWN `draft` argument.
 	function handleAddSection() {
-		const next = addSection(spec.draft, mergedLabels.newSectionName);
-		const added = next[next.length - 1];
-		spec.apply(next);
-		// Appending a section always adds exactly one tab at the end,
-		// regardless of the current tab count (0, 1 implicit, or many).
-		setActiveTabIndex(spec.partition.tabs.length);
-		setSectionRenamePulse(added.config.api_accessor);
+		spec.apply((draft) => {
+			// Appending a section always adds exactly one tab at the end,
+			// regardless of the current tab count (0, 1 implicit, or many) —
+			// so the new tab's index is simply the PRE-insert tab count.
+			const newTabIndex = partitionSchemaBySections(draft).tabs.length;
+			const next = addSection(draft, mergedLabels.newSectionName);
+			const added = next[next.length - 1];
+			pendingSectionRef.current = {
+				tabIndex: newTabIndex,
+				accessor: added.config.api_accessor,
+			};
+			return next;
+		});
 	}
 
 	return (

@@ -3,18 +3,18 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconButton } from "@knkcs/anker/atoms";
 import { Tooltip } from "@knkcs/anker/primitives";
-import { Copy, GripVertical, Lock, Pencil, Trash2 } from "lucide-react";
+import { Copy, Eye, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Field } from "../schema/types";
 import type { EditorLabels } from "./spec-editor";
 
 /** A Pick of EditorLabels — the toolbar consumes the SAME flat key names as
- * EditorLabels (dragField/editField/duplicateField/deleteField/systemLocked)
+ * EditorLabels (dragField/editField/duplicateField/deleteField/viewField)
  * instead of its own drag/edit/duplicate/delete names, so a host can pass
  * its merged EditorLabels straight through without a renaming layer. */
 export type FieldShellToolbarLabels = Pick<
 	Required<EditorLabels>,
-	"dragField" | "editField" | "duplicateField" | "deleteField" | "systemLocked"
+	"dragField" | "editField" | "duplicateField" | "deleteField" | "viewField"
 >;
 
 export interface FieldShellProps {
@@ -48,6 +48,11 @@ export function FieldShell({
 	duplicateDisabled,
 }: FieldShellProps) {
 	const accessor = field.config.api_accessor;
+	// Capability-based, not a `field.system` special case at the call site:
+	// "nothing in the panel is editable" — today that's exactly `field.system`,
+	// but a future partial-editability model changes THIS predicate, not the
+	// icon logic below that reads it.
+	const fullyLocked = field.system;
 	const {
 		attributes,
 		listeners,
@@ -113,27 +118,31 @@ export function FieldShell({
 					data-testid={`shell-toolbar-${accessor}`}
 					onClick={(e) => e.stopPropagation()}
 				>
-					{field.system && (
-						<Box
-							as="span"
-							color="fg.muted"
-							px="1"
-							aria-label={labels.systemLocked}
-							role="img"
-						>
-							<Lock size={12} />
-						</Box>
+					{fullyLocked ? (
+						<Tooltip content={labels.viewField}>
+							<IconButton
+								aria-label={labels.viewField}
+								size="2xs"
+								variant="ghost"
+								// Nothing to focus in the read-only summary — select the
+								// field instead of firing onEdit (verified no-op there).
+								onClick={() => onSelect(accessor)}
+							>
+								<Eye size={14} />
+							</IconButton>
+						</Tooltip>
+					) : (
+						<Tooltip content={labels.editField}>
+							<IconButton
+								aria-label={labels.editField}
+								size="2xs"
+								variant="ghost"
+								onClick={() => onEdit(accessor)}
+							>
+								<Pencil size={14} />
+							</IconButton>
+						</Tooltip>
 					)}
-					<Tooltip content={labels.editField}>
-						<IconButton
-							aria-label={labels.editField}
-							size="2xs"
-							variant="ghost"
-							onClick={() => onEdit(accessor)}
-						>
-							<Pencil size={14} />
-						</IconButton>
-					</Tooltip>
 					<Tooltip content={labels.duplicateField}>
 						<IconButton
 							aria-label={labels.duplicateField}

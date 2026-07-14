@@ -167,8 +167,8 @@ a field's shell to select it — a floating toolbar appears above the shell
 (Edit, Duplicate, a cross-tab "Move to section" menu when the spec has 2+
 tabs, and Delete; the grip lives on the shell, never in the toolbar), and
 the [config panel](#config-panel--live-preview) opens to its right. System
-fields (`field.system`) show a lock badge in place of Delete — see
-[System Fields](#system-fields).
+fields (`field.system`) show an eye ("View definition") in place of Edit,
+and Delete is hidden — see [System Fields](#system-fields).
 
 ### ⊕ insertion
 
@@ -332,9 +332,12 @@ locked content:
 - The config panel renders a **read-only summary** (`panelSystemNotice` +
   accessor/required/instructions) instead of the editable sections — nothing
   interactive is mounted, including the plugin's `settingsComponent`.
-- The shell toolbar shows a lock and hides **Delete**; the shell's
-  always-visible grip stays enabled — authors arrange system fields freely
-  among their own.
+- The shell toolbar shows an **Eye** ("View definition") in place of Edit,
+  and hides **Delete**; the shell's always-visible grip stays enabled —
+  authors arrange system fields freely among their own. Clicking the eye
+  opens the same read-only definition summary as clicking the shell itself
+  (`onSelect`, not `onEdit` — there is nothing to focus in a read-only
+  panel).
 - **Duplicate** produces a copy with `system: false` — a copy is always
   user-owned.
 
@@ -401,7 +404,7 @@ are shown.
 | `discard` | `"Discard"` | Header Discard button |
 | `build` | `"Build"` | Toolbar mode control, Build segment |
 | `tryIt` | `"Preview"` | Toolbar mode control, Preview segment (key unchanged from the pre-0.9 "Try it" era; hosts overriding it are untouched) |
-| `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on the disabled Preview segment |
+| `fixValidationFirst` | `"Fix validation errors before previewing the form"` | Tooltip on the disabled Preview segment |
 | `saveFailed` | `"Save failed"` | Error toast title on a rejected `onCommit` |
 | `dirty` | `"Unsaved changes"` | Toolbar dirty-dot indicator's aria-label |
 | `testSubmit` | `"Test submit"` | Preview mode's submit button |
@@ -432,7 +435,8 @@ are shown.
 | `editField` | `"Edit field"` | Toolbar Edit button |
 | `duplicateField` | `"Duplicate field"` | Toolbar Duplicate button |
 | `deleteField` | `"Delete field"` | Toolbar Delete button |
-| `systemLocked` | `"System field"` | System-field lock badge aria-label |
+| `viewField` | `"View definition"` | Fully-locked (system) field toolbar button — an Eye replacing Edit; opens the same read-only definition summary as clicking the shell |
+| `systemLocked` | `"System field"` | **Deprecated, no longer rendered since 0.10.1** — the system-field lock badge was retired in favor of `viewField`'s Eye affordance (key kept: label keys are frozen) |
 | `fieldDeleted` | `"Field deleted"` | Delete-undo toast title |
 | `undo` | `"Undo"` | Delete-undo toast action |
 | `panelTabGeneral` | `"General"` | Config panel tab caption |
@@ -468,6 +472,19 @@ are shown.
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
 | `errorLooseFieldInCardedTab` | `'Field "{accessor}" must be inside a card'` | Validation message for a loose field in a carded tab (`{accessor}` interpolated) |
+
+## Migration to 0.10.1
+
+Visual-only change — **no API changes**: the system-field toolbar's lock
+badge is gone, replaced by an Eye ("View definition") in place of Edit
+(Delete stays hidden, unchanged); hosts translating `labels.systemLocked`
+should translate `labels.viewField` instead.
+
+`labels.fixValidationFirst`'s **default string** changed from "Fix
+validation errors before trying the form" to "Fix validation errors before
+previewing the form" — matching the toolbar's "Preview" segment (renamed
+from "Try it" back in 0.9.0). The key is frozen; hosts overriding this
+label are unaffected.
 
 ## Migration to 0.10.0
 

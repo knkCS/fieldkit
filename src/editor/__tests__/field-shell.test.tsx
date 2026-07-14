@@ -35,7 +35,7 @@ const shellLabels = {
 	editField: "Edit field",
 	duplicateField: "Duplicate field",
 	deleteField: "Delete field",
-	systemLocked: "System field",
+	viewField: "View definition",
 };
 
 describe("FieldShell", () => {
@@ -263,7 +263,7 @@ describe("FieldShell", () => {
 		);
 	});
 
-	it("system fields show a lock and no delete button", () => {
+	it("system fields show an eye (view definition) and no delete button", () => {
 		render(
 			<Wrap>
 				<FieldShell
@@ -279,11 +279,11 @@ describe("FieldShell", () => {
 				</FieldShell>
 			</Wrap>,
 		);
-		expect(screen.getByLabelText("System field")).toBeInTheDocument();
+		expect(screen.getByLabelText("View definition")).toBeInTheDocument();
 		expect(screen.queryByLabelText("Delete field")).not.toBeInTheDocument();
 	});
 
-	it("system field: lock badge shown, delete hidden, drag handle kept", () => {
+	it("system field: eye shown (no lock badge, no pencil), delete hidden, drag/duplicate kept", () => {
 		const sysField: Field = { ...field, system: true };
 		render(
 			<Wrap>
@@ -300,12 +300,64 @@ describe("FieldShell", () => {
 				</FieldShell>
 			</Wrap>,
 		);
-		expect(screen.getByLabelText(shellLabels.systemLocked)).toBeInTheDocument();
+		expect(screen.getByLabelText(shellLabels.viewField)).toBeInTheDocument();
+		// The Lock badge is retired entirely — no aria-label exists to query for
+		// it under any label, but this pins the absence of the OLD default
+		// string too, in case a stale host label ever leaks through.
+		expect(screen.queryByLabelText("System field")).toBeNull();
+		expect(screen.queryByLabelText(shellLabels.editField)).toBeNull();
 		expect(screen.queryByLabelText(shellLabels.deleteField)).toBeNull();
 		expect(screen.getByLabelText(shellLabels.dragField)).toBeInTheDocument();
 		expect(
 			screen.getByLabelText(shellLabels.duplicateField),
 		).toBeInTheDocument();
+	});
+
+	it("system field: clicking the eye selects, and does NOT call onEdit", () => {
+		const onSelect = vi.fn();
+		const onEdit = vi.fn();
+		const sysField: Field = { ...field, system: true };
+		render(
+			<Wrap>
+				<FieldShell
+					field={sysField}
+					selected={true}
+					onSelect={onSelect}
+					onEdit={onEdit}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		fireEvent.click(screen.getByLabelText(shellLabels.viewField));
+		expect(onSelect).toHaveBeenCalledWith("title");
+		expect(onEdit).not.toHaveBeenCalled();
+	});
+
+	it("custom (non-system) field: pencil still present and onEdit still fires", () => {
+		const onEdit = vi.fn();
+		render(
+			<Wrap>
+				<FieldShell
+					field={field}
+					selected={true}
+					onSelect={noop}
+					onEdit={onEdit}
+					onDuplicate={noop}
+					onDelete={noop}
+					labels={shellLabels}
+				>
+					<span>x</span>
+				</FieldShell>
+			</Wrap>,
+		);
+		expect(screen.getByLabelText(shellLabels.editField)).toBeInTheDocument();
+		expect(screen.queryByLabelText(shellLabels.viewField)).toBeNull();
+		fireEvent.click(screen.getByLabelText(shellLabels.editField));
+		expect(onEdit).toHaveBeenCalledWith("title");
 	});
 
 	it("renders the drag grip WITHOUT selection (persistent handle, #41)", () => {

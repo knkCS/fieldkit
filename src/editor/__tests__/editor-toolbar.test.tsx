@@ -6,6 +6,7 @@ import type { Schema } from "../../schema/types";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
 import {
 	EditorWrap,
+	makeCard,
 	makeField,
 	makeSection,
 	testPlugins,
@@ -167,6 +168,53 @@ describe("SpecEditor — unified toolbar (A2)", () => {
 		fireEvent.keyDown(input, { key: "Enter" });
 
 		expect(screen.getByRole("tab", { name: /Details/ })).toBeInTheDocument();
+	});
+
+	// fieldkit#44: handleAddCard/handleAddSection used to compute `next` from
+	// `spec.draft` (a value closed over at render time) and call `spec.apply`
+	// with that plain VALUE — two invocations with no render flush between
+	// them both read the SAME stale draft, and the second `apply` call
+	// silently overwrote the first insert. Unreachable by real users (two
+	// separate DOM click events always have a render flush in between — see
+	// the passing single-click tests above), but worth hardening. The fix
+	// routes both handlers through `spec.apply`'s FUNCTIONAL-updater form,
+	// recomputing `spec.partition` from the updater's own `draft` argument
+	// rather than the (possibly stale) outer `spec.partition`.
+	it("two same-tick + Card clicks (no render flush between them) insert TWO cards, not one", () => {
+		// Schema already has a card, so the mutation is a plain append (no
+		// auto-wrap ambiguity) — a clean way to discriminate 2 clicks -> 3
+		// card markers from the bug's 2 clicks -> 2 (second overwrites first).
+		renderEditor([makeCard("c1", "One"), makeField("a")]);
+		const button = toolbar().getByRole("button", { name: L.addCard });
+
+		// Both clicks queued inside ONE act() call with no `await`/yield
+		// between them — the same-tick scenario the issue describes.
+		act(() => {
+			fireEvent.click(button);
+			fireEvent.click(button);
+		});
+
+		expect(screen.getAllByTestId(/^card-frame-/)).toHaveLength(3);
+	});
+
+	it("two same-tick + Section clicks (no render flush between them) insert TWO sections, not one", () => {
+		renderEditor([makeField("a")]);
+		const button = toolbar().getByRole("button", { name: L.addSection });
+
+		act(() => {
+			fireEvent.click(button);
+			fireEvent.click(button);
+		});
+
+		// Only the LAST insert's rename pulse survives (pendingSectionRef is
+		// overwritten by the second click before either effect reads it), so
+		// that section renders its inline rename INPUT instead of a tab
+		// trigger — two role=tab elements (General + the FIRST new section)
+		// plus one rename input is the fixed 3-tabs-total shape. The buggy
+		// code (second `apply` overwriting the first) nets only ONE new
+		// section: 1 role=tab (General only) plus the same rename input.
+		expect(screen.getAllByRole("tab")).toHaveLength(2);
+		expect(screen.getByDisplayValue(L.newSectionName)).toBeInTheDocument();
 	});
 
 	it("title renders on its own line ABOVE the toolbar, never inside it", () => {
