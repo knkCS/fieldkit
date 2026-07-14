@@ -242,6 +242,13 @@ tab strip.
 
 <Canvas of={Stories.Sectionless} />
 
+### Carded
+
+Cards nested inside sectioned tabs — a "Basics" card, an untitled card, and
+a card inside the "SEO" tab. See "Card Layout" above.
+
+<Canvas of={Stories.Carded} />
+
 ### Read Mode
 
 A form-free render from a `values` object. The subtitle is omitted from
@@ -258,6 +265,13 @@ tab — the target tab activates and the row scrolls into view with a brief
 highlight.
 
 <Canvas of={Stories.ReadModeSectioned} />
+
+### Carded, Read Mode
+
+The same carded schema as above, rendered from `values` with no
+`FormProvider` in the tree.
+
+<Canvas of={Stories.CardedReadMode} />
 
 ### Loading
 

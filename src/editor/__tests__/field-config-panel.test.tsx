@@ -521,14 +521,16 @@ describe("FieldConfigPanel", () => {
 	});
 
 	it("autoFocusLabel focuses the name input on its rising edge only — typing elsewhere keeps focus", () => {
-		// The rising-edge effect now waits two animation frames before
-		// focusing (see field-config-panel.tsx) so that, in a real browser,
-		// it outlasts zag-js Popover's single-rAF focus-restore-to-trigger on
-		// close (verified live in Storybook via Playwright). That specific
-		// race can't be reproduced in jsdom — there's no real frame timing
-		// and no live Popover here to restore focus — so this stubs rAF as a
-		// macrotask and drains it with fake timers to deterministically
-		// flush both scheduled frames before asserting.
+		// The rising-edge effect schedules a BOUNDED RETRY-UNTIL-FOCUSABLE
+		// loop (see field-config-panel.tsx) — not a fixed frame count — so
+		// that in a real browser it can outlast zag-js Popover's single-rAF
+		// focus-restore-to-trigger on close (verified live in Storybook via
+		// Playwright) regardless of how many frames the race actually takes.
+		// That specific race can't be reproduced in jsdom — there's no real
+		// frame timing and no live Popover here to restore focus — so this
+		// stubs rAF as a macrotask and drains ALL pending timers (the retry
+		// loop, however many ticks it takes) with fake timers to
+		// deterministically reach the focused end state before asserting.
 		vi.useFakeTimers();
 		vi.stubGlobal(
 			"requestAnimationFrame",

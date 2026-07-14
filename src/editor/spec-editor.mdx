@@ -404,7 +404,7 @@ are shown.
 | `discard` | `"Discard"` | Header Discard button |
 | `build` | `"Build"` | Toolbar mode control, Build segment |
 | `tryIt` | `"Preview"` | Toolbar mode control, Preview segment (key unchanged from the pre-0.9 "Try it" era; hosts overriding it are untouched) |
-| `fixValidationFirst` | `"Fix validation errors before trying the form"` | Tooltip on the disabled Preview segment |
+| `fixValidationFirst` | `"Fix validation errors before previewing the form"` | Tooltip on the disabled Preview segment |
 | `saveFailed` | `"Save failed"` | Error toast title on a rejected `onCommit` |
 | `dirty` | `"Unsaved changes"` | Toolbar dirty-dot indicator's aria-label |
 | `testSubmit` | `"Test submit"` | Preview mode's submit button |
@@ -479,6 +479,12 @@ Visual-only change — **no API changes**: the system-field toolbar's lock
 badge is gone, replaced by an Eye ("View definition") in place of Edit
 (Delete stays hidden, unchanged); hosts translating `labels.systemLocked`
 should translate `labels.viewField` instead.
+
+`labels.fixValidationFirst`'s **default string** changed from "Fix
+validation errors before trying the form" to "Fix validation errors before
+previewing the form" — matching the toolbar's "Preview" segment (renamed
+from "Try it" back in 0.9.0). The key is frozen; hosts overriding this
+label are unaffected.
 
 ## Migration to 0.10.0
 

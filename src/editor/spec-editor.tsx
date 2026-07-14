@@ -214,7 +214,10 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	// 0.9.0: default STRING renamed to "Preview"; the KEY is frozen (hosts
 	// overriding `tryIt` are untouched by the rename).
 	tryIt: "Preview",
-	fixValidationFirst: "Fix validation errors before trying the form",
+	// 0.10.1: default STRING updated to match the segment it explains
+	// ("Preview", renamed from "Try it" in 0.9.0) — the KEY is frozen (hosts
+	// overriding `fixValidationFirst` are untouched by this copy change).
+	fixValidationFirst: "Fix validation errors before previewing the form",
 	saveFailed: "Save failed",
 	dirty: "Unsaved changes",
 

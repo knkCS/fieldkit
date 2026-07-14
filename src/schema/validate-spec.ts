@@ -115,7 +115,11 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
 	for (const tab of partitionSchemaBySections(fields).tabs) {
 		const { cards, hasCards } = partitionTabByCards(tab.fields);
-		if (!hasCards || cards.length === 0 || cards[0].card !== null) continue;
+		// No separate `cards.length === 0` check: partitionTabByCards only
+		// ever returns an empty `cards` array when hasCards is ALSO false
+		// (an empty tab, or one with no card markers), so `!hasCards` already
+		// covers it.
+		if (!hasCards || cards[0].card !== null) continue;
 		for (const loose of cards[0].fields) {
 			fieldErrors.push({
 				accessor: loose.config.api_accessor,

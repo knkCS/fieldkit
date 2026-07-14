@@ -87,8 +87,14 @@ describe("SpecForm — carded edit mode", () => {
 		// `!hasCards && <Box>{FieldRenderer}</Box>`.
 		const fieldRenderer = fieldA.parentElement;
 		expect(fieldRenderer).toHaveAttribute("data-testid", "field-renderer");
-		// Walk up from FieldRenderer until we find an element with role="tabpanel"
-		// (the Tabs.Content), counting intermediate elements.
+		// Walk up from FieldRenderer, counting intermediate elements, until we
+		// find an element with role="tabpanel" (the Tabs.Content) OR run out
+		// of ancestors. This schema is SECTIONLESS, so SpecForm renders no
+		// Tabs.Root at all — there is no real tabpanel to stop at, and the
+		// walk runs all the way up to the document root. The tabpanel check
+		// stays in the loop condition anyway so this same helper shape also
+		// works for a sectioned schema, where it WOULD stop early at the real
+		// tabpanel.
 		let current: HTMLElement | null = fieldRenderer;
 		const intermediates: HTMLElement[] = [];
 		while (current && current.getAttribute("role") !== "tabpanel") {
@@ -97,13 +103,14 @@ describe("SpecForm — carded edit mode", () => {
 				intermediates.push(current);
 			}
 		}
-		// With no wrapper: field-renderer -> several Chakra ancestors.
-		// With an added wrapper: field-renderer -> wrapper -> several Chakra ancestors.
+		// With no wrapper: field-renderer -> several Chakra ancestors -> document root.
+		// With an added wrapper: field-renderer -> wrapper -> ... -> document root.
 		// The count increases by 1 with a wrapper. Currently there are 3 ancestor elements.
-		expect(intermediates.length).toBeLessThanOrEqual(
-			3,
-			`Found ${intermediates.length} intermediate elements. A wrapper added to CardedFields' !hasCards branch would increase this count to 4+.`,
-		);
+		// (toBeLessThanOrEqual's second argument below is NOT a custom failure
+		// message — Vitest silently ignores it. Kept here as a plain comment:
+		// "A wrapper added to CardedFields' !hasCards branch would increase
+		// this count to 4+.")
+		expect(intermediates.length).toBeLessThanOrEqual(3);
 	});
 
 	it("degrades gracefully: leading loose fields render INSIDE an implicit untitled card", () => {

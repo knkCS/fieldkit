@@ -419,6 +419,15 @@ export function SpecForm({
 	const resolvedLabels = mergeLabels(DEFAULT_LABELS, labels);
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
 	const convention = useMemo(() => resolveMarkerConvention(schema), [schema]);
+	// Only actually used by the `loading` branch below, but computed here
+	// (matching `partition`/`convention`'s unconditional-useMemo pattern)
+	// because hooks can't be called after an early return — this must run on
+	// every render regardless of `loading`, not just recompute each time
+	// `loading` is true while `schema` stays the same reference.
+	const firstTabCards = useMemo(
+		() => partitionTabByCards(partition.tabs[0]?.fields ?? []),
+		[partition],
+	);
 	// Memoized so the context value doesn't change identity every render
 	// (a fresh object each render would re-render every FormField subtree).
 	const markers = useMemo<FormMarkers>(
@@ -439,7 +448,6 @@ export function SpecForm({
 	if (loading) {
 		// Skeleton draws inside card frames when the FIRST tab is carded —
 		// the first tab is what's visible while loading.
-		const firstTabCards = partitionTabByCards(partition.tabs[0]?.fields ?? []);
 		return (
 			<SpecFormSkeleton
 				fieldCount={schema.length}
