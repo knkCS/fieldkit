@@ -260,11 +260,15 @@ export const BuildWithCards: Story = {
 				<>
 					The "General" tab groups its fields into two cards (one untitled —
 					italic placeholder). Try the card header: drag its handle to move the
-					whole card, click it to rename via the panel, or open ⋯ for the two
-					delete flavors ("Delete card" merges fields into a neighbor; "Delete
-					card and fields" confirms first). "+ Card" (in the toolbar) on a tab
-					with loose fields auto-wraps them. Select <strong>Preview</strong> to
-					see the rendered card layout as a real form.
+					whole card — a header-bar clone with a "+ N fields" hint follows the
+					pointer while an accent line marks the landing slot between frames
+					(0.11.0 drag feedback; field drags likewise get a shell clone, an
+					insertion line, and a soft tint on the receiving card). Click the
+					header to rename via the panel, or open ⋯ for the two delete flavors
+					("Delete card" merges fields into a neighbor; "Delete card and fields"
+					confirms first). "+ Card" (in the toolbar) on a tab with loose fields
+					auto-wraps them. Select <strong>Preview</strong> to see the rendered
+					card layout as a real form.
 				</>
 			}
 		/>

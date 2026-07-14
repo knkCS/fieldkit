@@ -146,6 +146,25 @@ describe("EditorCanvas drag & drop", () => {
 		const rectSpy = vi
 			.spyOn(Element.prototype, "getBoundingClientRect")
 			.mockImplementation(function (this: Element) {
+				// 0.11.0: the DragOverlay preview measures through this mock too,
+				// and dnd-kit derives the keyboard collisionRect from the OVERLAY
+				// once it mounts — pin it to dragged shell-a's initial rect so
+				// the stepping semantics stay exactly pre-overlay.
+				if (this.getAttribute("data-testid") === "drag-overlay-preview") {
+					return {
+						top: 0,
+						bottom: 50,
+						left: 0,
+						right: 200,
+						width: 200,
+						height: 50,
+						x: 0,
+						y: 0,
+						toJSON() {
+							return this;
+						},
+					} as DOMRect;
+				}
 				const shells = Array.from(
 					document.querySelectorAll('[data-testid^="shell-"]'),
 				);
@@ -222,6 +241,11 @@ describe("EditorCanvas drag & drop", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: pin the DragOverlay preview to dragged shell-a's initial
+				// rect (see the keyboard-reorder test's rationale).
+				if (testId === "drag-overlay-preview") {
+					return rect(100, 0, 200, 50);
+				}
 				if (testId.startsWith("tabdrop-")) {
 					const index = Number(testId.slice("tabdrop-".length));
 					return rect(0, index * 200, 100, 40);

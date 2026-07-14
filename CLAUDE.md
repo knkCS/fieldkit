@@ -51,7 +51,10 @@ src/
 │   ├── editor-toolbar.tsx # Unified toolbar row: + Card/+ Section, mode control, Discard/Save
 │   ├── use-spec-draft.ts# Draft session (baseline = last committed content)
 │   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
-│   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd, insertion boundaries
+│   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd + overlay/live feedback, insertion boundaries
+│   ├── resolve-drop-target.ts # Pure drop resolution — end handler + live feedback single source
+│   ├── drag-previews.tsx# DragOverlay clones (shell interior / card header + field count)
+│   ├── drop-indicator.tsx # Mid-drag insertion line (3px accent + end-dot)
 │   ├── field-shell.tsx  # Per-field wrapper: persistent grip, selection, toolbar, inert content
 │   ├── card-frame.tsx   # Card header-bar frame on the canvas (block drag, select)
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)

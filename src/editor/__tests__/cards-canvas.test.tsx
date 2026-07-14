@@ -157,6 +157,12 @@ describe("EditorCanvas — cards", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: the keyboard collisionRect derives from the DragOverlay
+				// preview once it mounts — pin it to the dragged frame's initial
+				// rect (c1, the top-left frame in each of these block-move tests).
+				if (testId === "drag-overlay-preview") {
+					return rect(0, 0);
+				}
 				if (testId.startsWith("card-frame-")) {
 					const frames = Array.from(
 						document.querySelectorAll('[data-testid^="card-frame-"]'),
@@ -233,6 +239,10 @@ describe("EditorCanvas — cards", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: pin the DragOverlay preview to dragged c1's initial rect.
+				if (testId === "drag-overlay-preview") {
+					return rect(100, 0);
+				}
 				if (testId.startsWith("tabdrop-")) {
 					return rect(0, Number(testId.slice("tabdrop-".length)) * 200);
 				}
@@ -321,6 +331,12 @@ describe("EditorCanvas — cards", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: the keyboard collisionRect derives from the DragOverlay
+				// preview once it mounts — pin it to the dragged frame's initial
+				// rect (c1, the top-left frame in each of these block-move tests).
+				if (testId === "drag-overlay-preview") {
+					return rect(0, 0);
+				}
 				if (testId.startsWith("card-frame-")) {
 					const frames = Array.from(
 						document.querySelectorAll('[data-testid^="card-frame-"]'),
@@ -411,6 +427,13 @@ describe("EditorCanvas — cards", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: pin the DragOverlay preview to dragged f4's initial rect
+				// (column index 4 × 60) — at the fallback rect(0) the four
+				// ArrowUps would find no candidates above and the walk would be
+				// vacuous.
+				if (testId === "drag-overlay-preview") {
+					return rect(240);
+				}
 				if (testId.startsWith("card-frame-") || testId.startsWith("shell-")) {
 					const items = Array.from(
 						document.querySelectorAll(
@@ -485,6 +508,12 @@ describe("EditorCanvas — cards", () => {
 						},
 					}) as DOMRect;
 				const testId = this.getAttribute("data-testid") ?? "";
+				// 0.11.0: the keyboard collisionRect derives from the DragOverlay
+				// preview once it mounts — pin it to the dragged frame's initial
+				// rect (c1, the top-left frame in each of these block-move tests).
+				if (testId === "drag-overlay-preview") {
+					return rect(0, 0);
+				}
 				if (testId.startsWith("card-frame-")) {
 					const frames = Array.from(
 						document.querySelectorAll('[data-testid^="card-frame-"]'),

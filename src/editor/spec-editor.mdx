@@ -238,13 +238,35 @@ way to add one (it owns the auto-wrap bookkeeping).
 ### Drag & drop, including cross-tab
 
 Fields reorder within a tab via the shell's always-visible grip (pointer or
-keyboard — see
-[Keyboard Support](#keyboard-support)). Dragging a field's row onto another
-tab's *trigger* (not just reordering within the active tab) activates that
-tab live, previewing the drop target, and releasing moves the field to the
-end of that tab — the same operation the toolbar's "Move to section" menu
-performs without any dragging at all. Dropping onto a field's own current
-tab trigger is a no-op.
+keyboard — see [Keyboard Support](#keyboard-support)). Since 0.11.0 the
+canvas gives full mid-drag feedback (the drag-feedback rework):
+
+- **A fixed-size preview follows the pointer** — a dnd-kit `DragOverlay`
+  clone, portaled to `document.body`. Field drags carry a clone of the
+  shell; card block-drags carry the card's HEADER BAR only plus a
+  "+ N fields" count hint (`cardDragFields`/`cardDragFieldsOne`). The
+  in-list original stays in place, dimmed with a dashed outline.
+- **The list holds still**: no other shell or frame moves, scales, or
+  reflows during a drag. (Pre-0.11, dnd-kit's list strategy scaled the
+  dragged node to the hovered slot's size and translated nested card
+  frames independently of their children — both artifacts are structurally
+  gone.)
+- **A 3px accent insertion line with an end-dot marks the exact drop
+  slot** — between shells, between card frames (block drags), at a card's
+  top, or inside an empty card — and **the card that would receive the
+  field washes with a soft accent background tint** (background only; the
+  accent *border* remains the selection channel; card block-drags tint
+  nothing). Line, tint, and the executed drop all derive from ONE
+  resolution (`resolveDropTarget`), so the preview can never disagree with
+  the result.
+- Dragging a field's row onto another tab's *trigger* activates that tab
+  live and **highlights the trigger** (no line); releasing moves the field
+  to the end of that tab — the same operation the toolbar's "Move to
+  section" menu performs without any dragging at all. Dropping onto a
+  field's own current tab trigger is a no-op and shows no highlight (the
+  hover still activates the tab).
+- **Keyboard drags get the identical treatment**: the overlay glides to
+  each announced slot with the same line, tint, and trigger highlight.
 
 ### Field search
 
@@ -364,7 +386,10 @@ editing without losing the draft.
 - **Reordering**: the shell grip (always visible — no selection needed) is
   a `dnd-kit` `KeyboardSensor` target —
   focus it and press <kbd>Space</kbd> to lift, <kbd>↑</kbd>/<kbd>↓</kbd> to
-  move, <kbd>Space</kbd> again to drop, <kbd>Escape</kbd> to cancel.
+  move, <kbd>Space</kbd> again to drop, <kbd>Escape</kbd> to cancel. Since
+  0.11.0 keyboard drags render the identical feedback to pointer drags:
+  the overlay preview glides to each announced slot, and the insertion
+  line, card tint, and tab-trigger highlight track every move.
 - **Insertion**: the ⊕ trigger becomes visible on keyboard focus (not just
   hover), satisfying WCAG 2.4.7 — you never Tab onto an invisible control.
 - **Section menu / rename**: standard menu keyboard nav
@@ -425,6 +450,8 @@ are shown.
 | `addCardDisabledEmpty` | `"Add a field before adding cards"` | Tooltip on the disabled + Card while the spec has no fields (Build mode) |
 | `cardUntitled` | `"Untitled card"` | Placeholder title for an untitled card (canvas header, panel header/placeholder, menu aria interpolation) |
 | `dragCard` | `"Drag to move card"` | Card header drag-handle aria-label/tooltip (moves the whole card block) |
+| `cardDragFields` | `"+ {count} fields"` | Count hint on the card block-drag overlay preview (`{count}` interpolated; 0.11.0) |
+| `cardDragFieldsOne` | `"+ 1 field"` | Count hint on the card block-drag overlay preview at count 1 |
 | `cardMenu` | `"Card menu: {card}"` | Card ⋯ menu trigger aria-label (`{card}` interpolated) |
 | `renameCard` | `"Rename"` | Card menu item (opens the panel's Name input) |
 | `deleteCardMerge` | `"Delete card"` | Card menu item — removes the marker only; fields merge into a neighbor card |
@@ -472,6 +499,33 @@ are shown.
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
 | `errorLooseFieldInCardedTab` | `'Field "{accessor}" must be inside a card'` | Validation message for a loose field in a carded tab (`{accessor}` interpolated) |
+
+## Migration to 0.11.0
+
+Visual-only rework of mid-drag feedback — **no API changes, no
+drop-semantics changes** (every drop lands exactly where it did in 0.10):
+
+- Dragging now shows a **fixed-size overlay preview** (a dnd-kit
+  `DragOverlay`, portaled to `document.body`) instead of transforming the
+  real shell; the origin stays in place, dimmed (opacity 0.35, dashed
+  outline, `data-drag-origin`). The pre-0.11 scale artifact (a dragged
+  shell stretching to the hovered slot's size) and frame escape (a card's
+  child floating outside its frame) are gone at the root.
+- **No list reflow during a drag**: other shells/frames no longer
+  translate out of the way. The insertion point is announced by a 3px
+  accent line with an end-dot (`data-testid="drop-indicator"`, slot
+  identity in `data-position`), plus a soft background tint on the
+  receiving card and a highlight on a hovered foreign tab trigger (both
+  `data-drop-target="true"`).
+- Two new label keys caption the card block-drag preview's count hint:
+  `cardDragFields` (`"+ {count} fields"`) and `cardDragFieldsOne`
+  (`"+ 1 field"`).
+- Tests that asserted dnd-kit transforms on shells mid-drag
+  (`translate3d`/`scaleY` inline styles) should assert the new feedback
+  surfaces instead. jsdom keyboard-drag tests that mock
+  `getBoundingClientRect` must give `[data-testid="drag-overlay-preview"]`
+  the dragged item's initial rect — dnd-kit derives the keyboard collision
+  rect from the overlay once it mounts (see `docs/dnd-kit-reference.md`).
 
 ## Migration to 0.10.1
 

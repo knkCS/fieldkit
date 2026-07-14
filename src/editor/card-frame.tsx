@@ -7,6 +7,7 @@ import { Tooltip } from "@knkcs/anker/primitives";
 import { GripVertical } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Field } from "../schema/types";
+import { DropIndicatorLine } from "./drop-indicator";
 import type { EditorLabels } from "./spec-editor";
 
 /** Already-flat EditorLabels key names (same pattern as FieldShell's
@@ -25,6 +26,13 @@ export interface CardFrameProps {
 	menu?: ReactNode;
 	labels: CardFrameLabels;
 	children: ReactNode;
+	/** Mid-drag: this frame's body contains the resolved drop slot — a soft
+	 * accent BACKGROUND wash only (never the border: that channel stays
+	 * selection's). Drag-feedback spec 2026-07-14, Decision 4. */
+	dropTint?: boolean;
+	/** Mid-drag: a card BLOCK drag resolved to before/after this frame —
+	 * renders the insertion line in the gap between frames (Decision 3). */
+	dropIndicator?: "before" | "after" | null;
 }
 
 /**
@@ -43,6 +51,8 @@ export function CardFrame({
 	menu,
 	labels,
 	children,
+	dropTint,
+	dropIndicator,
 }: CardFrameProps) {
 	const accessor = card.config.api_accessor;
 	const {
@@ -52,21 +62,49 @@ export function CardFrame({
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: accessor });
+	} = useSortable({
+		id: accessor,
+		// See FieldShell: the DragOverlay's drop animation is the only settle.
+		animateLayoutChanges: () => false,
+	});
 	const title = card.config.name.trim();
 
 	return (
 		<Box
 			ref={setNodeRef}
-			style={{ transform: CSS.Transform.toString(transform), transition }}
-			opacity={isDragging ? 0.6 : 1}
-			bg="bg-surface"
+			style={{ transform: CSS.Translate.toString(transform), transition }}
+			// Dimmed origin (drag-feedback spec, Decision 1) — see FieldShell.
+			opacity={isDragging ? 0.35 : 1}
+			data-drag-origin={isDragging ? "true" : undefined}
+			// Drop-target tint (Decision 4): background wash only. anker has no
+			// accent-subtle token; primary.subtle IS the accent palette's
+			// semantic subtle step (light/dark aware). The header keeps its own
+			// bg-subtle — the wash shows in the body, where fields land.
+			bg={dropTint ? "primary.subtle" : "bg-surface"}
+			data-drop-target={dropTint ? "true" : undefined}
+			position="relative"
 			borderWidth="2px"
+			borderStyle={isDragging ? "dashed" : "solid"}
 			borderColor={selected ? "accent" : "border"}
 			borderRadius="lg"
 			boxShadow="sm"
 			data-testid={`card-frame-${accessor}`}
 		>
+			{/* Block-drag insertion line, in the Stack's 20px inter-frame gap
+			    (Decision 3: card block-drags get a line between frames and
+			    highlight nothing). */}
+			{dropIndicator === "before" && (
+				<DropIndicatorLine
+					variant="above"
+					position={`card:${accessor}:before`}
+				/>
+			)}
+			{dropIndicator === "after" && (
+				<DropIndicatorLine
+					variant="below"
+					position={`card:${accessor}:after`}
+				/>
+			)}
 			<Flex
 				align="center"
 				gap="2"

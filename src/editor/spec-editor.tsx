@@ -86,6 +86,11 @@ export interface EditorLabels {
 	cardUntitled?: string;
 	/** aria-label/tooltip for a card header's drag handle (block move). */
 	dragCard?: string;
+	/** Count hint on the card block-drag overlay preview ("{count}"
+	 * interpolated) — 0.11.0 drag-feedback rework. */
+	cardDragFields?: string;
+	/** Count hint on the card block-drag overlay preview at count 1. */
+	cardDragFieldsOne?: string;
 	cardMenu?: string; // "{card}" interpolated aria-label for the ⋯ trigger
 	renameCard?: string;
 	/** Menu item: removes the marker only — fields merge into a neighbor card. */
@@ -242,6 +247,8 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	addCardDisabledEmpty: "Add a field before adding cards",
 	cardUntitled: "Untitled card",
 	dragCard: "Drag to move card",
+	cardDragFields: "+ {count} fields",
+	cardDragFieldsOne: "+ 1 field",
 	cardMenu: "Card menu: {card}",
 	renameCard: "Rename",
 	deleteCardMerge: "Delete card",

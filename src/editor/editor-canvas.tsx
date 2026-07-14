@@ -4,6 +4,8 @@ import {
 	DndContext,
 	type DragEndEvent,
 	type DragOverEvent,
+	DragOverlay,
+	type DragStartEvent,
 	KeyboardSensor,
 	PointerSensor,
 	useDroppable,
@@ -12,8 +14,8 @@ import {
 } from "@dnd-kit/core";
 import {
 	SortableContext,
+	type SortingStrategy,
 	sortableKeyboardCoordinates,
-	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { IconButton } from "@knkcs/anker/atoms";
 import { useConfirmModal } from "@knkcs/anker/feedback";
@@ -35,6 +37,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { formatCount } from "../renderer/merge-labels";
@@ -50,7 +53,7 @@ import type {
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
-import type { Field, Schema } from "../schema/types";
+import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
 import { CardMenu } from "./card-menu";
@@ -71,7 +74,17 @@ import {
 	setOrientation,
 	uniquifyAccessor,
 } from "./draft-ops";
+import {
+	CardDragPreview,
+	cardBlockFieldCount,
+	ShellDragPreview,
+} from "./drag-previews";
+import { DropIndicatorLine } from "./drop-indicator";
 import { FieldShell } from "./field-shell";
+import {
+	type ResolvedDropTarget,
+	resolveDropTarget,
+} from "./resolve-drop-target";
 import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
 import type { EditorLabels } from "./spec-editor";
@@ -80,34 +93,44 @@ import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 import { visibleClosestCenter } from "./visible-collision";
 
-/** Droppable wrapper for a tab-trigger row — a cross-section drag target. */
+/** Droppable wrapper for a tab-trigger row — a cross-section drag target.
+ * `highlighted` marks the RESOLVED cross-tab drop target mid-drag
+ * (drag-feedback spec, Decision 3: highlight, no line): a background wash
+ * only — never a border, which is the selection channel (Decision 4). */
 function TabDropZone({
 	tabIndex,
+	highlighted,
 	children,
 }: {
 	tabIndex: number;
+	highlighted?: boolean;
 	children: ReactNode;
 }) {
 	const { setNodeRef } = useDroppable({ id: `tabdrop-${tabIndex}` });
 	return (
-		<Box ref={setNodeRef} data-testid={`tabdrop-${tabIndex}`}>
+		<Box
+			ref={setNodeRef}
+			data-testid={`tabdrop-${tabIndex}`}
+			data-drop-target={highlighted ? "true" : undefined}
+			bg={highlighted ? "primary.subtle" : undefined}
+			borderRadius="md"
+		>
 			{children}
 		</Box>
 	);
 }
 TabDropZone.displayName = "TabDropZone";
 
-/** The card marker owning `field`: the nearest preceding `card` in the
- * flat schema, cut off at a `section` boundary (cards never span tabs).
- * Null for loose fields with no marker before them in their tab. */
-function owningCard(schema: Schema, field: Field): Field | null {
-	const index = schema.indexOf(field);
-	for (let i = index - 1; i >= 0; i--) {
-		if (schema[i].field_type === "section") return null;
-		if (schema[i].field_type === "card") return schema[i];
-	}
-	return null;
-}
+/** Drag-feedback rework (2026-07-14 spec, Decision 2 — "the list holds
+ * still"): sortables get NO displacement transforms during a drag. The
+ * DragOverlay carries the only moving element, so useSortable's transform
+ * is `strategy(...)` for every non-active item — and for the active item
+ * too once the overlay is measured (`shouldDisplaceDragSource` is false).
+ * Returning null therefore leaves every real node untransformed, which
+ * kills the frame-escape artifact (flat-strategy translations vs nested
+ * card-frame DOM) structurally. Verified against the installed
+ * @dnd-kit/sortable 8.0.0 useSortable source. */
+const noopSortingStrategy: SortingStrategy = () => null;
 
 /**
  * Flat EditorLabels key names throughout (including the field-shell toolbar
@@ -164,6 +187,11 @@ export interface CanvasLabels
 	/** Accessible name for a tab's error badge at count 1; falls back to
 	 * "1 invalid field". */
 	tabErrorsOne?: string;
+	/** Count hint on the card block-drag overlay preview; "{count}"
+	 * interpolated; falls back to "+ {count} fields". */
+	cardDragFields?: string;
+	/** Count hint at count 1; falls back to "+ 1 field". */
+	cardDragFieldsOne?: string;
 	/** Accessible name for the field-search input; falls back to
 	 * "Find field". */
 	searchLabel?: string;
@@ -263,6 +291,14 @@ export function EditorCanvas({
 	// transforming shells below the hover-revealable boundary strips, and
 	// insert affordances have no business mid-drag anyway.
 	const [dragActive, setDragActive] = useState(false);
+	// The dragged field's accessor while a drag is live — drives the overlay
+	// preview clone (drag-feedback spec, Decision 1).
+	const [activeDragId, setActiveDragId] = useState<string | null>(null);
+	// The live drop resolution (Decision 3): refreshed on every dnd-kit over
+	// change, cleared on drop/cancel. handleDragEnd resolves the SAME
+	// function at release — line, tint, highlight, and the executed move can
+	// never disagree.
+	const [liveTarget, setLiveTarget] = useState<ResolvedDropTarget | null>(null);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -529,113 +565,76 @@ export function EditorCanvas({
 	);
 
 	// Hovering a tab-trigger drop zone while dragging activates that tab so
-	// the user can see where the field will land before releasing.
+	// the user can see where the field will land before releasing. The
+	// activation stays UNCONDITIONAL (not gated on resolveDropTarget):
+	// hovering back onto the SOURCE tab's own trigger is a null target
+	// (releasing there is a no-op) but must still switch the view back.
+	// Highlight ≠ activation: only a non-null tab target highlights.
 	const handleDragOver = (event: DragOverEvent) => {
 		const overId = event.over?.id;
-		if (typeof overId !== "string" || !overId.startsWith("tabdrop-")) return;
-		onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		if (typeof overId === "string" && overId.startsWith("tabdrop-")) {
+			onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		}
+		setLiveTarget(
+			event.over == null
+				? null
+				: resolveDropTarget(
+						String(event.active.id),
+						String(event.over.id),
+						draft,
+						partition,
+					),
+		);
 	};
 
-	const handleDragStart = () => setDragActive(true);
-	const handleDragCancel = () => setDragActive(false);
+	const handleDragStart = (event: DragStartEvent) => {
+		setDragActive(true);
+		setActiveDragId(String(event.active.id));
+		setLiveTarget(null);
+	};
+	const handleDragCancel = () => {
+		setDragActive(false);
+		setActiveDragId(null);
+		setLiveTarget(null);
+	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		// Before the early returns: every drop ends the drag, valid target or not.
 		setDragActive(false);
+		setActiveDragId(null);
+		setLiveTarget(null);
 		const { active, over } = event;
 		if (!over) return;
-		const activeAccessor = String(active.id);
-		const overId = String(over.id);
-
-		// Card block move — checked BEFORE the tabdrop branch: releasing a
-		// card header over a tab trigger must be a no-op (moveFieldToSection
-		// would relocate only the MARKER, orphaning its fields). v1 has no
-		// cross-tab card drag.
-		const activeField = draft.find(
-			(f) => f.config.api_accessor === activeAccessor,
+		// ONE source of truth (drag-feedback spec, Decision 3): the same
+		// resolution that drives the live indicator/tint decides the drop.
+		// The full decision logic — card branch, field-over-frame snap,
+		// cross-tab guard, tabdrop targets — lives in resolveDropTarget,
+		// ported verbatim; this handler only applies the answer.
+		const target = resolveDropTarget(
+			String(active.id),
+			String(over.id),
+			draft,
+			partition,
 		);
-		if (activeField?.field_type === "card") {
-			if (overId.startsWith("tabdrop-")) return;
-			const overField = draft.find((f) => f.config.api_accessor === overId);
-			if (!overField) return;
-			// Resolve the card OWNING the drop target: the target marker
-			// itself, or a field's nearest preceding marker — block moves snap
-			// to card boundaries (a mid-card insertion would split the target
-			// card in the flat model).
-			const targetCard =
-				overField.field_type === "card"
-					? overField
-					: owningCard(draft, overField);
-			if (!targetCard || targetCard.config.api_accessor === activeAccessor) {
+		if (!target) return;
+		switch (target.kind) {
+			case "card-block":
+				apply(
+					moveCard(
+						draft,
+						String(active.id),
+						target.targetCardAccessor,
+						target.placement,
+					),
+				);
 				return;
-			}
-			// Tab-scoping guard (review-mandated, Task 5 carry-forward): moveCard
-			// mechanically permits a CROSS-TAB block move (cardBlockRange/
-			// targetRange don't know about tabs at all) — the tabdrop- check
-			// above only catches releasing over a TAB TRIGGER, not a card/field
-			// that merely happens to live in a different, currently-inactive
-			// tab (all tabs stay mounted with the `hidden` attribute, and
-			// dnd-kit's keyboard sensor enumerates every registered droppable
-			// regardless of visibility, so it CAN resolve a cross-tab target).
-			// v1 has no cross-tab card drag, so no-op instead of relocating.
-			const sourceTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
-			);
-			const targetTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some(
-					(f) => f.config.api_accessor === targetCard.config.api_accessor,
-				),
-			);
-			if (sourceTabIndex !== targetTabIndex) return;
-			const fromIndex = draft.indexOf(activeField);
-			const toIndex = draft.indexOf(targetCard);
-			apply(
-				moveCard(
-					draft,
-					activeAccessor,
-					targetCard.config.api_accessor,
-					fromIndex < toIndex ? "after" : "before",
-				),
-			);
-			return;
+			case "tab":
+				apply(moveFieldToSection(draft, String(active.id), target.tabIndex));
+				return;
+			case "field":
+				apply(moveField(draft, target.fromIndex, target.targetIndex));
+				return;
 		}
-
-		if (overId.startsWith("tabdrop-")) {
-			const tabIndex = Number(overId.slice("tabdrop-".length));
-			// Releasing over the field's OWN tab trigger must be a no-op:
-			// moveFieldToSection appends to the target tab, so an unguarded
-			// self-drop would silently jump the field to its tab's end.
-			const sourceTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
-			);
-			if (sourceTabIndex === tabIndex) return;
-			apply(moveFieldToSection(draft, activeAccessor, tabIndex));
-			return;
-		}
-
-		if (activeAccessor === overId) return;
-		const fromIndex = draft.findIndex(
-			(f) => f.config.api_accessor === activeAccessor,
-		);
-		const toIndex = draft.findIndex((f) => f.config.api_accessor === overId);
-		if (fromIndex === -1 || toIndex === -1) return;
-		// Dropping a FIELD onto a `card` MARKER must land it INSIDE that card,
-		// not before it in the flat array. A plain moveField(fromIndex, toIndex)
-		// treats the marker like any other sortable item: on a DOWNWARD drag
-		// (fromIndex < toIndex) splicing at toIndex already lands right after
-		// the marker (toIndex shifts down by one once the source is removed) —
-		// correctly inside the card. But on an UPWARD drag (fromIndex >
-		// toIndex) splicing at toIndex lands BEFORE the marker, which — for a
-		// tab's FIRST card — strands the field ahead of every card in the tab
-		// (a loose_field_in_carded_tab violation) instead of inside the target
-		// card. Snap upward drags one slot past the marker so they land inside
-		// it too, matching the downward case.
-		const overField = draft[toIndex];
-		const targetIndex =
-			overField.field_type === "card" && fromIndex > toIndex
-				? toIndex + 1
-				: toIndex;
-		apply(moveField(draft, fromIndex, targetIndex));
 	};
 
 	// Built per-field so the canvas (not FieldShell) owns the cross-section
@@ -773,6 +772,13 @@ export function EditorCanvas({
 		</Flex>
 	);
 
+	// Split the live target by kind once — renderFields and the tab strip
+	// read these (exactly one of the three is non-null during a drag with a
+	// resolvable target; all null otherwise).
+	const fieldTarget = liveTarget?.kind === "field" ? liveTarget : null;
+	const cardBlockTarget = liveTarget?.kind === "card-block" ? liveTarget : null;
+	const tabTarget = liveTarget?.kind === "tab" ? liveTarget : null;
+
 	const renderFields = (fields: Field[], tabIndex: number) => {
 		// Keys: plain accessor for the first (usually only) occurrence — a
 		// position-dependent key would remount shells on every reorder,
@@ -791,6 +797,13 @@ export function EditorCanvas({
 			<Fragment key={keyFor(field.config.api_accessor)}>
 				<Box position="relative">
 					{insertionBoundary(tabIndex, tabPosition, "overlay")}
+					{fieldTarget?.indicator?.tabIndex === tabIndex &&
+						fieldTarget.indicator.position === tabPosition && (
+							<DropIndicatorLine
+								variant="above"
+								position={`${tabIndex}:${tabPosition}`}
+							/>
+						)}
 					<FieldShell
 						field={field}
 						selected={selectedAccessor === field.config.api_accessor}
@@ -820,7 +833,7 @@ export function EditorCanvas({
 			return (
 				<SortableContext
 					items={fields.map((f) => f.config.api_accessor)}
-					strategy={verticalListSortingStrategy}
+					strategy={noopSortingStrategy}
 				>
 					<Stack gap="5">
 						{fields.map((field, i) => shellFor(field, i))}
@@ -829,6 +842,20 @@ export function EditorCanvas({
 							fields.length,
 							"flow",
 							fields.length === 0, // empty tab: visible drop zone
+						)}
+						{/* Mid-drag the ⊕ boundary above is display:none — this
+						    same-height slot replaces it so the tab end doesn't
+						    collapse (the list holds still), and it carries the
+						    line when the tab-end slot is the resolved target. */}
+						{dragActive && (
+							<DropIndicatorLine
+								variant="flow"
+								active={
+									fieldTarget?.indicator?.tabIndex === tabIndex &&
+									fieldTarget.indicator.position === fields.length
+								}
+								position={`${tabIndex}:${fields.length}`}
+							/>
 						)}
 					</Stack>
 				</SortableContext>
@@ -846,7 +873,7 @@ export function EditorCanvas({
 		return (
 			<SortableContext
 				items={fields.map((f) => f.config.api_accessor)}
-				strategy={verticalListSortingStrategy}
+				strategy={noopSortingStrategy}
 			>
 				<Stack gap="5">
 					{cardPartition.cards.map((group) => {
@@ -861,6 +888,20 @@ export function EditorCanvas({
 									bodyStart + group.fields.length,
 									"flow",
 									group.fields.length === 0, // empty card: visible drop zone
+								)}
+								{/* Same-height flow slot mid-drag — see the card-less
+								    branch. This is also where an EMPTY card's line
+								    renders (its bodyStart slot). */}
+								{dragActive && (
+									<DropIndicatorLine
+										variant="flow"
+										active={
+											fieldTarget?.indicator?.tabIndex === tabIndex &&
+											fieldTarget.indicator.position ===
+												bodyStart + group.fields.length
+										}
+										position={`${tabIndex}:${bodyStart + group.fields.length}`}
+									/>
 								)}
 							</Stack>
 						);
@@ -883,6 +924,16 @@ export function EditorCanvas({
 								onSelect={(a) => onSelect(a)}
 								menu={buildCardMenu(group.card)}
 								labels={labels}
+								dropTint={
+									fieldTarget?.tintCardAccessor ===
+									group.card.config.api_accessor
+								}
+								dropIndicator={
+									cardBlockTarget?.targetCardAccessor ===
+									group.card.config.api_accessor
+										? cardBlockTarget.placement
+										: null
+								}
 							>
 								{body}
 							</CardFrame>
@@ -892,6 +943,42 @@ export function EditorCanvas({
 			</SortableContext>
 		);
 	};
+
+	const activeDragField = activeDragId
+		? (draft.find((f) => f.config.api_accessor === activeDragId) ?? null)
+		: null;
+	// PORTALED to document.body (drag-feedback spec, Decision 1): dnd-kit's
+	// DragOverlay renders a position:fixed wrapper IN PLACE — inside a
+	// transformed/filtered host ancestor (a drawer, a scaled preview) that
+	// wrapper would anchor to the wrong containing block. The portal keeps
+	// React context (FormProvider, plugin registry) while escaping the DOM.
+	// dnd-kit positions the clone at the active node's initial rect and
+	// moves it with the drag delta; keyboard drags glide via the built-in
+	// 'transform 250ms ease' overlay transition (keyboard parity, Decision
+	// 5). Card drags collapse the wrapper to the header-bar clone via
+	// height:auto (the wrapper is otherwise sized to the full frame rect).
+	const overlayPortal = createPortal(
+		<DragOverlay
+			style={
+				activeDragField?.field_type === "card" ? { height: "auto" } : undefined
+			}
+		>
+			{activeDragField ? (
+				activeDragField.field_type === "card" ? (
+					<CardDragPreview
+						card={activeDragField}
+						fieldCount={cardBlockFieldCount(draft, activeDragField)}
+						labels={labels}
+					/>
+				) : (
+					<ShellDragPreview>
+						<ShellContent field={activeDragField} labels={labels} />
+					</ShellDragPreview>
+				)
+			) : null}
+		</DragOverlay>,
+		document.body,
+	);
 
 	if (partition.tabs.length === 0) {
 		return (
@@ -926,6 +1013,7 @@ export function EditorCanvas({
 						<Box ref={containerRef}>
 							{renderFields(partition.tabs[0].fields, 0)}
 						</Box>
+						{overlayPortal}
 					</DndContext>
 				</FormMarkersProvider>
 			</FormProvider>
@@ -959,7 +1047,11 @@ export function EditorCanvas({
 
 										if (accessor && renaming === accessor) {
 											return (
-												<TabDropZone key={key} tabIndex={i}>
+												<TabDropZone
+													key={key}
+													tabIndex={i}
+													highlighted={tabTarget?.tabIndex === i}
+												>
 													<Input
 														size="xs"
 														width="auto"
@@ -996,7 +1088,11 @@ export function EditorCanvas({
 										}
 
 										return (
-											<TabDropZone key={key} tabIndex={i}>
+											<TabDropZone
+												key={key}
+												tabIndex={i}
+												highlighted={tabTarget?.tabIndex === i}
+											>
 												<Flex role="presentation" align="center" gap="0.5">
 													<Tabs.Trigger value={`tab-${i}`}>
 														{tab.section?.config.name ?? labels.defaultTab}
@@ -1062,6 +1158,7 @@ export function EditorCanvas({
 							))}
 						</Tabs.Root>
 					</Box>
+					{overlayPortal}
 				</DndContext>
 			</FormMarkersProvider>
 		</FormProvider>
