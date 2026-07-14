@@ -528,6 +528,29 @@ export function FieldConfigPanel({
 					>
 						{labels.panelCardNotice}
 					</Text>
+
+					{/* fieldkit#43 item 1: same F2 containment as the normal-field
+					    branch below (guardedFieldChange no-ops while the accessor is
+					    ambiguous) — but until now this branch rendered no explanation,
+					    so a hand-authored duplicate-accessor card silently blocked
+					    Name edits with no visible cause. Only reachable with
+					    hand-written schemas (insertCard's generated accessors are
+					    always unique). */}
+					{isDuplicateSelection && (
+						<Box
+							borderWidth="1px"
+							borderColor="danger.600"
+							borderRadius="md"
+							p="2"
+							mb="3"
+							data-testid="panel-duplicate-banner"
+						>
+							<Text fontSize="xs" fontWeight="semibold" color="danger.600">
+								{accessorError}
+							</Text>
+						</Box>
+					)}
+
 					<Box as="label" display="block" mb="3">
 						<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
 							{labels.name}

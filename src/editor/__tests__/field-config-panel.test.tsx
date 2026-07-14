@@ -134,6 +134,49 @@ describe("FieldConfigPanel", () => {
 		expect(onFieldChangeSpy).not.toHaveBeenCalled();
 	});
 
+	// fieldkit#43 item 1: the card branch used to render neither an
+	// explanation nor a way out when a hand-authored schema gives two cards
+	// the same accessor — guardedFieldChange silently no-ops (F2's
+	// containment), but with no banner the author has no idea WHY typing in
+	// Name does nothing. Only reachable with hand-written schemas
+	// (insertCard's generated accessors are always unique).
+	it("card branch: shows the duplicate banner and blocks Name edits for a duplicated card accessor", () => {
+		const card = makeCard("dup", "Card A");
+		const onFieldChangeSpy = vi.fn();
+		render(
+			<EditorWrap>
+				<FieldConfigPanel
+					field={card}
+					plugin={undefined}
+					draft={[card, makeCard("dup", "Card B")]}
+					fieldErrors={[
+						{
+							accessor: "dup",
+							code: "duplicate_accessor",
+							message: 'Duplicate accessor "dup"',
+						},
+					]}
+					onFieldChange={onFieldChangeSpy}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={card.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>,
+		);
+
+		expect(screen.getByTestId("panel-duplicate-banner")).toHaveTextContent(
+			'Duplicate accessor "dup"',
+		);
+
+		// Existing behavior, unchanged: guardedFieldChange still no-ops while
+		// the accessor is ambiguous.
+		fireEvent.change(screen.getByTestId("panel-card-name-input"), {
+			target: { value: "Renamed" },
+		});
+		expect(onFieldChangeSpy).not.toHaveBeenCalled();
+	});
+
 	it("does not show the duplicate banner or block edits for a non-duplicated field", () => {
 		const field = makeField("solo", "Solo");
 		const onFieldChangeSpy = vi.fn();
