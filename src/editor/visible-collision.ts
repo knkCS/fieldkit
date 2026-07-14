@@ -3,6 +3,7 @@ import {
 	type CollisionDetection,
 	closestCenter,
 	type DroppableContainer,
+	pointerWithin,
 } from "@dnd-kit/core";
 
 /**
@@ -32,3 +33,31 @@ export const visibleClosestCenter: CollisionDetection = (args) =>
 		...args,
 		droppableContainers: args.droppableContainers.filter(isVisibleDroppable),
 	});
+
+/**
+ * The canvas collision strategy: `pointerWithin` for tab-trigger zones,
+ * `visibleClosestCenter` for everything else.
+ *
+ * closestCenter compares the DRAGGED RECT's center against droppable
+ * centers — and the dragged row is canvas-wide, so its center sits
+ * hundreds of px away from a small tab trigger even while the pointer is
+ * dead-center on it; some full-width shell below always wins and the tab
+ * zones are unreachable by mouse (measured 2026-07-14; keyboard drags were
+ * unaffected because the coordinate getter moves the rect ONTO each zone).
+ * "Is the pointer inside the trigger?" is the correct test for a small
+ * discrete control, so tab zones get first claim via the pointer; keyboard
+ * drags carry no pointer coordinates and fall through to the base strategy
+ * unchanged.
+ */
+export const editorCollision: CollisionDetection = (args) => {
+	if (args.pointerCoordinates) {
+		const tabZones = args.droppableContainers.filter(
+			(c) => String(c.id).startsWith("tabdrop-") && isVisibleDroppable(c),
+		);
+		if (tabZones.length > 0) {
+			const hits = pointerWithin({ ...args, droppableContainers: tabZones });
+			if (hits.length > 0) return hits;
+		}
+	}
+	return visibleClosestCenter(args);
+};

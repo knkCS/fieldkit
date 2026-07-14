@@ -15,7 +15,7 @@ dnd-kit is used only by the **editor layer**:
 | `src/editor/editor-canvas.tsx` | `DndContext` (×2: sectionless + sectioned), sensors, both `SortableContext`s, all drag handlers, the portaled `DragOverlay`, live feedback state |
 | `src/editor/field-shell.tsx` | `useSortable` per field shell; the persistent grip carries `attributes`/`listeners` |
 | `src/editor/card-frame.tsx` | `useSortable` per card marker; the header grip block-moves the card |
-| `src/editor/visible-collision.ts` | `visibleClosestCenter` — `closestCenter` filtered to visible (non-zero-rect) droppables |
+| `src/editor/visible-collision.ts` | `editorCollision` — `pointerWithin` for tab-trigger zones, else `visibleClosestCenter` (`closestCenter` filtered to visible non-zero-rect droppables) |
 | `src/editor/resolve-drop-target.ts` | Pure drop resolution shared by `handleDragEnd` and the live indicator/tint/highlight |
 | `src/editor/drag-previews.tsx`, `src/editor/drop-indicator.tsx` | Presentational: overlay clones, insertion line |
 
@@ -88,7 +88,13 @@ of how the DOM nests fields inside card frames. During a drag:
 
 Unchanged since 0.8: `PointerSensor` with `activationConstraint:
 { distance: 8 }` (click vs drag dead zone) + `KeyboardSensor` with
-`sortableKeyboardCoordinates`; `collisionDetection={visibleClosestCenter}`
+`sortableKeyboardCoordinates`. `collisionDetection={editorCollision}`
+(0.11.2): tab-trigger zones resolve by `pointerWithin` — closestCenter
+compares the DRAGGED RECT's center to droppable centers, and the
+canvas-wide row's center sits too far from a small trigger chip for a tab
+zone ever to win by distance (measured: pointer drags could not reach tabs
+at all; keyboard drags worked because the coordinate getter moves the rect
+onto each zone). Everything else falls back to `visibleClosestCenter`
 (hidden tabs stay mounted, so zero-rect droppables must be filtered). ALL
 FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
 `onDragOver` (unconditional tabdrop hover-activation + live target),
@@ -122,7 +128,10 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
 1. `PointerSensor` `{ distance: 8 }` + `KeyboardSensor` with
    `sortableKeyboardCoordinates`.
 2. `visibleClosestCenter` when hidden-but-mounted droppables exist;
-   plain `closestCenter` otherwise.
+   plain `closestCenter` otherwise. If small discrete drop targets coexist
+   with full-width sortables, give the small targets first claim via
+   `pointerWithin` (see `editorCollision`) — center distance alone cannot
+   reach them.
 3. For heterogeneous-height lists (or any nested-DOM rendering of a flat
    list): `DragOverlay` clone + no-op strategy. `verticalListSortingStrategy`
    only fits homogeneous flat lists where a reflow preview is wanted.

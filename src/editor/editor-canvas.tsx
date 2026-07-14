@@ -91,7 +91,7 @@ import type { EditorLabels } from "./spec-editor";
 import type { TypePickerLabels } from "./type-picker";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
-import { visibleClosestCenter } from "./visible-collision";
+import { editorCollision } from "./visible-collision";
 
 /** Droppable wrapper for a tab-trigger row — a cross-section drag target.
  * `highlighted` marks the RESOLVED cross-tab drop target mid-drag
@@ -1001,7 +1001,7 @@ export function EditorCanvas({
 				<FormMarkersProvider value={markers}>
 					<DndContext
 						sensors={sensors}
-						collisionDetection={visibleClosestCenter}
+						collisionDetection={editorCollision}
 						onDragStart={handleDragStart}
 						onDragOver={handleDragOver}
 						onDragEnd={handleDragEnd}
@@ -1025,7 +1025,7 @@ export function EditorCanvas({
 			<FormMarkersProvider value={markers}>
 				<DndContext
 					sensors={sensors}
-					collisionDetection={visibleClosestCenter}
+					collisionDetection={editorCollision}
 					onDragStart={handleDragStart}
 					onDragOver={handleDragOver}
 					onDragEnd={handleDragEnd}
