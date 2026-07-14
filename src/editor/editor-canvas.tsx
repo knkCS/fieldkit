@@ -12,8 +12,8 @@ import {
 } from "@dnd-kit/core";
 import {
 	SortableContext,
+	type SortingStrategy,
 	sortableKeyboardCoordinates,
-	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { IconButton } from "@knkcs/anker/atoms";
 import { useConfirmModal } from "@knkcs/anker/feedback";
@@ -50,7 +50,7 @@ import type {
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
-import type { Field, Schema } from "../schema/types";
+import type { Field } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
 import { CardMenu } from "./card-menu";
@@ -72,6 +72,7 @@ import {
 	uniquifyAccessor,
 } from "./draft-ops";
 import { FieldShell } from "./field-shell";
+import { resolveDropTarget } from "./resolve-drop-target";
 import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
 import type { EditorLabels } from "./spec-editor";
@@ -97,17 +98,16 @@ function TabDropZone({
 }
 TabDropZone.displayName = "TabDropZone";
 
-/** The card marker owning `field`: the nearest preceding `card` in the
- * flat schema, cut off at a `section` boundary (cards never span tabs).
- * Null for loose fields with no marker before them in their tab. */
-function owningCard(schema: Schema, field: Field): Field | null {
-	const index = schema.indexOf(field);
-	for (let i = index - 1; i >= 0; i--) {
-		if (schema[i].field_type === "section") return null;
-		if (schema[i].field_type === "card") return schema[i];
-	}
-	return null;
-}
+/** Drag-feedback rework (2026-07-14 spec, Decision 2 — "the list holds
+ * still"): sortables get NO displacement transforms during a drag. The
+ * DragOverlay carries the only moving element, so useSortable's transform
+ * is `strategy(...)` for every non-active item — and for the active item
+ * too once the overlay is measured (`shouldDisplaceDragSource` is false).
+ * Returning null therefore leaves every real node untransformed, which
+ * kills the frame-escape artifact (flat-strategy translations vs nested
+ * card-frame DOM) structurally. Verified against the installed
+ * @dnd-kit/sortable 8.0.0 useSortable source. */
+const noopSortingStrategy: SortingStrategy = () => null;
 
 /**
  * Flat EditorLabels key names throughout (including the field-shell toolbar
@@ -544,98 +544,36 @@ export function EditorCanvas({
 		setDragActive(false);
 		const { active, over } = event;
 		if (!over) return;
-		const activeAccessor = String(active.id);
-		const overId = String(over.id);
-
-		// Card block move — checked BEFORE the tabdrop branch: releasing a
-		// card header over a tab trigger must be a no-op (moveFieldToSection
-		// would relocate only the MARKER, orphaning its fields). v1 has no
-		// cross-tab card drag.
-		const activeField = draft.find(
-			(f) => f.config.api_accessor === activeAccessor,
+		// ONE source of truth (drag-feedback spec, Decision 3): the same
+		// resolution that drives the live indicator/tint decides the drop.
+		// The full decision logic — card branch, field-over-frame snap,
+		// cross-tab guard, tabdrop targets — lives in resolveDropTarget,
+		// ported verbatim; this handler only applies the answer.
+		const target = resolveDropTarget(
+			String(active.id),
+			String(over.id),
+			draft,
+			partition,
 		);
-		if (activeField?.field_type === "card") {
-			if (overId.startsWith("tabdrop-")) return;
-			const overField = draft.find((f) => f.config.api_accessor === overId);
-			if (!overField) return;
-			// Resolve the card OWNING the drop target: the target marker
-			// itself, or a field's nearest preceding marker — block moves snap
-			// to card boundaries (a mid-card insertion would split the target
-			// card in the flat model).
-			const targetCard =
-				overField.field_type === "card"
-					? overField
-					: owningCard(draft, overField);
-			if (!targetCard || targetCard.config.api_accessor === activeAccessor) {
+		if (!target) return;
+		switch (target.kind) {
+			case "card-block":
+				apply(
+					moveCard(
+						draft,
+						String(active.id),
+						target.targetCardAccessor,
+						target.placement,
+					),
+				);
 				return;
-			}
-			// Tab-scoping guard (review-mandated, Task 5 carry-forward): moveCard
-			// mechanically permits a CROSS-TAB block move (cardBlockRange/
-			// targetRange don't know about tabs at all) — the tabdrop- check
-			// above only catches releasing over a TAB TRIGGER, not a card/field
-			// that merely happens to live in a different, currently-inactive
-			// tab (all tabs stay mounted with the `hidden` attribute, and
-			// dnd-kit's keyboard sensor enumerates every registered droppable
-			// regardless of visibility, so it CAN resolve a cross-tab target).
-			// v1 has no cross-tab card drag, so no-op instead of relocating.
-			const sourceTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
-			);
-			const targetTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some(
-					(f) => f.config.api_accessor === targetCard.config.api_accessor,
-				),
-			);
-			if (sourceTabIndex !== targetTabIndex) return;
-			const fromIndex = draft.indexOf(activeField);
-			const toIndex = draft.indexOf(targetCard);
-			apply(
-				moveCard(
-					draft,
-					activeAccessor,
-					targetCard.config.api_accessor,
-					fromIndex < toIndex ? "after" : "before",
-				),
-			);
-			return;
+			case "tab":
+				apply(moveFieldToSection(draft, String(active.id), target.tabIndex));
+				return;
+			case "field":
+				apply(moveField(draft, target.fromIndex, target.targetIndex));
+				return;
 		}
-
-		if (overId.startsWith("tabdrop-")) {
-			const tabIndex = Number(overId.slice("tabdrop-".length));
-			// Releasing over the field's OWN tab trigger must be a no-op:
-			// moveFieldToSection appends to the target tab, so an unguarded
-			// self-drop would silently jump the field to its tab's end.
-			const sourceTabIndex = partition.tabs.findIndex((tab) =>
-				tab.fields.some((f) => f.config.api_accessor === activeAccessor),
-			);
-			if (sourceTabIndex === tabIndex) return;
-			apply(moveFieldToSection(draft, activeAccessor, tabIndex));
-			return;
-		}
-
-		if (activeAccessor === overId) return;
-		const fromIndex = draft.findIndex(
-			(f) => f.config.api_accessor === activeAccessor,
-		);
-		const toIndex = draft.findIndex((f) => f.config.api_accessor === overId);
-		if (fromIndex === -1 || toIndex === -1) return;
-		// Dropping a FIELD onto a `card` MARKER must land it INSIDE that card,
-		// not before it in the flat array. A plain moveField(fromIndex, toIndex)
-		// treats the marker like any other sortable item: on a DOWNWARD drag
-		// (fromIndex < toIndex) splicing at toIndex already lands right after
-		// the marker (toIndex shifts down by one once the source is removed) —
-		// correctly inside the card. But on an UPWARD drag (fromIndex >
-		// toIndex) splicing at toIndex lands BEFORE the marker, which — for a
-		// tab's FIRST card — strands the field ahead of every card in the tab
-		// (a loose_field_in_carded_tab violation) instead of inside the target
-		// card. Snap upward drags one slot past the marker so they land inside
-		// it too, matching the downward case.
-		const overField = draft[toIndex];
-		const targetIndex =
-			overField.field_type === "card" && fromIndex > toIndex
-				? toIndex + 1
-				: toIndex;
-		apply(moveField(draft, fromIndex, targetIndex));
 	};
 
 	// Built per-field so the canvas (not FieldShell) owns the cross-section
@@ -820,7 +758,7 @@ export function EditorCanvas({
 			return (
 				<SortableContext
 					items={fields.map((f) => f.config.api_accessor)}
-					strategy={verticalListSortingStrategy}
+					strategy={noopSortingStrategy}
 				>
 					<Stack gap="5">
 						{fields.map((field, i) => shellFor(field, i))}
@@ -846,7 +784,7 @@ export function EditorCanvas({
 		return (
 			<SortableContext
 				items={fields.map((f) => f.config.api_accessor)}
-				strategy={verticalListSortingStrategy}
+				strategy={noopSortingStrategy}
 			>
 				<Stack gap="5">
 					{cardPartition.cards.map((group) => {

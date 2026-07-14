@@ -52,13 +52,17 @@ export function CardFrame({
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: accessor });
+	} = useSortable({
+		id: accessor,
+		// See FieldShell: the DragOverlay's drop animation is the only settle.
+		animateLayoutChanges: () => false,
+	});
 	const title = card.config.name.trim();
 
 	return (
 		<Box
 			ref={setNodeRef}
-			style={{ transform: CSS.Transform.toString(transform), transition }}
+			style={{ transform: CSS.Translate.toString(transform), transition }}
 			opacity={isDragging ? 0.6 : 1}
 			bg="bg-surface"
 			borderWidth="2px"

@@ -62,6 +62,13 @@ export function FieldShell({
 		isDragging,
 	} = useSortable({
 		id: accessor,
+		// Drag-feedback rework: no post-drop settle transform. The default
+		// animateLayoutChanges re-transforms a moved node from its old rect —
+		// including a transient scaleX/scaleY ≠ 1 whenever its width changes
+		// (e.g. moving into a card frame) — re-introducing the scale-artifact
+		// class this rework kills. The DragOverlay's drop animation is the
+		// only settle.
+		animateLayoutChanges: () => false,
 	});
 
 	const borderColor = invalid
@@ -73,7 +80,7 @@ export function FieldShell({
 	return (
 		<Box
 			ref={setNodeRef}
-			style={{ transform: CSS.Transform.toString(transform), transition }}
+			style={{ transform: CSS.Translate.toString(transform), transition }}
 			position="relative"
 			borderWidth="2px"
 			borderColor={borderColor}
