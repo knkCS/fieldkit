@@ -301,18 +301,19 @@ describe("EditorCanvas — cards", () => {
 		expect(within(frame).getByLabelText("Add field")).toBeInTheDocument();
 	});
 
-	// Review-mandated extension (carried forward from Task 5's review): moveCard
-	// mechanically permits a CROSS-TAB block move — cardBlockRange/targetRange
-	// don't know about tabs at all. Task 5's brief explicitly delegates the v1
-	// "no cross-tab card drag" guard to this canvas's handleDragEnd. The
-	// tabdrop- branch (tested above) only covers releasing over a TAB TRIGGER;
-	// it says nothing about releasing over a card/field that merely HAPPENS to
-	// live in a different, currently-inactive tab (all tabs stay mounted with
-	// the `hidden` attribute — zag-js's Tabs — so dnd-kit's keyboard sensor,
-	// which enumerates every registered droppable regardless of visibility,
-	// can and does resolve targets across tab boundaries). This test proves
-	// that path is ALSO guarded.
-	it("card header drag never crosses tab boundaries even when dnd-kit resolves a target there", async () => {
+	// INVERTED for 0.12.0 (spring-loaded sections): this pinned the OLD 0.8.0
+	// same-tab card guard (v1 "no cross-tab card drag" — carried forward from
+	// Task 5's review). moveCard mechanically permits a CROSS-TAB block move
+	// — cardBlockRange/targetRange don't know about tabs at all — and that
+	// guard has been deleted from resolveDropTarget's card branch: a visible
+	// foreign card (or one of its fields) is now a LEGITIMATE card-block
+	// target (all tabs stay mounted with the `hidden` attribute — zag-js's
+	// Tabs — so dnd-kit's keyboard sensor, which enumerates every registered
+	// droppable regardless of visibility, can and does resolve targets across
+	// tab boundaries; the sprung-tab visibility is what makes the target
+	// reachable in the first place). This test now proves the cross-tab MOVE
+	// actually happens.
+	it("card header drag DOES cross tab boundaries once resolved there (guard deleted)", async () => {
 		const rectSpy = vi
 			.spyOn(Element.prototype, "getBoundingClientRect")
 			.mockImplementation(function (this: Element) {
@@ -376,20 +377,19 @@ describe("EditorCanvas — cards", () => {
 		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowDown" });
 		fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
 
-		// Without the tab-scoping guard, c1's whole block (marker + field a)
-		// would relocate into the SEO tab, after c2 — a v1-illegal cross-tab
-		// card move. The guard must no-op it, leaving both tabs' contents
-		// exactly where they started.
+		// Guard deleted: c1's whole block (marker + field a) relocates into the
+		// SEO tab, AFTER c2's whole block — landing at the end of the flat
+		// schema (SEO becomes [c2, b, c1, a]; General is left empty).
 		const order = Array.from(
 			container.querySelectorAll(
 				'[data-testid^="card-frame-"], [data-testid^="shell-"]',
 			),
 		).map((el) => el.getAttribute("data-testid"));
 		expect(order).toEqual([
-			"card-frame-c1",
-			"shell-a",
 			"card-frame-c2",
 			"shell-b",
+			"card-frame-c1",
+			"shell-a",
 		]);
 
 		rectSpy.mockRestore();

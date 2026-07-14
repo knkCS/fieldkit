@@ -381,6 +381,54 @@ export function moveFieldToSection(
 	return insertFieldAt(without, field, insertAfter + 1);
 }
 
+/** Moves a card BLOCK (marker + fields, via cardBlockRange) to the END of
+ * the target section — the card sibling of moveFieldToSection, sharing its
+ * two-phase partition approach (find target tab before removal by index,
+ * re-find after removal by section accessor). No-ops when the card already
+ * lives in the target tab, or when card/tab don't resolve. */
+export function moveCardToSection(
+	schema: Schema,
+	cardAccessor: string,
+	tabIndex: number,
+): Schema {
+	const range = cardBlockRange(schema, cardAccessor);
+	if (!range) return schema;
+	const [start, end] = range;
+
+	const originalPartition = partitionSchemaBySections(schema);
+	const targetTab = originalPartition.tabs[tabIndex];
+	if (!targetTab) return schema;
+	const sourceTabIndex = originalPartition.tabs.findIndex((tab) =>
+		tab.fields.some(
+			(f) => f.field_type === "card" && f.config.api_accessor === cardAccessor,
+		),
+	);
+	if (sourceTabIndex === tabIndex) return schema;
+
+	const block = schema.slice(start, end);
+	const without = [...schema.slice(0, start), ...schema.slice(end)];
+	const partition = partitionSchemaBySections(without);
+	const tab = partition.tabs.find((t) => {
+		if (targetTab.section === null) return t.section === null;
+		return (
+			t.section?.config.api_accessor === targetTab.section.config.api_accessor
+		);
+	});
+	if (!tab) return schema;
+	// Flat index just after the tab's last field (or just after its marker
+	// when empty) — identical dialect to moveFieldToSection.
+	const lastOfTab = tab.fields[tab.fields.length - 1] ?? tab.section;
+	if (!lastOfTab) return [...block, ...without]; // implicit empty first tab
+	const insertAfter = without.findIndex(
+		(f) => f.config.api_accessor === lastOfTab.config.api_accessor,
+	);
+	return [
+		...without.slice(0, insertAfter + 1),
+		...block,
+		...without.slice(insertAfter + 1),
+	];
+}
+
 /** A card block = the marker plus every field up to the next `card` or
  * `section` marker (cards never span tabs) — the card-layout sibling of
  * `sectionBlockRange`. */

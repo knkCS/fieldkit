@@ -175,11 +175,23 @@ describe("resolveDropTarget — card block drags", () => {
 		expect(resolve("m0", "f1", carded)).toBeNull();
 	});
 
-	it("card over a tab trigger is a no-op (marker-orphan guard)", () => {
-		expect(resolve("m0", "tabdrop-1", carded)).toBeNull();
+	// INVERTED for 0.12.0 (spring-loaded sections): this pinned the OLD 0.8.0
+	// "any card-over-tabdrop is a no-op" guard. `carded` has only one (implicit)
+	// tab, so "tabdrop-1" names a FOREIGN tab from m0's perspective (its own
+	// tab is index 0) — the deleted guard used to null this unconditionally;
+	// now a foreign tab trigger resolves a tab target, same as the field path.
+	it("card over a FOREIGN tab trigger resolves a tab target (guard deleted)", () => {
+		expect(resolve("m0", "tabdrop-1", carded)).toEqual({
+			kind: "tab",
+			tabIndex: 1,
+		});
 	});
 
-	it("cross-tab card targets are a no-op (v1 guard)", () => {
+	// INVERTED for 0.12.0: this pinned the OLD 0.8.0 same-tab card guard
+	// (v1 "no cross-tab card drag"). The guard is gone — a visible foreign
+	// card is a legitimate card-block target now (see the "card cross-section
+	// targets" describe block below for the dedicated coverage).
+	it("card over a foreign card's field resolves a card-block target (guard deleted)", () => {
 		const crossTab: Schema = [
 			makeCard("c1", "One"),
 			makeField("a"),
@@ -187,6 +199,49 @@ describe("resolveDropTarget — card block drags", () => {
 			makeCard("c2", "Two"),
 			makeField("b"),
 		];
-		expect(resolve("c1", "b", crossTab)).toBeNull();
+		expect(resolve("c1", "b", crossTab)).toEqual({
+			kind: "card-block",
+			targetCardAccessor: "c2",
+			placement: "after",
+		});
+	});
+});
+
+describe("card cross-section targets (0.12.0)", () => {
+	// General: [card c1: f1] | SEO: [card c2: f2]
+	const draft = [
+		makeCard("c1", "One"),
+		makeField("f1"),
+		makeSection("s1", "SEO"),
+		makeCard("c2", "Two"),
+		makeField("f2"),
+	];
+	const partition = partitionSchemaBySections(draft);
+
+	it("card over a FOREIGN tab trigger resolves a tab target", () => {
+		expect(resolveDropTarget("c1", "tabdrop-1", draft, partition)).toEqual({
+			kind: "tab",
+			tabIndex: 1,
+		});
+	});
+
+	it("card over its OWN tab trigger stays null (self-drop no-op)", () => {
+		expect(resolveDropTarget("c1", "tabdrop-0", draft, partition)).toBeNull();
+	});
+
+	it("card over a foreign card resolves a card-block target (guard deleted — the sprung tab is visible)", () => {
+		expect(resolveDropTarget("c1", "c2", draft, partition)).toEqual({
+			kind: "card-block",
+			targetCardAccessor: "c2",
+			placement: "after",
+		});
+	});
+
+	it("card over a foreign card's FIELD resolves to that card too", () => {
+		expect(resolveDropTarget("c1", "f2", draft, partition)).toEqual({
+			kind: "card-block",
+			targetCardAccessor: "c2",
+			placement: "after",
+		});
 	});
 });

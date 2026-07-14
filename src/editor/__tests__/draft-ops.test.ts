@@ -10,6 +10,7 @@ import {
 	duplicateField,
 	flatInsertIndex,
 	insertFieldAt,
+	moveCardToSection,
 	moveField,
 	moveFieldToSection,
 	moveSection,
@@ -22,6 +23,7 @@ import {
 	uniquifyAccessor,
 	updateField,
 } from "../draft-ops";
+import { makeCard, makeField, makeSection } from "./editor-helpers";
 
 function makePlugin(overrides: Partial<FieldTypePlugin> = {}): FieldTypePlugin {
 	return {
@@ -423,5 +425,66 @@ describe("flatInsertIndex", () => {
 		const schema: Schema = [s("s1"), f("a"), s("s2"), f("c")];
 		const partition = partitionSchemaBySections(schema);
 		expect(flatInsertIndex(schema, partition, 0, 9)).toBe(2);
+	});
+});
+
+describe("moveCardToSection", () => {
+	// [card c1: f1, f2] | section S: [card c2: f3]
+	const schema = [
+		makeCard("c1", "One"),
+		makeField("f1"),
+		makeField("f2"),
+		makeSection("s1", "SEO"),
+		makeCard("c2", "Two"),
+		makeField("f3"),
+	];
+
+	it("moves the marker AND its fields to the end of the target section", () => {
+		const next = moveCardToSection(schema, "c1", 1);
+		expect(next.map((f) => f.config.api_accessor)).toEqual([
+			"s1",
+			"c2",
+			"f3",
+			"c1",
+			"f1",
+			"f2",
+		]);
+	});
+
+	it("moves an empty card", () => {
+		const withEmpty = [...schema, makeCard("c3", "Empty")]; // last block of tab 1
+		const next = moveCardToSection(withEmpty, "c3", 0);
+		expect(next.map((f) => f.config.api_accessor)).toEqual([
+			"c1",
+			"f1",
+			"f2",
+			"c3",
+			"s1",
+			"c2",
+			"f3",
+		]);
+	});
+
+	it("moves into an EMPTY section (right after its marker)", () => {
+		const withEmptyTab = [...schema, makeSection("s2", "Empty tab")];
+		const next = moveCardToSection(withEmptyTab, "c1", 2);
+		expect(next.map((f) => f.config.api_accessor)).toEqual([
+			"s1",
+			"c2",
+			"f3",
+			"s2",
+			"c1",
+			"f1",
+			"f2",
+		]);
+	});
+
+	it("no-ops when the card already lives in the target tab", () => {
+		expect(moveCardToSection(schema, "c1", 0)).toBe(schema);
+	});
+
+	it("no-ops on an unknown card accessor or missing tab", () => {
+		expect(moveCardToSection(schema, "nope", 1)).toBe(schema);
+		expect(moveCardToSection(schema, "c1", 9)).toBe(schema);
 	});
 });
