@@ -25,6 +25,12 @@ export function cardBlockFieldCount(draft: Schema, card: Field): number {
  * rect; this fills it with the shell's look — shadow + slight tilt for
  * lift. Presentational only; the interior is inert (the same
  * React-18-safe string-value idiom as FieldShell's F8 block).
+ *
+ * Surface is `bg-subtle` + 1px border — the shared drag-clone language
+ * with CardDragPreview. NOT `bg-surface` + 2px: that is the card
+ * frame's costume, and on a card-less canvas (where shells sit
+ * transparent on the page) a white bordered panel reads as "a card
+ * appeared mid-drag" (mediahub field report, 2026-07-14).
  */
 export function ShellDragPreview({ children }: { children: ReactNode }) {
 	return (
@@ -32,8 +38,8 @@ export function ShellDragPreview({ children }: { children: ReactNode }) {
 			data-testid="drag-overlay-preview"
 			width="100%"
 			height="100%"
-			bg="bg-surface"
-			borderWidth="2px"
+			bg="bg-subtle"
+			borderWidth="1px"
 			borderColor="border"
 			borderRadius="md"
 			boxShadow="lg"
