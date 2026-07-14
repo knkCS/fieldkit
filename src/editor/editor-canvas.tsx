@@ -79,8 +79,12 @@ import {
 	cardBlockFieldCount,
 	ShellDragPreview,
 } from "./drag-previews";
+import { DropIndicatorLine } from "./drop-indicator";
 import { FieldShell } from "./field-shell";
-import { resolveDropTarget } from "./resolve-drop-target";
+import {
+	type ResolvedDropTarget,
+	resolveDropTarget,
+} from "./resolve-drop-target";
 import type { SectionMenuLabels } from "./section-menu";
 import { SectionMenu } from "./section-menu";
 import type { EditorLabels } from "./spec-editor";
@@ -89,17 +93,28 @@ import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
 import { visibleClosestCenter } from "./visible-collision";
 
-/** Droppable wrapper for a tab-trigger row — a cross-section drag target. */
+/** Droppable wrapper for a tab-trigger row — a cross-section drag target.
+ * `highlighted` marks the RESOLVED cross-tab drop target mid-drag
+ * (drag-feedback spec, Decision 3: highlight, no line): a background wash
+ * only — never a border, which is the selection channel (Decision 4). */
 function TabDropZone({
 	tabIndex,
+	highlighted,
 	children,
 }: {
 	tabIndex: number;
+	highlighted?: boolean;
 	children: ReactNode;
 }) {
 	const { setNodeRef } = useDroppable({ id: `tabdrop-${tabIndex}` });
 	return (
-		<Box ref={setNodeRef} data-testid={`tabdrop-${tabIndex}`}>
+		<Box
+			ref={setNodeRef}
+			data-testid={`tabdrop-${tabIndex}`}
+			data-drop-target={highlighted ? "true" : undefined}
+			bg={highlighted ? "primary.subtle" : undefined}
+			borderRadius="md"
+		>
 			{children}
 		</Box>
 	);
@@ -279,6 +294,11 @@ export function EditorCanvas({
 	// The dragged field's accessor while a drag is live — drives the overlay
 	// preview clone (drag-feedback spec, Decision 1).
 	const [activeDragId, setActiveDragId] = useState<string | null>(null);
+	// The live drop resolution (Decision 3): refreshed on every dnd-kit over
+	// change, cleared on drop/cancel. handleDragEnd resolves the SAME
+	// function at release — line, tint, highlight, and the executed move can
+	// never disagree.
+	const [liveTarget, setLiveTarget] = useState<ResolvedDropTarget | null>(null);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -545,26 +565,44 @@ export function EditorCanvas({
 	);
 
 	// Hovering a tab-trigger drop zone while dragging activates that tab so
-	// the user can see where the field will land before releasing.
+	// the user can see where the field will land before releasing. The
+	// activation stays UNCONDITIONAL (not gated on resolveDropTarget):
+	// hovering back onto the SOURCE tab's own trigger is a null target
+	// (releasing there is a no-op) but must still switch the view back.
+	// Highlight ≠ activation: only a non-null tab target highlights.
 	const handleDragOver = (event: DragOverEvent) => {
 		const overId = event.over?.id;
-		if (typeof overId !== "string" || !overId.startsWith("tabdrop-")) return;
-		onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		if (typeof overId === "string" && overId.startsWith("tabdrop-")) {
+			onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		}
+		setLiveTarget(
+			event.over == null
+				? null
+				: resolveDropTarget(
+						String(event.active.id),
+						String(event.over.id),
+						draft,
+						partition,
+					),
+		);
 	};
 
 	const handleDragStart = (event: DragStartEvent) => {
 		setDragActive(true);
 		setActiveDragId(String(event.active.id));
+		setLiveTarget(null);
 	};
 	const handleDragCancel = () => {
 		setDragActive(false);
 		setActiveDragId(null);
+		setLiveTarget(null);
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		// Before the early returns: every drop ends the drag, valid target or not.
 		setDragActive(false);
 		setActiveDragId(null);
+		setLiveTarget(null);
 		const { active, over } = event;
 		if (!over) return;
 		// ONE source of truth (drag-feedback spec, Decision 3): the same
@@ -734,6 +772,13 @@ export function EditorCanvas({
 		</Flex>
 	);
 
+	// Split the live target by kind once — renderFields and the tab strip
+	// read these (exactly one of the three is non-null during a drag with a
+	// resolvable target; all null otherwise).
+	const fieldTarget = liveTarget?.kind === "field" ? liveTarget : null;
+	const cardBlockTarget = liveTarget?.kind === "card-block" ? liveTarget : null;
+	const tabTarget = liveTarget?.kind === "tab" ? liveTarget : null;
+
 	const renderFields = (fields: Field[], tabIndex: number) => {
 		// Keys: plain accessor for the first (usually only) occurrence — a
 		// position-dependent key would remount shells on every reorder,
@@ -752,6 +797,13 @@ export function EditorCanvas({
 			<Fragment key={keyFor(field.config.api_accessor)}>
 				<Box position="relative">
 					{insertionBoundary(tabIndex, tabPosition, "overlay")}
+					{fieldTarget?.indicator?.tabIndex === tabIndex &&
+						fieldTarget.indicator.position === tabPosition && (
+							<DropIndicatorLine
+								variant="above"
+								position={`${tabIndex}:${tabPosition}`}
+							/>
+						)}
 					<FieldShell
 						field={field}
 						selected={selectedAccessor === field.config.api_accessor}
@@ -791,6 +843,20 @@ export function EditorCanvas({
 							"flow",
 							fields.length === 0, // empty tab: visible drop zone
 						)}
+						{/* Mid-drag the ⊕ boundary above is display:none — this
+						    same-height slot replaces it so the tab end doesn't
+						    collapse (the list holds still), and it carries the
+						    line when the tab-end slot is the resolved target. */}
+						{dragActive && (
+							<DropIndicatorLine
+								variant="flow"
+								active={
+									fieldTarget?.indicator?.tabIndex === tabIndex &&
+									fieldTarget.indicator.position === fields.length
+								}
+								position={`${tabIndex}:${fields.length}`}
+							/>
+						)}
 					</Stack>
 				</SortableContext>
 			);
@@ -823,6 +889,20 @@ export function EditorCanvas({
 									"flow",
 									group.fields.length === 0, // empty card: visible drop zone
 								)}
+								{/* Same-height flow slot mid-drag — see the card-less
+								    branch. This is also where an EMPTY card's line
+								    renders (its bodyStart slot). */}
+								{dragActive && (
+									<DropIndicatorLine
+										variant="flow"
+										active={
+											fieldTarget?.indicator?.tabIndex === tabIndex &&
+											fieldTarget.indicator.position ===
+												bodyStart + group.fields.length
+										}
+										position={`${tabIndex}:${bodyStart + group.fields.length}`}
+									/>
+								)}
 							</Stack>
 						);
 						if (!group.card) {
@@ -844,6 +924,16 @@ export function EditorCanvas({
 								onSelect={(a) => onSelect(a)}
 								menu={buildCardMenu(group.card)}
 								labels={labels}
+								dropTint={
+									fieldTarget?.tintCardAccessor ===
+									group.card.config.api_accessor
+								}
+								dropIndicator={
+									cardBlockTarget?.targetCardAccessor ===
+									group.card.config.api_accessor
+										? cardBlockTarget.placement
+										: null
+								}
 							>
 								{body}
 							</CardFrame>
@@ -957,7 +1047,11 @@ export function EditorCanvas({
 
 										if (accessor && renaming === accessor) {
 											return (
-												<TabDropZone key={key} tabIndex={i}>
+												<TabDropZone
+													key={key}
+													tabIndex={i}
+													highlighted={tabTarget?.tabIndex === i}
+												>
 													<Input
 														size="xs"
 														width="auto"
@@ -994,7 +1088,11 @@ export function EditorCanvas({
 										}
 
 										return (
-											<TabDropZone key={key} tabIndex={i}>
+											<TabDropZone
+												key={key}
+												tabIndex={i}
+												highlighted={tabTarget?.tabIndex === i}
+											>
 												<Flex role="presentation" align="center" gap="0.5">
 													<Tabs.Trigger value={`tab-${i}`}>
 														{tab.section?.config.name ?? labels.defaultTab}
