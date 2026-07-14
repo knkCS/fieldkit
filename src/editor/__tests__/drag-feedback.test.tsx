@@ -6,13 +6,19 @@
 // Every drag here is keyboard-driven, so keyboard parity (Decision 5) is
 // structural, not a separate test axis.
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
 import { EditorCanvas } from "../editor-canvas";
 import { useSpecDraft } from "../use-spec-draft";
-import { EditorWrap, makeField, testPlugins } from "./editor-helpers";
+import { EditorWrap, makeCard, makeField, testPlugins } from "./editor-helpers";
 
 // anker's Menu/Tooltip positioning relies on @floating-ui/dom's autoUpdate,
 // which requires ResizeObserver and IntersectionObserver — both unimplemented
@@ -165,6 +171,82 @@ describe("still list (Decision 2)", () => {
 		// frame-escape and scale artifacts).
 		expect(screen.getByTestId("shell-b").style.transform).toBe("");
 		expect(screen.getByTestId("shell-c").style.transform).toBe("");
+
+		cancel();
+		rectSpy.mockRestore();
+	});
+});
+
+describe("overlay preview + dimmed origin (Decision 1)", () => {
+	it("a portaled preview appears; the origin dims and keeps NO transform", async () => {
+		const rectSpy = columnRectMock(0); // dragging shell-a (top row)
+		const { container } = render(
+			<EditorWrap>
+				<Harness schema={[makeField("a"), makeField("b")]} />
+			</EditorWrap>,
+		);
+
+		const shell = screen.getByTestId("shell-a");
+		const handle = within(shell).getByLabelText("Drag to reorder");
+		await lift(handle);
+
+		// The clone lives in a document.body portal — OUTSIDE the canvas tree
+		// (dnd-kit's DragOverlay is position:fixed and does NOT portal itself;
+		// a transformed host ancestor would re-anchor it).
+		const preview = screen.getByTestId("drag-overlay-preview");
+		expect(container).not.toContainElement(preview);
+		// It clones the shell interior (the field's real preview component).
+		expect(within(preview).getByTestId("field-a")).toBeInTheDocument();
+
+		// The ORIGIN never receives a drag transform (the scale artifact is
+		// dead at the root) — it stays in place, dimmed.
+		arrow("ArrowDown");
+		expect(shell.style.transform).toBe("");
+		expect(shell).toHaveAttribute("data-drag-origin", "true");
+		expect(window.getComputedStyle(shell).opacity).toBe("0.35");
+
+		cancel();
+		// The overlay unmounts once the (jsdom-skipped) drop animation
+		// resolves — async, hence waitFor.
+		await waitFor(() =>
+			expect(screen.queryByTestId("drag-overlay-preview")).toBeNull(),
+		);
+		expect(shell).not.toHaveAttribute("data-drag-origin");
+		expect(window.getComputedStyle(shell).opacity).toBe("1");
+		rectSpy.mockRestore();
+	});
+
+	it("card block drags carry a header-bar-only clone with a '+ N fields' hint", async () => {
+		const rectSpy = columnRectMock(0); // dragging card-frame-c1 (top row)
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeCard("c1", "Basics"),
+						makeField("a"),
+						makeField("x"),
+						makeCard("c2", "Two"),
+						makeField("b"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		const handle = screen.getAllByLabelText("Drag to move card")[0];
+		await lift(handle);
+
+		const preview = screen.getByTestId("drag-overlay-preview");
+		expect(within(preview).getByText("Basics")).toBeInTheDocument();
+		// LABELS has no cardDragFields override — the English fallback
+		// interpolates the block's field count (formatCount idiom).
+		expect(within(preview).getByText("+ 2 fields")).toBeInTheDocument();
+		// Header bar ONLY: none of the card's field shells are cloned.
+		expect(within(preview).queryByTestId("field-a")).toBeNull();
+		expect(within(preview).queryByTestId("field-x")).toBeNull();
+		// The origin frame dims in place.
+		const frame = screen.getByTestId("card-frame-c1");
+		expect(frame).toHaveAttribute("data-drag-origin", "true");
+		expect(window.getComputedStyle(frame).opacity).toBe("0.35");
 
 		cancel();
 		rectSpy.mockRestore();

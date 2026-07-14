@@ -71,11 +71,17 @@ export function FieldShell({
 		animateLayoutChanges: () => false,
 	});
 
-	const borderColor = invalid
-		? "danger.600"
-		: selected
-			? "accent"
-			: "transparent";
+	// While this shell is the drag ORIGIN its outline switches to dashed
+	// `border` (dimmed-origin treatment, Decision 1) — the unselected
+	// "transparent" would render invisible dashes, and the accent border
+	// stays reserved for selection (Decision 4).
+	const borderColor = isDragging
+		? "border"
+		: invalid
+			? "danger.600"
+			: selected
+				? "accent"
+				: "transparent";
 
 	return (
 		<Box
@@ -87,7 +93,12 @@ export function FieldShell({
 			data-invalid={invalid ? "true" : undefined}
 			borderRadius="md"
 			bg={selected ? "bg-subtle" : undefined}
-			opacity={isDragging ? 0.6 : 1}
+			// Dimmed origin (drag-feedback spec, Decision 1): the overlay clone
+			// is the moving element; the in-list original stays put, dimmed and
+			// dash-outlined.
+			opacity={isDragging ? 0.35 : 1}
+			borderStyle={isDragging ? "dashed" : "solid"}
+			data-drag-origin={isDragging ? "true" : undefined}
 			py="2"
 			pr="2"
 			// pl clears the absolutely-positioned persistent grip below — the

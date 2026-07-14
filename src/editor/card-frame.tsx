@@ -63,9 +63,12 @@ export function CardFrame({
 		<Box
 			ref={setNodeRef}
 			style={{ transform: CSS.Translate.toString(transform), transition }}
-			opacity={isDragging ? 0.6 : 1}
+			// Dimmed origin (drag-feedback spec, Decision 1) — see FieldShell.
+			opacity={isDragging ? 0.35 : 1}
+			data-drag-origin={isDragging ? "true" : undefined}
 			bg="bg-surface"
 			borderWidth="2px"
+			borderStyle={isDragging ? "dashed" : "solid"}
 			borderColor={selected ? "accent" : "border"}
 			borderRadius="lg"
 			boxShadow="sm"

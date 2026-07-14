@@ -4,6 +4,8 @@ import {
 	DndContext,
 	type DragEndEvent,
 	type DragOverEvent,
+	DragOverlay,
+	type DragStartEvent,
 	KeyboardSensor,
 	PointerSensor,
 	useDroppable,
@@ -35,6 +37,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldComponent } from "../renderer/field-component";
 import { formatCount } from "../renderer/merge-labels";
@@ -71,6 +74,11 @@ import {
 	setOrientation,
 	uniquifyAccessor,
 } from "./draft-ops";
+import {
+	CardDragPreview,
+	cardBlockFieldCount,
+	ShellDragPreview,
+} from "./drag-previews";
 import { FieldShell } from "./field-shell";
 import { resolveDropTarget } from "./resolve-drop-target";
 import type { SectionMenuLabels } from "./section-menu";
@@ -164,6 +172,11 @@ export interface CanvasLabels
 	/** Accessible name for a tab's error badge at count 1; falls back to
 	 * "1 invalid field". */
 	tabErrorsOne?: string;
+	/** Count hint on the card block-drag overlay preview; "{count}"
+	 * interpolated; falls back to "+ {count} fields". */
+	cardDragFields?: string;
+	/** Count hint at count 1; falls back to "+ 1 field". */
+	cardDragFieldsOne?: string;
 	/** Accessible name for the field-search input; falls back to
 	 * "Find field". */
 	searchLabel?: string;
@@ -263,6 +276,9 @@ export function EditorCanvas({
 	// transforming shells below the hover-revealable boundary strips, and
 	// insert affordances have no business mid-drag anyway.
 	const [dragActive, setDragActive] = useState(false);
+	// The dragged field's accessor while a drag is live — drives the overlay
+	// preview clone (drag-feedback spec, Decision 1).
+	const [activeDragId, setActiveDragId] = useState<string | null>(null);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -536,12 +552,19 @@ export function EditorCanvas({
 		onActiveTabChange(Number(overId.slice("tabdrop-".length)));
 	};
 
-	const handleDragStart = () => setDragActive(true);
-	const handleDragCancel = () => setDragActive(false);
+	const handleDragStart = (event: DragStartEvent) => {
+		setDragActive(true);
+		setActiveDragId(String(event.active.id));
+	};
+	const handleDragCancel = () => {
+		setDragActive(false);
+		setActiveDragId(null);
+	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		// Before the early returns: every drop ends the drag, valid target or not.
 		setDragActive(false);
+		setActiveDragId(null);
 		const { active, over } = event;
 		if (!over) return;
 		// ONE source of truth (drag-feedback spec, Decision 3): the same
@@ -831,6 +854,42 @@ export function EditorCanvas({
 		);
 	};
 
+	const activeDragField = activeDragId
+		? (draft.find((f) => f.config.api_accessor === activeDragId) ?? null)
+		: null;
+	// PORTALED to document.body (drag-feedback spec, Decision 1): dnd-kit's
+	// DragOverlay renders a position:fixed wrapper IN PLACE — inside a
+	// transformed/filtered host ancestor (a drawer, a scaled preview) that
+	// wrapper would anchor to the wrong containing block. The portal keeps
+	// React context (FormProvider, plugin registry) while escaping the DOM.
+	// dnd-kit positions the clone at the active node's initial rect and
+	// moves it with the drag delta; keyboard drags glide via the built-in
+	// 'transform 250ms ease' overlay transition (keyboard parity, Decision
+	// 5). Card drags collapse the wrapper to the header-bar clone via
+	// height:auto (the wrapper is otherwise sized to the full frame rect).
+	const overlayPortal = createPortal(
+		<DragOverlay
+			style={
+				activeDragField?.field_type === "card" ? { height: "auto" } : undefined
+			}
+		>
+			{activeDragField ? (
+				activeDragField.field_type === "card" ? (
+					<CardDragPreview
+						card={activeDragField}
+						fieldCount={cardBlockFieldCount(draft, activeDragField)}
+						labels={labels}
+					/>
+				) : (
+					<ShellDragPreview>
+						<ShellContent field={activeDragField} labels={labels} />
+					</ShellDragPreview>
+				)
+			) : null}
+		</DragOverlay>,
+		document.body,
+	);
+
 	if (partition.tabs.length === 0) {
 		return (
 			<FormProvider {...methods}>
@@ -864,6 +923,7 @@ export function EditorCanvas({
 						<Box ref={containerRef}>
 							{renderFields(partition.tabs[0].fields, 0)}
 						</Box>
+						{overlayPortal}
 					</DndContext>
 				</FormMarkersProvider>
 			</FormProvider>
@@ -1000,6 +1060,7 @@ export function EditorCanvas({
 							))}
 						</Tabs.Root>
 					</Box>
+					{overlayPortal}
 				</DndContext>
 			</FormMarkersProvider>
 		</FormProvider>
