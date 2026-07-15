@@ -230,8 +230,9 @@ section** group listing every other section; picking one moves the whole
 block there and follows it (see
 [Drag & drop, including cross-tab](#drag--drop-including-cross-tab)).
 
-Hand-written schemas violating the all-in-cards rule (a loose field before
-a tab's first marker) are flagged by `validateSpec` as
+Schemas violating the all-in-cards rule (a loose field before a tab's
+first marker — hand-written, or produced by moving a card into a section
+that still holds loose fields) are flagged by `validateSpec` as
 `loose_field_in_carded_tab` on each loose field — those shells outline in
 the danger color and Save/Preview disable — while the canvas and renderer
 still degrade gracefully by framing them as an implicit untitled card.
@@ -278,9 +279,10 @@ canvas gives full mid-drag feedback (the drag-feedback rework):
   glides to each announced slot with the same line, tint, and trigger
   highlight as a same-tab keyboard drag.
 - **Releasing on a trigger before the dwell elapses** (a "quick drop")
-  keeps the pre-spring semantics: the field or card block appends to the
-  **end** of that section (inside its last card, for a carded tab) without
-  the canvas ever visibly springing.
+  keeps the pre-spring semantics: the item appends to the **end** of that
+  section — a field lands inside the tab's last card when the tab is
+  carded; a card block appends after the tab's last element — without the
+  canvas ever visibly springing.
 - **Every cross-section drop — sprung or quick — ends on the target tab**:
   the canvas switches `activeTabIndex` there, selects the moved field or
   card, and scrolls its shell (or card header) into view. Same-tab drops
