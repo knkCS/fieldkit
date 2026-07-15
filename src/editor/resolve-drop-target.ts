@@ -93,9 +93,9 @@ function indicatorPosition(
  * indicator line, card tint, and tab-trigger highlight render from the same
  * answer, so they can never disagree with the drop; drag-feedback spec
  * 2026-07-14, Decisions 3–4). Returns null for every no-op: self drops,
- * no-moves, own-tab trigger drops, card-over-tabdrop, cross-tab card moves,
- * and unresolvable ids. The decision logic is a verbatim port of the
- * pre-0.11 handleDragEnd — drop SEMANTICS are frozen.
+ * no-moves, own-tab trigger drops (fields AND cards), and unresolvable ids.
+ * The decision logic is a verbatim port of the pre-0.11 handleDragEnd — drop
+ * SEMANTICS are frozen.
  */
 export function resolveDropTarget(
 	activeId: string,
@@ -103,13 +103,20 @@ export function resolveDropTarget(
 	draft: Schema,
 	partition: SpecPartition,
 ): ResolvedDropTarget | null {
-	// Card block move — checked BEFORE the tabdrop branch: releasing a card
-	// header over a tab trigger must be a no-op (moveFieldToSection would
-	// relocate only the MARKER, orphaning its fields). v1 has no cross-tab
-	// card drag.
+	// Card block move — checked BEFORE the shared tabdrop branch because a
+	// card's OWN-tab trigger guard needs the card-aware source lookup.
 	const activeField = draft.find((f) => f.config.api_accessor === activeId);
 	if (activeField?.field_type === "card") {
-		if (overId.startsWith("tabdrop-")) return null;
+		if (overId.startsWith("tabdrop-")) {
+			const tabIndex = Number(overId.slice("tabdrop-".length));
+			const sourceTabIndex = partition.tabs.findIndex((tab) =>
+				tab.fields.some((f) => f.config.api_accessor === activeId),
+			);
+			// Own-tab trigger: releasing there must be a no-op, exactly like
+			// the field path below.
+			if (sourceTabIndex === tabIndex) return null;
+			return { kind: "tab", tabIndex };
+		}
 		const overField = draft.find((f) => f.config.api_accessor === overId);
 		if (!overField) return null;
 		// Resolve the card OWNING the drop target: the target marker itself,
@@ -123,19 +130,12 @@ export function resolveDropTarget(
 		if (!targetCard || targetCard.config.api_accessor === activeId) {
 			return null;
 		}
-		// Tab-scoping guard (review-mandated, cards Task 5 carry-forward):
-		// moveCard mechanically permits a CROSS-TAB block move, and dnd-kit's
-		// keyboard sensor can resolve a target inside a hidden (mounted) tab.
-		// v1 has no cross-tab card drag, so no-op instead of relocating.
-		const sourceTabIndex = partition.tabs.findIndex((tab) =>
-			tab.fields.some((f) => f.config.api_accessor === activeId),
-		);
-		const targetTabIndex = partition.tabs.findIndex((tab) =>
-			tab.fields.some(
-				(f) => f.config.api_accessor === targetCard.config.api_accessor,
-			),
-		);
-		if (sourceTabIndex !== targetTabIndex) return null;
+		// 0.12.0 (spring-loaded sections): the 0.8.0 same-tab guard is gone.
+		// A visible foreign card is a LEGITIMATE target now — the only way a
+		// foreign tab's cards become visible mid-drag is an explicit spring
+		// (pointer dwell / keyboard zone landing); hidden tabs' droppables
+		// stay filtered by isVisibleDroppable, so accidental cross-tab moves
+		// remain impossible.
 		const fromIndex = draft.indexOf(activeField);
 		const toIndex = draft.indexOf(targetCard);
 		return {

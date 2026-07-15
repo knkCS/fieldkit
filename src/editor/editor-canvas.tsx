@@ -8,6 +8,7 @@ import {
 	type DragStartEvent,
 	KeyboardSensor,
 	PointerSensor,
+	useDndContext,
 	useDroppable,
 	useSensor,
 	useSensors,
@@ -47,13 +48,14 @@ import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
+import { partitionSchemaBySections } from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
 	FieldContext,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
-import type { Field } from "../schema/types";
+import type { Field, Schema } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
 import { CardMenu } from "./card-menu";
@@ -66,6 +68,7 @@ import {
 	flatInsertIndex,
 	insertFieldAt,
 	moveCard,
+	moveCardToSection,
 	moveField,
 	moveFieldToSection,
 	moveSection,
@@ -91,6 +94,7 @@ import type { EditorLabels } from "./spec-editor";
 import type { TypePickerLabels } from "./type-picker";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
+import { useSpringLoadedTab } from "./use-spring-loaded-tab";
 import { editorCollision } from "./visible-collision";
 
 /** Droppable wrapper for a tab-trigger row — a cross-section drag target.
@@ -268,6 +272,52 @@ function ShellContent({
 }
 ShellContent.displayName = "ShellContent";
 
+/** Ground truth (2026-07-14 probe): a sprung tab's shells keep the ZERO
+ * rects they measured while hidden — dnd-kit only re-measures droppables on
+ * drag start, so without this the foreign canvas is drop-dead (no over, no
+ * line, no tint). Re-measures ALL droppables whenever the active tab
+ * changes mid-drag, retrying until the sprung panel has actually unhidden
+ * (zag swaps `hidden` up to ~47 ms after the React commit — the 0.10.0
+ * retry-until-unhidden lesson). Renders nothing; must live INSIDE
+ * DndContext (useDndContext). */
+function DragRemeasurer({
+	activeTabIndex,
+	dragActive,
+}: {
+	activeTabIndex: number;
+	dragActive: boolean;
+}) {
+	const { measureDroppableContainers, droppableContainers } = useDndContext();
+	useEffect(() => {
+		if (!dragActive) return;
+		let attempts = 0;
+		let raf = 0;
+		const measure = () => {
+			// A plain `:not([hidden])` probe would confirm SOME panel is
+			// visible, not necessarily the sprung one (zag keeps the outgoing
+			// panel painted for a beat during the swap) — index into the
+			// tabpanel list by the tab we just sprung TO.
+			const panel =
+				document.querySelectorAll('[role="tabpanel"]')[activeTabIndex];
+			if ((panel && !panel.hasAttribute("hidden")) || attempts >= 20) {
+				measureDroppableContainers(Array.from(droppableContainers.keys()));
+				return;
+			}
+			attempts++;
+			raf = requestAnimationFrame(measure);
+		};
+		raf = requestAnimationFrame(measure);
+		return () => cancelAnimationFrame(raf);
+	}, [
+		activeTabIndex,
+		dragActive,
+		measureDroppableContainers,
+		droppableContainers,
+	]);
+	return null;
+}
+DragRemeasurer.displayName = "DragRemeasurer";
+
 export function EditorCanvas({
 	spec,
 	plugins,
@@ -299,6 +349,13 @@ export function EditorCanvas({
 	// function at release — line, tint, highlight, and the executed move can
 	// never disagree.
 	const [liveTarget, setLiveTarget] = useState<ResolvedDropTarget | null>(null);
+	// Spring-loaded sections (0.12.0): pointer drags dwell on a hovered tab
+	// trigger before the canvas springs to it; keyboard drags switch
+	// immediately (spec Decision 6). The drag-start tab is the restore
+	// point for Escape and null-target drops (Decision 4).
+	const [dragKind, setDragKind] = useState<"pointer" | "keyboard" | null>(null);
+	const [hoveredTabZone, setHoveredTabZone] = useState<number | null>(null);
+	const dragStartTabIndexRef = useRef<number | null>(null);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -313,6 +370,53 @@ export function EditorCanvas({
 			coordinateGetter: sortableKeyboardCoordinates,
 		}),
 	);
+
+	// Post-move continuation: the moved shell/header exists immediately (a
+	// move keeps its accessor), but the target PANEL unhides asynchronously
+	// (zag swaps `hidden` after the React commit). Retry until visible, then
+	// scroll. Bounded so a deleted accessor can't loop forever.
+	const scrollShellIntoView = (accessor: string) => {
+		let attempts = 0;
+		const tryScroll = () => {
+			const el = document.querySelector(
+				`[data-testid="shell-${accessor}"], [data-testid="card-header-${accessor}"]`,
+			);
+			if (el && !el.closest("[hidden]")) {
+				// jsdom has no scrollIntoView (spec-form.tsx's established idiom).
+				el.scrollIntoView?.({ block: "nearest" });
+				return;
+			}
+			if (attempts++ < 20) requestAnimationFrame(tryScroll);
+		};
+		requestAnimationFrame(tryScroll);
+	};
+
+	// Review Finding 1: every cross-section move site already computes the
+	// next schema as a VALUE before applying it — so the post-move partition
+	// is synchronously available. Resolving the target tab's INDEX up front
+	// (from the pre-move partition) and feeding that raw index to
+	// onActiveTabChange breaks when the move empties an IMPLICIT leading tab:
+	// partitionSchemaBySections drops a markerless tab once it has no fields
+	// left, which shifts every later tab index down by one — the pre-move
+	// index can point at the wrong tab, or one that no longer exists (and
+	// gets silently shrink-clamped back to tab 0). Re-resolving the target by
+	// IDENTITY (its section's api_accessor, or null for the implicit tab)
+	// against the POST-move partition survives the collapse either way.
+	const followAfter = (
+		next: Schema,
+		targetIdentity: string | null,
+		accessor: string,
+	) => {
+		const nextPartition = partitionSchemaBySections(next);
+		const idx = nextPartition.tabs.findIndex((t) =>
+			targetIdentity === null
+				? t.section === null
+				: t.section?.config.api_accessor === targetIdentity,
+		);
+		if (idx !== -1) onActiveTabChange(idx);
+		onSelect(accessor);
+		scrollShellIntoView(accessor);
+	};
 
 	// Computed ONCE per draft identity (rather than separately for the
 	// useForm initializer, the reset-guard ref's initializer, and the effect
@@ -548,32 +652,67 @@ export function EditorCanvas({
 		apply(deleteCardWithFields(draft, accessor));
 	};
 
-	const buildCardMenu = (card: Field) => (
-		<CardMenu
-			cardAccessor={card.config.api_accessor}
-			onRename={onEdit}
-			onDeleteMerge={handleDeleteCardMerge}
-			onDeleteWithFields={(a) =>
-				handleDeleteCardWithFields(a, card.config.name)
-			}
-			labels={labels}
-			triggerAriaLabel={labels.cardMenu.replace(
-				"{card}",
-				card.config.name.trim() || labels.cardUntitled,
-			)}
-		/>
-	);
+	const buildCardMenu = (card: Field) => {
+		const cardTabIndex = partition.tabs.findIndex((tab) =>
+			tab.fields.some(
+				(f) => f.config.api_accessor === card.config.api_accessor,
+			),
+		);
+		return (
+			<CardMenu
+				cardAccessor={card.config.api_accessor}
+				onRename={onEdit}
+				onDeleteMerge={handleDeleteCardMerge}
+				onDeleteWithFields={(a) =>
+					handleDeleteCardWithFields(a, card.config.name)
+				}
+				labels={labels}
+				triggerAriaLabel={labels.cardMenu.replace(
+					"{card}",
+					card.config.name.trim() || labels.cardUntitled,
+				)}
+				moveTargets={
+					partition.hasSections && partition.tabs.length >= 2
+						? partition.tabs
+								.map((tab, i) => ({
+									tabIndex: i,
+									name: tab.section?.config.name ?? labels.defaultTab,
+								}))
+								.filter((t) => t.tabIndex !== cardTabIndex)
+						: undefined
+				}
+				onMoveToSection={(accessor, tabIndex) => {
+					// Identity resolved from the PRE-move partition (this render's
+					// `partition`) — see followAfter's comment for why the raw
+					// index can't be trusted post-move.
+					const targetIdentity =
+						partition.tabs[tabIndex]?.section?.config.api_accessor ?? null;
+					const next = moveCardToSection(draft, accessor, tabIndex);
+					apply(next);
+					followAfter(next, targetIdentity, accessor);
+				}}
+			/>
+		);
+	};
 
-	// Hovering a tab-trigger drop zone while dragging activates that tab so
-	// the user can see where the field will land before releasing. The
-	// activation stays UNCONDITIONAL (not gated on resolveDropTarget):
-	// hovering back onto the SOURCE tab's own trigger is a null target
-	// (releasing there is a no-op) but must still switch the view back.
+	// Hovering a tab-trigger drop zone while dragging springs the canvas to
+	// that tab so the drop can land at an exact slot (spring-loaded sections
+	// spec, Decision 1). Pointer drags dwell (SPRING_DWELL_MS) so crossing
+	// the strip never flips tabs by accident; keyboard drags switch
+	// immediately — arrowing onto a zone is already deliberate (Decision 6).
+	// The zone tracking stays UNCONDITIONAL (not gated on resolveDropTarget):
+	// dwelling on the SOURCE tab's own trigger is a null TARGET (releasing
+	// there is a no-op) but must still spring the view back.
 	// Highlight ≠ activation: only a non-null tab target highlights.
 	const handleDragOver = (event: DragOverEvent) => {
 		const overId = event.over?.id;
-		if (typeof overId === "string" && overId.startsWith("tabdrop-")) {
-			onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		const zone =
+			typeof overId === "string" && overId.startsWith("tabdrop-")
+				? Number(overId.slice("tabdrop-".length))
+				: null;
+		setHoveredTabZone(zone);
+		if (zone != null && dragKind === "keyboard") {
+			onActiveTabChange(zone);
 		}
 		setLiveTarget(
 			event.over == null
@@ -587,53 +726,113 @@ export function EditorCanvas({
 		);
 	};
 
+	useSpringLoadedTab({
+		pendingTabIndex: hoveredTabZone,
+		enabled: dragActive && dragKind === "pointer",
+		onSpring: onActiveTabChange,
+	});
+
 	const handleDragStart = (event: DragStartEvent) => {
 		setDragActive(true);
 		setActiveDragId(String(event.active.id));
 		setLiveTarget(null);
+		// KeyboardSensor activates on keydown; every pointer/mouse/touch
+		// activator is a *down event. jsdom fires plain "keydown" too.
+		setDragKind(
+			event.activatorEvent?.type === "keydown" ? "keyboard" : "pointer",
+		);
+		setHoveredTabZone(null);
+		dragStartTabIndexRef.current = activeTabIndex;
 	};
-	const handleDragCancel = () => {
+
+	// Decision 4: a spring is a preview until a drop COMMITS. Escape and
+	// null-target drops restore the tab that was active at drag start.
+	const restoreDragStartTab = () => {
+		const startTab = dragStartTabIndexRef.current;
+		if (startTab != null && startTab !== activeTabIndex) {
+			onActiveTabChange(startTab);
+		}
+	};
+	const clearDragState = () => {
 		setDragActive(false);
 		setActiveDragId(null);
 		setLiveTarget(null);
+		setDragKind(null);
+		setHoveredTabZone(null);
+	};
+	const handleDragCancel = () => {
+		clearDragState();
+		restoreDragStartTab();
+		dragStartTabIndexRef.current = null;
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		// Before the early returns: every drop ends the drag, valid target or not.
-		setDragActive(false);
-		setActiveDragId(null);
-		setLiveTarget(null);
+		clearDragState();
 		const { active, over } = event;
-		if (!over) return;
 		// ONE source of truth (drag-feedback spec, Decision 3): the same
 		// resolution that drives the live indicator/tint decides the drop.
 		// The full decision logic — card branch, field-over-frame snap,
 		// cross-tab guard, tabdrop targets — lives in resolveDropTarget,
 		// ported verbatim; this handler only applies the answer.
-		const target = resolveDropTarget(
-			String(active.id),
-			String(over.id),
-			draft,
-			partition,
-		);
-		if (!target) return;
+		const target = over
+			? resolveDropTarget(String(active.id), String(over.id), draft, partition)
+			: null;
+		if (!target) {
+			// No-op drop: nothing committed, so the spring preview unwinds
+			// exactly like Escape (Decision 4).
+			restoreDragStartTab();
+			dragStartTabIndexRef.current = null;
+			return;
+		}
+		const accessor = String(active.id);
+		const isCardDrag =
+			draft.find((f) => f.config.api_accessor === accessor)?.field_type ===
+			"card";
+		const startTab = dragStartTabIndexRef.current;
+		dragStartTabIndexRef.current = null;
+		// Decision 3: every cross-section drop ends in the target section with
+		// the moved item selected. Same-tab drops keep today's behavior — only
+		// follow when the PRE-move target tab index differs from the drag's
+		// start tab (the same-tab freeze this guards is load-bearing for
+		// existing tests: a same-tab reorder must not touch selection).
+		// `targetTabIndex` (and the identity resolved from it) is always the
+		// PRE-move partition — `next` is applied to `draft` afterwards, but
+		// `partition`/`draft` themselves are this render's stable snapshot.
+		const follow = (targetTabIndex: number, next: Schema) => {
+			if (startTab != null && targetTabIndex !== startTab) {
+				const targetIdentity =
+					partition.tabs[targetTabIndex]?.section?.config.api_accessor ?? null;
+				followAfter(next, targetIdentity, accessor);
+			}
+		};
 		switch (target.kind) {
-			case "card-block":
-				apply(
-					moveCard(
-						draft,
-						String(active.id),
-						target.targetCardAccessor,
-						target.placement,
-					),
+			case "card-block": {
+				const next = moveCard(
+					draft,
+					accessor,
+					target.targetCardAccessor,
+					target.placement,
 				);
+				apply(next);
+				// A sprung drop's target tab is the currently active tab.
+				follow(activeTabIndex, next);
 				return;
-			case "tab":
-				apply(moveFieldToSection(draft, String(active.id), target.tabIndex));
+			}
+			case "tab": {
+				const next = isCardDrag
+					? moveCardToSection(draft, accessor, target.tabIndex)
+					: moveFieldToSection(draft, accessor, target.tabIndex);
+				apply(next);
+				follow(target.tabIndex, next);
 				return;
-			case "field":
-				apply(moveField(draft, target.fromIndex, target.targetIndex));
+			}
+			case "field": {
+				const next = moveField(draft, target.fromIndex, target.targetIndex);
+				apply(next);
+				follow(activeTabIndex, next);
 				return;
+			}
 		}
 	};
 
@@ -668,7 +867,18 @@ export function EditorCanvas({
 							<MenuItem
 								key={key}
 								value={key}
-								onSelect={() => apply(moveFieldToSection(draft, accessor, i))}
+								onSelect={() => {
+									// Review Finding 2: this menu previously left the author
+									// on the source tab — bare apply(), no follow. Spec
+									// Decision 3 requires every cross-section drop (spring,
+									// quick trigger-drop, OR menu) to end with the target tab
+									// active, the moved item selected, and scrolled into view.
+									const targetIdentity =
+										tab.section?.config.api_accessor ?? null;
+									const next = moveFieldToSection(draft, accessor, i);
+									apply(next);
+									followAfter(next, targetIdentity, accessor);
+								}}
 							>
 								{tab.section?.config.name ?? labels.defaultTab}
 							</MenuItem>
@@ -1158,6 +1368,10 @@ export function EditorCanvas({
 							))}
 						</Tabs.Root>
 					</Box>
+					<DragRemeasurer
+						activeTabIndex={activeTabIndex}
+						dragActive={dragActive}
+					/>
 					{overlayPortal}
 				</DndContext>
 			</FormMarkersProvider>

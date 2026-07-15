@@ -4,7 +4,10 @@ How fieldkit uses `@dnd-kit/core` (6.3.1) and `@dnd-kit/sortable` (8.0.0)
 for drag-and-drop in the spec editor. Read this before modifying editor
 drag code. Rewritten for the 0.11.0 drag-feedback rework (overlay preview,
 still list, `resolveDropTarget`) — design record:
-`docs/superpowers/specs/2026-07-14-drag-feedback-design.md`.
+`docs/superpowers/specs/2026-07-14-drag-feedback-design.md`. Extended for
+the 0.12.0 spring-loaded sections feature (dwell-triggered tab switching,
+explicit droppable re-measuring — see [Measuring](#measuring) below) —
+design record: `docs/superpowers/specs/2026-07-14-spring-loaded-sections-design.md`.
 
 ## Scope
 
@@ -55,6 +58,37 @@ of how the DOM nests fields inside card frames. During a drag:
    `animateLayoutChanges: () => false` (the default re-transforms a moved
    node from its old rect, including a transient scale whenever its width
    changes); the overlay's default drop animation is the only settle.
+
+## Measuring
+
+**Ground truth: droppables measure their rect at drag start only** (the
+`WhileDragging` default measuring strategy re-measures on scroll/resize, not
+on an arbitrary DOM visibility flip). A droppable that is `hidden` when a
+drag begins keeps whatever zero-size rect it measured while hidden for the
+rest of that drag — dnd-kit has no hook that says "this container just
+became visible, re-measure it."
+
+Spring-loaded sections (0.12.0) breaks this assumption on purpose: springing
+to a foreign tab mid-drag makes its panel (and every shell/card-frame inside
+it) visible for the first time *during* the same drag that needs to collide
+with them. Left alone, the just-sprung tab is drop-dead — `onDragOver` never
+resolves an `over` inside it, so no line, no tint, no drop.
+
+`DragRemeasurer` (a presentation-less component rendered *inside*
+`DndContext`, `src/editor/editor-canvas.tsx`) is the fix: on every
+`activeTabIndex` change while a drag is active, it calls
+`useDndContext().measureDroppableContainers(ids)` with every currently
+registered droppable id. The call has to be timed carefully — the sprung
+tab's `Tabs.Content` panel unhides asynchronously (zag flips its `hidden`
+attribute up to ~47 ms after the React commit that changed
+`activeTabIndex`, an idiom this codebase has hit before — see the
+retry-until-unhidden note on `scrollShellIntoView` in the same file, and the
+0.10.0 lesson it references). Measuring one tick too early re-captures the
+same zero rects. `DragRemeasurer` therefore polls the sprung panel's
+`[role="tabpanel"]` via `requestAnimationFrame`, checking `!hasAttribute
+("hidden")`, and only calls `measureDroppableContainers` once that's true (or
+after 20 attempts, so a stuck panel can't loop forever) — the same
+retry-until-unhidden idiom, applied to measuring instead of scrolling.
 
 ## Imports used
 
@@ -139,6 +173,8 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
    `listeners`/`attributes` (grip button). Lucide `GripVertical` for handles.
 5. `CSS.Translate.toString()` for transform styles.
 6. Route the live feedback AND the drop through one pure resolver function.
+7. If drop targets appear/unhide mid-drag, re-measure them explicitly — see
+   [Measuring](#measuring) above; dnd-kit will not do this for you.
 
 ## What is NOT used
 

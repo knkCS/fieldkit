@@ -224,11 +224,15 @@ as field renames. The ⋯ menu offers **Rename** (focuses the panel's Name
 input), **Delete card** (removes only the marker — its fields merge into
 the previous card; a first card's fields merge into the next; deleting the
 only card returns the tab to the legal card-less state; nothing is
-destroyed), and **Delete card and fields** (destructive, behind the
-standard confirm dialog).
+destroyed), **Delete card and fields** (destructive, behind the standard
+confirm dialog), and — on a spec with 2+ tabs (0.12.0) — a **Move to
+section** group listing every other section; picking one moves the whole
+block there and follows it (see
+[Drag & drop, including cross-tab](#drag--drop-including-cross-tab)).
 
-Hand-written schemas violating the all-in-cards rule (a loose field before
-a tab's first marker) are flagged by `validateSpec` as
+Schemas violating the all-in-cards rule (a loose field before a tab's
+first marker — hand-written, or produced by moving a card into a section
+that still holds loose fields) are flagged by `validateSpec` as
 `loose_field_in_carded_tab` on each loose field — those shells outline in
 the danger color and Save/Preview disable — while the canvas and renderer
 still degrade gracefully by framing them as an implicit untitled card.
@@ -259,14 +263,47 @@ canvas gives full mid-drag feedback (the drag-feedback rework):
   nothing). Line, tint, and the executed drop all derive from ONE
   resolution (`resolveDropTarget`), so the preview can never disagree with
   the result.
-- Dragging a field's row onto another tab's *trigger* activates that tab
-  live and **highlights the trigger** (no line); releasing moves the field
-  to the end of that tab — the same operation the toolbar's "Move to
-  section" menu performs without any dragging at all. Dropping onto a
-  field's own current tab trigger is a no-op and shows no highlight (the
-  hover still activates the tab).
-- **Keyboard drags get the identical treatment**: the overlay glides to
-  each announced slot with the same line, tint, and trigger highlight.
+- Dragging a field or card block's row onto another tab's *trigger*
+  **highlights the trigger** immediately (no line) but — since 0.12.0 —
+  does not switch the view on first contact. **Spring-loaded sections**:
+  resting the pointer on the trigger for a dwell (`SPRING_DWELL_MS`,
+  500 ms) springs the canvas to that tab while the drag continues, so the
+  existing insertion line / card tint can guide the drop to an exact slot
+  inside the now-visible foreign section. Springs chain — hovering a
+  further trigger later in the same drag springs again. Crossing the tab
+  strip in well under the dwell never flips the view.
+- **Keyboard drags skip the dwell**: landing on a trigger's drop zone
+  switches the visible tab **immediately** — an arrow-key landing is
+  already a deliberate action, unlike a pointer passing through. Further
+  arrows walk the sprung tab's slots for exact placement; the overlay
+  glides to each announced slot with the same line, tint, and trigger
+  highlight as a same-tab keyboard drag.
+- **Releasing on a trigger before the dwell elapses** (a "quick drop")
+  keeps the pre-spring semantics: the item appends to the **end** of that
+  section — a field lands inside the tab's last card when the tab is
+  carded; a card block appends after the tab's last element — without the
+  canvas ever visibly springing.
+- **Every cross-section drop — sprung or quick — ends on the target tab**:
+  the canvas switches `activeTabIndex` there, selects the moved field or
+  card, and scrolls its shell (or card header) into view. Same-tab drops
+  are unaffected (no follow, no reselect) — this is the same follow
+  behavior the toolbar's per-field "Move to section" menu and the card ⋯
+  menu's own move group ([above](#cards)) now perform too. Dropping onto a
+  field's or card's own current tab trigger is a no-op and shows no
+  highlight (the hover still springs/switches the view).
+- **Escape, and any drop that resolves to nothing** (including releasing
+  back onto the drag's own tab trigger), restore the tab that was active
+  when the drag *started* — a spring is only a preview until a drop
+  commits.
+- **Card blocks can now cross sections**, both by drag (spring to a
+  foreign tab, then drop between its frames or onto its trigger for a
+  quick end-append) and via the card ⋯ menu, which gains a
+  "Move to section" group beneath Rename / Delete card / Delete card and
+  fields, listing every *other* section; picking one moves the whole
+  block and follows it exactly like a field's cross-tab move. The group's
+  caption reuses the existing `moveToSection` label — no new label key —
+  and the group is omitted entirely on a single-tab spec (nothing to move
+  to).
 
 ### Field search
 
@@ -445,7 +482,7 @@ are shown.
 | `orientationH` | `"Horizontal tabs"` | Orientation toggle (when currently vertical) |
 | `orientationV` | `"Vertical tabs"` | Orientation toggle (when currently horizontal) |
 | `sectionMenu` | `"Section menu: {section}"` | Section menu trigger aria-label (`{section}` interpolated) |
-| `moveToSection` | `"Move to section"` | Cross-tab move menu trigger, toolbar |
+| `moveToSection` | `"Move to section"` | Cross-tab move menu trigger, toolbar; also the card ⋯ menu's move-group caption (0.12.0, reused — no new key) |
 | `addCard` | `"+ Card"` | Toolbar add-card button (rendered with the card plugin's icon) |
 | `addCardDisabledEmpty` | `"Add a field before adding cards"` | Tooltip on the disabled + Card while the spec has no fields (Build mode) |
 | `cardUntitled` | `"Untitled card"` | Placeholder title for an untitled card (canvas header, panel header/placeholder, menu aria interpolation) |
@@ -499,6 +536,31 @@ are shown.
 | `errorEmptyName` | `"Name must not be empty"` | Validation-section error message |
 | `errorEmptyAccessor` | `"Accessor must not be empty"` | Validation-section error message |
 | `errorLooseFieldInCardedTab` | `'Field "{accessor}" must be inside a card'` | Validation message for a loose field in a carded tab (`{accessor}` interpolated) |
+
+## Migration to 0.12.0
+
+Adds spring-loaded cross-section drag (see
+[Drag & drop, including cross-tab](#drag--drop-including-cross-tab) above) —
+**no API changes, no new label keys**. The card ⋯ menu's new "Move to
+section" group reuses the existing `moveToSection` label as its caption.
+
+- The 0.8.0 guard that confined a card block's drag to its own tab is
+  retired: a card can now cross sections by drag (after a spring) or via
+  the ⋯ menu. Accidental moves remain impossible — a hidden tab's
+  droppables stay filtered out of collision detection regardless, so a
+  card can only land in a section the author has actually made visible
+  (by spring, or by having already switched tabs).
+- **Behavior change hosts may notice:** hovering a foreign tab's trigger
+  while dragging used to switch the visible tab **instantly**. It now
+  requires a ~500 ms dwell first (crossing the tab strip no longer flips
+  the view by accident); releasing before the dwell elapses still appends
+  to that section immediately, unchanged from before. Keyboard drags are
+  unaffected — landing on a trigger's zone still switches instantly.
+- **Behavior change hosts may notice:** the toolbar's per-field "Move to
+  section" menu previously left the author on the source tab after the
+  move. It now follows the moved field to its new tab, selects it, and
+  scrolls it into view — the same follow behavior cross-tab drag drops and
+  the new card move menu perform.
 
 ## Migration to 0.11.0
 

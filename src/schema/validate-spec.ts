@@ -107,8 +107,10 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
  * Card-layout Decision 4: once a tab contains a card marker, every field in
  * that tab lives in a card — a field BEFORE the tab's first marker is an
  * error, flagged per field so shells outline and tab badges count it. The
- * editor's insertCard auto-wrap never produces this state; the rule catches
- * hand-written schemas. The renderer still degrades gracefully (implicit
+ * editor's insertCard auto-wraps loose fields, but a cross-section card
+ * MOVE into a tab with loose fields (0.12.0 drag/menu) reaches this state
+ * legitimately — the flag guides the author to "+ Card" or undo; the rule
+ * also catches hand-written schemas. The renderer still degrades gracefully (implicit
  * untitled card) — a schema is data; this rule only reports the violation.
  * Top-level only: cards inside groups are a non-goal.
  */

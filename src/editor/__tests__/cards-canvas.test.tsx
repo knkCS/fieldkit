@@ -1,5 +1,12 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -301,18 +308,19 @@ describe("EditorCanvas — cards", () => {
 		expect(within(frame).getByLabelText("Add field")).toBeInTheDocument();
 	});
 
-	// Review-mandated extension (carried forward from Task 5's review): moveCard
-	// mechanically permits a CROSS-TAB block move — cardBlockRange/targetRange
-	// don't know about tabs at all. Task 5's brief explicitly delegates the v1
-	// "no cross-tab card drag" guard to this canvas's handleDragEnd. The
-	// tabdrop- branch (tested above) only covers releasing over a TAB TRIGGER;
-	// it says nothing about releasing over a card/field that merely HAPPENS to
-	// live in a different, currently-inactive tab (all tabs stay mounted with
-	// the `hidden` attribute — zag-js's Tabs — so dnd-kit's keyboard sensor,
-	// which enumerates every registered droppable regardless of visibility,
-	// can and does resolve targets across tab boundaries). This test proves
-	// that path is ALSO guarded.
-	it("card header drag never crosses tab boundaries even when dnd-kit resolves a target there", async () => {
+	// INVERTED for 0.12.0 (spring-loaded sections): this pinned the OLD 0.8.0
+	// same-tab card guard (v1 "no cross-tab card drag" — carried forward from
+	// Task 5's review). moveCard mechanically permits a CROSS-TAB block move
+	// — cardBlockRange/targetRange don't know about tabs at all — and that
+	// guard has been deleted from resolveDropTarget's card branch: a visible
+	// foreign card (or one of its fields) is now a LEGITIMATE card-block
+	// target (all tabs stay mounted with the `hidden` attribute — zag-js's
+	// Tabs — so dnd-kit's keyboard sensor, which enumerates every registered
+	// droppable regardless of visibility, can and does resolve targets across
+	// tab boundaries; the sprung-tab visibility is what makes the target
+	// reachable in the first place). This test now proves the cross-tab MOVE
+	// actually happens.
+	it("card header drag DOES cross tab boundaries once resolved there (guard deleted)", async () => {
 		const rectSpy = vi
 			.spyOn(Element.prototype, "getBoundingClientRect")
 			.mockImplementation(function (this: Element) {
@@ -376,20 +384,19 @@ describe("EditorCanvas — cards", () => {
 		fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowDown" });
 		fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
 
-		// Without the tab-scoping guard, c1's whole block (marker + field a)
-		// would relocate into the SEO tab, after c2 — a v1-illegal cross-tab
-		// card move. The guard must no-op it, leaving both tabs' contents
-		// exactly where they started.
+		// Guard deleted: c1's whole block (marker + field a) relocates into the
+		// SEO tab, AFTER c2's whole block — landing at the end of the flat
+		// schema (SEO becomes [c2, b, c1, a]; General is left empty).
 		const order = Array.from(
 			container.querySelectorAll(
 				'[data-testid^="card-frame-"], [data-testid^="shell-"]',
 			),
 		).map((el) => el.getAttribute("data-testid"));
 		expect(order).toEqual([
-			"card-frame-c1",
-			"shell-a",
 			"card-frame-c2",
 			"shell-b",
+			"card-frame-c1",
+			"shell-a",
 		]);
 
 		rectSpy.mockRestore();
@@ -582,5 +589,187 @@ describe("EditorCanvas — cards", () => {
 		);
 
 		rectSpy.mockRestore();
+	});
+
+	describe("card cross-section moves (0.12.0)", () => {
+		it("card ⋯ menu moves the block to another section and follows it", async () => {
+			const onSelectSpy = vi.fn();
+			render(
+				<EditorWrap>
+					<Harness
+						schema={[
+							makeCard("c1", "One"),
+							makeField("f1"),
+							makeSection("s1", "SEO"),
+							makeCard("c2", "Two"),
+						]}
+						onSelectSpy={onSelectSpy}
+					/>
+				</EditorWrap>,
+			);
+			// Open card c1's ⋯ menu (aria-label carries the card name).
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			const menu = await screen.findByRole("menu");
+			// Items: rename, delete-merge, delete-with-fields, then one move
+			// target per OTHER section — here exactly one: "SEO".
+			expect(within(menu).getByText("SEO")).toBeInTheDocument();
+			expect(within(menu).getByText("Move to section")).toBeInTheDocument(); // group label from labels.moveToSection
+			// fireEvent.click on a MenuItem does not fire the zag menu machine's
+			// onSelect in jsdom (no PointerEvent → no highlightedValue) — same
+			// limitation documented by dnd.test.tsx's/sections.test.tsx's
+			// selectMenuItem helpers. The move target is the 4th interactive
+			// item (index 3): rename(0), delete-merge(1), delete-with-fields(2),
+			// move-to-SEO(3) — the "Move to section" group label is plain Text,
+			// not a MenuItem, so it doesn't consume a roving-focus stop.
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Home" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Enter" });
+			});
+			await waitFor(() => {
+				// Block moved: c1+f1 now AFTER s1's existing content.
+				const order = Array.from(
+					document.querySelectorAll(
+						'[data-testid^="shell-"], [data-testid^="card-header-"]',
+					),
+				).map((el) => el.getAttribute("data-testid"));
+				expect(order).toEqual(["card-header-c2", "card-header-c1", "shell-f1"]);
+			});
+			// FOLLOW (Decision 3): the SEO panel is the visible one and the
+			// moved card is selected. NOTE: this fixture's source ("General")
+			// tab is IMPLICIT (no marker) and loses its only content (c1+f1) to
+			// the move — partitionSchemaBySections drops an implicit tab with
+			// no fields entirely, so SEO collapses from tab-1 to the SOLE
+			// tab-0 rather than staying a second panel. Asserting via the tab
+			// trigger's aria-selected (the drag-feedback.test.tsx/sections.
+			// test.tsx idiom) sidesteps that index shift and pins the thing
+			// that actually matters: SEO ends up the visible section.
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+			expect(
+				screen.getByTestId("shell-f1").closest("[role='tabpanel']"),
+			).not.toHaveAttribute("hidden");
+			expect(onSelectSpy).toHaveBeenLastCalledWith("c1");
+		});
+
+		it("menu offers NO move targets on a single-tab spec", async () => {
+			render(
+				<EditorWrap>
+					<Harness schema={[makeCard("c1", "One"), makeField("f1")]} />
+				</EditorWrap>,
+			);
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			expect(screen.queryByText("Move to section")).not.toBeInTheDocument();
+		});
+
+		// Review Finding 1 (regression pin): moving the ONLY content out of an
+		// IMPLICIT leading tab makes partitionSchemaBySections DROP that tab
+		// entirely — every later tab index shifts down by one. The two-tab
+		// fixture above can't discriminate this (its source tab collapsing
+		// happens to land on the only remaining tab either way). A THREE-tab
+		// fixture (General/A/B) does: moving c1+f1 (General's only content) to
+		// B must land on B's NEW index (1 once General is gone), not B's
+		// PRE-move index (2) — which the old code fed straight to
+		// onActiveTabChange, tripping the tab-count-shrink guard back to tab 0
+		// (A).
+		it("follow-select survives a partition collapse (3-tab fixture, menu move)", async () => {
+			// Finding 3: pin scroll-into-view coverage on this same test — the
+			// jsdom idiom from spec-form-read-search.test.tsx (Element.prototype
+			// has no native scrollIntoView; editor-canvas.tsx's
+			// scrollShellIntoView calls it through `?.()`, so an unstubbed
+			// jsdom silently no-ops and this call path stays uncovered).
+			const originalScrollIntoView = Element.prototype.scrollIntoView;
+			const scrollIntoViewMock = vi.fn();
+			Element.prototype.scrollIntoView = scrollIntoViewMock;
+
+			const onSelectSpy = vi.fn();
+			render(
+				<EditorWrap>
+					<Harness
+						schema={[
+							makeCard("c1", "One"),
+							makeField("f1"),
+							makeSection("sa", "A"),
+							makeField("fa"),
+							makeSection("sb", "B"),
+							makeField("fb"),
+						]}
+						onSelectSpy={onSelectSpy}
+					/>
+				</EditorWrap>,
+			);
+
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			const menu = await screen.findByRole("menu");
+			// Two move targets now, in partition order: A (pre-move tabIndex 1),
+			// then B (pre-move tabIndex 2). Items: rename(0), delete-merge(1),
+			// delete-with-fields(2), move-to-A(3), move-to-B(4) — four
+			// ArrowDowns from Home lands on move-to-B.
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Home" });
+			});
+			for (let i = 0; i < 4; i++) {
+				await act(async () => {
+					fireEvent.keyDown(menu, { key: "ArrowDown" });
+				});
+			}
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Enter" });
+			});
+
+			await waitFor(() => {
+				// c1+f1 relocated to the END of B (after its existing field fb).
+				// General collapses out of partition.tabs entirely (it had no
+				// other content), so the full DOM order is exactly A's content
+				// then B's.
+				const order = Array.from(
+					document.querySelectorAll(
+						'[data-testid^="shell-"], [data-testid^="card-header-"]',
+					),
+				).map((el) => el.getAttribute("data-testid"));
+				expect(order).toEqual([
+					"shell-fa",
+					"shell-fb",
+					"card-header-c1",
+					"shell-f1",
+				]);
+			});
+			// (a) B — NOT A, NOT clamped back to tab 0 — is the visible/selected
+			// tab. Regex name match: B now carries a "loose_field_in_carded_tab"
+			// error badge (fb precedes card c1 in a now-carded tab), which
+			// extends its accessible name beyond the bare "B" text.
+			expect(screen.getByRole("tab", { name: /^B/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+			expect(screen.getByRole("tab", { name: /^A/ })).toHaveAttribute(
+				"aria-selected",
+				"false",
+			);
+			// (b) the moved card is selected.
+			expect(onSelectSpy).toHaveBeenLastCalledWith("c1");
+			// Finding 3: the scroll-into-view continuation actually ran.
+			expect(scrollIntoViewMock).toHaveBeenCalled();
+
+			Element.prototype.scrollIntoView = originalScrollIntoView;
+		});
 	});
 });
