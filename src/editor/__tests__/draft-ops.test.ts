@@ -3,6 +3,7 @@ import { z } from "zod";
 import { partitionSchemaBySections } from "../../schema/partition";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
+import { validateSpec } from "../../schema/validate-spec";
 import {
 	addSection,
 	createField,
@@ -23,7 +24,6 @@ import {
 	uniquifyAccessor,
 	updateField,
 } from "../draft-ops";
-import { validateSpec } from "../../schema/validate-spec";
 import { makeCard, makeField, makeSection } from "./editor-helpers";
 
 function makePlugin(overrides: Partial<FieldTypePlugin> = {}): FieldTypePlugin {
