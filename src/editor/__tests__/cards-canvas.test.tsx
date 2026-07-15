@@ -677,5 +677,99 @@ describe("EditorCanvas — cards", () => {
 			});
 			expect(screen.queryByText("Move to section")).not.toBeInTheDocument();
 		});
+
+		// Review Finding 1 (regression pin): moving the ONLY content out of an
+		// IMPLICIT leading tab makes partitionSchemaBySections DROP that tab
+		// entirely — every later tab index shifts down by one. The two-tab
+		// fixture above can't discriminate this (its source tab collapsing
+		// happens to land on the only remaining tab either way). A THREE-tab
+		// fixture (General/A/B) does: moving c1+f1 (General's only content) to
+		// B must land on B's NEW index (1 once General is gone), not B's
+		// PRE-move index (2) — which the old code fed straight to
+		// onActiveTabChange, tripping the tab-count-shrink guard back to tab 0
+		// (A).
+		it("follow-select survives a partition collapse (3-tab fixture, menu move)", async () => {
+			// Finding 3: pin scroll-into-view coverage on this same test — the
+			// jsdom idiom from spec-form-read-search.test.tsx (Element.prototype
+			// has no native scrollIntoView; editor-canvas.tsx's
+			// scrollShellIntoView calls it through `?.()`, so an unstubbed
+			// jsdom silently no-ops and this call path stays uncovered).
+			const originalScrollIntoView = Element.prototype.scrollIntoView;
+			const scrollIntoViewMock = vi.fn();
+			Element.prototype.scrollIntoView = scrollIntoViewMock;
+
+			const onSelectSpy = vi.fn();
+			render(
+				<EditorWrap>
+					<Harness
+						schema={[
+							makeCard("c1", "One"),
+							makeField("f1"),
+							makeSection("sa", "A"),
+							makeField("fa"),
+							makeSection("sb", "B"),
+							makeField("fb"),
+						]}
+						onSelectSpy={onSelectSpy}
+					/>
+				</EditorWrap>,
+			);
+
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			const menu = await screen.findByRole("menu");
+			// Two move targets now, in partition order: A (pre-move tabIndex 1),
+			// then B (pre-move tabIndex 2). Items: rename(0), delete-merge(1),
+			// delete-with-fields(2), move-to-A(3), move-to-B(4) — four
+			// ArrowDowns from Home lands on move-to-B.
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Home" });
+			});
+			for (let i = 0; i < 4; i++) {
+				await act(async () => {
+					fireEvent.keyDown(menu, { key: "ArrowDown" });
+				});
+			}
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Enter" });
+			});
+
+			await waitFor(() => {
+				// c1+f1 relocated to the END of B (after its existing field fb).
+				// General collapses out of partition.tabs entirely (it had no
+				// other content), so the full DOM order is exactly A's content
+				// then B's.
+				const order = Array.from(
+					document.querySelectorAll(
+						'[data-testid^="shell-"], [data-testid^="card-header-"]',
+					),
+				).map((el) => el.getAttribute("data-testid"));
+				expect(order).toEqual([
+					"shell-fa",
+					"shell-fb",
+					"card-header-c1",
+					"shell-f1",
+				]);
+			});
+			// (a) B — NOT A, NOT clamped back to tab 0 — is the visible/selected
+			// tab. Regex name match: B now carries a "loose_field_in_carded_tab"
+			// error badge (fb precedes card c1 in a now-carded tab), which
+			// extends its accessible name beyond the bare "B" text.
+			expect(screen.getByRole("tab", { name: /^B/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+			expect(screen.getByRole("tab", { name: /^A/ })).toHaveAttribute(
+				"aria-selected",
+				"false",
+			);
+			// (b) the moved card is selected.
+			expect(onSelectSpy).toHaveBeenLastCalledWith("c1");
+			// Finding 3: the scroll-into-view continuation actually ran.
+			expect(scrollIntoViewMock).toHaveBeenCalled();
+
+			Element.prototype.scrollIntoView = originalScrollIntoView;
+		});
 	});
 });

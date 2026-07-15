@@ -1,5 +1,12 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -155,7 +162,7 @@ function mockSectionedRects(shellLeft = 0) {
 }
 
 describe("EditorCanvas drag & drop", () => {
-	it("Move to section… relocates the field", async () => {
+	it("Move to section… relocates the field and follows it", async () => {
 		render(
 			<EditorWrap>
 				<Harness
@@ -170,13 +177,69 @@ describe("EditorCanvas drag & drop", () => {
 		});
 		await selectMenuItem(); // only item is "SEO"
 
-		await act(async () => {
-			fireEvent.click(screen.getByRole("tab", { name: /SEO/ }));
+		// Review Finding 2 (deliberate behavioral update, not a frozen-semantics
+		// violation — cross-section menu moves are exactly the surface this
+		// feature changes, spec Decision 3): the field's "Move to section" menu
+		// previously left the author on the source tab after the move, forcing
+		// a manual tab click (the line this replaces). It now follows
+		// automatically, same as the card menu and the drag-drop paths.
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
 		});
 
 		const panelA = screen.getByTestId("shell-a").closest("[role='tabpanel']");
 		const panelB = screen.getByTestId("shell-b").closest("[role='tabpanel']");
 		expect(panelA).toBe(panelB);
+		expect(panelA).not.toHaveAttribute("hidden");
+	});
+
+	// The test above's fixture happens to pass this assertion EVEN WITHOUT the
+	// follow wiring: moving "a" away leaves General with nothing, so its
+	// implicit tab collapses out of partition.tabs entirely (same quirk as
+	// cards-canvas.test.tsx's card-menu fixture) and SEO becomes the SOLE
+	// remaining tab — trivially "active" at index 0, the index the canvas
+	// was never asked to leave. This fixture keeps "x" behind in General so
+	// it does NOT collapse: only the follow wiring can move the active tab
+	// off General and onto SEO.
+	it("Move to section… follows even when the source tab keeps other fields", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[
+						makeField("a"),
+						makeField("x"),
+						makeSection("s1", "SEO"),
+						makeField("b"),
+					]}
+				/>
+			</EditorWrap>,
+		);
+
+		fireEvent.click(screen.getByTestId("shell-a"));
+		await act(async () => {
+			fireEvent.click(screen.getByLabelText("Move to section"));
+		});
+		await selectMenuItem(); // only item is "SEO"
+
+		await waitFor(() => {
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+		});
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+		// "a" relocated into SEO, alongside "b"; "x" stayed behind in General.
+		const panelA = screen.getByTestId("shell-a").closest("[role='tabpanel']");
+		const panelB = screen.getByTestId("shell-b").closest("[role='tabpanel']");
+		const panelX = screen.getByTestId("shell-x").closest("[role='tabpanel']");
+		expect(panelA).toBe(panelB);
+		expect(panelA).not.toBe(panelX);
 		expect(panelA).not.toHaveAttribute("hidden");
 	});
 

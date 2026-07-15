@@ -48,13 +48,14 @@ import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
+import { partitionSchemaBySections } from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
 	FieldContext,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
-import type { Field } from "../schema/types";
+import type { Field, Schema } from "../schema/types";
 import { getDefaultValues } from "../schema/zod-builder";
 import { CardFrame } from "./card-frame";
 import { CardMenu } from "./card-menu";
@@ -390,6 +391,33 @@ export function EditorCanvas({
 		requestAnimationFrame(tryScroll);
 	};
 
+	// Review Finding 1: every cross-section move site already computes the
+	// next schema as a VALUE before applying it — so the post-move partition
+	// is synchronously available. Resolving the target tab's INDEX up front
+	// (from the pre-move partition) and feeding that raw index to
+	// onActiveTabChange breaks when the move empties an IMPLICIT leading tab:
+	// partitionSchemaBySections drops a markerless tab once it has no fields
+	// left, which shifts every later tab index down by one — the pre-move
+	// index can point at the wrong tab, or one that no longer exists (and
+	// gets silently shrink-clamped back to tab 0). Re-resolving the target by
+	// IDENTITY (its section's api_accessor, or null for the implicit tab)
+	// against the POST-move partition survives the collapse either way.
+	const followAfter = (
+		next: Schema,
+		targetIdentity: string | null,
+		accessor: string,
+	) => {
+		const nextPartition = partitionSchemaBySections(next);
+		const idx = nextPartition.tabs.findIndex((t) =>
+			targetIdentity === null
+				? t.section === null
+				: t.section?.config.api_accessor === targetIdentity,
+		);
+		if (idx !== -1) onActiveTabChange(idx);
+		onSelect(accessor);
+		scrollShellIntoView(accessor);
+	};
+
 	// Computed ONCE per draft identity (rather than separately for the
 	// useForm initializer, the reset-guard ref's initializer, and the effect
 	// below) — getDefaultValues(draft, plugins) + its JSON serialization were
@@ -654,10 +682,14 @@ export function EditorCanvas({
 						: undefined
 				}
 				onMoveToSection={(accessor, tabIndex) => {
-					apply(moveCardToSection(draft, accessor, tabIndex));
-					onActiveTabChange(tabIndex);
-					onSelect(accessor);
-					scrollShellIntoView(accessor);
+					// Identity resolved from the PRE-move partition (this render's
+					// `partition`) — see followAfter's comment for why the raw
+					// index can't be trusted post-move.
+					const targetIdentity =
+						partition.tabs[tabIndex]?.section?.config.api_accessor ?? null;
+					const next = moveCardToSection(draft, accessor, tabIndex);
+					apply(next);
+					followAfter(next, targetIdentity, accessor);
 				}}
 			/>
 		);
@@ -753,46 +785,54 @@ export function EditorCanvas({
 			dragStartTabIndexRef.current = null;
 			return;
 		}
+		const accessor = String(active.id);
 		const isCardDrag =
-			draft.find((f) => f.config.api_accessor === String(active.id))
-				?.field_type === "card";
+			draft.find((f) => f.config.api_accessor === accessor)?.field_type ===
+			"card";
 		const startTab = dragStartTabIndexRef.current;
 		dragStartTabIndexRef.current = null;
 		// Decision 3: every cross-section drop ends in the target section with
-		// the moved item selected. Same-tab drops keep today's behavior.
-		const follow = (targetTabIndex: number) => {
+		// the moved item selected. Same-tab drops keep today's behavior — only
+		// follow when the PRE-move target tab index differs from the drag's
+		// start tab (the same-tab freeze this guards is load-bearing for
+		// existing tests: a same-tab reorder must not touch selection).
+		// `targetTabIndex` (and the identity resolved from it) is always the
+		// PRE-move partition — `next` is applied to `draft` afterwards, but
+		// `partition`/`draft` themselves are this render's stable snapshot.
+		const follow = (targetTabIndex: number, next: Schema) => {
 			if (startTab != null && targetTabIndex !== startTab) {
-				onActiveTabChange(targetTabIndex);
-				onSelect(String(active.id));
-				scrollShellIntoView(String(active.id));
+				const targetIdentity =
+					partition.tabs[targetTabIndex]?.section?.config.api_accessor ?? null;
+				followAfter(next, targetIdentity, accessor);
 			}
 		};
 		switch (target.kind) {
 			case "card-block": {
-				apply(
-					moveCard(
-						draft,
-						String(active.id),
-						target.targetCardAccessor,
-						target.placement,
-					),
+				const next = moveCard(
+					draft,
+					accessor,
+					target.targetCardAccessor,
+					target.placement,
 				);
+				apply(next);
 				// A sprung drop's target tab is the currently active tab.
-				follow(activeTabIndex);
+				follow(activeTabIndex, next);
 				return;
 			}
-			case "tab":
-				apply(
-					isCardDrag
-						? moveCardToSection(draft, String(active.id), target.tabIndex)
-						: moveFieldToSection(draft, String(active.id), target.tabIndex),
-				);
-				follow(target.tabIndex);
+			case "tab": {
+				const next = isCardDrag
+					? moveCardToSection(draft, accessor, target.tabIndex)
+					: moveFieldToSection(draft, accessor, target.tabIndex);
+				apply(next);
+				follow(target.tabIndex, next);
 				return;
-			case "field":
-				apply(moveField(draft, target.fromIndex, target.targetIndex));
-				follow(activeTabIndex);
+			}
+			case "field": {
+				const next = moveField(draft, target.fromIndex, target.targetIndex);
+				apply(next);
+				follow(activeTabIndex, next);
 				return;
+			}
 		}
 	};
 
@@ -827,7 +867,18 @@ export function EditorCanvas({
 							<MenuItem
 								key={key}
 								value={key}
-								onSelect={() => apply(moveFieldToSection(draft, accessor, i))}
+								onSelect={() => {
+									// Review Finding 2: this menu previously left the author
+									// on the source tab — bare apply(), no follow. Spec
+									// Decision 3 requires every cross-section drop (spring,
+									// quick trigger-drop, OR menu) to end with the target tab
+									// active, the moved item selected, and scrolled into view.
+									const targetIdentity =
+										tab.section?.config.api_accessor ?? null;
+									const next = moveFieldToSection(draft, accessor, i);
+									apply(next);
+									followAfter(next, targetIdentity, accessor);
+								}}
 							>
 								{tab.section?.config.name ?? labels.defaultTab}
 							</MenuItem>
