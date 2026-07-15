@@ -202,7 +202,10 @@ describe("TryItView", () => {
 				"1 ungültiges Feld",
 			);
 		});
-	});
+		// Generous TEST timeout: exceeded vitest's 5s default once under
+		// heavy machine load (2026-07-15) — the #39 flake class; see
+		// insertion.test.tsx's twin note.
+	}, 15000);
 
 	it("calls toaster.create with the success message on a valid submit", async () => {
 		const schema: Schema = [

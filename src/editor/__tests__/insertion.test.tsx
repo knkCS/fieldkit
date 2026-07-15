@@ -146,7 +146,11 @@ describe("EditorCanvas insertion points", () => {
 
 		// The new field is selected — its toolbar is visible.
 		expect(await screen.findByLabelText("Delete field")).toBeInTheDocument();
-	});
+		// Generous TEST timeout: this test's act flushes (popover mount + type
+		// insert + panel autofocus) exceeded vitest's 5s default once under
+		// heavy machine load (2026-07-15, "Test timed out in 5000ms") — the
+		// #39 flake class. The awaits all pass; they're just slow under load.
+	}, 15000);
 
 	it("the insertion popover never offers the section type (use + Section instead)", async () => {
 		render(
