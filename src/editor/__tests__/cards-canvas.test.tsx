@@ -1,5 +1,12 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -582,5 +589,93 @@ describe("EditorCanvas — cards", () => {
 		);
 
 		rectSpy.mockRestore();
+	});
+
+	describe("card cross-section moves (0.12.0)", () => {
+		it("card ⋯ menu moves the block to another section and follows it", async () => {
+			const onSelectSpy = vi.fn();
+			render(
+				<EditorWrap>
+					<Harness
+						schema={[
+							makeCard("c1", "One"),
+							makeField("f1"),
+							makeSection("s1", "SEO"),
+							makeCard("c2", "Two"),
+						]}
+						onSelectSpy={onSelectSpy}
+					/>
+				</EditorWrap>,
+			);
+			// Open card c1's ⋯ menu (aria-label carries the card name).
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			const menu = await screen.findByRole("menu");
+			// Items: rename, delete-merge, delete-with-fields, then one move
+			// target per OTHER section — here exactly one: "SEO".
+			expect(within(menu).getByText("SEO")).toBeInTheDocument();
+			expect(within(menu).getByText("Move to section")).toBeInTheDocument(); // group label from labels.moveToSection
+			// fireEvent.click on a MenuItem does not fire the zag menu machine's
+			// onSelect in jsdom (no PointerEvent → no highlightedValue) — same
+			// limitation documented by dnd.test.tsx's/sections.test.tsx's
+			// selectMenuItem helpers. The move target is the 4th interactive
+			// item (index 3): rename(0), delete-merge(1), delete-with-fields(2),
+			// move-to-SEO(3) — the "Move to section" group label is plain Text,
+			// not a MenuItem, so it doesn't consume a roving-focus stop.
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Home" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+			});
+			await act(async () => {
+				fireEvent.keyDown(menu, { key: "Enter" });
+			});
+			await waitFor(() => {
+				// Block moved: c1+f1 now AFTER s1's existing content.
+				const order = Array.from(
+					document.querySelectorAll(
+						'[data-testid^="shell-"], [data-testid^="card-header-"]',
+					),
+				).map((el) => el.getAttribute("data-testid"));
+				expect(order).toEqual(["card-header-c2", "card-header-c1", "shell-f1"]);
+			});
+			// FOLLOW (Decision 3): the SEO panel is the visible one and the
+			// moved card is selected. NOTE: this fixture's source ("General")
+			// tab is IMPLICIT (no marker) and loses its only content (c1+f1) to
+			// the move — partitionSchemaBySections drops an implicit tab with
+			// no fields entirely, so SEO collapses from tab-1 to the SOLE
+			// tab-0 rather than staying a second panel. Asserting via the tab
+			// trigger's aria-selected (the drag-feedback.test.tsx/sections.
+			// test.tsx idiom) sidesteps that index shift and pins the thing
+			// that actually matters: SEO ends up the visible section.
+			expect(screen.getByRole("tab", { name: /SEO/ })).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+			expect(
+				screen.getByTestId("shell-f1").closest("[role='tabpanel']"),
+			).not.toHaveAttribute("hidden");
+			expect(onSelectSpy).toHaveBeenLastCalledWith("c1");
+		});
+
+		it("menu offers NO move targets on a single-tab spec", async () => {
+			render(
+				<EditorWrap>
+					<Harness schema={[makeCard("c1", "One"), makeField("f1")]} />
+				</EditorWrap>,
+			);
+			await act(async () => {
+				fireEvent.click(screen.getByLabelText("Card menu: One"));
+			});
+			expect(screen.queryByText("Move to section")).not.toBeInTheDocument();
+		});
 	});
 });

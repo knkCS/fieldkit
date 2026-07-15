@@ -8,6 +8,7 @@ import {
 	type DragStartEvent,
 	KeyboardSensor,
 	PointerSensor,
+	useDndContext,
 	useDroppable,
 	useSensor,
 	useSensors,
@@ -66,6 +67,7 @@ import {
 	flatInsertIndex,
 	insertFieldAt,
 	moveCard,
+	moveCardToSection,
 	moveField,
 	moveFieldToSection,
 	moveSection,
@@ -269,6 +271,52 @@ function ShellContent({
 }
 ShellContent.displayName = "ShellContent";
 
+/** Ground truth (2026-07-14 probe): a sprung tab's shells keep the ZERO
+ * rects they measured while hidden — dnd-kit only re-measures droppables on
+ * drag start, so without this the foreign canvas is drop-dead (no over, no
+ * line, no tint). Re-measures ALL droppables whenever the active tab
+ * changes mid-drag, retrying until the sprung panel has actually unhidden
+ * (zag swaps `hidden` up to ~47 ms after the React commit — the 0.10.0
+ * retry-until-unhidden lesson). Renders nothing; must live INSIDE
+ * DndContext (useDndContext). */
+function DragRemeasurer({
+	activeTabIndex,
+	dragActive,
+}: {
+	activeTabIndex: number;
+	dragActive: boolean;
+}) {
+	const { measureDroppableContainers, droppableContainers } = useDndContext();
+	useEffect(() => {
+		if (!dragActive) return;
+		let attempts = 0;
+		let raf = 0;
+		const measure = () => {
+			// A plain `:not([hidden])` probe would confirm SOME panel is
+			// visible, not necessarily the sprung one (zag keeps the outgoing
+			// panel painted for a beat during the swap) — index into the
+			// tabpanel list by the tab we just sprung TO.
+			const panel =
+				document.querySelectorAll('[role="tabpanel"]')[activeTabIndex];
+			if ((panel && !panel.hasAttribute("hidden")) || attempts >= 20) {
+				measureDroppableContainers(Array.from(droppableContainers.keys()));
+				return;
+			}
+			attempts++;
+			raf = requestAnimationFrame(measure);
+		};
+		raf = requestAnimationFrame(measure);
+		return () => cancelAnimationFrame(raf);
+	}, [
+		activeTabIndex,
+		dragActive,
+		measureDroppableContainers,
+		droppableContainers,
+	]);
+	return null;
+}
+DragRemeasurer.displayName = "DragRemeasurer";
+
 export function EditorCanvas({
 	spec,
 	plugins,
@@ -321,6 +369,26 @@ export function EditorCanvas({
 			coordinateGetter: sortableKeyboardCoordinates,
 		}),
 	);
+
+	// Post-move continuation: the moved shell/header exists immediately (a
+	// move keeps its accessor), but the target PANEL unhides asynchronously
+	// (zag swaps `hidden` after the React commit). Retry until visible, then
+	// scroll. Bounded so a deleted accessor can't loop forever.
+	const scrollShellIntoView = (accessor: string) => {
+		let attempts = 0;
+		const tryScroll = () => {
+			const el = document.querySelector(
+				`[data-testid="shell-${accessor}"], [data-testid="card-header-${accessor}"]`,
+			);
+			if (el && !el.closest("[hidden]")) {
+				// jsdom has no scrollIntoView (spec-form.tsx's established idiom).
+				el.scrollIntoView?.({ block: "nearest" });
+				return;
+			}
+			if (attempts++ < 20) requestAnimationFrame(tryScroll);
+		};
+		requestAnimationFrame(tryScroll);
+	};
 
 	// Computed ONCE per draft identity (rather than separately for the
 	// useForm initializer, the reset-guard ref's initializer, and the effect
@@ -556,21 +624,44 @@ export function EditorCanvas({
 		apply(deleteCardWithFields(draft, accessor));
 	};
 
-	const buildCardMenu = (card: Field) => (
-		<CardMenu
-			cardAccessor={card.config.api_accessor}
-			onRename={onEdit}
-			onDeleteMerge={handleDeleteCardMerge}
-			onDeleteWithFields={(a) =>
-				handleDeleteCardWithFields(a, card.config.name)
-			}
-			labels={labels}
-			triggerAriaLabel={labels.cardMenu.replace(
-				"{card}",
-				card.config.name.trim() || labels.cardUntitled,
-			)}
-		/>
-	);
+	const buildCardMenu = (card: Field) => {
+		const cardTabIndex = partition.tabs.findIndex((tab) =>
+			tab.fields.some(
+				(f) => f.config.api_accessor === card.config.api_accessor,
+			),
+		);
+		return (
+			<CardMenu
+				cardAccessor={card.config.api_accessor}
+				onRename={onEdit}
+				onDeleteMerge={handleDeleteCardMerge}
+				onDeleteWithFields={(a) =>
+					handleDeleteCardWithFields(a, card.config.name)
+				}
+				labels={labels}
+				triggerAriaLabel={labels.cardMenu.replace(
+					"{card}",
+					card.config.name.trim() || labels.cardUntitled,
+				)}
+				moveTargets={
+					partition.hasSections && partition.tabs.length >= 2
+						? partition.tabs
+								.map((tab, i) => ({
+									tabIndex: i,
+									name: tab.section?.config.name ?? labels.defaultTab,
+								}))
+								.filter((t) => t.tabIndex !== cardTabIndex)
+						: undefined
+				}
+				onMoveToSection={(accessor, tabIndex) => {
+					apply(moveCardToSection(draft, accessor, tabIndex));
+					onActiveTabChange(tabIndex);
+					onSelect(accessor);
+					scrollShellIntoView(accessor);
+				}}
+			/>
+		);
+	};
 
 	// Hovering a tab-trigger drop zone while dragging springs the canvas to
 	// that tab so the drop can land at an exact slot (spring-loaded sections
@@ -662,9 +753,22 @@ export function EditorCanvas({
 			dragStartTabIndexRef.current = null;
 			return;
 		}
+		const isCardDrag =
+			draft.find((f) => f.config.api_accessor === String(active.id))
+				?.field_type === "card";
+		const startTab = dragStartTabIndexRef.current;
 		dragStartTabIndexRef.current = null;
+		// Decision 3: every cross-section drop ends in the target section with
+		// the moved item selected. Same-tab drops keep today's behavior.
+		const follow = (targetTabIndex: number) => {
+			if (startTab != null && targetTabIndex !== startTab) {
+				onActiveTabChange(targetTabIndex);
+				onSelect(String(active.id));
+				scrollShellIntoView(String(active.id));
+			}
+		};
 		switch (target.kind) {
-			case "card-block":
+			case "card-block": {
 				apply(
 					moveCard(
 						draft,
@@ -673,12 +777,21 @@ export function EditorCanvas({
 						target.placement,
 					),
 				);
+				// A sprung drop's target tab is the currently active tab.
+				follow(activeTabIndex);
 				return;
+			}
 			case "tab":
-				apply(moveFieldToSection(draft, String(active.id), target.tabIndex));
+				apply(
+					isCardDrag
+						? moveCardToSection(draft, String(active.id), target.tabIndex)
+						: moveFieldToSection(draft, String(active.id), target.tabIndex),
+				);
+				follow(target.tabIndex);
 				return;
 			case "field":
 				apply(moveField(draft, target.fromIndex, target.targetIndex));
+				follow(activeTabIndex);
 				return;
 		}
 	};
@@ -1204,6 +1317,10 @@ export function EditorCanvas({
 							))}
 						</Tabs.Root>
 					</Box>
+					<DragRemeasurer
+						activeTabIndex={activeTabIndex}
+						dragActive={dragActive}
+					/>
 					{overlayPortal}
 				</DndContext>
 			</FormMarkersProvider>
