@@ -415,18 +415,53 @@ export function moveCardToSection(
 		);
 	});
 	if (!tab) return schema;
+	// #46: mirror insertCard's auto-wrap — appending a card to an UNCARDED
+	// tab with fields would leave those fields as a loose leading run
+	// (loose_field_in_carded_tab on every one). Wrap them into an untitled
+	// card at the tab's head first, exactly like "+ Card" does.
+	let base = without;
+	let baseTab = tab;
+	const targetHasCards = tab.fields.some((f) => f.field_type === "card");
+	if (!targetHasCards && tab.fields.length > 0) {
+		const baseTabIndex = partition.tabs.indexOf(tab);
+		base = insertFieldAt(
+			without,
+			untitledCardMarker(without),
+			flatInsertIndex(without, partition, baseTabIndex, 0),
+		);
+		// The wrap changed the tab's contents but not the tab count — the
+		// same index resolves the same tab in the re-partition.
+		baseTab = partitionSchemaBySections(base).tabs[baseTabIndex];
+	}
 	// Flat index just after the tab's last field (or just after its marker
 	// when empty) — identical dialect to moveFieldToSection.
-	const lastOfTab = tab.fields[tab.fields.length - 1] ?? tab.section;
-	if (!lastOfTab) return [...block, ...without]; // implicit empty first tab
-	const insertAfter = without.findIndex(
+	const lastOfTab =
+		baseTab.fields[baseTab.fields.length - 1] ?? baseTab.section;
+	if (!lastOfTab) return [...block, ...base]; // implicit empty first tab
+	const insertAfter = base.findIndex(
 		(f) => f.config.api_accessor === lastOfTab.config.api_accessor,
 	);
 	return [
-		...without.slice(0, insertAfter + 1),
+		...base.slice(0, insertAfter + 1),
 		...block,
-		...without.slice(insertAfter + 1),
+		...base.slice(insertAfter + 1),
 	];
+}
+
+/** The untitled card marker "+ Card" and #46's auto-wrap both insert —
+ * one builder so their uniquing and shape can never drift apart. */
+function untitledCardMarker(current: Schema): Field {
+	return {
+		field_type: "card",
+		config: {
+			name: "",
+			api_accessor: nextAccessor(current, "card"),
+			required: false,
+			instructions: "",
+		},
+		settings: {},
+		system: false,
+	};
 }
 
 /** A card block = the marker plus every field up to the next `card` or
@@ -465,24 +500,12 @@ export function insertCard(schema: Schema, tabIndex: number): Schema {
 	const tab = partition.tabs[tabIndex];
 	if (!tab) return schema;
 
-	const makeMarker = (current: Schema): Field => ({
-		field_type: "card",
-		config: {
-			name: "",
-			api_accessor: nextAccessor(current, "card"),
-			required: false,
-			instructions: "",
-		},
-		settings: {},
-		system: false,
-	});
-
 	let next = schema;
 	const hasCards = tab.fields.some((f) => f.field_type === "card");
 	if (!hasCards && tab.fields.length > 0) {
 		next = insertFieldAt(
 			next,
-			makeMarker(next),
+			untitledCardMarker(next),
 			flatInsertIndex(next, partition, tabIndex, 0),
 		);
 	}
@@ -491,7 +514,7 @@ export function insertCard(schema: Schema, tabIndex: number): Schema {
 	const nextPartition = partitionSchemaBySections(next);
 	return insertFieldAt(
 		next,
-		makeMarker(next),
+		untitledCardMarker(next),
 		flatInsertIndex(
 			next,
 			nextPartition,

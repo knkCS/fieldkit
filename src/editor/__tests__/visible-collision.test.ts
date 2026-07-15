@@ -121,6 +121,42 @@ function tabArgs(
 	};
 }
 
+describe("editorCollision (far-outside no-op, #45)", () => {
+	// Union of visible droppables: TAB_ZONE ∪ SHELL = (36,222)→(1366,410).
+	// With OUTSIDE_CANVAS_SLACK_PX (96): (-60,126)→(1462,506).
+
+	it("a pointer far outside the canvas resolves NOTHING — even though closestCenter always has a nearest candidate", () => {
+		// Discriminator: the base strategy still returns the nearest droppable.
+		const farMargin = { x: 1390, y: 15 }; // the gate's failing margin point
+		const base = visibleClosestCenter(tabArgs(farMargin));
+		expect(base.length).toBeGreaterThan(0);
+
+		expect(editorCollision(tabArgs(farMargin))).toEqual([]);
+	});
+
+	it("a pointer just outside a droppable but within the slack still resolves (no premature no-op at the canvas edge)", () => {
+		const collisions = editorCollision(tabArgs({ x: 10, y: 250 }));
+		expect(collisions[0]?.id).toBe("shell-a");
+	});
+
+	it("hidden zero-rects do not extend the bounds union toward the page origin", () => {
+		const args = tabArgs({ x: 5, y: 5 });
+		args.droppableContainers.push(container("hidden", { width: 0, height: 0 }));
+		args.droppableRects.set("hidden", rect(0, 0));
+		// (5,5) sits inside a union that includes (0,0) — but the zero-rect is
+		// hidden, so the real union starts at y=222-96: outside → no-op.
+		expect(editorCollision(args)).toEqual([]);
+	});
+
+	it("keyboard drags (no pointer coordinates) bypass the bounds guard entirely", () => {
+		// Collision rect far outside the union — keyboard must still resolve.
+		const collisions = editorCollision(
+			tabArgs(null, prect(2000, 2000, 10, 10)),
+		);
+		expect(collisions.length).toBeGreaterThan(0);
+	});
+});
+
 describe("editorCollision (tab-trigger reachability)", () => {
 	it("pointer inside a tab trigger resolves the tab zone — even though closestCenter prefers the nearer full-width shell", () => {
 		// Discriminator: the base strategy alone picks the shell.
