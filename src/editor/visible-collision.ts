@@ -49,8 +49,51 @@ export const visibleClosestCenter: CollisionDetection = (args) =>
  * drags carry no pointer coordinates and fall through to the base strategy
  * unchanged.
  */
+/** How far outside the union of visible droppable rects a pointer may
+ * wander before the drag resolves NOTHING (#45). Generous enough that
+ * edge-hugging drags and the tab-strip→panel gutter never no-op; small
+ * enough that a deliberate drag-away to the page margin clears the
+ * feedback and turns the release into a restore-and-no-op. */
+export const OUTSIDE_CANVAS_SLACK_PX = 96;
+
+/** True when the pointer sits outside the slack-expanded bounding box of
+ * every VISIBLE droppable. closestCenter has no distance cutoff — it
+ * always returns the nearest candidate, however far (measured: a
+ * post-spring drag to the page corner still committed a drop, fieldkit#45
+ * / the 0.12.0 gate's one failed leg) — so far-outside pointers must be
+ * cut off BEFORE the fallback. Zero-size (hidden) rects are excluded:
+ * they measure at (0,0) and would drag the union to the page origin. */
+function pointerOutsideCanvas(
+	pointer: { x: number; y: number },
+	droppableRects: Parameters<CollisionDetection>[0]["droppableRects"],
+): boolean {
+	let left = Number.POSITIVE_INFINITY;
+	let top = Number.POSITIVE_INFINITY;
+	let right = Number.NEGATIVE_INFINITY;
+	let bottom = Number.NEGATIVE_INFINITY;
+	let any = false;
+	for (const rect of droppableRects.values()) {
+		if (rect.width <= 0 || rect.height <= 0) continue;
+		any = true;
+		if (rect.left < left) left = rect.left;
+		if (rect.top < top) top = rect.top;
+		if (rect.right > right) right = rect.right;
+		if (rect.bottom > bottom) bottom = rect.bottom;
+	}
+	if (!any) return false; // nothing measured yet — never no-op on that
+	return (
+		pointer.x < left - OUTSIDE_CANVAS_SLACK_PX ||
+		pointer.x > right + OUTSIDE_CANVAS_SLACK_PX ||
+		pointer.y < top - OUTSIDE_CANVAS_SLACK_PX ||
+		pointer.y > bottom + OUTSIDE_CANVAS_SLACK_PX
+	);
+}
+
 export const editorCollision: CollisionDetection = (args) => {
 	if (args.pointerCoordinates) {
+		if (pointerOutsideCanvas(args.pointerCoordinates, args.droppableRects)) {
+			return [];
+		}
 		const tabZones = args.droppableContainers.filter(
 			(c) => String(c.id).startsWith("tabdrop-") && isVisibleDroppable(c),
 		);
