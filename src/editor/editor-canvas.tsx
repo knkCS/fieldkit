@@ -91,6 +91,7 @@ import type { EditorLabels } from "./spec-editor";
 import type { TypePickerLabels } from "./type-picker";
 import { TypePickerPopover } from "./type-picker-popover";
 import type { SpecDraft } from "./use-spec-draft";
+import { useSpringLoadedTab } from "./use-spring-loaded-tab";
 import { editorCollision } from "./visible-collision";
 
 /** Droppable wrapper for a tab-trigger row — a cross-section drag target.
@@ -299,6 +300,13 @@ export function EditorCanvas({
 	// function at release — line, tint, highlight, and the executed move can
 	// never disagree.
 	const [liveTarget, setLiveTarget] = useState<ResolvedDropTarget | null>(null);
+	// Spring-loaded sections (0.12.0): pointer drags dwell on a hovered tab
+	// trigger before the canvas springs to it; keyboard drags switch
+	// immediately (spec Decision 6). The drag-start tab is the restore
+	// point for Escape and null-target drops (Decision 4).
+	const [dragKind, setDragKind] = useState<"pointer" | "keyboard" | null>(null);
+	const [hoveredTabZone, setHoveredTabZone] = useState<number | null>(null);
+	const dragStartTabIndexRef = useRef<number | null>(null);
 	// Escape cancels the rename Input without committing; this guards the
 	// blur that may follow it from re-committing the cancelled text.
 	const skipBlurRef = useRef(false);
@@ -564,16 +572,24 @@ export function EditorCanvas({
 		/>
 	);
 
-	// Hovering a tab-trigger drop zone while dragging activates that tab so
-	// the user can see where the field will land before releasing. The
-	// activation stays UNCONDITIONAL (not gated on resolveDropTarget):
-	// hovering back onto the SOURCE tab's own trigger is a null target
-	// (releasing there is a no-op) but must still switch the view back.
+	// Hovering a tab-trigger drop zone while dragging springs the canvas to
+	// that tab so the drop can land at an exact slot (spring-loaded sections
+	// spec, Decision 1). Pointer drags dwell (SPRING_DWELL_MS) so crossing
+	// the strip never flips tabs by accident; keyboard drags switch
+	// immediately — arrowing onto a zone is already deliberate (Decision 6).
+	// The zone tracking stays UNCONDITIONAL (not gated on resolveDropTarget):
+	// dwelling on the SOURCE tab's own trigger is a null TARGET (releasing
+	// there is a no-op) but must still spring the view back.
 	// Highlight ≠ activation: only a non-null tab target highlights.
 	const handleDragOver = (event: DragOverEvent) => {
 		const overId = event.over?.id;
-		if (typeof overId === "string" && overId.startsWith("tabdrop-")) {
-			onActiveTabChange(Number(overId.slice("tabdrop-".length)));
+		const zone =
+			typeof overId === "string" && overId.startsWith("tabdrop-")
+				? Number(overId.slice("tabdrop-".length))
+				: null;
+		setHoveredTabZone(zone);
+		if (zone != null && dragKind === "keyboard") {
+			onActiveTabChange(zone);
 		}
 		setLiveTarget(
 			event.over == null
@@ -587,36 +603,66 @@ export function EditorCanvas({
 		);
 	};
 
+	useSpringLoadedTab({
+		pendingTabIndex: hoveredTabZone,
+		enabled: dragActive && dragKind === "pointer",
+		onSpring: onActiveTabChange,
+	});
+
 	const handleDragStart = (event: DragStartEvent) => {
 		setDragActive(true);
 		setActiveDragId(String(event.active.id));
 		setLiveTarget(null);
+		// KeyboardSensor activates on keydown; every pointer/mouse/touch
+		// activator is a *down event. jsdom fires plain "keydown" too.
+		setDragKind(
+			event.activatorEvent?.type === "keydown" ? "keyboard" : "pointer",
+		);
+		setHoveredTabZone(null);
+		dragStartTabIndexRef.current = activeTabIndex;
 	};
-	const handleDragCancel = () => {
+
+	// Decision 4: a spring is a preview until a drop COMMITS. Escape and
+	// null-target drops restore the tab that was active at drag start.
+	const restoreDragStartTab = () => {
+		const startTab = dragStartTabIndexRef.current;
+		if (startTab != null && startTab !== activeTabIndex) {
+			onActiveTabChange(startTab);
+		}
+	};
+	const clearDragState = () => {
 		setDragActive(false);
 		setActiveDragId(null);
 		setLiveTarget(null);
+		setDragKind(null);
+		setHoveredTabZone(null);
+	};
+	const handleDragCancel = () => {
+		clearDragState();
+		restoreDragStartTab();
+		dragStartTabIndexRef.current = null;
 	};
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		// Before the early returns: every drop ends the drag, valid target or not.
-		setDragActive(false);
-		setActiveDragId(null);
-		setLiveTarget(null);
+		clearDragState();
 		const { active, over } = event;
-		if (!over) return;
 		// ONE source of truth (drag-feedback spec, Decision 3): the same
 		// resolution that drives the live indicator/tint decides the drop.
 		// The full decision logic — card branch, field-over-frame snap,
 		// cross-tab guard, tabdrop targets — lives in resolveDropTarget,
 		// ported verbatim; this handler only applies the answer.
-		const target = resolveDropTarget(
-			String(active.id),
-			String(over.id),
-			draft,
-			partition,
-		);
-		if (!target) return;
+		const target = over
+			? resolveDropTarget(String(active.id), String(over.id), draft, partition)
+			: null;
+		if (!target) {
+			// No-op drop: nothing committed, so the spring preview unwinds
+			// exactly like Escape (Decision 4).
+			restoreDragStartTab();
+			dragStartTabIndexRef.current = null;
+			return;
+		}
+		dragStartTabIndexRef.current = null;
 		switch (target.kind) {
 			case "card-block":
 				apply(

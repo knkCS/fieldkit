@@ -110,6 +110,50 @@ function Harness({
 	);
 }
 
+/** Sectioned-canvas rect mock: tab-trigger drop zones sit in a row along
+ * y=0, shells stack below at x=`shellLeft` — steering keyboard ArrowUp
+ * toward tabdrop-0 (shellLeft=0, the default — shell-a's own tab) or
+ * tabdrop-1 (shellLeft=200 — directly beneath the SEO tab's trigger).
+ * Extracted from the "dropping a field on its OWN tab's trigger" test;
+ * mirrors drag-feedback.test.tsx's tabdropRectMock idiom. */
+function mockSectionedRects(shellLeft = 0) {
+	return vi
+		.spyOn(Element.prototype, "getBoundingClientRect")
+		.mockImplementation(function (this: Element) {
+			const rect = (top: number, left: number, width: number, height: number) =>
+				({
+					top,
+					left,
+					width,
+					height,
+					bottom: top + height,
+					right: left + width,
+					x: left,
+					y: top,
+					toJSON() {
+						return this;
+					},
+				}) as DOMRect;
+			const testId = this.getAttribute("data-testid") ?? "";
+			// 0.11.0: pin the DragOverlay preview to dragged shell-a's initial
+			// rect (see the keyboard-reorder test's rationale).
+			if (testId === "drag-overlay-preview") {
+				return rect(100, shellLeft, 200, 50);
+			}
+			if (testId.startsWith("tabdrop-")) {
+				const index = Number(testId.slice("tabdrop-".length));
+				return rect(0, index * 200, 100, 40);
+			}
+			if (testId.startsWith("shell-")) {
+				const shells = Array.from(
+					document.querySelectorAll('[data-testid^="shell-"]'),
+				);
+				return rect(100 + shells.indexOf(this) * 60, shellLeft, 200, 50);
+			}
+			return rect(0, 0, 0, 0);
+		});
+}
+
 describe("EditorCanvas drag & drop", () => {
 	it("Move to section… relocates the field", async () => {
 		render(
@@ -218,46 +262,7 @@ describe("EditorCanvas drag & drop", () => {
 		// row along the top (y=0, spread horizontally), shells stack below.
 		// Lifting shell-a and pressing ArrowUp therefore resolves to the
 		// nearest drop zone above it — tabdrop-0, shell-a's OWN tab.
-		const rectSpy = vi
-			.spyOn(Element.prototype, "getBoundingClientRect")
-			.mockImplementation(function (this: Element) {
-				const rect = (
-					top: number,
-					left: number,
-					width: number,
-					height: number,
-				) =>
-					({
-						top,
-						left,
-						width,
-						height,
-						bottom: top + height,
-						right: left + width,
-						x: left,
-						y: top,
-						toJSON() {
-							return this;
-						},
-					}) as DOMRect;
-				const testId = this.getAttribute("data-testid") ?? "";
-				// 0.11.0: pin the DragOverlay preview to dragged shell-a's initial
-				// rect (see the keyboard-reorder test's rationale).
-				if (testId === "drag-overlay-preview") {
-					return rect(100, 0, 200, 50);
-				}
-				if (testId.startsWith("tabdrop-")) {
-					const index = Number(testId.slice("tabdrop-".length));
-					return rect(0, index * 200, 100, 40);
-				}
-				if (testId.startsWith("shell-")) {
-					const shells = Array.from(
-						document.querySelectorAll('[data-testid^="shell-"]'),
-					);
-					return rect(100 + shells.indexOf(this) * 60, 0, 200, 50);
-				}
-				return rect(0, 0, 0, 0);
-			});
+		const rectSpy = mockSectionedRects();
 
 		const { container } = render(
 			<EditorWrap>
@@ -293,6 +298,118 @@ describe("EditorCanvas drag & drop", () => {
 		).map((el) => el.getAttribute("data-testid"));
 		expect(order).toEqual(["shell-a", "shell-x", "shell-b"]);
 
+		rectSpy.mockRestore();
+	});
+
+	it("Escape after a keyboard zone-landing restores the drag-start tab", async () => {
+		// shellLeft=200 puts shell-a directly beneath tabdrop-1 (the SEO
+		// tab's trigger) — mirrors drag-feedback.test.tsx's
+		// "cross-tab drag: the hovered FOREIGN trigger highlights" test,
+		// which proves a single ArrowUp reliably lands on tabdrop-1 under
+		// this exact mock shape.
+		const rectSpy = mockSectionedRects(200);
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[makeField("a"), makeSection("s1", "SEO"), makeField("b")]}
+				/>
+			</EditorWrap>,
+		);
+		const handle = within(screen.getByTestId("shell-a")).getByLabelText(
+			"Drag to reorder",
+		);
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		// ArrowUp resolves the nearest zone above — tabdrop-1, the SEO tab —
+		// and landing on it switches the visible tab IMMEDIATELY for
+		// keyboard drags (Decision 6).
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		});
+		// Assert the mid-drag switch actually happened BEFORE Escape — else
+		// the restore assertion below would pass vacuously. Asserted via the
+		// TRIGGER's aria-selected (not the panel's `hidden` attribute — under
+		// jsdom the anker Tabs' presence/animation bookkeeping for `hidden`
+		// can lag by a render or two once a SECOND EditorCanvas mounts in the
+		// same test file; aria-selected flips synchronously with the
+		// underlying activeTabIndex regardless).
+		expect(screen.getByRole("tab", { name: "SEO" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? handle, { code: "Escape" });
+		});
+		// Restore: tab 0 (General) is selected again, schema unchanged.
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByRole("tab", { name: "SEO" })).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+		const order = Array.from(
+			document.querySelectorAll('[data-testid^="shell-"]'),
+		).map((el) => el.getAttribute("data-testid"));
+		expect(order).toEqual(["shell-a", "shell-b"]);
+		rectSpy.mockRestore();
+	});
+
+	it("a drop that resolves to nothing restores the drag-start tab", async () => {
+		// Same landing as the Escape-restore test above (ArrowUp → tabdrop-1,
+		// a visible mid-drag switch to the foreign SEO tab), but instead of
+		// Escape we arrow back down onto shell-a's OWN position — a
+		// self-drop, which resolveDropTarget treats as a no-op (null target)
+		// — and then drop there. Landing on a FIELD id (not a tabdrop-*)
+		// never triggers handleDragOver's tab-follow, so the view is still
+		// stuck on the SEO tab right up to the drop; only handleDragEnd's
+		// restore-on-no-op path can bring it back.
+		const rectSpy = mockSectionedRects(200);
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[makeField("a"), makeSection("s1", "SEO"), makeField("b")]}
+				/>
+			</EditorWrap>,
+		);
+		const handle = within(screen.getByTestId("shell-a")).getByLabelText(
+			"Drag to reorder",
+		);
+		handle.focus();
+		fireEvent.keyDown(handle, { code: "Space" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? handle, { code: "ArrowUp" });
+		});
+		// Confirm the mid-drag switch happened (same guard as the Escape test;
+		// see its comment on why aria-selected is the robust signal here).
+		expect(screen.getByRole("tab", { name: "SEO" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? handle, {
+				code: "ArrowDown",
+			});
+		});
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? handle, { code: "Space" });
+		});
+		// Restore: tab 0 (General) is selected again, schema unchanged.
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		expect(screen.getByRole("tab", { name: "SEO" })).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+		const order = Array.from(
+			document.querySelectorAll('[data-testid^="shell-"]'),
+		).map((el) => el.getAttribute("data-testid"));
+		expect(order).toEqual(["shell-a", "shell-b"]);
 		rectSpy.mockRestore();
 	});
 
