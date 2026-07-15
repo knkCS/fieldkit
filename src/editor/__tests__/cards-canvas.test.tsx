@@ -736,10 +736,12 @@ describe("EditorCanvas — cards", () => {
 			});
 
 			await waitFor(() => {
-				// c1+f1 relocated to the END of B (after its existing field fb).
-				// General collapses out of partition.tabs entirely (it had no
-				// other content), so the full DOM order is exactly A's content
-				// then B's.
+				// c1+f1 relocated to the END of B. General collapses out of
+				// partition.tabs entirely (it had no other content), so the
+				// full DOM order is exactly A's content then B's. #46: B was
+				// uncarded, so the move first auto-wraps its loose field fb
+				// into an untitled card ("card", insertCard's idiom) — the
+				// arrival never produces loose_field_in_carded_tab.
 				const order = Array.from(
 					document.querySelectorAll(
 						'[data-testid^="shell-"], [data-testid^="card-header-"]',
@@ -747,6 +749,7 @@ describe("EditorCanvas — cards", () => {
 				).map((el) => el.getAttribute("data-testid"));
 				expect(order).toEqual([
 					"shell-fa",
+					"card-header-card",
 					"shell-fb",
 					"card-header-c1",
 					"shell-f1",

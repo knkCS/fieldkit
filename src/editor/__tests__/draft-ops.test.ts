@@ -23,6 +23,7 @@ import {
 	uniquifyAccessor,
 	updateField,
 } from "../draft-ops";
+import { validateSpec } from "../../schema/validate-spec";
 import { makeCard, makeField, makeSection } from "./editor-helpers";
 
 function makePlugin(overrides: Partial<FieldTypePlugin> = {}): FieldTypePlugin {
@@ -462,6 +463,54 @@ describe("moveCardToSection", () => {
 			"s1",
 			"c2",
 			"f3",
+		]);
+	});
+
+	it("auto-wraps an uncarded target's loose fields before appending (#46, mirrors insertCard)", () => {
+		// [card c1: f1] | section S: [loose la, lb] — S has fields, no cards.
+		const loose = [
+			makeCard("c1", "One"),
+			makeField("f1"),
+			makeSection("s1", "SEO"),
+			makeField("la"),
+			makeField("lb"),
+		];
+		const next = moveCardToSection(loose, "c1", 1);
+		// A wrap marker (insertCard's untitled-card idiom, nextAccessor "card")
+		// heads the tab so la/lb stay carded; the moved block appends after.
+		expect(next.map((f) => f.config.api_accessor)).toEqual([
+			"s1",
+			"card",
+			"la",
+			"lb",
+			"c1",
+			"f1",
+		]);
+		expect(next.find((f) => f.config.api_accessor === "card")?.field_type).toBe(
+			"card",
+		);
+		// The editor's own action never produces the flagged state.
+		const { fieldErrors } = validateSpec(next, new Map());
+		expect(
+			fieldErrors.filter((e) => e.code === "loose_field_in_carded_tab"),
+		).toEqual([]);
+	});
+
+	it("auto-wraps an uncarded IMPLICIT first tab too", () => {
+		// [loose la] | section S: [card c1: f1] — move c1 into implicit tab 0.
+		const loose = [
+			makeField("la"),
+			makeSection("s1", "SEO"),
+			makeCard("c1", "One"),
+			makeField("f1"),
+		];
+		const next = moveCardToSection(loose, "c1", 0);
+		expect(next.map((f) => f.config.api_accessor)).toEqual([
+			"card",
+			"la",
+			"c1",
+			"f1",
+			"s1",
 		]);
 	});
 

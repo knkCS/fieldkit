@@ -230,9 +230,8 @@ section** group listing every other section; picking one moves the whole
 block there and follows it (see
 [Drag & drop, including cross-tab](#drag--drop-including-cross-tab)).
 
-Schemas violating the all-in-cards rule (a loose field before a tab's
-first marker — hand-written, or produced by moving a card into a section
-that still holds loose fields) are flagged by `validateSpec` as
+Hand-written schemas violating the all-in-cards rule (a loose field
+before a tab's first marker) are flagged by `validateSpec` as
 `loose_field_in_carded_tab` on each loose field — those shells outline in
 the danger color and Save/Preview disable — while the canvas and renderer
 still degrade gracefully by framing them as an implicit untitled card.
@@ -303,7 +302,9 @@ canvas gives full mid-drag feedback (the drag-feedback rework):
   block and follows it exactly like a field's cross-tab move. The group's
   caption reuses the existing `moveToSection` label — no new label key —
   and the group is omitted entirely on a single-tab spec (nothing to move
-  to).
+  to). A card arriving in an UNCARDED section auto-wraps that section's
+  loose fields into an untitled card first (0.13.0, mirroring "+ Card"'s
+  idiom) — the editor's own moves never violate the all-in-cards rule.
 
 ### Field search
 
