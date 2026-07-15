@@ -57,7 +57,11 @@ describe("SpecForm search inside a real DrawerRoot", () => {
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
-	});
+		// Generous TEST timeout (#39 flake class, 4th instance 2026-07-15:
+		// the 53db1d7 waitFor headroom now exceeds vitest's 5s TEST budget
+		// under CI load — the failure just moved up a level). The awaits
+		// pass; they're slow on a loaded runner.
+	}, 15000);
 
 	it("does not swallow Escape aimed outside the search UI while the dropdown is open", async () => {
 		const onClose = vi.fn();

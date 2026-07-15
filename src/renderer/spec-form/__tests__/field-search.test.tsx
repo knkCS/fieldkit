@@ -180,7 +180,11 @@ describe("SpecForm — field search", () => {
 		await waitFor(() => {
 			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		});
-	});
+		// Generous TEST timeout (#39 flake class, 4th instance 2026-07-15:
+		// the 53db1d7 waitFor headroom now exceeds vitest's 5s TEST budget
+		// under CI load — the failure just moved up a level). The awaits
+		// pass; they're slow on a loaded runner.
+	}, 15000);
 
 	it("skips disabled controls in the jump focus fallback", async () => {
 		// A picker-style field whose FIRST focusable child is disabled: the
