@@ -52,6 +52,7 @@ src/
 │   ├── use-spec-draft.ts# Draft session (baseline = last committed content)
 │   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
 │   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd + overlay/live feedback, insertion boundaries
+│   ├── use-spring-loaded-tab.ts # Pointer dwell before a hovered tab springs (0.12.0)
 │   ├── resolve-drop-target.ts # Pure drop resolution — end handler + live feedback single source
 │   ├── drag-previews.tsx# DragOverlay clones (shell interior / card header + field count)
 │   ├── drop-indicator.tsx # Mid-drag insertion line (3px accent + end-dot)

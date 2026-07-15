@@ -259,16 +259,21 @@ export const BuildWithCards: Story = {
 			note={
 				<>
 					The "General" tab groups its fields into two cards (one untitled —
-					italic placeholder). Try the card header: drag its handle to move the
-					whole card — a header-bar clone with a "+ N fields" hint follows the
-					pointer while an accent line marks the landing slot between frames
-					(0.11.0 drag feedback; field drags likewise get a shell clone, an
-					insertion line, and a soft tint on the receiving card). Click the
-					header to rename via the panel, or open ⋯ for the two delete flavors
-					("Delete card" merges fields into a neighbor; "Delete card and fields"
-					confirms first). "+ Card" (in the toolbar) on a tab with loose fields
-					auto-wraps them. Select <strong>Preview</strong> to see the rendered
-					card layout as a real form.
+					italic placeholder), with a third card in "SEO". Try the card header:
+					drag its handle to move the whole card — a header-bar clone with a "+
+					N fields" hint follows the pointer while an accent line marks the
+					landing slot between frames (0.11.0 drag feedback; field drags
+					likewise get a shell clone, an insertion line, and a soft tint on the
+					receiving card). Dwell on the "SEO" tab trigger mid-drag (~500 ms) to
+					spring the canvas into it and drop the card between its frames —
+					crossing the tab strip quickly does not switch tabs (0.12.0
+					spring-loaded sections). Click the header to rename via the panel, or
+					open ⋯ for the two delete flavors ("Delete card" merges fields into a
+					neighbor; "Delete card and fields" confirms first) and a "Move to
+					section" group that relocates the whole card block to the other
+					section and follows it there. "+ Card" (in the toolbar) on a tab with
+					loose fields auto-wraps them. Select <strong>Preview</strong> to see
+					the rendered card layout as a real form.
 				</>
 			}
 		/>
