@@ -19,6 +19,7 @@ const SEEDED: Record<string, unknown> = {
 	media: [],
 	group: [],
 	array: [],
+	list: [],
 	blocks: [],
 	virtual_table: [],
 	select: "", // single (settings.multiple falsy); multi pinned separately

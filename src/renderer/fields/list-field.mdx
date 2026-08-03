@@ -1,0 +1,130 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./list-field.stories";
+
+<Meta of={Stories} />
+
+# List
+
+A flat, ordered set of free-text entries. The value is `string[]`. A form user
+adds, edits, removes and reorders entries; a long list stays usable because it
+is searchable and — when the Author sets a page size — paginated.
+
+## When to Use
+
+Use **List** when the value is several plain strings and nothing more: keywords,
+ISBNs, aliases, tags. For key-value pairs use [Array](?path=/docs/fields-array--docs);
+for repeating structured records use [Group](?path=/docs/fields-group--docs); for
+heterogeneous content use [Blocks](?path=/docs/fields-blocks--docs).
+
+List is deliberately **not** a third `array` mode. Neither existing mode produces
+`string[]` — `dynamic` yields `{key, value}[]` and `keyed` yields
+`Record<string, string>` — so folding them together would make one field type
+span three incompatible value shapes. See ADR-0005.
+
+## Settings
+
+| Setting              | Type     | Default | Description                                              |
+|----------------------|----------|---------|----------------------------------------------------------|
+| `max_items_per_page` | `number` | `0`     | Entries shown per page. `0` shows every entry on one page. |
+
+The key matches knkCMS core's `list` settings, so seeded specs migrate without a
+rewrite.
+
+## Validation
+
+- **Optional** — absent, `[]`, and a blank entry all pass. Blank entries are
+  tolerated so stored data carrying one still loads, matching the "empty or
+  valid" leniency the Zod builder applies to optional strings.
+- **Required** — `[]` fails, and so does a list holding only blank entries: a
+  list of empty strings reads as empty to anyone looking at the form.
+
+## Zod Output
+
+```ts
+// optional
+z.array(z.string()).optional()
+
+// required
+z.array(z.string().min(1)).min(1)
+```
+
+## Default Value
+
+`[]` — a fresh array per call, so no two forms share one.
+
+## Table Cell
+
+`ListCell` renders the entries joined by `", "` and truncated, not a count: the
+value is a handful of short strings, and "3 entries" tells a reader nothing.
+SpecForm's read mode uses the same cell.
+
+## Search and Pagination
+
+Both are local component state over the stored value — no form state is
+involved, and neither ever writes to the value:
+
+- Search filters case-insensitively on substring. While a filter is active, the
+  count of matches is shown above the entries.
+- Pagination appears only when `max_items_per_page > 0` **and** there are more
+  matches than fit on one page.
+- Adding an entry drops any active filter and pages to where the entry landed.
+  A new entry need not match the filter, and the page it went to is a page of
+  the unfiltered list — clearing first is what guarantees it is on screen.
+- Every mutation is addressed by the entry's index in the stored array, not its
+  position on screen, so removing or reordering under an active filter changes
+  the entry the form user is actually pointing at.
+
+## Implementation Note
+
+`ListField` does **not** use `useFieldArray` (Pattern D in
+`docs/react-hook-form-reference.md`), which the Group and Blocks fields use and
+which #48 assumed this field would too. `useFieldArray` cannot hold a flat array
+of primitives — it maps each item through `{...item, id}`, so a string entry
+arrives as a character-indexed object (`{"0":"a","1":"l",…}`). The value is
+therefore held whole through anker's `FormField` render prop (Pattern B,
+`Controller` underneath) and the array operations live in the component.
+
+## Known Limitations
+
+- Reordering moves an entry past its neighbour in the **stored** order, which
+  under an active search may be an entry that is not on screen. The moved entry
+  can therefore appear to jump further than one position.
+- Entries have no stable identity — they are positional strings — so React keys
+  are indices. Two entries with the same text are indistinguishable to the
+  component.
+- Whitespace-only entries cannot be added; leading and trailing whitespace is
+  trimmed on add, but not on a later edit.
+- No per-entry validation, and no minimum or maximum entry count beyond the
+  required check.
+
+## Examples
+
+### Empty
+
+<Canvas of={Stories.Empty} />
+
+### With Entries
+
+Add, edit, reorder and remove entries. The submitted payload is a flat array of
+strings.
+
+<Canvas of={Stories.WithEntries} />
+
+### Searchable and Paginated
+
+23 entries with `max_items_per_page: 5`. Searching narrows the entries and
+re-paginates the matches.
+
+<Canvas of={Stories.SearchableAndPaginated} />
+
+### Required
+
+Submitting with the list empty fails validation.
+
+<Canvas of={Stories.Required} />
+
+### Read Only
+
+Entries render, the add/remove/reorder controls do not.
+
+<Canvas of={Stories.ReadOnly} />
