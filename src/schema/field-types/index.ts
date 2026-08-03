@@ -9,6 +9,7 @@ import { colorPlugin } from "./color";
 import { datePlugin } from "./date";
 import { emailPlugin } from "./email";
 import { groupPlugin } from "./group";
+import { listPlugin } from "./list";
 import { markdownPlugin } from "./markdown";
 import { mediaPlugin } from "./media";
 import { numberPlugin } from "./number";
@@ -53,6 +54,7 @@ export const structuralFieldTypes: FieldTypePlugin<any>[] = [
 	groupPlugin,
 	blocksPlugin,
 	arrayPlugin,
+	listPlugin,
 ];
 
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
@@ -99,6 +101,7 @@ export {
 	groupPlugin,
 	blocksPlugin,
 	arrayPlugin,
+	listPlugin,
 	markdownPlugin,
 	codePlugin,
 	richTextPlugin,
@@ -116,6 +119,7 @@ export type { ColorSettings } from "./color";
 export type { DateSettings } from "./date";
 export type { EmailSettings } from "./email";
 export type { GroupSettings } from "./group";
+export type { ListSettings } from "./list";
 export type { MarkdownSettings } from "./markdown";
 export type { MediaSettings } from "./media";
 export type { NumberSettings } from "./number";

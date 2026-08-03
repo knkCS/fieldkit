@@ -2,6 +2,7 @@ import { Provider } from "@knkcs/anker/primitives";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { listPlugin } from "../../../schema/field-types/list";
 import type { FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
@@ -114,6 +115,63 @@ describe("SpecForm — read mode", () => {
 		// (c) hidden children are excluded from per-item rows.
 		expect(screen.queryByText("Secret")).not.toBeInTheDocument();
 		expect(screen.queryByText("s1")).not.toBeInTheDocument();
+	});
+
+	it("renders a list's entries through the real list plugin", () => {
+		// The whole built-in plugin, not a stub: this is the only place the
+		// "renders in read mode" half of #49 is observable end to end.
+		const listField: Field = {
+			field_type: "list",
+			config: {
+				name: "Keywords",
+				api_accessor: "keywords",
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			children: null,
+			system: false,
+		};
+		render(
+			<Provider>
+				<FieldKitProvider plugins={[...testPlugins, listPlugin]}>
+					<SpecForm
+						schema={[listField]}
+						mode="read"
+						values={{ keywords: ["typography", "bookbinding"] }}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		expect(screen.getByText("Keywords")).toBeInTheDocument();
+		expect(screen.getByText("typography, bookbinding")).toBeInTheDocument();
+	});
+
+	it("renders an empty list as the empty dash", () => {
+		const listField: Field = {
+			field_type: "list",
+			config: {
+				name: "Keywords",
+				api_accessor: "keywords",
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			children: null,
+			system: false,
+		};
+		render(
+			<Provider>
+				<FieldKitProvider plugins={[...testPlugins, listPlugin]}>
+					<SpecForm
+						schema={[listField]}
+						mode="read"
+						values={{ keywords: [] }}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		expect(screen.getByText("—")).toBeInTheDocument();
 	});
 
 	it("uses the plugin cell component when available", () => {

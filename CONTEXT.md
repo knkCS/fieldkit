@@ -55,7 +55,15 @@ _Avoid_: card, repeater, collection
 The field type that embeds a Blueprint's Fields as one non-repeating record, nested under its own Accessor.
 _Avoid_: group, nested object, sub-form
 
-> The three are distinguished by what they produce: a Card produces no value, a Group produces an array of rows, a Fieldset produces one record.
+**List**:
+The field type holding a flat, ordered set of free-text Entries — `string[]`. Distinct from Array, which holds key-value pairs (ADR-0005).
+_Avoid_: array, tags, multi-value
+
+**Entry**:
+One string in a List. Entries are positional and carry no identity of their own.
+_Avoid_: item, row, value
+
+> The four are distinguished by what they produce: a Card produces no value, a Group produces an array of rows, a Fieldset produces one record, a List produces an array of strings.
 
 ## Authoring
 
