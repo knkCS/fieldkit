@@ -144,6 +144,20 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 - Keep the subject line under 72 characters
 - Use imperative mood ("add feature" not "added feature")
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues in `knkCS/fieldkit`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Commands
 
 | Command | Purpose |
