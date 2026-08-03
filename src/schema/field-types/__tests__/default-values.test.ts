@@ -18,6 +18,7 @@ const SEEDED: Record<string, unknown> = {
 	checkboxes: [],
 	media: [],
 	group: [],
+	fieldset: {},
 	array: [],
 	list: [],
 	blocks: [],
