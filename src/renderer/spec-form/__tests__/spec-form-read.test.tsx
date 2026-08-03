@@ -2,6 +2,7 @@ import { Provider } from "@knkcs/anker/primitives";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { fieldsetPlugin } from "../../../schema/field-types/fieldset";
 import { listPlugin } from "../../../schema/field-types/list";
 import type { FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
@@ -24,6 +25,19 @@ const schema = [
 	makeSection("seo", "SEO"),
 	makeField("meta", "Meta description"),
 ];
+
+const fieldset: Field = {
+	field_type: "fieldset",
+	config: {
+		name: "Address",
+		api_accessor: "address",
+		required: false,
+		instructions: "",
+	},
+	settings: { blueprint: "address_bp" },
+	children: null,
+	system: false,
+};
 
 describe("SpecForm — read mode", () => {
 	it("renders label/value rows without form controls", () => {
@@ -168,6 +182,37 @@ describe("SpecForm — read mode", () => {
 						mode="read"
 						values={{ keywords: [] }}
 					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		expect(screen.getByText("—")).toBeInTheDocument();
+	});
+
+	it("renders a fieldset's record through the real fieldset plugin", () => {
+		// As with the list above: the whole built-in plugin, because read mode
+		// is the other half of #50's "renders something meaningful" — and it
+		// runs with no blueprint adapter in sight, since read mode reads the
+		// stored value rather than resolving the blueprint.
+		render(
+			<Provider>
+				<FieldKitProvider plugins={[...testPlugins, fieldsetPlugin]}>
+					<SpecForm
+						schema={[fieldset]}
+						mode="read"
+						values={{ address: { street: "12 Bridge Lane", city: "Ely" } }}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		expect(screen.getByText("Address")).toBeInTheDocument();
+		expect(screen.getByText("12 Bridge Lane, Ely")).toBeInTheDocument();
+	});
+
+	it("renders an empty fieldset record as the empty dash", () => {
+		render(
+			<Provider>
+				<FieldKitProvider plugins={[...testPlugins, fieldsetPlugin]}>
+					<SpecForm schema={[fieldset]} mode="read" values={{ address: {} }} />
 				</FieldKitProvider>
 			</Provider>,
 		);

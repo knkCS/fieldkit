@@ -1,0 +1,154 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./fieldset-field.stories";
+
+<Meta of={Stories} />
+
+# Fieldset
+
+A Fieldset names a Blueprint and renders that Blueprint's Fields inline, as one
+non-repeating record nested under the Fieldset's own Accessor. A form user sees
+ordinary Fields — collapsible where the Author asked for it.
+
+## When to Use
+
+Use **Fieldset** for a shared sub-record that several Specs embed: an address, a
+contributor, a set of publishing dates. Editing the Blueprint updates every Spec
+that embeds it, which is the whole point of the type — and the reason its Fields
+are fetched rather than copied into the Spec (ADR-0003).
+
+For a repeating record use [Group](?path=/docs/fields-group--docs); for a purely
+visual grouping that produces no value, use a Card marker.
+
+## Settings
+
+| Setting       | Type      | Default | Description                                          |
+|---------------|-----------|---------|------------------------------------------------------|
+| `blueprint`   | `string`  | —       | Id of the Blueprint whose Fields are embedded.       |
+| `collapsible` | `boolean` | `false` | Lets a form user fold the embedded Fields away.      |
+
+Both keys match knkCMS core's `fieldset` settings, so seeded specs migrate
+without a rewrite. The Author enters the Blueprint by id; a picker over the
+Blueprints available to them needs a list capability the adapter does not have
+yet (#52), and id entry stays as that ticket's degrade path.
+
+## Where the Children Come From
+
+A Fieldset's children are **never stored in the Spec**. There are two paths:
+
+1. **Resolved** — the Consumer ran `resolveSpec()` (#51) and the Fieldset
+   arrives with `children` already attached. Nothing is fetched.
+2. **Self-resolved** — the Consumer did not, so the component fetches
+   `adapters.blueprint.getSchema(blueprint)` itself, **for display only**.
+
+Path 2 is a documented degrade, not a supported mode: fields resolved that way
+render and hold values, but they are not part of the Zod Schema the Consumer
+generated, so **a required child does not block submit**. #53 closes that by
+giving the plugin contract a way to compose children into the Schema. Until
+then, a Consumer who needs validation must resolve first.
+
+With no blueprint adapter configured at all, the established
+"Blueprint adapter not configured" stub renders and the rest of the form works
+unchanged (ADR-0003). With no Blueprint chosen, the Field says
+"No blueprint selected" rather than rendering an empty frame.
+
+## Value Shape
+
+One record under the Fieldset's Accessor. A Fieldset called `address` embedding
+`street` and `city` submits:
+
+```json
+{ "address": { "street": "12 Bridge Lane", "city": "Ely" } }
+```
+
+The nesting is done by rewriting each child's Accessor to `address.street` —
+the same mechanism that gives a Group row `authors.0.name`, with the index
+omitted because a Fieldset holds one record rather than a list of them.
+
+## Validation
+
+`z.record(z.unknown())` — the record is opaque for now, so **`required` on a
+Fieldset is effectively inert**. The Schema asks only that the key be present,
+and `getDefaultValues` seeds `{}`, which satisfies it; nothing about the
+children is checked. A Fieldset starts blocking submit when its children join
+the Schema (#53). See "Where the Children Come From" above.
+
+## Default Value
+
+`{}` — a fresh record per call. #53 replaces it with an object composed of the
+children's own defaults.
+
+## Table Cell
+
+`FieldsetCell` renders the record's primitive values joined by `", "`, on the
+same reasoning as `ListCell`: a column headed "Address" earns its place by
+saying "12 Bridge Lane, Ely", not "2 fields". SpecForm's read mode uses the same
+cell.
+
+## Collapsing
+
+A collapsible Fieldset **starts open**: a form user who cannot see a required
+Field cannot fill it in, so folding is something they choose, not something the
+form does to them. Collapsing hides the content with the `hidden` attribute
+rather than unmounting it, so a collapsed Fieldset keeps its values and a submit
+still carries them.
+
+The disclosure is hand-rolled rather than Chakra's `Collapsible`, whose exit
+animation never completes under jsdom — it leaves the content without `hidden`
+and the trigger still reporting `aria-expanded="true"` after a close, which
+would make both the collapse and its accessible state untestable.
+
+## Known Limitations
+
+- **Children are not validated.** The headline limitation, and the reason this
+  type is not honestly complete until #53.
+- **Nothing is deduplicated.** Two Fieldsets naming the same Blueprint make two
+  `getSchema` calls when self-resolving. `resolveSpec()` (#51) fetches each
+  Blueprint id once.
+- **No cycle guard on the self-resolve path.** A Blueprint that transitively
+  embeds itself resolves one level per nested render. Cycle detection lives in
+  `resolveSpec()` (#51).
+- **Read mode summarises rather than expanding.** A resolved Group renders its
+  rows as label/value pairs in read mode; a Fieldset renders its cell. Nothing
+  needs the expanded form until Specs are routinely resolved.
+- **A record of containers reads as empty in the cell.** Only primitive child
+  values are summarised — a Fieldset whose children are all Groups or Lists
+  shows the empty dash.
+
+## Examples
+
+### Default
+
+The Blueprint's Fields render inline. Submitting shows the nested payload.
+
+<Canvas of={Stories.Default} />
+
+### Collapsible
+
+Open by default; the chevron folds the Fields away and the values survive it.
+
+<Canvas of={Stories.Collapsible} />
+
+### Already Resolved
+
+Children attached to the Field, as `resolveSpec()` will attach them. No adapter
+is configured and nothing is fetched.
+
+<Canvas of={Stories.AlreadyResolved} />
+
+### No Blueprint Selected
+
+An incomplete Field says so.
+
+<Canvas of={Stories.NoBlueprintSelected} />
+
+### No Adapter Configured
+
+The established stub. The rest of the form still renders and submits.
+
+<Canvas of={Stories.NoAdapterConfigured} />
+
+### Read Only
+
+The embedded Fields render read-only.
+
+<Canvas of={Stories.ReadOnly} />

@@ -8,6 +8,7 @@ import { codePlugin } from "./code";
 import { colorPlugin } from "./color";
 import { datePlugin } from "./date";
 import { emailPlugin } from "./email";
+import { fieldsetPlugin } from "./fieldset";
 import { groupPlugin } from "./group";
 import { listPlugin } from "./list";
 import { markdownPlugin } from "./markdown";
@@ -52,6 +53,7 @@ export const structuralFieldTypes: FieldTypePlugin<any>[] = [
 	sectionPlugin,
 	cardPlugin,
 	groupPlugin,
+	fieldsetPlugin,
 	blocksPlugin,
 	arrayPlugin,
 	listPlugin,
@@ -99,6 +101,7 @@ export {
 	sectionPlugin,
 	cardPlugin,
 	groupPlugin,
+	fieldsetPlugin,
 	blocksPlugin,
 	arrayPlugin,
 	listPlugin,
@@ -118,6 +121,7 @@ export type { CodeSettings } from "./code";
 export type { ColorSettings } from "./color";
 export type { DateSettings } from "./date";
 export type { EmailSettings } from "./email";
+export type { FieldsetSettings } from "./fieldset";
 export type { GroupSettings } from "./group";
 export type { ListSettings } from "./list";
 export type { MarkdownSettings } from "./markdown";
