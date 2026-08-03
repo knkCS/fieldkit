@@ -16,7 +16,7 @@ type ResolveStatus = "ready" | "loading" | "error";
  * nested under the Fieldset's own accessor (ADR-0003).
  *
  * The children are never stored in the spec. A consumer who ran
- * `resolveSpec()` (#51) hands them in as `field.children` and nothing is
+ * `resolveSpec()` hands them in as `field.children` and nothing is
  * fetched; one who did not gets the documented degrade path — this component
  * self-resolves through `adapters.blueprint.getSchema` **for display only**.
  * Fields resolved that way render and hold values, but they are not part of
@@ -36,10 +36,15 @@ export function FieldsetField({
 	const blueprintId = settings?.blueprint;
 	const collapsible = settings?.collapsible ?? false;
 
-	// Length, not the array itself: an unstable `children` identity from a
+	// Presence, not length: `resolveSpec()` attaches an EMPTY array for a
+	// Blueprint with no Fields, and that is a resolved Fieldset — re-fetching
+	// it would be the double round-trip resolving exists to avoid. An authored
+	// Fieldset has no `children` key at all (`createField`), so null and
+	// undefined are the honest "not resolved" signal.
+	//
+	// A boolean, not the array itself: an unstable `children` identity from a
 	// re-rendering parent must not re-run the fetch below.
-	const resolvedCount = field.children?.length ?? 0;
-	const isResolved = resolvedCount > 0;
+	const isResolved = field.children != null;
 	const needsFetch = !isResolved && !!blueprintAdapter && !!blueprintId;
 
 	const [fetched, setFetched] = useState<Field[] | null>(null);
@@ -56,7 +61,7 @@ export function FieldsetField({
 	const contentId = useId();
 
 	useEffect(() => {
-		if (resolvedCount > 0 || !blueprintAdapter || !blueprintId) return;
+		if (isResolved || !blueprintAdapter || !blueprintId) return;
 
 		let cancelled = false;
 		setStatus("loading");
@@ -79,7 +84,7 @@ export function FieldsetField({
 		return () => {
 			cancelled = true;
 		};
-	}, [resolvedCount, blueprintAdapter, blueprintId]);
+	}, [isResolved, blueprintAdapter, blueprintId]);
 
 	const children = isResolved ? (field.children ?? []) : (fetched ?? []);
 

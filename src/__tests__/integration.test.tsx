@@ -3,15 +3,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FieldKitProvider, FieldRenderer } from "../renderer";
-import type { CellProps, FieldProps, FieldTypePlugin } from "../schema";
+import type { CellProps, Field, FieldProps, FieldTypePlugin } from "../schema";
 import {
 	boolean,
 	builtInFieldTypes,
 	createRegistry,
 	defineSpec,
 	number,
+	resolveSpec,
 	section,
 	select,
 	specToZodSchema,
@@ -278,6 +279,69 @@ describe("Integration: Schema -> FieldRenderer", () => {
 
 		render(<TestForm />, { wrapper: ChakraWrapper });
 		expect(screen.getByTestId("field-renderer-loading")).toBeInTheDocument();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Test 2b: resolveSpec -> Renderer round trip
+//
+// The two halves of #51 meet here: a Consumer resolves once, and the Fieldset
+// renders its Blueprint's Fields without going back to the adapter itself.
+// ---------------------------------------------------------------------------
+
+describe("Integration: resolveSpec -> FieldRenderer", () => {
+	function addressBlueprintAdapter() {
+		return {
+			getSchema: vi.fn(async () => [
+				text("street", { name: "Street" }),
+				text("city", { name: "City" }),
+			]),
+			getData: vi.fn(async () => ({
+				items: [],
+				total: 0,
+				page: 1,
+				page_size: 25,
+			})),
+		};
+	}
+
+	const fieldsetField: Field = {
+		field_type: "fieldset",
+		config: {
+			name: "Address",
+			api_accessor: "address",
+			required: false,
+			instructions: "",
+		},
+		settings: { blueprint: "address_bp" },
+		children: null,
+		system: false,
+	};
+
+	it("renders a resolved Fieldset's children without fetching them again", async () => {
+		const blueprint = addressBlueprintAdapter();
+		const resolved = await resolveSpec([fieldsetField], { blueprint });
+
+		function TestForm() {
+			const methods = useForm({ defaultValues: { address: {} } });
+			return (
+				<FormProvider {...methods}>
+					<FieldKitProvider
+						plugins={builtInFieldTypes}
+						adapters={{ blueprint }}
+					>
+						<FieldRenderer schema={resolved} />
+					</FieldKitProvider>
+				</FormProvider>
+			);
+		}
+
+		render(<TestForm />, { wrapper: ChakraWrapper });
+
+		expect(screen.getByLabelText(/Street/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/City/)).toBeInTheDocument();
+		// Once, by resolveSpec — the renderer took the children it was given.
+		expect(blueprint.getSchema).toHaveBeenCalledTimes(1);
 	});
 });
 

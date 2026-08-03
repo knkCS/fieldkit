@@ -35,8 +35,8 @@ yet (#52), and id entry stays as that ticket's degrade path.
 
 A Fieldset's children are **never stored in the Spec**. There are two paths:
 
-1. **Resolved** — the Consumer ran `resolveSpec()` (#51) and the Fieldset
-   arrives with `children` already attached. Nothing is fetched.
+1. **Resolved** — the Consumer ran `resolveSpec()` and the Fieldset arrives
+   with `children` already attached. Nothing is fetched.
 2. **Self-resolved** — the Consumer did not, so the component fetches
    `adapters.blueprint.getSchema(blueprint)` itself, **for display only**.
 
@@ -50,6 +50,45 @@ With no blueprint adapter configured at all, the established
 "Blueprint adapter not configured" stub renders and the rest of the form works
 unchanged (ADR-0003). With no Blueprint chosen, the Field says
 "No blueprint selected" rather than rendering an empty frame.
+
+### Resolving the Spec
+
+`resolveSpec()` is the step between loading a Spec and building its Schema
+(ADR-0004). It takes the same adapters object the provider gets, so a Consumer
+calls it unconditionally rather than knowing which Field types need fetching:
+
+```ts
+import { resolveSpec, specToZodSchema } from "@knkcs/fieldkit/schema";
+
+const spec = await resolveSpec(authoredSpec, adapters);
+const schema = specToZodSchema(spec, plugins);
+```
+
+What it guarantees:
+
+- Every Fieldset gets its Blueprint's Fields as `children`, recursing into
+  Fieldsets those Blueprints embed and into Fieldsets nested in a Group's
+  children.
+- One `getSchema` call per Blueprint id per call, however many Fieldsets name
+  it.
+- A Blueprint that transitively embeds itself **throws**, naming the chain
+  (`Fieldset blueprint cycle detected: person_bp → address_bp → person_bp`)
+  rather than recursing forever.
+- An adapter rejection propagates untouched — it never becomes empty children.
+- A Spec with nothing to resolve comes back as the same array, so calling it on
+  a Fieldset-free Spec costs nothing and changes no identity.
+- Resolving a Resolved Spec is a no-op returning the same array — a Fieldset
+  that has `children` is left alone. A Consumer can resolve from an effect
+  keyed on the Spec without looping.
+
+`children` is the resolved/not-resolved signal, and both `resolveSpec()` and
+the component read it the same way: an authored Fieldset has no `children` key
+at all, while a Blueprint with no Fields resolves to `[]` — resolved, and
+displayed as "This blueprint has no fields" rather than fetched again.
+
+Fields nested inside `settings` rather than `children` — a block's
+`allowed_blocks[].fields`, for instance — are not walked, the same boundary
+`validateSpec()` draws.
 
 ## Value Shape
 
@@ -101,12 +140,12 @@ would make both the collapse and its accessible state untestable.
 
 - **Children are not validated.** The headline limitation, and the reason this
   type is not honestly complete until #53.
-- **Nothing is deduplicated.** Two Fieldsets naming the same Blueprint make two
-  `getSchema` calls when self-resolving. `resolveSpec()` (#51) fetches each
+- **Nothing is deduplicated on the self-resolve path.** Two Fieldsets naming
+  the same Blueprint make two `getSchema` calls. `resolveSpec()` fetches each
   Blueprint id once.
 - **No cycle guard on the self-resolve path.** A Blueprint that transitively
   embeds itself resolves one level per nested render. Cycle detection lives in
-  `resolveSpec()` (#51).
+  `resolveSpec()`.
 - **Read mode summarises rather than expanding.** A resolved Group renders its
   rows as label/value pairs in read mode; a Fieldset renders its cell. Nothing
   needs the expanded form until Specs are routinely resolved.
@@ -130,8 +169,8 @@ Open by default; the chevron folds the Fields away and the values survive it.
 
 ### Already Resolved
 
-Children attached to the Field, as `resolveSpec()` will attach them. No adapter
-is configured and nothing is fetched.
+Children attached to the Field, as `resolveSpec()` attaches them. No adapter is
+configured and nothing is fetched.
 
 <Canvas of={Stories.AlreadyResolved} />
 

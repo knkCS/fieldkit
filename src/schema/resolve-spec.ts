@@ -1,0 +1,132 @@
+// src/schema/resolve-spec.ts
+// The fieldset plugin pulls in its React components, so its settings type is
+// imported type-only — this module stays free of the renderer at runtime.
+import type { FieldsetSettings } from "./field-types/fieldset";
+import type { Field, Schema } from "./types";
+
+/** The one adapter capability resolution needs: a Blueprint id in, that
+ * Blueprint's Fields out. `FieldKitAdapters["blueprint"]` is built on this
+ * interface, so a Consumer passes the same adapters object it already gives
+ * `FieldKitProvider`. */
+export interface BlueprintSchemaAdapter {
+	getSchema: (blueprintId: string) => Promise<Field[]>;
+}
+
+export interface ResolveSpecAdapters {
+	blueprint?: BlueprintSchemaAdapter;
+}
+
+/**
+ * Expands every adapter-backed container in a Spec into a Resolved Spec —
+ * today only `fieldset` (ADR-0003, ADR-0004).
+ *
+ * Each Fieldset's Blueprint is fetched through `adapters.blueprint.getSchema`
+ * and attached as that Field's `children`, recursing into Fieldsets the
+ * Blueprint itself embeds. Only a Resolved Spec can produce a complete Schema,
+ * so this is the step a Consumer runs between loading a Spec and building its
+ * Zod schema.
+ *
+ * Safe to call unconditionally: a Spec with nothing to resolve comes back
+ * unchanged — the same array, so a memoised renderer sees no new identity —
+ * and a Consumer never has to know which Field types need fetching.
+ *
+ * `children` is what "already resolved" means, the same signal the renderer
+ * reads: a Fieldset that has them is left alone, so resolving a Resolved Spec
+ * is a no-op that returns it by identity rather than fetching every Blueprint
+ * again. An authored Fieldset never carries children (ADR-0003), so a
+ * Consumer who repoints one at another Blueprint drops them with it.
+ *
+ * Not walked: Fields nested inside `settings` rather than `children` (a
+ * block's `allowed_blocks[].fields`, an array's settings). That is the same
+ * boundary `validateSpec` and `resolveMarkerConvention` draw.
+ *
+ * @throws if a Fieldset's Blueprint transitively embeds itself — the message
+ * names the Blueprint chain — or, unchanged, whatever the adapter rejects
+ * with. Adapter failures are never swallowed into empty children.
+ */
+export async function resolveSpec(
+	spec: Schema,
+	adapters: ResolveSpecAdapters,
+): Promise<Schema> {
+	const blueprint = adapters.blueprint;
+	// Nothing can be fetched, so nothing can change. The Fieldsets stay
+	// unresolved and render their "adapter not configured" stub.
+	if (!blueprint) return spec;
+
+	return resolveFields(spec, [], createFetcher(blueprint));
+}
+
+type Fetcher = (blueprintId: string) => Promise<Field[]>;
+
+/** One fetch per Blueprint id per call, shared by every Fieldset naming it —
+ * including the ones still in flight, since the promise is cached rather than
+ * its result. A rejection is cached too, so a failing Blueprint fails every
+ * Fieldset that names it instead of being retried per occurrence. */
+function createFetcher(blueprint: BlueprintSchemaAdapter): Fetcher {
+	const inFlight = new Map<string, Promise<Field[]>>();
+
+	return (blueprintId) => {
+		const cached = inFlight.get(blueprintId);
+		if (cached) return cached;
+
+		const pending = blueprint.getSchema(blueprintId);
+		inFlight.set(blueprintId, pending);
+		return pending;
+	};
+}
+
+/** Resolves one list of Fields, keeping the original array when no Field in
+ * it changed — that is what makes a Fieldset-free Spec come back identical. */
+async function resolveFields(
+	fields: Field[],
+	chain: string[],
+	fetch: Fetcher,
+): Promise<Field[]> {
+	// A level at a time: sibling Fieldsets resolve concurrently rather than
+	// one blueprint round-trip after another.
+	const resolved = await Promise.all(
+		fields.map((field) => resolveField(field, chain, fetch)),
+	);
+
+	return resolved.some((field, index) => field !== fields[index])
+		? resolved
+		: fields;
+}
+
+async function resolveField(
+	field: Field,
+	chain: string[],
+	fetch: Fetcher,
+): Promise<Field> {
+	if (field.field_type === "fieldset") {
+		// Already resolved — including to the empty array an empty Blueprint
+		// gives — so nothing to fetch.
+		if (field.children != null) return field;
+
+		const blueprintId = (field.settings as FieldsetSettings | null | undefined)
+			?.blueprint;
+		// An incomplete Fieldset is not an error here — the renderer says "No
+		// blueprint selected" and the rest of the form still works.
+		if (!blueprintId) return field;
+
+		if (chain.includes(blueprintId)) {
+			throw new Error(
+				`Fieldset blueprint cycle detected: ${[...chain, blueprintId].join(" → ")}`,
+			);
+		}
+
+		const children = await resolveFields(
+			await fetch(blueprintId),
+			[...chain, blueprintId],
+			fetch,
+		);
+		return { ...field, children };
+	}
+
+	// A Group row, or any other container holding its children inline, can
+	// embed a Fieldset of its own.
+	if (!field.children?.length) return field;
+
+	const children = await resolveFields(field.children, chain, fetch);
+	return children === field.children ? field : { ...field, children };
+}
