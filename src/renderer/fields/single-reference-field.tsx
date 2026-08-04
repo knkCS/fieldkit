@@ -12,6 +12,7 @@ import { usePinTargets } from "../hooks/use-pin-targets";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
+import { referencedContentIds, withoutExcluded } from "./exclude-referenced";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
  * `label` is what the person filling in the form reads. Serves both selects —
@@ -47,9 +48,12 @@ const PIN_LABELS: Record<PinningMode, string> = {
  * - **It never stores a name.** `onChange` writes `{ id }` and nothing else;
  *   the name on screen is resolved through the Adapter on every load, so a
  *   Content renamed elsewhere reads correctly here.
- * - **It never re-filters the Adapter's results** (`filterOption={null}`).
- *   The Adapter decides what matches a query; fieldkit knows nothing about
- *   Content beyond an id and a display name (ADR-0002).
+ * - **It never re-filters the Adapter's results by what was typed**
+ *   (`filterOption={null}`). The Adapter decides what matches a query; fieldkit
+ *   knows nothing about Content beyond an id and a display name (ADR-0002).
+ *   The one thing it does drop is the Content it already holds, which is not a
+ *   judgement about matching but the backstop behind an optional query field —
+ *   see {@link withoutExcluded}.
  *
  * When the Field pins, a second select sits beside the first, listing what that
  * one Content may be pinned to. Two selects rather than the tree Field's
@@ -76,6 +80,12 @@ export function SingleReferenceField({
 	const value = useWatch({ name: accessor }) as Reference | null | undefined;
 	const selectedId = value?.id ?? null;
 	const pinnedId = value?.pin ?? null;
+
+	// The one-item version of the tree Field's rule: the Content already stored
+	// is not offered, so re-picking it is never proposed as a change. Read
+	// through the same function the tree reads, so the two cannot drift. Held at
+	// a stable identity because the menu searches on it.
+	const excludeIds = useStableValue(referencedContentIds(value));
 
 	const [options, setOptions] = useState<ContentOption[]>([]);
 	const [searching, setSearching] = useState(false);
@@ -106,13 +116,21 @@ export function SingleReferenceField({
 				blueprintIds: blueprints,
 				query,
 				filters: {},
+				excludeIds,
 				page: 1,
 				page_size: MENU_PAGE_SIZE,
 			})
 			.then(({ items }) => {
 				if (cancelled) return;
+				// The same backstop the drawer applies, for the same reason: an
+				// Adapter that ignores `excludeIds` must still not offer the
+				// Content this Field already holds. There is no total here to go
+				// approximate — a menu shows what fits.
 				setOptions(
-					items.map((item) => ({ id: item.id, label: item.display_name })),
+					withoutExcluded(items, excludeIds).map((item) => ({
+						id: item.id,
+						label: item.display_name,
+					})),
 				);
 				setSearching(false);
 			})
@@ -125,7 +143,7 @@ export function SingleReferenceField({
 		return () => {
 			cancelled = true;
 		};
-	}, [adapter, blueprints, query, menuOpen, report]);
+	}, [adapter, blueprints, excludeIds, query, menuOpen, report]);
 
 	// Unlike the Content search, this runs without waiting for a menu to open: a
 	// stored Pin is an id, and the label beside it can only come from here —

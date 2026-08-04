@@ -343,6 +343,106 @@ describe("ReferenceField", () => {
 		});
 	});
 
+	describe("Contents already in the tree", () => {
+		it("does not offer one the tree already holds", async () => {
+			const user = userEvent.setup();
+			renderField({ value: [{ id: "article-1" }] });
+
+			const picker = await openPicker(user);
+
+			await within(picker).findByText("Dogs of the world");
+			// Scoped to the drawer: the row behind it names the same Content, and
+			// that one is meant to be there.
+			expect(
+				within(picker).queryByText("Cats of the world"),
+			).not.toBeInTheDocument();
+		});
+
+		it("counts a nested Reference as already referenced, not only the roots", async () => {
+			const user = userEvent.setup();
+			renderField({
+				value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+			});
+
+			const picker = await openPicker(user);
+
+			await within(picker).findByText("Catalogues explained");
+			expect(
+				within(picker).queryByText("Dogs of the world"),
+			).not.toBeInTheDocument();
+		});
+
+		it("tells the Adapter which Contents it already references", async () => {
+			const user = userEvent.setup();
+			const { adapter } = renderField({
+				value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+			});
+
+			await openPicker(user);
+
+			await waitFor(() =>
+				expect(adapter.searches.at(-1)?.excludeIds).toEqual([
+					"article-1",
+					"article-2",
+				]),
+			);
+		});
+
+		it("shows a total that counts only what an honouring Adapter returned", async () => {
+			const user = userEvent.setup();
+			renderField({ value: [{ id: "article-1" }] });
+
+			const picker = await openPicker(user);
+
+			// Three articles in the catalogue, one of them already referenced.
+			await waitFor(() =>
+				expect(
+					within(picker).getByTestId("reference-picker-total"),
+				).toHaveTextContent("2 contents"),
+			);
+		});
+
+		it("keeps them out even when the Adapter ignores the field", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter({ ignoreExcludeIds: true });
+			renderField({ value: [{ id: "article-1" }], adapter });
+
+			const picker = await openPicker(user);
+
+			await within(picker).findByText("Dogs of the world");
+			expect(
+				within(picker).queryByText("Cats of the world"),
+			).not.toBeInTheDocument();
+			// The price of the backstop, and the reason honouring the field is
+			// worth an Adapter's while: the count is the Adapter's, so it still
+			// counts the Content nobody can pick.
+			expect(
+				within(picker).getByTestId("reference-picker-total"),
+			).toHaveTextContent("3 contents");
+		});
+
+		it("offers a Content again once its Reference is removed", async () => {
+			const user = userEvent.setup();
+			renderField({ value: [{ id: "article-1" }] });
+
+			const picker = await openPicker(user);
+			await within(picker).findByText("Dogs of the world");
+			expect(
+				within(picker).queryByText("Cats of the world"),
+			).not.toBeInTheDocument();
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			await user.click(
+				await screen.findByRole("button", { name: "Remove Cats of the world" }),
+			);
+			const reopened = await openPicker(user);
+
+			expect(
+				await within(reopened).findByText("Cats of the world"),
+			).toBeInTheDocument();
+		});
+	});
+
 	describe("the Adapter's own Specs", () => {
 		it("renders the filter Spec as a form", async () => {
 			const user = userEvent.setup();

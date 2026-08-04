@@ -105,6 +105,67 @@ describe("createFakeReferenceAdapter", () => {
 		});
 	});
 
+	it("leaves out the Contents the query excludes", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { items } = await adapter.search(
+			query({ blueprintIds: ["article"], excludeIds: ["article-2"] }),
+		);
+
+		expect(items.map((item) => item.id)).toEqual(["article-1", "article-3"]);
+	});
+
+	it("counts only what it returned once Contents are excluded", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { total } = await adapter.search(
+			query({ blueprintIds: ["article"], excludeIds: ["article-2"] }),
+		);
+
+		expect(total).toBe(2);
+	});
+
+	it("treats an absent excludeIds as excluding nothing", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { items, total } = await adapter.search(
+			query({ blueprintIds: ["article"] }),
+		);
+
+		expect(items).toHaveLength(3);
+		expect(total).toBe(3);
+	});
+
+	it("records the excluded ids it was asked for", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		await adapter.search(query({ excludeIds: ["article-1", "article-3"] }));
+
+		expect(adapter.searches[0].excludeIds).toEqual(["article-1", "article-3"]);
+	});
+
+	it("ignores excludeIds on demand, standing in for an Adapter that never learnt the field", async () => {
+		const adapter = createFakeReferenceAdapter({ ignoreExcludeIds: true });
+
+		const { items, total } = await adapter.search(
+			query({ blueprintIds: ["article"], excludeIds: ["article-2"] }),
+		);
+
+		// Both halves matter: the excluded Content comes back *and* is counted,
+		// which is exactly the approximate total the client-side backstop leaves
+		// behind.
+		expect(items.map((item) => item.id)).toContain("article-2");
+		expect(total).toBe(3);
+	});
+
+	it("records what it was asked even while ignoring it", async () => {
+		const adapter = createFakeReferenceAdapter({ ignoreExcludeIds: true });
+
+		await adapter.search(query({ excludeIds: ["article-2"] }));
+
+		expect(adapter.searches[0].excludeIds).toEqual(["article-2"]);
+	});
+
 	it("describes its filters and its result columns as Specs", () => {
 		const adapter = createFakeReferenceAdapter();
 

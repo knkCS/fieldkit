@@ -84,6 +84,15 @@ reference: {
   ) => Promise<PinTarget[]>;
 }
 
+interface ReferenceSearchQuery {
+  blueprintIds: string[];
+  query: string;
+  filters: Record<string, unknown>;   // always {} here — no room for a filter form
+  excludeIds?: string[];              // optional — the Content already held
+  page: number;                       // always 1 — a menu shows what fits
+  page_size: number;
+}
+
 interface PinTarget {
   id: string;            // what `pin` stores
   label: string;         // what the person reads
@@ -92,9 +101,17 @@ interface PinTarget {
 ```
 
 - `search` is called with the field's configured blueprints while the menu is
-  open, one page at a time. Its results are shown as-is — the field does no
-  filtering of its own, because the adapter is the authority on what matches a
-  query (ADR-0002).
+  open, one page at a time. The adapter is the authority on what matches a
+  query (ADR-0002), so the field re-filters its results for exactly one reason:
+  the Content it already holds, below.
+- **The Content the field already holds is not offered as a change.** Its id
+  travels with the search as the optional `excludeIds`: an adapter that honours
+  it excludes it at the source, and one that ignores it is not wrong, only less
+  precise — the field drops it from whatever came back either way. The control
+  still *shows* that Content, because its name comes from `fetch` and never
+  from the menu. Clearing the reference offers it again. The tree
+  [Reference](?path=/docs/fields-reference--docs) field applies the same rule
+  over its whole tree, and the two share one implementation.
 - `fetch` resolves the stored id to a name on load. A Content the adapter
   cannot return still renders, showing its id rather than disappearing.
 - `listPinTargets` is **optional**, and is called only when the field pins, and

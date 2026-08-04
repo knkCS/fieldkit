@@ -15,6 +15,7 @@ import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
+import { referencedContentIds } from "./exclude-referenced";
 import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import { ReferenceTree } from "./reference-tree";
@@ -116,6 +117,12 @@ export function ReferenceField({
 		rows.map((row) => row.reference.id),
 		accessor,
 	);
+
+	// What the picker must stop offering: adding a Content the tree already
+	// holds would put it there twice. Every level, not just the roots — a
+	// Reference nested three deep is as referenced as one at the top. Held at a
+	// stable identity because the drawer searches on it.
+	const excludeIds = useStableValue(referencedContentIds(value));
 
 	// The Schema is the truth about both caps; these two only stop an Author
 	// reaching a limit the Schema would then report. `rows` is the same reading
@@ -231,6 +238,7 @@ export function ReferenceField({
 								onClose={() => setPicking(false)}
 								onPick={handleAdd}
 								blueprintIds={blueprints}
+								excludeIds={excludeIds}
 								fieldId={accessor}
 								// The one thing that decides whether adding is one
 								// step or two.
