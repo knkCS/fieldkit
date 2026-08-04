@@ -24,6 +24,7 @@
  */
 import { asReference } from "../../schema/reference";
 import { readReferenceTree } from "../../schema/reference-tree";
+import type { ReferenceItem } from "../adapters";
 
 /**
  * The Contents a stored Reference value already points at, in the order they
@@ -61,13 +62,14 @@ export function referencedContentIds(value: unknown): string[] {
  * is the trade the optional field buys: no Consumer is forced to implement
  * anything, and one that does gets exact counts for it.
  *
- * Generic in the item so the drawer's `ReferenceItem` and anything else keyed
- * by `id` both pass through with their own type intact.
+ * Always a list of its own, never the one it was handed: both callers put the
+ * answer straight into React state, and an Adapter is free to keep hold of the
+ * array it returned.
  */
-export function withoutExcluded<T extends { id: string }>(
-	items: readonly T[],
+export function withoutExcluded(
+	items: readonly ReferenceItem[],
 	excludeIds: readonly string[],
-): T[] {
+): ReferenceItem[] {
 	if (excludeIds.length === 0) return [...items];
 	const excluded = new Set(excludeIds);
 	return items.filter((item) => !excluded.has(item.id));

@@ -243,6 +243,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 - The row's filled count does not say which Attribute is *invalid*, only how many are filled.
 - A stored pin is not shown on the row; it is chosen when the Reference is added and changed by removing and re-adding it. Read mode does not show it either.
 - The browse drawer's page size is fixed at 10.
+- When the adapter ignores `excludeIds`, the backstop shortens each page after it was cut, so a page can show fewer than 10 rows — or none at all, if a field already references ten Contents that land on the same page — while the total still promises more. Honouring `excludeIds` removes this entirely.
 - Very large trees are not virtualised.
 
 ## Examples

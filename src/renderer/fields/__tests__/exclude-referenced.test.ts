@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ReferenceItem } from "../../adapters";
 import { referencedContentIds, withoutExcluded } from "../exclude-referenced";
 
 /**
@@ -55,10 +56,17 @@ describe("referencedContentIds", () => {
 });
 
 describe("withoutExcluded", () => {
-	const page = [{ id: "a" }, { id: "b" }, { id: "c" }];
+	/** One Content of a page an Adapter returned. */
+	function content(id: string): ReferenceItem {
+		return { id, display_name: id.toUpperCase() };
+	}
+	const page = [content("a"), content("b"), content("c")];
 
 	it("drops the excluded and keeps the order of the rest", () => {
-		expect(withoutExcluded(page, ["b"])).toEqual([{ id: "a" }, { id: "c" }]);
+		expect(withoutExcluded(page, ["b"]).map((item) => item.id)).toEqual([
+			"a",
+			"c",
+		]);
 	});
 
 	it("keeps the whole page when nothing is excluded", () => {
@@ -66,7 +74,7 @@ describe("withoutExcluded", () => {
 	});
 
 	it("has nothing to drop when the Adapter already excluded them", () => {
-		expect(withoutExcluded([{ id: "a" }], ["b"])).toEqual([{ id: "a" }]);
+		expect(withoutExcluded([content("a")], ["b"])).toEqual([content("a")]);
 	});
 
 	it("answers with a list of its own, never the one it was handed", () => {

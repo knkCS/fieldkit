@@ -33,12 +33,6 @@ const PIN_STEP_TITLES: Record<PinningMode, string> = {
 };
 
 /**
- * The default for a caller with nothing to exclude, held at one identity so it
- * cannot churn the search effect the way a fresh `[]` per render would.
- */
-const NOTHING_EXCLUDED: string[] = [];
-
-/**
  * What the results table shows when the Adapter does not describe a Content —
  * the one property fieldkit itself knows every Content has. This is the
  * degrade ADR-0009 asks for: a name column, not an error.
@@ -119,8 +113,12 @@ export interface ReferencePickerDrawerProps {
 	 * dropped from whatever comes back so one that ignores the field still
 	 * offers none of them. Hold it at a stable identity: it is a search
 	 * dependency, and a fresh array per render would re-run the browse forever.
+	 *
+	 * Required, like `blueprintIds` and for the same reason — both say what
+	 * this browse may offer, and a caller with nothing to exclude says so with
+	 * an empty array rather than by omission.
 	 */
-	excludeIds?: string[];
+	excludeIds: string[];
 	/** The Field being filled in, so an Adapter failure names it. */
 	fieldId: string;
 	/**
@@ -162,7 +160,7 @@ export function ReferencePickerDrawer({
 	onClose,
 	onPick,
 	blueprintIds,
-	excludeIds = NOTHING_EXCLUDED,
+	excludeIds,
 	fieldId,
 	pinMode = "none",
 	title = "Add reference",
@@ -395,8 +393,12 @@ export function ReferencePickerDrawer({
 						plugins={plugins}
 						loading={loading}
 						variant="hoverable"
-						// Server-driven: `items` is already the page the Adapter
-						// returned, and `total` is the count only it can know.
+						// Server-driven: `items` is the page the Adapter returned,
+						// and `total` is the count only it can know. The two can
+						// disagree slightly — an Adapter that ignores `excludeIds`
+						// counts Contents the backstop then dropped — and `total`
+						// is still the one to page by, since it is the only thing
+						// that knows there is a page 2.
 						page={page}
 						total={total}
 						pageSize={PAGE_SIZE}

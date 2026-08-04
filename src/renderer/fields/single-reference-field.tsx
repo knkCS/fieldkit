@@ -48,9 +48,12 @@ const PIN_LABELS: Record<PinningMode, string> = {
  * - **It never stores a name.** `onChange` writes `{ id }` and nothing else;
  *   the name on screen is resolved through the Adapter on every load, so a
  *   Content renamed elsewhere reads correctly here.
- * - **It never re-filters the Adapter's results** (`filterOption={null}`).
- *   The Adapter decides what matches a query; fieldkit knows nothing about
- *   Content beyond an id and a display name (ADR-0002).
+ * - **It never re-filters the Adapter's results by what was typed**
+ *   (`filterOption={null}`). The Adapter decides what matches a query; fieldkit
+ *   knows nothing about Content beyond an id and a display name (ADR-0002).
+ *   The one thing it does drop is the Content it already holds, which is not a
+ *   judgement about matching but the backstop behind an optional query field —
+ *   see {@link withoutExcluded}.
  *
  * When the Field pins, a second select sits beside the first, listing what that
  * one Content may be pinned to. Two selects rather than the tree Field's
