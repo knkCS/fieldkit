@@ -74,6 +74,50 @@ export async function resolveSpec(
 	return resolveFields(spec, [], createFetcher(blueprint));
 }
 
+/**
+ * Whether `resolveSpec` would fetch anything for this Spec — true only when
+ * some Fieldset in it names a Blueprint, has no `children` yet, and there is
+ * an adapter to fetch them with.
+ *
+ * For a caller that renders synchronously and only wants to wait when there is
+ * something to wait for: a Spec with no Fieldsets, an already-Resolved Spec,
+ * or a Consumer with no blueprint adapter all answer false, and awaiting them
+ * would buy a loading state nobody needs to see. Never a substitute for
+ * `resolveSpec` — resolve on true, render as-is on false.
+ *
+ * Internal to fieldkit, deliberately: the question only arises when the Spec is
+ * already in hand and the render is synchronous, which is the editor's Preview
+ * and not the shape of a Consumer that fetches its Spec (and so already has a
+ * loading state to await `resolveSpec` in). Export it from `/schema` when one
+ * actually asks — that direction is cheap, the other is a breaking change.
+ *
+ * Reads "resolved" by exactly the rule `resolveSpec` applies (`children`
+ * presence, and no recursion past a resolved Fieldset), so the two cannot
+ * disagree about what is left to do.
+ */
+export function specNeedsResolution(
+	spec: Schema,
+	adapters: ResolveSpecAdapters,
+): boolean {
+	if (!adapters.blueprint) return false;
+	return spec.some(fieldNeedsResolution);
+}
+
+function fieldNeedsResolution(field: Field): boolean {
+	if (field.field_type === "fieldset") {
+		if (field.children != null) return false;
+		return fieldsetBlueprintId(field) != null;
+	}
+	return field.children?.some(fieldNeedsResolution) ?? false;
+}
+
+/** The Blueprint a Fieldset names, or undefined for one an Author has not
+ * pointed anywhere yet. The single place the settings cast lives, so the
+ * predicate above and the resolver below cannot read a Fieldset differently. */
+function fieldsetBlueprintId(field: Field): string | undefined {
+	return (field.settings as FieldsetSettings | null | undefined)?.blueprint;
+}
+
 type Fetcher = (blueprintId: string) => Promise<Field[]>;
 
 /** One fetch per Blueprint id per call, shared by every Fieldset naming it —
@@ -121,8 +165,7 @@ async function resolveField(
 		// gives — so nothing to fetch.
 		if (field.children != null) return field;
 
-		const blueprintId = (field.settings as FieldsetSettings | null | undefined)
-			?.blueprint;
+		const blueprintId = fieldsetBlueprintId(field);
 		// An incomplete Fieldset is not an error here — the renderer says "No
 		// blueprint selected" and the rest of the form still works.
 		if (!blueprintId) return field;

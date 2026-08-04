@@ -106,6 +106,7 @@ const plugins: FieldTypePlugin[] = [
 const LABELS = {
 	testSubmit: "Test submit",
 	testSubmitSuccess: "Form submitted successfully",
+	previewResolveFailed: "Embedded fields could not be loaded",
 };
 
 function Wrap({
