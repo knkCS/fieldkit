@@ -634,6 +634,48 @@ describe("reaching an insertion strip without a pointer", () => {
 		);
 	});
 
+	it("keeps offering while focused, whatever the pointer does next", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		const strip = strips()[1];
+		await tabTo(user, strip);
+		await user.keyboard("{ArrowRight}");
+
+		// A pointer crossing the strip on its way somewhere else. The keyboard
+		// is still on it, so the offer is still there to act on — the two
+		// inputs arrive and leave independently.
+		fireEvent.mouseMove(strip, { clientX: 0 });
+		fireEvent.mouseLeave(strip);
+
+		expect(strip).toHaveFocus();
+		expect(screen.getByTestId("reference-insert-label")).toBeInTheDocument();
+
+		// And still answering, rather than a focused control that has gone
+		// quiet because a pointer went past.
+		await user.keyboard("{Escape}");
+		expect(strip).not.toHaveFocus();
+		expect(screen.queryByTestId("reference-insert-label")).toBeNull();
+	});
+
+	it("keeps the depth the pointer chose when the press focuses the strip", async () => {
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// A real press focuses a button on mousedown, before the click lands.
+		// Focus reveals an offer where there is none; it must not overwrite the
+		// one the pointer is already making, or clicking two levels in would
+		// insert at the root.
+		const strip = pointAt(3, 2);
+		act(() => {
+			strip.focus();
+		});
+
+		expect(strip).toHaveAttribute("data-depth", "2");
+		expect(strip).toHaveAccessibleName("Insert as a child of Content 3");
+	});
+
 	it("skips a strip disabled at max_items, which still says why", async () => {
 		const user = userEvent.setup();
 		renderTree({

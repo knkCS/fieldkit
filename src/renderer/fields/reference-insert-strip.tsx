@@ -105,9 +105,9 @@ export function describeInsert(
  * half of it.
  */
 interface InsertOffer {
+	/** Where the Reference would land — the projection's answer, bounds already
+	 * applied. */
 	depth: number;
-	minDepth: number;
-	maxDepth: number;
 	/** How many rows on screen the arrival would take as its children. */
 	adopted: number;
 	label: string;
@@ -147,7 +147,7 @@ export interface ReferenceInsertStripProps {
 	 * does *not* reliably announce is a name that changes under standing focus,
 	 * which is exactly what an arrow press does.
 	 */
-	onAnnounce?: (message: string | null) => void;
+	onAnnounce: (message: string | null) => void;
 }
 
 /**
@@ -179,11 +179,16 @@ export function ReferenceInsertStrip({
 	onInsert,
 	onAnnounce,
 }: ReferenceInsertStripProps) {
-	// How far into the row the pointer sits, or null while nobody is on this
-	// strip: a strip nobody is on announces nothing, and the two facts are the
-	// same fact.
+	// How far in the offer sits, or null while there is none: a strip nobody is
+	// on announces nothing, and the two facts are the same fact. One state for
+	// both inputs, so neither can reach a depth the other cannot.
 	const [offsetX, setOffsetX] = useState<number | null>(null);
-	const pointed = offsetX !== null && !disabled;
+	// Whether the keyboard is on this strip, tracked apart from the offer
+	// because the two inputs arrive and leave independently: a pointer crossing
+	// a focused strip on its way elsewhere must not take the offer away from
+	// the keyboard still standing on it.
+	const [focused, setFocused] = useState(false);
+	const offering = offsetX !== null && !disabled;
 	const nodeRef = useRef<HTMLButtonElement>(null);
 
 	/**
@@ -209,7 +214,10 @@ export function ReferenceInsertStrip({
 	 * from having two answers that could drift apart.
 	 */
 	useEffect(() => {
-		if (!pointed) return;
+		// Gated on focus, not on the offer: an Escape belongs to whoever the
+		// keyboard is on, and a strip that lost its listener because a pointer
+		// went past would leave the press to close the drawer instead.
+		if (!focused) return;
 		const leaveOnEscape = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
 			if (!(event.target instanceof Node)) return;
@@ -220,14 +228,14 @@ export function ReferenceInsertStrip({
 		};
 		window.addEventListener("keydown", leaveOnEscape, true);
 		return () => window.removeEventListener("keydown", leaveOnEscape, true);
-	}, [pointed]);
+	}, [focused]);
 
 	/**
 	 * What this strip would do with the pointer that far in. Pure, so the
 	 * keyboard can ask it about an offset nothing has moved to yet.
 	 */
 	function offerAt(x: number): InsertOffer {
-		const { depth, minDepth, maxDepth, adopted } = projectInsertDepth({
+		const { depth, adopted } = projectInsertDepth({
 			items: rows,
 			slot,
 			offsetX: x,
@@ -236,8 +244,6 @@ export function ReferenceInsertStrip({
 		});
 		return {
 			depth,
-			minDepth,
-			maxDepth,
 			adopted: adopted.length,
 			label: disabled
 				? INSERT_AT_CAP_LABEL
@@ -254,23 +260,20 @@ export function ReferenceInsertStrip({
 
 	/**
 	 * One arrow press, one level — the same level a pointer reaches by travelling
-	 * `indentWidth` sideways, and inside the same bounds, because the step is
-	 * taken against the projection's own floor and ceiling.
+	 * `indentWidth` sideways, written back as the offset that names it so the two
+	 * inputs leave the strip in one state.
 	 *
-	 * Stepping the *level* rather than the offset is what keeps a bound from
-	 * banking presses: nudging the offset by a fixed distance would let three →
-	 * against a ceiling of one need three ← before anything on screen moved,
-	 * which is a control that has stopped answering. The offset is then rewritten
-	 * to the level chosen, so the two inputs leave the strip in one state.
+	 * It steps from the level **on offer**, which `projectInsertDepth` has
+	 * already clamped, rather than from the raw ask — which is what keeps a bound
+	 * from banking presses. Three → against a ceiling of one leaves the offer at
+	 * one each time, so a single ← still moves; nudging the offset instead would
+	 * have piled up three levels of travel to spend before anything on screen
+	 * answered. Nothing here re-derives the bound itself.
 	 */
 	function stepDepth(step: number) {
-		const next = Math.min(
-			Math.max(offer.depth + step, offer.minDepth),
-			offer.maxDepth,
-		);
-		const moved = next * indentWidth;
+		const moved = (offer.depth + step) * indentWidth;
 		setOffsetX(moved);
-		onAnnounce?.(offerAt(moved).label);
+		onAnnounce(offerAt(moved).label);
 	}
 
 	return (
@@ -289,7 +292,7 @@ export function ReferenceInsertStrip({
 			// A 4px hairline in the gap the rows' own margin already leaves, and
 			// 32px under the pointer: enough to read the sentence in, and small
 			// enough that the rows stay a list.
-			height={pointed ? "8" : "1"}
+			height={offering ? "8" : "1"}
 			transition="height 0.12s"
 			cursor={disabled ? "not-allowed" : "pointer"}
 			onMouseMove={(event) => {
@@ -299,13 +302,27 @@ export function ReferenceInsertStrip({
 				const { left } = event.currentTarget.getBoundingClientRect();
 				setOffsetX(event.clientX - left);
 			}}
-			onMouseLeave={() => setOffsetX(null)}
+			// Only when the keyboard is not standing on it: the pointer taking
+			// its own offer away is a mouse leaving, and taking the keyboard's
+			// away as well is a focused control going quiet.
+			onMouseLeave={() => {
+				if (!focused) setOffsetX(null);
+			}}
 			// Keyboard parity with the hover: focus reveals the same sentence
 			// rather than landing on an invisible control (WCAG 2.4.7).
-			onFocus={() => setOffsetX(0)}
+			//
+			// It *reveals* an offer, never replaces one. A press focuses a button
+			// on mousedown, before the click lands, so overwriting here would have
+			// every pointer click insert at the shallowest level the neighbours
+			// allow rather than the one being pointed at.
+			onFocus={() => {
+				setFocused(true);
+				setOffsetX((current) => current ?? 0);
+			}}
 			onBlur={() => {
+				setFocused(false);
 				setOffsetX(null);
-				onAnnounce?.(null);
+				onAnnounce(null);
 			}}
 			// ←/→ only. Escape is answered a phase earlier, above — it never
 			// reaches here.
@@ -321,7 +338,7 @@ export function ReferenceInsertStrip({
 				if (!disabled) onInsert(slot, depth);
 			}}
 		>
-			{pointed && (
+			{offering && (
 				<Flex
 					align="center"
 					gap="2"
