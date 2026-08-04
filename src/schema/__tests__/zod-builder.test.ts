@@ -267,6 +267,95 @@ describe("specToZodSchema", () => {
 		expect(schema.safeParse({ count: "" }).success).toBe(false);
 	});
 
+	describe("composing child fields (#53)", () => {
+		/** A container type as the plugin contract now allows one: it validates
+		 * what it holds by composing its children, and falls back when it is
+		 * handed no composer. */
+		function containerPlugin(): FieldTypePlugin {
+			return {
+				...mockPlugin("container", z.unknown()),
+				category: "structural",
+				toZodType: (field, composeChildren) =>
+					composeChildren && field.children
+						? composeChildren(field.children)
+						: z.record(z.unknown()),
+			};
+		}
+
+		const child = (accessor: string, required: boolean): Field => ({
+			field_type: "text",
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required,
+				instructions: "",
+			},
+			settings: null,
+			children: null,
+			system: false,
+		});
+
+		const container = (children: Field[] | null): Field => ({
+			field_type: "container",
+			config: {
+				name: "Box",
+				api_accessor: "box",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children,
+			system: false,
+		});
+
+		it("validates a container's children under its own accessor", () => {
+			const schema = specToZodSchema(
+				[container([child("street", true)])],
+				[...plugins, containerPlugin()],
+			);
+			const result = schema.safeParse({ box: {} });
+			expect(result.success).toBe(false);
+			expect(result.error?.issues[0].path).toEqual(["box", "street"]);
+		});
+
+		it("leaves a plugin that ignores the second argument unchanged", () => {
+			// The additive half of the contract: `text` here is the same
+			// one-argument plugin every other test in this file uses, and having
+			// children makes no difference to it.
+			const schema = specToZodSchema(
+				[{ ...child("name", true), children: [child("ignored", true)] }],
+				plugins,
+			);
+			expect(schema.safeParse({ name: "John" }).success).toBe(true);
+		});
+
+		it("does not apply top-level overrides inside children", () => {
+			// `overrides` is keyed by accessor and belongs to the Consumer's own
+			// Fields — a Blueprint that happens to name a child the same must
+			// not inherit it.
+			const schema = specToZodSchema(
+				[child("street", false), container([child("street", false)])],
+				[...plugins, containerPlugin()],
+				{ overrides: { street: () => z.literal("only at the top") } },
+			);
+
+			expect(schema.safeParse({ street: "nope", box: {} }).success).toBe(false);
+			expect(
+				schema.safeParse({ street: "only at the top", box: { street: "free" } })
+					.success,
+			).toBe(true);
+		});
+
+		it("hands no composer where there is nothing to compose with", () => {
+			// A container whose children are absent still has to produce a type.
+			const schema = specToZodSchema(
+				[container(null)],
+				[...plugins, containerPlugin()],
+			);
+			expect(schema.safeParse({ box: { anything: 1 } }).success).toBe(true);
+		});
+	});
+
 	describe("optional constrained strings accept empty string (#38)", () => {
 		const slugLike = mockPlugin(
 			"slug",
@@ -455,6 +544,27 @@ describe("getDefaultValues", () => {
 				[boolPlugin, mockPlugin("section", z.unknown(), () => "NEVER")],
 			);
 			expect(out).toEqual({});
+		});
+
+		it("composes a container's default from its children (#53)", () => {
+			const containerPlugin: FieldTypePlugin = {
+				...mockPlugin("container", z.unknown()),
+				defaultValue: (field, composeChildren) =>
+					composeChildren && field.children
+						? composeChildren(field.children)
+						: {},
+			};
+			const container: Field = {
+				...mk("container", "box"),
+				children: [mk("text", "street"), mk("boolean", "primary")],
+			};
+
+			expect(
+				getDefaultValues(
+					[container],
+					[containerPlugin, textPlugin, boolPlugin],
+				),
+			).toEqual({ box: { street: "", primary: false } });
 		});
 	});
 });

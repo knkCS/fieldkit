@@ -87,6 +87,8 @@ export {
 // Plugin types
 export type {
 	CellProps,
+	ComposeChildDefaults,
+	ComposeChildSchema,
 	FieldContext,
 	FieldProps,
 	FieldTypeCategory,

@@ -88,10 +88,10 @@ A Fieldset's children are **never stored in the Spec**. There are two paths:
    `adapters.blueprint.getSchema(blueprint)` itself, **for display only**.
 
 Path 2 is a documented degrade, not a supported mode: fields resolved that way
-render and hold values, but they are not part of the Zod Schema the Consumer
-generated, so **a required child does not block submit**. #53 closes that by
-giving the plugin contract a way to compose children into the Schema. Until
-then, a Consumer who needs validation must resolve first.
+render and hold values, but the Consumer generated their Zod Schema before
+those Fields existed, so **nothing about them is validated** — a required child
+does not block submit. Resolving is what puts them in the Schema (ADR-0004), so
+a Consumer who needs validation resolves first.
 
 With no blueprint adapter configured at all, the established
 "Blueprint adapter not configured" stub renders and the rest of the form works
@@ -105,10 +105,17 @@ unchanged (ADR-0003). With no Blueprint chosen, the Field says
 calls it unconditionally rather than knowing which Field types need fetching:
 
 ```ts
-import { resolveSpec, specToZodSchema } from "@knkcs/fieldkit/schema";
+import {
+  getDefaultValues,
+  resolveSpec,
+  specToZodSchema,
+} from "@knkcs/fieldkit/schema";
 
 const spec = await resolveSpec(authoredSpec, adapters);
+// Both read the Resolved Spec: children the Schema never saw are neither
+// validated nor seeded.
 const schema = specToZodSchema(spec, plugins);
+const defaultValues = getDefaultValues(spec, plugins);
 ```
 
 What it guarantees:
@@ -152,16 +159,34 @@ omitted because a Fieldset holds one record rather than a list of them.
 
 ## Validation
 
-`z.record(z.unknown())` — the record is opaque for now, so **`required` on a
-Fieldset is effectively inert**. The Schema asks only that the key be present,
-and `getDefaultValues` seeds `{}`, which satisfies it; nothing about the
-children is checked. A Fieldset starts blocking submit when its children join
-the Schema (#53). See "Where the Children Come From" above.
+**Resolved**, the record is the object its children describe: a required child
+blocks submit, and its issue is reported at the child's own path
+(`address.street`), so react-hook-form puts the message on the offending Field
+rather than on the Fieldset. Nesting composes — a Fieldset inside a Fieldset
+validates all the way down — and children obey the rules their top-level
+siblings do: Markers and hidden Fields are skipped, optional children accept
+the empty string (#38).
+
+**Unresolved**, it stays `z.record(z.unknown())`, so **`required` on the
+Fieldset is effectively inert**: the Schema asks only that the key be present,
+and `getDefaultValues` seeds a record that satisfies it. The self-resolved
+Fields of path 2 are not rejected either — failing a form over a Field fieldkit
+was never told about would be worse than not checking it.
+
+This is the whole point of the resolve step, and the plugin contract that makes
+it possible is additive: `toZodType` takes an optional second argument that
+composes child Fields into an object schema (`ComposeChildSchema`), and every
+plugin that ignores it is unchanged. `specToZodSchema`'s `overrides` are keyed
+by top-level Accessor and are deliberately *not* applied to children — an
+override for `street` means the Consumer's own Field, not one a Blueprint
+happens to name the same.
 
 ## Default Value
 
-`{}` — a fresh record per call. #53 replaces it with an object composed of the
-children's own defaults.
+The children's own defaults, composed into one record — a Fieldset embedding
+`street` and `city` seeds `{ street: "", city: "" }`, nested Fieldsets
+included. Unresolved, `{}`. Fresh per call either way, so no two forms share a
+record.
 
 ## Table Cell
 
@@ -185,8 +210,8 @@ would make both the collapse and its accessible state untestable.
 
 ## Known Limitations
 
-- **Children are not validated.** The headline limitation, and the reason this
-  type is not honestly complete until #53.
+- **Self-resolved children are not validated.** Only the resolved path reaches
+  the Schema — see "Validation" above.
 - **Nothing is deduplicated on the self-resolve path.** Two Fieldsets naming
   the same Blueprint make two `getSchema` calls. `resolveSpec()` fetches each
   Blueprint id once.

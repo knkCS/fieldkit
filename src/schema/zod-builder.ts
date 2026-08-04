@@ -12,12 +12,27 @@ export interface ZodBuilderOptions {
 	overrides?: Record<string, (base: ZodTypeAny) => ZodTypeAny>;
 }
 
+type PluginMap = Map<string, FieldTypePlugin>;
+
 export function specToZodSchema(
 	fields: Field[],
 	plugins: FieldTypePlugin[],
 	options?: ZodBuilderOptions,
 ): ZodObject<ZodRawShape> {
-	const pluginMap = new Map(plugins.map((p) => [p.id, p]));
+	return buildObject(fields, new Map(plugins.map((p) => [p.id, p])), options);
+}
+
+/** One level of a Spec as a Zod object. Called again, through the
+ * `composeChildren` argument below, for every container plugin that holds
+ * child Fields — so a Fieldset's children obey the same rules its siblings do,
+ * and a Fieldset embedding a Fieldset composes all the way down. Termination
+ * is `resolveSpec()`'s job: it rejects a Blueprint cycle before children ever
+ * reach here. */
+function buildObject(
+	fields: Field[],
+	pluginMap: PluginMap,
+	options?: ZodBuilderOptions,
+): ZodObject<ZodRawShape> {
 	const shape: ZodRawShape = {};
 
 	for (const field of fields) {
@@ -27,7 +42,12 @@ export function specToZodSchema(
 		const plugin = pluginMap.get(field.field_type);
 		if (!plugin) continue;
 
-		let zodType = plugin.toZodType(field as Field<unknown>);
+		let zodType = plugin.toZodType(field as Field<unknown>, (children) =>
+			// No `options`: overrides are keyed by top-level accessor and belong
+			// to the Consumer's own Fields, not to whatever a Blueprint happens
+			// to name the same.
+			buildObject(children, pluginMap),
+		);
 
 		if (!field.config.required) {
 			// Optional strings are "empty or valid" (#38): a cleared text
@@ -56,9 +76,17 @@ export function getDefaultValues(
 	fields: Field[],
 	plugins?: FieldTypePlugin[],
 ): Record<string, unknown> {
-	const pluginMap = plugins
-		? new Map(plugins.map((p) => [p.id, p]))
-		: undefined;
+	return buildDefaults(
+		fields,
+		plugins ? new Map(plugins.map((p) => [p.id, p])) : undefined,
+	);
+}
+
+/** The defaults twin of `buildObject`, recursing on the same terms. */
+function buildDefaults(
+	fields: Field[],
+	pluginMap?: PluginMap,
+): Record<string, unknown> {
 	const defaults: Record<string, unknown> = {};
 
 	for (const field of fields) {
@@ -72,6 +100,7 @@ export function getDefaultValues(
 		if (defaultValue) {
 			defaults[field.config.api_accessor] = defaultValue(
 				field as Field<unknown>,
+				(children) => buildDefaults(children, pluginMap),
 			);
 		}
 	}

@@ -42,7 +42,7 @@ Renders the item count via `GroupCell`.
 
 ## Known Limitations
 
-- Child fields are not validated in Zod — items use `z.record(z.unknown())` instead of composing child field schemas
+- Child fields are not validated in Zod — items use `z.record(z.unknown())` instead of composing child field schemas. The plugin contract no longer stands in the way: `toZodType` takes an optional composer for child fields (#53, used by Fieldset), so a row could compose its children. Doing it here is a separate change with its own blast radius — every existing Group's stored rows would start being checked.
 - No drag-to-reorder (the plan specified dnd-kit integration)
 - `append({})` ignores child field defaults — new items start with empty objects
 - No collapse/expand per item

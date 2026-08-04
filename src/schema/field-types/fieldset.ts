@@ -30,19 +30,29 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 	// A Fieldset holds ONE record, so its value is an object — this is what
 	// keeps it out of the value-less Marker skip-list a Card sits in.
 	//
-	// The record is opaque: `toZodType` receives only the Field and cannot
-	// reach the plugins its children need, so a required child does not yet
-	// block submit — and `config.required` on the Fieldset itself is inert in
-	// practice, since the `{}` that `defaultValue` seeds already satisfies it.
-	// That degrade is the documented seam of #50; #53 gives the plugin
-	// contract a way to compose children and closes it.
-	toZodType(_field: Field<FieldsetSettings>) {
-		return z.record(z.unknown());
+	// Resolved, that record is the object its children describe, so a required
+	// child blocks submit and reports at its own path (#53). Unresolved, it
+	// stays the opaque record of #50: children are what "resolved" means
+	// (ADR-0003), and a Consumer who skipped `resolveSpec()` gets Fields the
+	// renderer self-resolves for display but the Schema never saw. Rejecting
+	// their values on that path would fail a form over a Field fieldkit was
+	// never told about.
+	toZodType(field: Field<FieldsetSettings>, composeChildren) {
+		const children = field.children;
+		if (!composeChildren || children == null) return z.record(z.unknown());
+		return composeChildren(children);
 	},
 
 	defaultSettings: { collapsible: false },
 
-	defaultValue: () => ({}),
+	// The children's own defaults, so a Fieldset seeds the record its Fields
+	// expect rather than an empty one they then have to fill (#53) — and `{}`
+	// still, unresolved or composed from children that seed nothing.
+	defaultValue: (field, composeChildren) => {
+		const children = field.children;
+		if (!composeChildren || children == null) return {};
+		return composeChildren(children);
+	},
 
 	availableIn: ["blueprint", "task", "form"],
 };
