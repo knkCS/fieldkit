@@ -11,6 +11,8 @@ export type {
 	MediaFilter,
 	MediaItem,
 	ReferenceItem,
+	ReferenceSearchQuery,
+	ReferenceSearchResult,
 } from "./adapters";
 export type { FieldComponentProps } from "./field-component";
 export { FieldComponent } from "./field-component";

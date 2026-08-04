@@ -291,6 +291,57 @@ describe("SpecDataTable", () => {
 		expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
 	});
 
+	// A caller that fetches one page at a time — the Reference picker's browse
+	// over a whole catalogue — knows the page and the total; the table must
+	// show what it was handed rather than paging through it a second time.
+	it("shows a controlled page whole, without slicing it again", () => {
+		const onePage = Array.from({ length: 3 }, (_, i) => ({
+			title: `Item ${i + 21}`,
+			count: i + 21,
+		}));
+
+		render(
+			<SpecDataTable
+				schema={schema}
+				data={onePage}
+				plugins={plugins}
+				pageSize={3}
+				page={7}
+				total={21}
+				onPageChange={vi.fn()}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		expect(screen.getByText("Item 21")).toBeInTheDocument();
+		expect(screen.getByText("Item 23")).toBeInTheDocument();
+	});
+
+	it("paginates over the reported total, not over the rows it was given", () => {
+		const onePage = [{ title: "Item 1", count: 1 }];
+		const onPageChange = vi.fn();
+
+		render(
+			<SpecDataTable
+				schema={schema}
+				data={onePage}
+				plugins={plugins}
+				pageSize={1}
+				page={1}
+				total={40}
+				onPageChange={onPageChange}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		// 40 rows at one per page: a last page the row count alone could never
+		// have produced.
+		expect(screen.getByRole("button", { name: "40" })).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+		expect(onPageChange).toHaveBeenCalledWith(2);
+	});
+
 	it("should have displayName", () => {
 		expect(SpecDataTable.displayName).toBe("SpecDataTable");
 	});

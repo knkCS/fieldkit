@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-import { useFieldKit } from "../provider";
-import { useAdapterErrorReporter } from "./use-adapter-error-reporter";
+import { useResolvedContentNames } from "./use-resolved-content-names";
 
 /**
  * The current display name of one referenced Content, resolved through the
@@ -13,6 +11,10 @@ import { useAdapterErrorReporter } from "./use-adapter-error-reporter";
  * lookup. Every caller falls back to the id in that case, so an unresolvable
  * Content is visible rather than gone.
  *
+ * The one-id case of {@link useResolvedContentNames}, so both spellings share
+ * a single error policy: an Adapter failure reaches the Consumer's `onError`,
+ * never the console and never form state.
+ *
  * `fieldId` is only ever used to attribute an Adapter failure to the Field it
  * degrades, through the provider's `onError`.
  */
@@ -20,32 +22,6 @@ export function useResolvedContentName(
 	id: string | null,
 	fieldId: string,
 ): string | null {
-	const { adapters } = useFieldKit();
-	const adapter = adapters.reference;
-	const [name, setName] = useState<string | null>(null);
-	const report = useAdapterErrorReporter(fieldId, "Reference adapter failed");
-
-	useEffect(() => {
-		if (!adapter || !id) {
-			setName(null);
-			return;
-		}
-		let cancelled = false;
-		adapter
-			.fetch([id])
-			.then((items) => {
-				if (cancelled) return;
-				setName(items.find((item) => item.id === id)?.display_name ?? null);
-			})
-			.catch((error: unknown) => {
-				if (cancelled) return;
-				setName(null);
-				report(error);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [adapter, id, report]);
-
-	return name;
+	const names = useResolvedContentNames(id ? [id] : [], fieldId);
+	return id ? (names[id] ?? null) : null;
 }

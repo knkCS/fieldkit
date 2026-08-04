@@ -5,101 +5,158 @@ import * as Stories from "./reference-field.stories";
 
 # Reference
 
-Link to other content items. Provides a search interface to find and select references from other blueprints. Requires a `reference` adapter to be configured via `FieldKitProvider`.
+An ordered list of References to other Contents. Each row shows the referenced Content's *current* name, resolved through the `reference` adapter; adding one opens a drawer that browses the catalogue. Requires a `reference` adapter configured via `FieldKitProvider`.
 
 ## When to Use
 
-Use **Reference** when a field should link to one or more content items from other blueprints (e.g., "Related Posts", "Author", "Category"). For a single table-of-contents reference limited to one per spec, use [TOC Reference](?path=/docs/fields-toc-reference--docs).
+Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items". For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
+
+The list is flat. Nesting — a Reference Tree with drag-and-drop, per-Reference attributes and pinning — arrives in later tickets.
+
+## Value
+
+Fieldkit owns the shape; a Consumer maps it to whatever it persists (ADR-0008).
+
+```ts
+// The stored value
+Reference[]
+
+interface Reference {
+  id: string                            // the referenced Content
+  pin?: string | null                   // later ticket
+  attributes?: Record<string, unknown>  // later ticket
+  children?: Reference[]                // later ticket
+}
+```
+
+A display name is **never stored**. Names are resolved through the adapter on every load, so a Content renamed elsewhere reads correctly here, and one that no longer resolves keeps its id on screen rather than vanishing.
 
 ## Settings
 
-| Setting         | Type       | Default     | Description                                    |
-|-----------------|------------|-------------|------------------------------------------------|
-| `blueprints`    | `string[]` | —           | Blueprint IDs to search within                  |
-| `always_latest` | `boolean`  | —           | Always resolve to the latest version (currently unused) |
-| `max_items`     | `number`   | `undefined` | Maximum number of references. When `1`, stores a single string instead of an array |
-| `max_depth`     | `number`   | —           | Maximum reference depth (currently unused)       |
-| `attributes`    | `string[]` | —           | Attributes to include in the reference (currently unused) |
+| Setting      | Type       | Default | Description                                                        |
+|--------------|------------|---------|--------------------------------------------------------------------|
+| `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty means the adapter decides |
+| `max_items`  | `number`   | —       | A cap, never a change of shape. The add affordance is disabled at the limit and the Schema rejects an over-cap list |
+| `max_depth`  | `number`   | —       | Reserved for nesting; every Reference is at depth zero while the list is flat |
+
+The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints.
 
 ## Adapter Interface
 
-The reference field requires a `reference` adapter injected via `FieldKitProvider`:
-
 ```ts
 reference: {
-  search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+  search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+  getSearchFilters?: () => Field[];   // optional
+  getResultColumns?: () => Field[];   // optional
+}
+
+interface ReferenceSearchQuery {
+  blueprintIds: string[];
+  query: string;
+  filters: Record<string, unknown>;   // opaque to fieldkit
+  page: number;                       // 1-based
+  page_size: number;
+}
+
+interface ReferenceSearchResult {
+  items: ReferenceItem[];
+  total: number;                      // across every page
 }
 ```
 
-Where `ReferenceItem` is:
-```ts
-interface ReferenceItem {
-  id: string;
-  display_name: string;
-  blueprint_id?: string;
-  [key: string]: unknown;
-}
-```
+`search` is a query object rather than positional arguments because a browsable picker over a real catalogue needs pagination and a total, which the old bare-array signature could not express (ADR-0009).
+
+### The adapter describes itself with Specs
+
+Filtering and columns mean domain nouns — a status, an assigned user — that fieldkit's catalogue must not learn. So the adapter describes them instead: `getSearchFilters()` returns the `Field[]` describing a query, `getResultColumns()` returns the `Field[]` describing one Content row. Fieldkit renders the first with `FieldRenderer` and the second with `SpecDataTable`, so each field type brings its own control and its own cell for free.
+
+The values the filter form collects travel back through `search` as `filters` — **an opaque record fieldkit never inspects**. A filter no field type can express needs a new field type rather than a bespoke control.
+
+Both methods are **optional**. Without them the picker degrades to a search box and a name column, which is what a Consumer that has not implemented them should get rather than an error.
 
 ## Validation
 
-| Rule       | Type     | Description                                     |
-|------------|----------|-------------------------------------------------|
-| `required` | `boolean`| When true, at least one reference must be selected (min 1 for arrays, non-empty string for single) |
-
-## Zod Output
+| Rule        | Description                                              |
+|-------------|----------------------------------------------------------|
+| `required`  | At least one Reference                                    |
+| `max_items` | At most that many References                              |
+| per item    | Each entry must be a Reference — an object with a non-empty `id` |
 
 ```ts
-// Single mode (max_items: 1) — required
-z.string().min(1, "Author is required")
+// Optional
+z.array(referenceValueSchema)
 
-// Single mode — optional
-z.string()
-
-// Multi mode — required
-z.array(z.string()).min(1, "Related Posts is required")
-
-// Multi mode — optional
-z.array(z.string())
+// Required, capped at 5
+z.array(referenceValueSchema)
+  .min(1, "Related articles is required")
+  .max(5, "Related articles allows at most 5 references")
 ```
+
+Note the blast radius a cap carries: a Spec whose `max_items` was never enforced can begin blocking submit on data that saved successfully before.
 
 ## Table Cell
 
-Renders reference IDs as a comma-separated string via `ReferenceCell`. If the value contains objects with `display_name`, those are shown; otherwise raw IDs are displayed. Shows an em-dash for null/empty values. Truncated at 100 characters.
+`ReferenceCell` renders a count — "3 references" — at table density. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
+
+## Errors
+
+An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attributed to the field it degrades. The control never renders an error of its own, and never rewrites the stored value.
 
 ## Known Limitations
 
-- `useEffect` inside Controller render function (React hooks rules violation)
-- `always_latest`, `max_depth`, `attributes` settings are defined but unused
-- No search debounce — every keystroke triggers a search
-- `max_items` is not enforced in the UI (except single mode which replaces instead of appending)
-- No keyboard accessibility on the search dropdown
-- Cell does not resolve IDs to display names (no adapter context in table cells)
+- The list is flat: no nesting, no drag-and-drop reordering, no `max_depth` enforcement.
+- No pinning and no per-Reference attributes yet.
+- Read mode shows the count from the cell rather than resolved names.
+- The browse drawer's page size is fixed at 10.
 
 ## Examples
 
-### Default With Mock Adapter
+### Empty
 
-Search for references by typing in the search box. Try searching "Getting" or "About".
+<Canvas of={Stories.Empty} />
 
-<Canvas of={Stories.DefaultWithMockAdapter} />
+### With Stored References
 
-### Single Mode
+Names are resolved through the adapter, never read out of the stored value.
 
-With `max_items: 1`, the field stores a single string and replaces the previous selection.
+<Canvas of={Stories.WithStoredReferences} />
 
-<Canvas of={Stories.SingleMode} />
+### Unresolvable Reference
 
-### Multi Mode
+A Content that no longer resolves keeps its id on screen, and the stored value is left alone.
 
-Pre-populated with two references. Additional items can be added up to the `max_items` limit (though the limit is not enforced in the UI).
+<Canvas of={Stories.UnresolvableReference} />
 
-<Canvas of={Stories.MultiMode} />
+### Large Catalogue
+
+Browse 42 Contents ten at a time. The pagination reflects the total the adapter reports.
+
+<Canvas of={Stories.LargeCatalogue} />
+
+### Adapter Without Specs
+
+Neither `getSearchFilters` nor `getResultColumns`: a search box and a name column.
+
+<Canvas of={Stories.AdapterWithoutSpecs} />
+
+### At The Cap
+
+`max_items: 2`, already holding two — the add affordance is disabled.
+
+<Canvas of={Stories.AtTheCap} />
+
+### Required
+
+<Canvas of={Stories.Required} />
+
+### Any Blueprint
+
+No blueprints configured: the adapter decides what may be referenced.
+
+<Canvas of={Stories.AnyBlueprint} />
 
 ### No Adapter
-
-When no reference adapter is configured, the field shows a "Reference adapter not configured" message.
 
 <Canvas of={Stories.NoAdapter} />
 

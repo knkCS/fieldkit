@@ -17,6 +17,11 @@ interface ContentOption {
 	label: string;
 }
 
+/** How many Contents one open of the menu offers. A select shows what fits;
+ * narrowing further is what the search box is for. The Reference Field's
+ * drawer is the control for browsing a whole catalogue. */
+const MENU_PAGE_SIZE = 50;
+
 /**
  * Exactly one Reference, picked from the Contents the reference Adapter
  * offers.
@@ -73,8 +78,16 @@ export function SingleReferenceField({
 		let cancelled = false;
 		setSearching(true);
 		adapter
-			.search(blueprints, query)
-			.then((items) => {
+			// No filters: this control has no room for a filter form, and an
+			// empty record is what "no narrowing beyond the query" means.
+			.search({
+				blueprintIds: blueprints,
+				query,
+				filters: {},
+				page: 1,
+				page_size: MENU_PAGE_SIZE,
+			})
+			.then(({ items }) => {
 				if (cancelled) return;
 				setOptions(
 					items.map((item) => ({ id: item.id, label: item.display_name })),

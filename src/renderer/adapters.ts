@@ -3,6 +3,7 @@ import type {
 	BlueprintSchemaAdapter,
 	BlueprintSummary,
 } from "../schema/resolve-spec";
+import type { Field } from "../schema/types";
 
 /** Re-exported so the blueprint adapter's whole vocabulary is reachable from
  * the layer that declares it, as well as from `/schema` where it is defined
@@ -14,6 +15,44 @@ export interface ReferenceItem {
 	display_name: string;
 	blueprint_id?: string;
 	[key: string]: unknown;
+}
+
+/**
+ * One page of a browse through the Contents a Reference may point at.
+ *
+ * A query object rather than positional arguments because a browsable picker
+ * needs more than a string, and every part of it is optional to *honour* but
+ * mandatory to *receive* — an Adapter that ignores `filters` still compiles
+ * against the same type as one that implements them (ADR-0009).
+ */
+export interface ReferenceSearchQuery {
+	/** The Blueprints the Field is constrained to. Empty means no constraint —
+	 * fieldkit has no notion of a Blueprint kind (ADR-0002), so the Adapter
+	 * decides. */
+	blueprintIds: string[];
+	/** What the person filling in the form typed. */
+	query: string;
+	/**
+	 * The filter form's values, keyed by the Accessors of the Fields
+	 * `getSearchFilters()` returned.
+	 *
+	 * **Opaque to fieldkit.** It collects these values with its own renderer
+	 * and hands the record straight back without reading a single key — that
+	 * is what keeps a Consumer's vocabulary (a status, an assigned user) out
+	 * of fieldkit's catalogue.
+	 */
+	filters: Record<string, unknown>;
+	/** 1-based. */
+	page: number;
+	page_size: number;
+}
+
+/** What a {@link ReferenceSearchQuery} answers with: the page's Contents, and
+ * how many there are in total. The total is what the picker's pagination is
+ * built from — the Adapter is the only thing that knows it. */
+export interface ReferenceSearchResult {
+	items: ReferenceItem[];
+	total: number;
 }
 
 export interface MediaItem {
@@ -59,8 +98,31 @@ export interface EditorSpecGlobalSettings {
 
 export interface FieldKitAdapters {
 	reference?: {
-		search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+		search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
 		fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+		/**
+		 * The Fields describing a query over this Consumer's Contents — what
+		 * the picker's filter form renders.
+		 *
+		 * **Optional on purpose.** Without it the picker degrades to a search
+		 * box, which is what a Consumer that has not implemented filtering
+		 * should get rather than an error (ADR-0009).
+		 *
+		 * Whatever these Fields collect travels back through `search` as
+		 * {@link ReferenceSearchQuery.filters}, untouched.
+		 */
+		getSearchFilters?: () => Field[];
+		/**
+		 * The Fields describing one Content row — what the picker's result
+		 * table renders as columns, each field type bringing its own cell.
+		 *
+		 * Optional on the same terms as `getSearchFilters`: without it the
+		 * results show a name column and nothing else.
+		 *
+		 * A separate Spec rather than a flag on the filter one, because the
+		 * two model different things: a query is not a Content.
+		 */
+		getResultColumns?: () => Field[];
 	};
 	media?: {
 		upload: (file: File) => Promise<MediaItem>;

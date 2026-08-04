@@ -1,13 +1,18 @@
 import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import type { TocReferenceSettings } from "../../schema/field-types/toc-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { ReferenceItem } from "../adapters";
-import { useResolvedReferences } from "../hooks/use-resolved-references";
+import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
+import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useFieldKit } from "../provider";
+
+/** One menu's worth of matches. This control has no pagination of its own —
+ * typing is how the list is narrowed. */
+const MENU_PAGE_SIZE = 50;
 
 export function TocReferenceField({
 	field,
@@ -18,28 +23,58 @@ export function TocReferenceField({
 	const { config, settings } = field;
 	const accessor = config.api_accessor;
 	const refAdapter = adapters.reference;
+	const report = useAdapterErrorReporter(accessor, "Reference adapter failed");
 
 	const [searchQuery, setSearchQuery] = useState("");
+	const [searchResults, setSearchResults] = useState<ReferenceItem[]>([]);
+	const [searching, setSearching] = useState(false);
 
-	const {
-		resolved,
-		error,
-		search,
-		searchResults,
-		searching,
-		clearSearch,
-		resolveIds,
-	} = useResolvedReferences({
-		adapter: refAdapter,
-		blueprints: settings?.blueprints ?? [],
-	});
+	// Serialized, not the array itself: a Consumer's settings object is a fresh
+	// literal on every render, and effect deps must not churn with it.
+	const blueprintsKey = JSON.stringify(settings?.blueprints ?? []);
+	const blueprints = useMemo(
+		() => JSON.parse(blueprintsKey) as string[],
+		[blueprintsKey],
+	);
 
 	const watchedValue = useWatch({ name: accessor, control });
 	const currentId = typeof watchedValue === "string" ? watchedValue : "";
 
+	// The stored Content's current name, resolved on every load. A failure
+	// reaches the Consumer's `onError` and leaves the id on screen — it is not
+	// this Field's business to render an Adapter outage.
+	const resolvedName = useResolvedContentName(currentId || null, accessor);
+
 	useEffect(() => {
-		resolveIds(currentId ? [currentId] : []);
-	}, [currentId, resolveIds]);
+		if (!refAdapter || searchQuery.length === 0) {
+			setSearchResults([]);
+			return;
+		}
+		let cancelled = false;
+		setSearching(true);
+		refAdapter
+			.search({
+				blueprintIds: blueprints,
+				query: searchQuery,
+				filters: {},
+				page: 1,
+				page_size: MENU_PAGE_SIZE,
+			})
+			.then(({ items }) => {
+				if (cancelled) return;
+				setSearchResults(items);
+				setSearching(false);
+			})
+			.catch((error: unknown) => {
+				if (cancelled) return;
+				setSearchResults([]);
+				setSearching(false);
+				report(error);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [refAdapter, blueprints, searchQuery, report]);
 
 	if (!refAdapter) {
 		return (
@@ -53,7 +88,7 @@ export function TocReferenceField({
 		);
 	}
 
-	const resolvedItem = resolved[0] ?? null;
+	const displayName = resolvedName ?? currentId;
 
 	return (
 		<FormField
@@ -71,7 +106,6 @@ export function TocReferenceField({
 						const handleSelect = (item: ReferenceItem) => {
 							formField.onChange(item.id);
 							setSearchQuery("");
-							clearSearch();
 						};
 
 						const handleClear = () => {
@@ -92,10 +126,10 @@ export function TocReferenceField({
 											borderRadius="md"
 											fontSize="sm"
 										>
-											<Text>{resolvedItem?.display_name ?? currentId}</Text>
+											<Text>{displayName}</Text>
 											{!readOnly && (
 												<IconButton
-													aria-label={`Remove ${resolvedItem?.display_name ?? currentId}`}
+													aria-label={`Remove ${displayName}`}
 													size="2xs"
 													variant="ghost"
 													onClick={handleClear}
@@ -107,22 +141,12 @@ export function TocReferenceField({
 									</Flex>
 								)}
 
-								{/* Error display */}
-								{error && (
-									<Text color="fg.error" fontSize="sm" mb={2}>
-										{error}
-									</Text>
-								)}
-
 								{/* Search input */}
 								{!readOnly && !currentId && (
 									<Box position="relative">
 										<Input
 											value={searchQuery}
-											onChange={(e) => {
-												setSearchQuery(e.target.value);
-												search(e.target.value);
-											}}
+											onChange={(e) => setSearchQuery(e.target.value)}
 											placeholder="Search TOC reference..."
 										/>
 										{searching && (

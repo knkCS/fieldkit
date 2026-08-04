@@ -1,151 +1,45 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import type { Field } from "../../schema/types";
-import type { FieldKitAdapters } from "../adapters";
+import {
+	createFakeReferenceAdapter,
+	fakeCatalogue,
+} from "../../test/fake-reference-adapter";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,
 } from "./__stories__/field-story-wrapper";
 
-const mockReferenceAdapter: FieldKitAdapters["reference"] = {
-	search: async (_blueprintIds: string[], query: string) => {
-		const allItems = [
-			{
-				id: "post-1",
-				display_name: "Getting Started with FieldKit",
-				blueprint_id: "blog_post",
-			},
-			{
-				id: "post-2",
-				display_name: "Advanced Schema Design",
-				blueprint_id: "blog_post",
-			},
-			{
-				id: "post-3",
-				display_name: "Building Custom Field Types",
-				blueprint_id: "blog_post",
-			},
-			{ id: "page-1", display_name: "About Us", blueprint_id: "page" },
-			{ id: "page-2", display_name: "Contact", blueprint_id: "page" },
-			{ id: "page-3", display_name: "Terms of Service", blueprint_id: "page" },
-			{ id: "product-1", display_name: "Pro Plan", blueprint_id: "product" },
-			{
-				id: "product-2",
-				display_name: "Enterprise Plan",
-				blueprint_id: "product",
-			},
-		];
-		const lower = query.toLowerCase();
-		return allItems.filter((item) =>
-			item.display_name.toLowerCase().includes(lower),
-		);
-	},
-	fetch: async (ids: string[]) => {
-		const allItems = [
-			{
-				id: "post-1",
-				display_name: "Getting Started with FieldKit",
-				blueprint_id: "blog_post",
-			},
-			{
-				id: "post-2",
-				display_name: "Advanced Schema Design",
-				blueprint_id: "blog_post",
-			},
-			{
-				id: "post-3",
-				display_name: "Building Custom Field Types",
-				blueprint_id: "blog_post",
-			},
-			{ id: "page-1", display_name: "About Us", blueprint_id: "page" },
-			{ id: "page-2", display_name: "Contact", blueprint_id: "page" },
-			{ id: "page-3", display_name: "Terms of Service", blueprint_id: "page" },
-			{ id: "product-1", display_name: "Pro Plan", blueprint_id: "product" },
-			{
-				id: "product-2",
-				display_name: "Enterprise Plan",
-				blueprint_id: "product",
-			},
-		];
-		return allItems.filter((item) => ids.includes(item.id));
-	},
-};
+// The same in-memory catalogue the tests drive, so a story and a test never
+// disagree about what the Adapter offers.
+const referenceAdapter = createFakeReferenceAdapter();
 
-const defaultReferenceField: Field = {
-	field_type: "reference",
-	config: {
-		name: "Related Posts",
-		api_accessor: "related_posts",
-		required: false,
-		instructions: "Search and select related blog posts",
-	},
-	settings: {
-		blueprints: ["blog_post"],
-	},
-	children: null,
-	system: false,
-};
+/** A Consumer that has implemented neither Spec method — the degrade path. */
+const bareAdapter = createFakeReferenceAdapter({
+	searchFilters: null,
+	resultColumns: null,
+});
 
-const singleReferenceField: Field = {
-	field_type: "reference",
-	config: {
-		name: "Author",
-		api_accessor: "author",
-		required: true,
-		instructions: "Select the author of this post",
-	},
-	settings: {
-		blueprints: ["page"],
-		max_items: 1,
-	},
-	children: null,
-	system: false,
-};
+/** Enough Contents that the browse has to be paged through. */
+const bigAdapter = createFakeReferenceAdapter({ contents: fakeCatalogue(42) });
 
-const multiReferenceField: Field = {
-	field_type: "reference",
-	config: {
-		name: "Featured Items",
-		api_accessor: "featured_items",
-		required: false,
-		instructions: "Select multiple items from any blueprint",
-	},
-	settings: {
-		blueprints: ["blog_post", "page", "product"],
-		max_items: 5,
-	},
-	children: null,
-	system: false,
-};
-
-const noAdapterField: Field = {
-	field_type: "reference",
-	config: {
-		name: "Related Posts",
-		api_accessor: "related_posts",
-		required: false,
-		instructions: "This field has no adapter configured",
-	},
-	settings: {
-		blueprints: ["blog_post"],
-	},
-	children: null,
-	system: false,
-};
-
-const readOnlyField: Field = {
-	field_type: "reference",
-	config: {
-		name: "Related Posts",
-		api_accessor: "related_posts",
-		required: false,
-		instructions: "",
-	},
-	settings: {
-		blueprints: ["blog_post"],
-	},
-	children: null,
-	system: false,
-};
+function makeField(
+	overrides: Partial<Field["config"]> = {},
+	settings: Record<string, unknown> = { blueprints: ["article"] },
+): Field {
+	return {
+		field_type: "reference",
+		config: {
+			name: "Related articles",
+			api_accessor: "related",
+			required: false,
+			instructions: "Browse the catalogue and add the articles this cites",
+			...overrides,
+		},
+		settings,
+		children: null,
+		system: false,
+	};
+}
 
 const meta = {
 	title: "Fields/Reference",
@@ -156,51 +50,112 @@ const meta = {
 export default meta;
 type Story = StoryObj<FieldStoryWrapperProps>;
 
-export const DefaultWithMockAdapter: Story = {
+export const Empty: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[defaultReferenceField]}
-			defaultValues={{ related_posts: [] }}
-			adapters={{ reference: mockReferenceAdapter }}
+			fields={[makeField()]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: referenceAdapter }}
 		/>
 	),
 };
 
-export const SingleMode: Story = {
+/** Names come from the Adapter, not from the stored value. */
+export const WithStoredReferences: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[singleReferenceField]}
-			defaultValues={{ author: "" }}
-			adapters={{ reference: mockReferenceAdapter }}
+			fields={[makeField()]}
+			defaultValues={{ related: [{ id: "article-1" }, { id: "article-3" }] }}
+			adapters={{ reference: referenceAdapter }}
 		/>
 	),
 };
 
-export const MultiMode: Story = {
+/** A Content that no longer resolves keeps its id on screen. */
+export const UnresolvableReference: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[multiReferenceField]}
-			defaultValues={{ featured_items: ["post-1", "page-2"] }}
-			adapters={{ reference: mockReferenceAdapter }}
+			fields={[makeField()]}
+			defaultValues={{ related: [{ id: "deleted-42" }] }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/**
+ * The browse over a catalogue too big to scroll: pages, and a total the
+ * Adapter reports.
+ */
+export const LargeCatalogue: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField()]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: bigAdapter }}
+		/>
+	),
+};
+
+/**
+ * An Adapter that describes neither its filters nor its result columns: the
+ * picker degrades to a search box and a name column rather than erroring
+ * (ADR-0009).
+ */
+export const AdapterWithoutSpecs: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField()]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: bareAdapter }}
+		/>
+	),
+};
+
+/** `max_items` is a cap, never a change of shape — the add affordance stops
+ * being offered at the limit. */
+export const AtTheCap: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField({}, { blueprints: ["article"], max_items: 2 })]}
+			defaultValues={{ related: [{ id: "article-1" }, { id: "article-2" }] }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+export const Required: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField({ required: true })]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/** No Blueprints configured: the Adapter decides what may be referenced. */
+export const AnyBlueprint: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField({ name: "Related records" }, { blueprints: [] })]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: referenceAdapter }}
 		/>
 	),
 };
 
 export const NoAdapter: Story = {
 	render: () => (
-		<FieldStoryWrapper
-			fields={[noAdapterField]}
-			defaultValues={{ related_posts: [] }}
-		/>
+		<FieldStoryWrapper fields={[makeField()]} defaultValues={{ related: [] }} />
 	),
 };
 
 export const ReadOnly: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[readOnlyField]}
-			defaultValues={{ related_posts: ["post-1", "post-3"] }}
-			adapters={{ reference: mockReferenceAdapter }}
+			fields={[makeField()]}
+			defaultValues={{ related: [{ id: "article-1" }, { id: "article-2" }] }}
+			adapters={{ reference: referenceAdapter }}
 			readOnly
 		/>
 	),

@@ -83,11 +83,14 @@ describe("built-in plugin defaultValue registry pin (#38)", () => {
 		).toEqual([]);
 	});
 
-	it('reference is settings-dependent: max_items 1 → ""', () => {
+	it("reference seeds an empty list, whatever max_items says", () => {
+		// `max_items` is a cap, not a second shape: one Reference is Single
+		// Reference's job, and that is a Field Type of its own (ADR-0005).
 		const reference = builtInFieldTypes.find((p) => p.id === "reference");
+		expect(reference?.defaultValue?.(fieldOf("reference"))).toEqual([]);
 		expect(
 			reference?.defaultValue?.(fieldOf("reference", { max_items: 1 })),
-		).toBe("");
+		).toEqual([]);
 	});
 
 	it("array/object defaults are fresh instances per call", () => {
