@@ -18,6 +18,7 @@ import { useFieldKit } from "../provider";
 import { referencedContentIds } from "./exclude-referenced";
 import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
+import type { ReferenceInsertRequest } from "./reference-tree";
 import { ReferenceTree } from "./reference-tree";
 
 /**
@@ -85,6 +86,13 @@ export function ReferenceField({
 	const adapter = adapters.reference;
 
 	const [picking, setPicking] = useState(false);
+	// The insertion strip that was clicked, if it was a strip rather than the
+	// Add control: where the Reference goes, and the write that puts it there
+	// (see `ReferenceInsertRequest`). Both entry points open the same drawer,
+	// and only this says which of them did.
+	const [inserting, setInserting] = useState<ReferenceInsertRequest | null>(
+		null,
+	);
 	// Which Reference's Attributes are open, by where it sits in the stored
 	// value — never the row object, which is rebuilt on every keystroke inside
 	// the drawer. The name is carried along because it is the drawer's title
@@ -167,6 +175,13 @@ export function ReferenceField({
 			readOnly={readOnly}
 		>
 			{(formField) => {
+				/** Both entry points close the same way: the drawer, and whichever
+				 * of them opened it. */
+				function closePicker() {
+					setPicking(false);
+					setInserting(null);
+				}
+
 				function handleAdd(content: ReferenceItem, pin: string | null) {
 					// The id, and the Pin's target id where there is one. Never a
 					// display name — it would go stale the moment the Content is
@@ -174,8 +189,14 @@ export function ReferenceField({
 					// Field's `pin_mode` is the only thing that says (ADR-0008).
 					// `withPin` is what keeps "no Pin means no key" written down
 					// once, for both Reference Field types.
-					formField.onChange([...entries, withPin(null, content.id, pin)]);
-					setPicking(false);
+					const reference = withPin(null, content.id, pin);
+					// A strip already decided where this goes and owns the write,
+					// so the folding follows it. The Add control appends at the
+					// root, which is what it means — and the only thing an empty
+					// tree, which has no gaps to put a strip in, can do.
+					if (inserting) inserting.commit(reference);
+					else formField.onChange([...entries, reference]);
+					closePicker();
 				}
 
 				return (
@@ -194,6 +215,8 @@ export function ReferenceField({
 							onChange={formField.onChange}
 							depthCeiling={depthCeiling}
 							attributeSpec={attributeSpec}
+							onInsert={setInserting}
+							atItemCap={atCap}
 							onOpenAttributes={(row) =>
 								setFilling({
 									path: row.path,
@@ -234,8 +257,10 @@ export function ReferenceField({
 
 						{!readOnly && (
 							<ReferencePickerDrawer
-								open={picking}
-								onClose={() => setPicking(false)}
+								// One browse, two ways in: the Add control and any of
+								// the insertion strips.
+								open={picking || inserting !== null}
+								onClose={closePicker}
 								onPick={handleAdd}
 								blueprintIds={blueprints}
 								excludeIds={excludeIds}
