@@ -8,10 +8,12 @@ import {
 	moveReferenceBranch,
 	nestReferences,
 	projectDropDepth,
+	projectInsertDepth,
 	readReferenceTree,
 	referenceBranchEnd,
 	referencesPastDepth,
 	removeReferenceAt,
+	spliceReference,
 	writeReferenceTree,
 } from "../reference-tree";
 
@@ -211,11 +213,13 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 				offsetX: 1000,
 				indentWidth: INDENT,
 			}),
-		).toEqual({ depth: 3, minDepth: 0, maxDepth: 3 });
+		).toEqual({ depth: 3, minDepth: 0, maxDepth: 3, adopted: [] });
 	});
 
-	it("goes no shallower than the Reference below the slot", () => {
-		// Dropped between p and its child q: landing at depth 0 would adopt q.
+	it("offers a leaf one level shallower than the Reference below it", () => {
+		// Dropped between p and its child q, at p's own depth: q follows a
+		// Reference shallower than itself, so q becomes its child. That is
+		// Adoption, and ADR-0012 makes it the point rather than the hazard.
 		expect(
 			projectDropDepth({
 				items: [row("p", 0), row("q", 1), row("d", 0)],
@@ -224,7 +228,21 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 				offsetX: 0,
 				indentWidth: INDENT,
 			}),
-		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1 });
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 1, adopted: [row("q", 1)] });
+	});
+
+	it("keeps the old floor for a Reference carrying children of its own", () => {
+		// d already has a branch: it cannot adopt one while bringing one, so
+		// the Reference below still sets the floor at its own depth.
+		expect(
+			projectDropDepth({
+				items: [row("p", 0), row("q", 1), row("d", 0, 1), row("d1", 1)],
+				activeIndex: 2,
+				overIndex: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1, adopted: [] });
 	});
 
 	it("reads the pointer offset as whole levels of indentation", () => {
@@ -261,7 +279,55 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 				offsetX: -1000,
 				indentWidth: INDENT,
 			}),
-		).toEqual({ depth: 0, minDepth: 0, maxDepth: 2 });
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 2, adopted: [] });
+	});
+});
+
+describe("projectDropDepth — what a drop would adopt", () => {
+	// p
+	//   q
+	//     q1
+	// d          <- dragged leaf, at the bottom
+	const items = [row("p", 0), row("q", 1, 1), row("q1", 2), row("d", 0)];
+
+	it("names every row that would move, branches included", () => {
+		// Landing between p and q at depth 0 takes q — and q1 travels with it,
+		// because a branch goes where its Reference goes.
+		expect(
+			projectDropDepth({
+				items,
+				activeIndex: 3,
+				overIndex: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+			}).adopted,
+		).toEqual([row("q", 1, 1), row("q1", 2)]);
+	});
+
+	it("adopts nothing when the drop lands beside the Reference below it", () => {
+		// The same slot, one level deeper: d is q's sibling and nothing moves.
+		expect(
+			projectDropDepth({
+				items,
+				activeIndex: 3,
+				overIndex: 1,
+				offsetX: INDENT,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
+	});
+
+	it("stops at the first row that is not deeper than the drop", () => {
+		// q's branch ends at q1; r is a root and closes the run.
+		expect(
+			projectDropDepth({
+				items: [...items.slice(0, 3), row("r", 0), row("d", 0)],
+				activeIndex: 4,
+				overIndex: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+			}).adopted,
+		).toEqual([row("q", 1, 1), row("q1", 2)]);
 	});
 });
 
@@ -277,7 +343,7 @@ describe("projectDropDepth — the dragged branch", () => {
 	it("reads the same whether the caller prunes the branch or renders it", () => {
 		// Dragged to the bottom and rightwards: a lands under b, and b's own
 		// depth is what says how far under.
-		const underB = { depth: 1, minDepth: 0, maxDepth: 1 };
+		const underB = { depth: 1, minDepth: 0, maxDepth: 1, adopted: [] };
 		expect(
 			projectDropDepth({
 				items: withBranch,
@@ -309,7 +375,7 @@ describe("projectDropDepth — the dragged branch", () => {
 				offsetX: 1000,
 				indentWidth: INDENT,
 			}),
-		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0 });
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0, adopted: [] });
 	});
 });
 
@@ -323,7 +389,7 @@ describe("projectDropDepth — degenerate input", () => {
 				offsetX: 1000,
 				indentWidth: INDENT,
 			}),
-		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0 });
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0, adopted: [] });
 	});
 
 	it("ignores the pointer rather than dividing by an unmeasured indent", () => {
@@ -356,7 +422,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				indentWidth: INDENT,
 				depthCeiling: 1,
 			}),
-		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1 });
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
 	});
 
 	it("spends the ceiling on the dragged branch's own height first", () => {
@@ -371,7 +437,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				indentWidth: INDENT,
 				depthCeiling: 2,
 			}),
-		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1 });
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
 	});
 
 	it("keeps a branch taller than the ceiling at the root rather than below it", () => {
@@ -385,13 +451,86 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				indentWidth: INDENT,
 				depthCeiling: 1,
 			}),
-		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0 });
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0, adopted: [] });
+	});
+
+	it("spends it on the branch that would be adopted too, not only the one moving", () => {
+		// p / q(+q1) / d, ceiling 1 — q1 already sits at 2, one past it. The
+		// floor would offer depth 0 so that d could adopt q; taking it would
+		// hang a branch that reaches 2 under a Reference at 0, so the offer is
+		// withdrawn and the Reference below sets the floor as it used to.
+		expect(
+			projectDropDepth({
+				items: [row("p", 0), row("q", 1, 1), row("q1", 2), row("d", 0)],
+				activeIndex: 3,
+				overIndex: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+				depthCeiling: 1,
+			}),
+		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1, adopted: [] });
+	});
+
+	it("offers the same adoption when the ceiling has room for the branch", () => {
+		expect(
+			projectDropDepth({
+				items: [row("p", 0), row("q", 1, 1), row("q1", 2), row("d", 0)],
+				activeIndex: 3,
+				overIndex: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+				depthCeiling: 2,
+			}),
+		).toEqual({
+			depth: 0,
+			minDepth: 0,
+			maxDepth: 1,
+			adopted: [row("q", 1, 1), row("q1", 2)],
+		});
+	});
+
+	it("measures the adopted branch as it will be, not as the drag found it", () => {
+		// a > b > d, ceiling 1, and d is being dragged out from under b. b's
+		// own height is 1 — but every bit of that height is d, which is
+		// leaving. Reading b as a Reference with a branch would withdraw an
+		// adoption that fits: the drop produces `a` and `d > b`, which reaches
+		// exactly the ceiling.
+		const items = flattenReferences([
+			{ id: "a", children: [{ id: "b", children: [{ id: "d" }] }] },
+		]);
+		expect(
+			projectDropDepth({
+				items,
+				activeIndex: 2,
+				overIndex: 1,
+				offsetX: -1000,
+				indentWidth: INDENT,
+				depthCeiling: 1,
+			}),
+		).toEqual({
+			depth: 0,
+			minDepth: 0,
+			maxDepth: 1,
+			adopted: [{ reference: { id: "b" }, depth: 1, height: 1 }],
+		});
+		// And the tree it actually produces is within the ceiling, which is
+		// the claim the clamp exists to keep.
+		const dropped = nestReferences(
+			moveReferenceBranch({ items, activeIndex: 2, overIndex: 1, depth: 0 }),
+		);
+		expect(dropped).toEqual([
+			{ id: "a" },
+			{ id: "d", children: [{ id: "b" }] },
+		]);
+		expect(referencesPastDepth(dropped, 1)).toEqual([]);
 	});
 
 	it("wins against the floor the neighbours set, rather than reporting a bound it broke", () => {
 		// Dropped between q (depth 1) and r (depth 2): the neighbours want 2,
 		// the ceiling allows 1. r is already past the ceiling — that is the
-		// Schema's to report, and not something a drag should deepen.
+		// Schema's to report, and not something a drag should deepen. The
+		// ceiling forces an adoption the floor would not have offered, and the
+		// projection still says so rather than letting it happen unannounced.
 		expect(
 			projectDropDepth({
 				items,
@@ -401,7 +540,518 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				indentWidth: INDENT,
 				depthCeiling: 1,
 			}),
-		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1 });
+		).toEqual({
+			depth: 1,
+			minDepth: 1,
+			maxDepth: 1,
+			adopted: [row("r", 2)],
+		});
+	});
+});
+
+describe("projectInsertDepth — the neighbours' bounds", () => {
+	// a
+	//   a1
+	// b
+	const items = [row("a", 0, 1), row("a1", 1), row("b", 0)];
+
+	it("goes one level deeper than the row above the slot, and no further", () => {
+		// Between a1 and b: a1 is the row above, so a child of a1 is the most
+		// nesting the slot has to offer.
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 2,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 2, minDepth: 0, maxDepth: 2, adopted: [] });
+	});
+
+	it("goes one level shallower than the row below, which is what adopts it", () => {
+		// Between a and a1: at depth 0 the new Reference is a's sibling, and
+		// a1 — which follows it deeper than it — becomes its child instead.
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 1, adopted: [row("a1", 1)] });
+	});
+
+	it("adopts nothing when it lands at the row below's own depth", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 1,
+				offsetX: INDENT,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
+	});
+
+	it("reads the pointer as the column it is in, not as travel from a depth", () => {
+		// Unlike a drag, an insert starts from no depth at all: the offset is
+		// measured from the tree's left edge, so it names a level outright.
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 2,
+				offsetX: INDENT + INDENT / 2,
+				indentWidth: INDENT,
+			}).depth,
+		).toBe(1);
+	});
+
+	it("offers only a root before the first row", () => {
+		// Nothing above the slot, and nothing shallower than a root to adopt
+		// the first row with.
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 0,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0, adopted: [] });
+	});
+
+	it("is bounded by the last row alone past the end of the list", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 3,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
+	});
+
+	it("answers root depth for a tree with nothing in it", () => {
+		expect(
+			projectInsertDepth({
+				items: [],
+				slot: 0,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0, adopted: [] });
+	});
+
+	it("ignores the pointer rather than dividing by an unmeasured indent", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 3,
+				offsetX: 1000,
+				indentWidth: 0,
+			}).depth,
+		).toBe(0);
+	});
+
+	it("clamps a slot the list does not reach to one of its ends", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 99,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
+	});
+});
+
+describe("projectInsertDepth — the max-depth ceiling", () => {
+	// a
+	//   a1
+	//     a1x
+	// b
+	const items = [row("a", 0, 2), row("a1", 1, 1), row("a1x", 2), row("b", 0)];
+
+	it("stops at the ceiling even where the neighbours would allow deeper", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 3,
+				offsetX: 1000,
+				indentWidth: INDENT,
+				depthCeiling: 1,
+			}),
+		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1, adopted: [] });
+	});
+
+	it("spends it on the branch that would be adopted", () => {
+		// Between a and a1, ceiling 1: inserting at depth 0 would adopt a1 and
+		// with it a1x, which already sits at 2. The adopting level is not
+		// offered, and the row below sets the floor at its own depth.
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+				depthCeiling: 1,
+			}),
+		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1, adopted: [] });
+	});
+
+	it("offers the same adoption when the ceiling has room for that branch", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 1,
+				offsetX: 0,
+				indentWidth: INDENT,
+				depthCeiling: 2,
+			}),
+		).toEqual({
+			depth: 0,
+			minDepth: 0,
+			maxDepth: 1,
+			adopted: [row("a1", 1, 1), row("a1x", 2)],
+		});
+	});
+
+	it("has no ceiling of its own: an unset one leaves the neighbours in charge", () => {
+		expect(
+			projectInsertDepth({
+				items,
+				slot: 3,
+				offsetX: 1000,
+				indentWidth: INDENT,
+				depthCeiling: undefined,
+			}).depth,
+		).toBe(3);
+	});
+});
+
+describe("spliceReference", () => {
+	/** The spliced list, read the way an insert handler reads it. */
+	const shape = (items: { reference: { id: string }; depth: number }[]) =>
+		items.map((item) => [item.reference.id, item.depth]);
+
+	// a
+	//   a1
+	//     a1x
+	//   a2
+	// b
+	const items = flattenReferences(tree);
+
+	it("puts the Reference in at the position and depth it was given", () => {
+		expect(
+			shape(
+				spliceReference({
+					items,
+					reference: { id: "x" },
+					slot: 4,
+					depth: 1,
+				}),
+			),
+		).toEqual([
+			["a", 0],
+			["a1", 1],
+			["a1x", 2],
+			["a2", 1],
+			["x", 1],
+			["b", 0],
+		]);
+	});
+
+	it("re-nests as a sibling where nothing follows it deeper", () => {
+		expect(
+			nestReferences(
+				spliceReference({ items, reference: { id: "x" }, slot: 4, depth: 1 }),
+			),
+		).toEqual([
+			{
+				id: "a",
+				children: [
+					{ id: "a1", children: [{ id: "a1x" }] },
+					{ id: "a2" },
+					{ id: "x" },
+				],
+			},
+			{ id: "b" },
+		]);
+	});
+
+	it("takes the rows that follow it deeper as its children", () => {
+		// Spliced as a root between a and its branch: a1 and a2 follow at
+		// depth 1, deeper than the arrival at 0, so they and a1's own branch
+		// come across. a is left childless — Adoption, and nothing asked for it.
+		expect(
+			nestReferences(
+				spliceReference({ items, reference: { id: "x" }, slot: 1, depth: 0 }),
+			),
+		).toEqual([
+			{ id: "a" },
+			{
+				id: "x",
+				children: [{ id: "a1", children: [{ id: "a1x" }] }, { id: "a2" }],
+			},
+			{ id: "b" },
+		]);
+	});
+
+	it("leaves a's branch alone when it arrives at its children's depth", () => {
+		expect(
+			nestReferences(
+				spliceReference({ items, reference: { id: "x" }, slot: 1, depth: 1 }),
+			),
+		).toEqual([
+			{
+				id: "a",
+				children: [
+					{ id: "x" },
+					{ id: "a1", children: [{ id: "a1x" }] },
+					{ id: "a2" },
+				],
+			},
+			{ id: "b" },
+		]);
+	});
+
+	it("re-bases an adopted branch that skipped a level, keeping its shape", () => {
+		// Spliced between a1 and a1x as a root: a1x has nowhere at depth 2 to
+		// hang from any more, so it lands at the deepest level available and
+		// its own branch follows it.
+		expect(
+			nestReferences(
+				spliceReference({
+					items: flattenReferences([
+						{
+							id: "a",
+							children: [
+								{
+									id: "a1",
+									children: [{ id: "a1x", children: [{ id: "deep" }] }],
+								},
+							],
+						},
+					]),
+					reference: { id: "x" },
+					slot: 2,
+					depth: 0,
+				}),
+			),
+		).toEqual([
+			{ id: "a", children: [{ id: "a1" }] },
+			{ id: "x", children: [{ id: "a1x", children: [{ id: "deep" }] }] },
+		]);
+	});
+
+	it("carries the Reference's own Pin and Attributes in", () => {
+		const attributes = { page: 12 };
+		const spliced = spliceReference({
+			items,
+			reference: { id: "x", pin: "release-3", attributes },
+			slot: 0,
+			depth: 0,
+		});
+		expect(spliced[0].reference).toEqual({
+			id: "x",
+			pin: "release-3",
+			attributes,
+		});
+	});
+
+	it("drops a branch on the Reference being inserted — nesting comes from the list", () => {
+		// Depth and order are the whole of what `nestReferences` reads, so a
+		// `children` travelling in on the value would be nested twice.
+		expect(
+			nestReferences(
+				spliceReference({
+					items: [],
+					reference: { id: "x", children: [{ id: "smuggled" }] },
+					slot: 0,
+					depth: 0,
+				}),
+			),
+		).toEqual([{ id: "x" }]);
+	});
+
+	it("clamps a slot past either end of the list", () => {
+		expect(
+			shape(
+				spliceReference({ items, reference: { id: "x" }, slot: 99, depth: 0 }),
+			).at(-1),
+		).toEqual(["x", 0]);
+		expect(
+			shape(
+				spliceReference({ items, reference: { id: "x" }, slot: -5, depth: 0 }),
+			).at(0),
+		).toEqual(["x", 0]);
+	});
+
+	it("leaves the entries it was given untouched", () => {
+		const before = shape(items);
+		spliceReference({ items, reference: { id: "x" }, slot: 1, depth: 0 });
+		expect(shape(items)).toEqual(before);
+	});
+});
+
+describe("the flatten/splice/nest round trip", () => {
+	const pinned: Reference[] = [
+		{
+			id: "a",
+			pin: "release-3",
+			attributes: { page: 12 },
+			children: [
+				{
+					id: "a1",
+					pin: null,
+					children: [{ id: "a1x", attributes: { n: 1 } }],
+				},
+				{ id: "a2", attributes: { role: "author" } },
+			],
+		},
+		{ id: "b" },
+	];
+
+	it("gives everything back, adopted branches and all", () => {
+		// Inserted as a root between a and its children: a1 and a2 move onto it
+		// with their Pins, their Attributes and a1's own branch intact.
+		expect(
+			nestReferences(
+				spliceReference({
+					items: flattenReferences(pinned),
+					reference: { id: "x" },
+					slot: 1,
+					depth: 0,
+				}),
+			),
+		).toEqual([
+			{ id: "a", pin: "release-3", attributes: { page: 12 } },
+			{
+				id: "x",
+				children: [
+					{
+						id: "a1",
+						pin: null,
+						children: [{ id: "a1x", attributes: { n: 1 } }],
+					},
+					{ id: "a2", attributes: { role: "author" } },
+				],
+			},
+			{ id: "b" },
+		]);
+	});
+
+	it("splices nothing away when the insert adopts nothing", () => {
+		expect(
+			nestReferences(
+				spliceReference({
+					items: flattenReferences(pinned),
+					reference: { id: "x" },
+					slot: 5,
+					depth: 0,
+				}),
+			),
+		).toEqual([...pinned, { id: "x" }]);
+	});
+
+	it("counts one more Reference, and no fewer — adoption moves, it does not add", () => {
+		const before = countReferences(pinned);
+		const after = countReferences(
+			nestReferences(
+				spliceReference({
+					items: flattenReferences(pinned),
+					reference: { id: "x" },
+					slot: 1,
+					depth: 0,
+				}),
+			),
+		);
+		expect(after).toBe(before + 1);
+	});
+});
+
+describe("adoption through a drag", () => {
+	// a
+	//   a1
+	//     a1x
+	//   a2
+	// b            <- a leaf, dragged up between a and a1
+	const items = flattenReferences(tree);
+
+	it("takes the branch below the drop as its own", () => {
+		const { depth, adopted } = projectDropDepth({
+			items,
+			activeIndex: 4,
+			overIndex: 1,
+			offsetX: -1000,
+			indentWidth: INDENT,
+		});
+		expect(adopted.map((entry) => entry.reference.id)).toEqual([
+			"a1",
+			"a1x",
+			"a2",
+		]);
+		expect(
+			nestReferences(
+				moveReferenceBranch({ items, activeIndex: 4, overIndex: 1, depth }),
+			),
+		).toEqual([
+			{ id: "a" },
+			{
+				id: "b",
+				children: [{ id: "a1", children: [{ id: "a1x" }] }, { id: "a2" }],
+			},
+		]);
+	});
+
+	it("moves References without adding or removing any", () => {
+		const { depth } = projectDropDepth({
+			items,
+			activeIndex: 4,
+			overIndex: 1,
+			offsetX: -1000,
+			indentWidth: INDENT,
+		});
+		expect(
+			countReferences(
+				nestReferences(
+					moveReferenceBranch({ items, activeIndex: 4, overIndex: 1, depth }),
+				),
+			),
+		).toBe(countReferences(tree));
+	});
+
+	it("carries the Pins and Attributes of every Reference that moved", () => {
+		const pinned: Reference[] = [
+			{
+				id: "a",
+				children: [{ id: "a1", pin: "release-3", attributes: { page: 12 } }],
+			},
+			{ id: "b", attributes: { role: "author" } },
+		];
+		const rows = flattenReferences(pinned);
+		const { depth } = projectDropDepth({
+			items: rows,
+			activeIndex: 2,
+			overIndex: 1,
+			offsetX: -1000,
+			indentWidth: INDENT,
+		});
+		expect(
+			nestReferences(
+				moveReferenceBranch({
+					items: rows,
+					activeIndex: 2,
+					overIndex: 1,
+					depth,
+				}),
+			),
+		).toEqual([
+			{ id: "a" },
+			{
+				id: "b",
+				attributes: { role: "author" },
+				children: [{ id: "a1", pin: "release-3", attributes: { page: 12 } }],
+			},
+		]);
 	});
 });
 
