@@ -85,6 +85,12 @@ export async function resolveSpec(
  * would buy a loading state nobody needs to see. Never a substitute for
  * `resolveSpec` — resolve on true, render as-is on false.
  *
+ * Internal to fieldkit, deliberately: the question only arises when the Spec is
+ * already in hand and the render is synchronous, which is the editor's Preview
+ * and not the shape of a Consumer that fetches its Spec (and so already has a
+ * loading state to await `resolveSpec` in). Export it from `/schema` when one
+ * actually asks — that direction is cheap, the other is a breaking change.
+ *
  * Reads "resolved" by exactly the rule `resolveSpec` applies (`children`
  * presence, and no recursion past a resolved Fieldset), so the two cannot
  * disagree about what is left to do.

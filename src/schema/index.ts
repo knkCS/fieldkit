@@ -104,7 +104,7 @@ export type {
 	BlueprintSummary,
 	ResolveSpecAdapters,
 } from "./resolve-spec";
-export { resolveSpec, specNeedsResolution } from "./resolve-spec";
+export { resolveSpec } from "./resolve-spec";
 // Types
 export type {
 	Field,

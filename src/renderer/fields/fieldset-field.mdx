@@ -135,13 +135,6 @@ What it guarantees:
   that has `children` is left alone. A Consumer can resolve from an effect
   keyed on the Spec without looping.
 
-`specNeedsResolution(spec, adapters)` answers whether that call would fetch
-anything — false for a Fieldset-free Spec, an already-Resolved Spec, or a
-Consumer with no blueprint adapter. It is for a caller that renders
-synchronously and only wants a loading state when there is something to wait
-for (the editor's Preview mode uses it exactly that way); it never replaces
-`resolveSpec()` — resolve on true, render as-is on false.
-
 `children` is the resolved/not-resolved signal, and both `resolveSpec()` and
 the component read it the same way: an authored Fieldset has no `children` key
 at all, while a Blueprint with no Fields resolves to `[]` — resolved, and

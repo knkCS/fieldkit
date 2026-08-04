@@ -116,8 +116,10 @@ const addressBlueprint: Schema = [
 const blueprintAdapters: FieldKitAdapters = {
 	blueprint: {
 		getSchema: async (id) => {
-			// Latency, so the Preview skeleton is visible rather than theoretical.
-			await new Promise((resolve) => setTimeout(resolve, 600));
+			// Slow on purpose, and slower than a real adapter would be: the
+			// Preview skeleton is one of the two states this story exists to
+			// show, and at realistic latency it flashes past unseen.
+			await new Promise((resolve) => setTimeout(resolve, 1500));
 			return id === "address_bp" ? addressBlueprint : [];
 		},
 		getData: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
@@ -269,16 +271,18 @@ export const FieldsetPreview: Story = {
 			note={
 				<>
 					<code>Address</code> is a <strong>Fieldset</strong> — it embeds the{" "}
-					<code>address_bp</code> Blueprint rather than storing its fields. On
-					the Build canvas it is a placeholder; select <strong>Preview</strong>{" "}
-					and the editor resolves the draft through <code>resolveSpec()</code>{" "}
-					before building the form, so the embedded <code>Street</code> and{" "}
-					<code>City</code> appear (behind a brief skeleton — the adapter here
-					is deliberately slow). The embedded <code>Street</code> is{" "}
-					<em>required</em>: press <strong>Test submit</strong> with it empty
-					and the submit is blocked by the Blueprint's own rule, which is the
-					whole point of resolving — unresolved, a Fieldset validates as an
-					opaque record and the submit would pass.
+					<code>address_bp</code> Blueprint rather than storing its fields.{" "}
+					<code>Street</code> and <code>City</code> appear on the Build canvas
+					too, because the Fieldset self-resolves <em>for display</em>; seeing
+					them there tells you nothing about whether the form knows they exist.
+					Select <strong>Preview</strong> (behind a skeleton — this adapter is
+					deliberately slow) and the editor resolves the draft through{" "}
+					<code>resolveSpec()</code> before building the form. The difference is
+					validation: <code>Street</code> is <em>required</em>, so pressing{" "}
+					<strong>Test submit</strong> with it empty is blocked by the
+					Blueprint's own rule and reported at <code>Street</code> itself.
+					Unresolved, a Fieldset validates as an opaque record and that submit
+					would pass.
 				</>
 			}
 		/>
