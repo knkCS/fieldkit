@@ -4,19 +4,32 @@ import { SearchInput } from "@knkcs/anker/forms";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import type { PinMode } from "../../schema/reference";
+import type { PinMode, PinningMode } from "../../schema/reference";
 import type { Field } from "../../schema/types";
 import { getDefaultValues } from "../../schema/zod-builder";
 import { SpecDataTable } from "../../table/spec-data-table";
-import type { PinTarget, ReferenceItem } from "../adapters";
+import type { ReferenceItem } from "../adapters";
 import { FieldRenderer } from "../field-renderer";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
+import { usePinTargets } from "../hooks/use-pin-targets";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 
 /** How many Contents one page of the browse shows. Fixed rather than
  * configurable: it is a property of this drawer's layout, not of the Field. */
 const PAGE_SIZE = 10;
+
+/**
+ * What the second step is called, per kind of target it offers.
+ *
+ * Keyed by `PinningMode` rather than written as a ternary, so a third kind of
+ * target could not be added without this naming it — and so `"none"` cannot
+ * silently read as one of the two.
+ */
+const PIN_STEP_TITLES: Record<PinningMode, string> = {
+	release: "Choose a release",
+	version: "Choose a version",
+};
 
 /**
  * What the results table shows when the Adapter does not describe a Content —
@@ -176,12 +189,19 @@ export function ReferencePickerDrawer({
 	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(false);
 
-	// The Content step one settled on, and what it may be pinned to. Non-null
-	// is what "we are on step two" means — there is no separate step state to
-	// disagree with it.
+	// The Content step one settled on. Non-null is what "we are on step two"
+	// means — there is no separate step state to disagree with it.
 	const [picked, setPicked] = useState<ReferenceItem | null>(null);
-	const [targets, setTargets] = useState<PinTarget[]>([]);
-	const [loadingTargets, setLoadingTargets] = useState(false);
+
+	// Only once a Content is on the table, and only for a Field that pins: the
+	// targets belong to that one Content, so there is nothing to ask until step
+	// one has settled. Shared with the Single Reference's second select, which
+	// is where the rule about dropping a previous Content's targets lives.
+	const { targets, loading: loadingTargets } = usePinTargets(
+		picked?.id ?? null,
+		pinMode,
+		fieldId,
+	);
 
 	// Narrowing puts you back on page one — page 4 of the old results says
 	// nothing about the new ones. Adjusted during render, the documented way
@@ -244,33 +264,6 @@ export function ReferencePickerDrawer({
 		};
 	}, [adapter, open, blueprintIds, query, filters, page, report]);
 
-	// Only once a Content is on the table, and only for a Field that pins: the
-	// targets belong to that one Content, so there is nothing to ask until step
-	// one has settled.
-	useEffect(() => {
-		if (!adapter || !picked || pinMode === "none") return;
-		let cancelled = false;
-		setLoadingTargets(true);
-		adapter
-			.listPinTargets(picked.id, pinMode)
-			.then((result) => {
-				if (cancelled) return;
-				setTargets(result);
-				setLoadingTargets(false);
-			})
-			.catch((error: unknown) => {
-				if (cancelled) return;
-				// The newest Version is still on offer below, so a failed lookup
-				// costs the targets and not the ability to add a Reference.
-				setTargets([]);
-				setLoadingTargets(false);
-				report(error);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [adapter, picked, pinMode, report]);
-
 	function handlePick(row: Record<string, unknown>) {
 		const content = items.find((item) => item.id === row.id);
 		if (!content) return;
@@ -280,23 +273,28 @@ export function ReferencePickerDrawer({
 			onPick(content, null);
 			return;
 		}
-		setTargets([]);
 		setPicked(content);
 	}
 
-	if (picked) {
-		return (
-			<DrawerRoot
-				open={open}
-				onClose={onClose}
-				title={pinMode === "release" ? "Choose a release" : "Choose a version"}
-				closeLabel="Cancel"
-			>
+	// Step two, or nothing. Both halves of the condition, so the branch below
+	// carries a `PinningMode` rather than a mode that might be `"none"` — the
+	// second step is unreachable without pinning by construction, not by
+	// coincidence.
+	const pinStep = picked && pinMode !== "none" ? { picked, pinMode } : null;
+
+	return (
+		<DrawerRoot
+			open={open}
+			onClose={onClose}
+			title={pinStep ? PIN_STEP_TITLES[pinStep.pinMode] : title}
+			closeLabel="Cancel"
+		>
+			{pinStep ? (
 				<Stack gap="2" data-testid="reference-picker-pin-step">
 					<Flex align="center" gap="2">
-						{/* Back rather than a step indicator: two steps do not need
-						    a map, and the Content already chosen is the only
-						    context the second one is missing. */}
+						{/* Back rather than a step indicator: two steps do not need a
+						    map, and the Content already chosen is the only context the
+						    second one is missing. */}
 						<Button
 							size="xs"
 							variant="ghost"
@@ -307,17 +305,17 @@ export function ReferencePickerDrawer({
 							Back
 						</Button>
 						<Text fontSize="sm" fontWeight="medium">
-							{picked.display_name}
+							{pinStep.picked.display_name}
 						</Text>
 					</Flex>
 
 					{/* First and always available, including while the targets are
-					    still loading and after a lookup that failed: no Pin is a
-					    real answer, not a fallback (ADR-0008). */}
+					    still loading and after a lookup that failed: no Pin is a real
+					    answer, not a fallback (ADR-0008). */}
 					<PinTargetOption
 						label="Newest version"
 						description="Follows the content as it changes"
-						onSelect={() => onPick(picked, null)}
+						onSelect={() => onPick(pinStep.picked, null)}
 					/>
 
 					{loadingTargets ? (
@@ -330,63 +328,59 @@ export function ReferencePickerDrawer({
 								key={target.id}
 								label={target.label}
 								description={target.description}
-								onSelect={() => onPick(picked, target.id)}
+								onSelect={() => onPick(pinStep.picked, target.id)}
 							/>
 						))
 					)}
 				</Stack>
-			</DrawerRoot>
-		);
-	}
+			) : (
+				<Stack gap="4" data-testid="reference-picker">
+					<SearchInput
+						aria-label="Search content"
+						placeholder="Search content…"
+						// Restored on the way back from step two, which remounts this
+						// box: the search state survives, so what it shows has to as
+						// well or the results would stay narrowed by an invisible query.
+						defaultValue={query}
+						// The default debounce is the point: the incumbent control
+						// searched on every keystroke, which a paginated browse over a
+						// real catalogue cannot afford.
+						onSearch={setQuery}
+					/>
 
-	return (
-		<DrawerRoot open={open} onClose={onClose} title={title} closeLabel="Cancel">
-			<Stack gap="4" data-testid="reference-picker">
-				<SearchInput
-					aria-label="Search content"
-					placeholder="Search content…"
-					// Restored on the way back from step two, which remounts this
-					// box: the search state survives, so what it shows has to as
-					// well or the results would stay narrowed by an invisible query.
-					defaultValue={query}
-					// The default debounce is the point: the incumbent control
-					// searched on every keystroke, which a paginated browse over a
-					// real catalogue cannot afford.
-					onSearch={setQuery}
-				/>
+					{filterSpec.length > 0 && (
+						<Box data-testid="reference-picker-filters">
+							<FormProvider {...filterForm}>
+								<FieldRenderer schema={filterSpec} />
+							</FormProvider>
+						</Box>
+					)}
 
-				{filterSpec.length > 0 && (
-					<Box data-testid="reference-picker-filters">
-						<FormProvider {...filterForm}>
-							<FieldRenderer schema={filterSpec} />
-						</FormProvider>
-					</Box>
-				)}
+					<Text
+						fontSize="sm"
+						color="fg.muted"
+						data-testid="reference-picker-total"
+					>
+						{total === 1 ? "1 content" : `${String(total)} contents`}
+					</Text>
 
-				<Text
-					fontSize="sm"
-					color="fg.muted"
-					data-testid="reference-picker-total"
-				>
-					{total === 1 ? "1 content" : `${String(total)} contents`}
-				</Text>
-
-				<SpecDataTable
-					schema={columnSpec}
-					data={items}
-					plugins={plugins}
-					loading={loading}
-					variant="hoverable"
-					// Server-driven: `items` is already the page the Adapter
-					// returned, and `total` is the count only it can know.
-					page={page}
-					total={total}
-					pageSize={PAGE_SIZE}
-					onPageChange={setPage}
-					onRowClick={(_index, row) => handlePick(row)}
-					emptyState="No content matches"
-				/>
-			</Stack>
+					<SpecDataTable
+						schema={columnSpec}
+						data={items}
+						plugins={plugins}
+						loading={loading}
+						variant="hoverable"
+						// Server-driven: `items` is already the page the Adapter
+						// returned, and `total` is the count only it can know.
+						page={page}
+						total={total}
+						pageSize={PAGE_SIZE}
+						onPageChange={setPage}
+						onRowClick={(_index, row) => handlePick(row)}
+						emptyState="No content matches"
+					/>
+				</Stack>
+			)}
 		</DrawerRoot>
 	);
 }

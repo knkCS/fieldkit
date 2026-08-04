@@ -74,6 +74,29 @@ export const referenceValueSchema = z.object({
 });
 
 /**
+ * The Reference to store for one Content and one Pin.
+ *
+ * No Pin writes no `pin` key at all, rather than an explicit `null`: an absent
+ * Pin already means the newest Version, and a Field that does not pin has to
+ * store exactly what it stored before pinning existed. Everything else the
+ * Reference carries travels across untouched — it is the same Reference, only
+ * its Pin changed.
+ *
+ * It lives here rather than in either control because it is a rule about the
+ * value's shape, and both the tree Field and the Single Reference write Pins.
+ */
+export function withPin(
+	previous: Reference | null | undefined,
+	id: string,
+	pin: string | null,
+): Reference {
+	const next: Reference = { ...previous, id };
+	delete next.pin;
+	if (pin) next.pin = pin;
+	return next;
+}
+
+/**
  * Reads a form value as one Reference, or `null` when it isn't one.
  *
  * Form data arrives from a Consumer and is only as well-formed as whatever

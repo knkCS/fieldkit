@@ -6,7 +6,7 @@ import { useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { Reference } from "../../schema/reference";
-import { asReference } from "../../schema/reference";
+import { asReference, withPin } from "../../schema/reference";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
@@ -104,15 +104,9 @@ export function ReferenceField({
 					// display name — it would go stale the moment the Content is
 					// renamed — and never which *kind* of target the Pin is: the
 					// Field's `pin_mode` is the only thing that says (ADR-0008).
-					//
-					// No Pin means no key, rather than an explicit null: "the
-					// newest Version" is what an absent Pin already means, and a
-					// Field that does not pin must store exactly what it always
-					// stored.
-					const reference: Reference = pin
-						? { id: content.id, pin }
-						: { id: content.id };
-					formField.onChange([...entries, reference]);
+					// `withPin` is what keeps "no Pin means no key" written down
+					// once, for both Reference Field types.
+					formField.onChange([...entries, withPin(null, content.id, pin)]);
 					setPicking(false);
 				}
 

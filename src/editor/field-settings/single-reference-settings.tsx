@@ -37,7 +37,6 @@ export function SingleReferenceSettingsEditor({
 				label="Pin the reference to"
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
-				testId="single-reference-pin-mode-select"
 			/>
 		</Stack>
 	);

@@ -1,15 +1,28 @@
 // src/editor/field-settings/pin-mode-picker.tsx
-import { Box, NativeSelect, Text } from "@chakra-ui/react";
-import type { ChangeEvent } from "react";
+import { Box, chakra, Text } from "@chakra-ui/react";
+import { BaseSelect } from "@knkcs/anker/atoms";
+import { useId } from "react";
 import type { PinMode } from "../../schema/reference";
 
-/** What each mode is called where an Author reads it. The two pinning modes
- * are named after the things they pin to; not pinning is named after what it
- * gets you, because "none" says nothing about the behaviour. */
-const PIN_MODE_LABELS: { value: PinMode; label: string }[] = [
-	{ value: "none", label: "The newest version" },
-	{ value: "release", label: "A chosen release" },
-	{ value: "version", label: "A chosen version" },
+/** react-select's option shape (anker's `BaseOption`): `id` is the value,
+ * `label` is what the Author reads. */
+interface PinModeOption {
+	id: PinMode;
+	label: string;
+}
+
+/**
+ * What each mode is called where an Author reads it.
+ *
+ * The two pinning modes are named after the things they pin to; not pinning is
+ * named after what it gets you, because "none" says nothing about the
+ * behaviour. Fieldkit names the two kinds — the setting already does — without
+ * modelling either of them (ADR-0002).
+ */
+const PIN_MODE_OPTIONS: PinModeOption[] = [
+	{ id: "none", label: "The newest version" },
+	{ id: "release", label: "A chosen release" },
+	{ id: "version", label: "A chosen version" },
 ];
 
 export interface PinModePickerProps {
@@ -18,7 +31,6 @@ export interface PinModePickerProps {
 	 * so this control never has to model "unset" as a fourth state. */
 	value: PinMode;
 	onChange: (mode: PinMode) => void;
-	testId: string;
 }
 
 /**
@@ -26,51 +38,59 @@ export interface PinModePickerProps {
  *
  * Shared by both reference settings editors, on the same terms as
  * `BlueprintPicker`: the setting means exactly the same thing for one Reference
- * as for a tree, so it must not be written down twice.
+ * as for a tree, so it must not be written down twice. It is the same
+ * `BaseSelect` that picker uses, so the two controls in one Type settings tab
+ * do not read as two different design systems.
  *
- * A plain select styled to match the panel's other controls. The warning under
- * it is the whole reason this setting is not an ordinary one: a Pin stores only
- * a target id and never which *kind* of target it is (ADR-0008), so changing
- * the mode strands every Pin already saved at once. Fieldkit cannot refuse the
- * change — only a Consumer knows whether any Content would be stranded — so
- * saying so plainly is all it can do.
+ * The warning under it is the whole reason this setting is not an ordinary one.
+ * A Pin stores only a target id and never which *kind* of target it is
+ * (ADR-0008), so every Pin already saved stops meaning anything the moment the
+ * mode changes. Fieldkit does not — and cannot — rewrite those values: only a
+ * Consumer knows whether any Content would be stranded, and it is the
+ * Consumer's content upgrade that nulls them. Saying so plainly is all this
+ * control can do.
  */
-export function PinModePicker({
-	label,
-	value,
-	onChange,
-	testId,
-}: PinModePickerProps) {
-	function handleChange(e: ChangeEvent<HTMLSelectElement>) {
-		onChange(e.currentTarget.value as PinMode);
-	}
+export function PinModePicker({ label, value, onChange }: PinModePickerProps) {
+	const inputId = useId();
+	const selected =
+		PIN_MODE_OPTIONS.find((option) => option.id === value) ??
+		PIN_MODE_OPTIONS[0];
 
 	return (
 		<Box>
-			{/* The warning sits outside the <label> on purpose: a label wraps its
-			    descendants into the control's accessible name, and a sentence
-			    about stranded pins is not a name. */}
-			<Box as="label" display="block">
-				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					{label}
-				</Text>
-				<NativeSelect.Root size="sm" mt="1">
-					<NativeSelect.Field
-						value={value}
-						onChange={handleChange}
-						data-testid={testId}
-					>
-						{PIN_MODE_LABELS.map((mode) => (
-							<option key={mode.value} value={mode.value}>
-								{mode.label}
-							</option>
-						))}
-					</NativeSelect.Field>
-					<NativeSelect.Indicator />
-				</NativeSelect.Root>
-			</Box>
+			{/* The warning sits outside the label on purpose: a <label> wraps its
+			    descendants into the control's accessible name, and a sentence about
+			    stranded pins is not a name. `htmlFor` rather than wrapping, because
+			    a <label> around react-select's composite would name the widget from
+			    everything inside it (see blueprint-picker.tsx). */}
+			<chakra.label
+				htmlFor={inputId}
+				display="block"
+				fontSize="xs"
+				fontWeight="medium"
+				color="fg.muted"
+				mb="1"
+			>
+				{label}
+			</chakra.label>
+
+			<BaseSelect<PinModeOption>
+				inputId={inputId}
+				// Matches the panel's other controls — one settings tab must not
+				// hold two sizes of the same kind of control.
+				size="sm"
+				options={PIN_MODE_OPTIONS}
+				value={selected}
+				onChange={(next) => {
+					const option = Array.isArray(next) ? next[0] : next;
+					// Clearing is not a fourth state: a Field always has a mode, and
+					// not pinning is the one it falls back to.
+					onChange(option ? option.id : "none");
+				}}
+			/>
+
 			<Text fontSize="xs" color="fg.muted" mt="1">
-				Changing this clears every pin already saved — those references fall
+				Changing this strands every pin already saved — those references fall
 				back to the newest version.
 			</Text>
 		</Box>

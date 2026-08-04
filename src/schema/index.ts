@@ -103,6 +103,7 @@ export {
 	type PinMode,
 	type PinningMode,
 	type Reference,
+	withPin,
 } from "./reference";
 export type { PluginRegistry } from "./registry";
 // Registry

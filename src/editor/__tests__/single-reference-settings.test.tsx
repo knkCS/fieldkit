@@ -150,20 +150,25 @@ describe("SingleReferenceSettingsEditor", () => {
 	});
 
 	describe("the pin mode", () => {
-		it("offers none, release or version", () => {
+		it("offers none, release or version", async () => {
+			const user = userEvent.setup();
 			const { pinMode } = renderEditor();
 
+			await user.click(pinMode());
+
+			// The options, not `getByText` — the chosen one is also rendered as
+			// the select's own value.
 			expect(
-				Array.from(pinMode().querySelectorAll("option")).map(
-					(option) => option.value,
+				(await screen.findAllByRole("option")).map((option) =>
+					option.textContent?.trim(),
 				),
-			).toEqual(["none", "release", "version"]);
+			).toEqual(["The newest version", "A chosen release", "A chosen version"]);
 		});
 
 		it("starts a Field on the newest version", () => {
-			const { pinMode } = renderEditor();
+			renderEditor();
 
-			expect(pinMode()).toHaveValue("none");
+			expect(screen.getByText("The newest version")).toBeInTheDocument();
 		});
 
 		it("stores the mode the Author chooses, leaving the rest alone", async () => {
@@ -172,7 +177,8 @@ describe("SingleReferenceSettingsEditor", () => {
 				initial: { blueprints: ["article"] },
 			});
 
-			await user.selectOptions(pinMode(), "release");
+			await user.click(pinMode());
+			await user.click(await screen.findByText("A chosen release"));
 
 			expect(onChange).toHaveBeenLastCalledWith({
 				blueprints: ["article"],
@@ -184,7 +190,7 @@ describe("SingleReferenceSettingsEditor", () => {
 			renderEditor();
 
 			expect(
-				screen.getByText(/clears every pin already saved/i),
+				screen.getByText(/strands every pin already saved/i),
 			).toBeInTheDocument();
 		});
 	});

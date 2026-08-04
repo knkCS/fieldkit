@@ -398,6 +398,43 @@ describe("SingleReferenceField", () => {
 			expect(stored()).toEqual({ id: "article-2" });
 		});
 
+		it("never offers the previous Content's targets after a change", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter({
+				contents: [
+					{
+						id: "article-1",
+						display_name: "Cats of the world",
+						blueprint_id: "article",
+						pin_targets: { release: [{ id: "r-cats", label: "Cats launch" }] },
+					},
+					{
+						id: "article-2",
+						display_name: "Dogs of the world",
+						blueprint_id: "article",
+						pin_targets: { release: [{ id: "r-dogs", label: "Dogs launch" }] },
+					},
+				],
+			});
+			const { control } = renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "r-cats" },
+				adapter,
+			});
+
+			await screen.findByText("Cats launch");
+			await user.click(control());
+			await user.click(await screen.findByText("Dogs of the world"));
+			await user.click(pinControl());
+
+			// The old Content's Release must be gone the instant the Content
+			// changes — not merely once the new targets arrive. Offering it for
+			// even the width of a round trip would let a Pin be written that
+			// points at another Content's Release.
+			expect(screen.queryByText("Cats launch")).not.toBeInTheDocument();
+			expect(await screen.findByText("Dogs launch")).toBeInTheDocument();
+		});
+
 		it("clears the Pin when the Content is cleared", async () => {
 			const user = userEvent.setup();
 			const { control } = renderField({

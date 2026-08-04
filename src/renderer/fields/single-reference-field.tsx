@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
-import type { Reference } from "../../schema/reference";
+import type { PinningMode, Reference } from "../../schema/reference";
+import { withPin } from "../../schema/reference";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
+import { usePinTargets } from "../hooks/use-pin-targets";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
@@ -25,24 +27,16 @@ interface ContentOption {
 const MENU_PAGE_SIZE = 50;
 
 /**
- * The Reference to store for one Content and one Pin.
+ * What the second select is called, per kind of target it offers.
  *
- * No Pin writes no `pin` key at all rather than an explicit `null`: an absent
- * Pin already means the newest Version (ADR-0008), and a Field whose Author
- * turns pinning off must end up storing exactly what it stored before pinning
- * existed. Everything else the Reference carries travels across untouched — it
- * is the same Reference, only its Pin changed.
+ * Keyed by `PinningMode` rather than written as a ternary, so a third kind of
+ * target could not be added without this naming it. Fieldkit names the two
+ * kinds — the setting already does — without modelling either of them.
  */
-function withPin(
-	previous: Reference | null | undefined,
-	id: string,
-	pin: string | null,
-): Reference {
-	const next: Reference = { ...previous, id };
-	delete next.pin;
-	if (pin) next.pin = pin;
-	return next;
-}
+const PIN_LABELS: Record<PinningMode, string> = {
+	release: "Release",
+	version: "Version",
+};
 
 /**
  * Exactly one Reference, picked from the Contents the reference Adapter
@@ -84,8 +78,6 @@ export function SingleReferenceField({
 	const pinnedId = value?.pin ?? null;
 
 	const [options, setOptions] = useState<ContentOption[]>([]);
-	const [pinOptions, setPinOptions] = useState<ContentOption[]>([]);
-	const [loadingPins, setLoadingPins] = useState(false);
 	const [searching, setSearching] = useState(false);
 	const [query, setQuery] = useState("");
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -135,35 +127,14 @@ export function SingleReferenceField({
 		};
 	}, [adapter, blueprints, query, menuOpen, report]);
 
-	// Unlike the Content search, this runs without waiting for the menu to
-	// open: a stored Pin is an id, and the label beside it can only come from
-	// here — there is no `fetch` for a Pin target.
-	useEffect(() => {
-		if (!adapter || !selectedId || pinMode === "none") {
-			setPinOptions([]);
-			return;
-		}
-		let cancelled = false;
-		setLoadingPins(true);
-		adapter
-			.listPinTargets(selectedId, pinMode)
-			.then((targets) => {
-				if (cancelled) return;
-				setPinOptions(
-					targets.map((target) => ({ id: target.id, label: target.label })),
-				);
-				setLoadingPins(false);
-			})
-			.catch((error: unknown) => {
-				if (cancelled) return;
-				setPinOptions([]);
-				setLoadingPins(false);
-				report(error);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [adapter, selectedId, pinMode, report]);
+	// Unlike the Content search, this runs without waiting for a menu to open: a
+	// stored Pin is an id, and the label beside it can only come from here —
+	// there is no `fetch` for a Pin target.
+	const { targets, loading: loadingPins } = usePinTargets(
+		selectedId,
+		pinMode,
+		accessor,
+	);
 
 	const selected: ContentOption | null = selectedId
 		? {
@@ -174,6 +145,11 @@ export function SingleReferenceField({
 					selectedId,
 			}
 		: null;
+
+	const pinOptions: ContentOption[] = targets.map((target) => ({
+		id: target.id,
+		label: target.label,
+	}));
 
 	// A Pin the Field no longer offers — what a `pin_mode` change leaves behind
 	// — keeps its id on screen rather than vanishing, exactly as an unresolvable
@@ -186,9 +162,9 @@ export function SingleReferenceField({
 			})
 		: null;
 
-	// The words the Field's setting chose. Fieldkit names the two kinds — the
-	// setting already does — without modelling either of them.
-	const pinLabel = pinMode === "release" ? "Release" : "Version";
+	// Null while the Field does not pin, which is also what keeps the lookup
+	// above exhaustive over the kinds that do.
+	const pinLabel = pinMode === "none" ? null : PIN_LABELS[pinMode];
 
 	if (!adapter) {
 		return (
@@ -263,7 +239,7 @@ export function SingleReferenceField({
 						/>
 					</Box>
 
-					{pinMode !== "none" && (
+					{pinLabel && (
 						<Box flex="1" minWidth="0">
 							<BaseSelect<ContentOption>
 								inputId={`${accessor}-pin`}

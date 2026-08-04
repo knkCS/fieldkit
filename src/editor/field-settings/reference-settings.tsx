@@ -39,7 +39,6 @@ export function ReferenceSettingsEditor({
 				// existed shows the mode it actually behaves as.
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
-				testId="reference-pin-mode-select"
 			/>
 		</Stack>
 	);
