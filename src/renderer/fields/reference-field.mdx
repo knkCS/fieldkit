@@ -105,7 +105,7 @@ When the field pins, picking a Content opens a **second step** listing what that
 reference: {
   search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
-  listPinTargets: (
+  listPinTargets?: (              // optional
     contentId: string,
     mode: "release" | "version",
   ) => Promise<PinTarget[]>;
@@ -143,7 +143,9 @@ The values the filter form collects travel back through `search` as `filters` �
 
 Both methods are **optional**. Without them the picker degrades to a search box and a name column, which is what a Consumer that has not implemented them should get rather than an error.
 
-`listPinTargets` is **not** optional, and is the only adapter method whose absence a pinning field could not survive: only the adapter knows a Content's Releases or Versions, and it is the adapter that normalises whichever kind was asked for into an id, a label and a description — so **fieldkit models neither a Release nor a Version**. A Consumer whose Contents have no such thing answers with an empty list. It is called only when the field pins, and only once a Content is chosen.
+`listPinTargets` is **optional on the same terms**. Only the adapter knows a Content's Releases or Versions, and it is the adapter that normalises whichever kind was asked for into an id, a label and a description — so **fieldkit models neither a Release nor a Version**. Without the method a pinning field offers the newest Version and nothing else: the same answer a Consumer gets from returning an empty list, and the same one the field already shows while the targets are in flight. A Consumer that has not implemented pinning gets that rather than an error.
+
+The absence is **silent** — it is a configuration, not a failure — where a call that *rejects* is reported through the provider's `onError`. It is called only when the field pins, and only once a Content is chosen.
 
 ## Validation
 

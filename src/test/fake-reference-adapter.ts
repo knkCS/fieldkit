@@ -67,6 +67,19 @@ export interface FakeReferenceAdapterOptions {
 
 export interface FakeReferenceAdapter
 	extends NonNullable<FieldKitAdapters["reference"]> {
+	/**
+	 * Always implemented here, though the Adapter surface makes it optional.
+	 *
+	 * Narrowed back to required so the fixture's own tests can call it without
+	 * a null check. To drive the degrade path a test **strips it deliberately**
+	 * — `const { listPinTargets, ...adapter } = createFakeReferenceAdapter()` —
+	 * rather than asking the factory for a half-built Adapter, so what is
+	 * missing is visible in the test that depends on it.
+	 */
+	listPinTargets: (
+		contentId: string,
+		mode: PinningMode,
+	) => Promise<PinTarget[]>;
 	/** The catalogue as the fake currently holds it. */
 	readonly contents: FakeContent[];
 	/**

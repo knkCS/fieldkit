@@ -30,10 +30,15 @@ const NONE: PinTargets = { targets: [], loading: false };
  * can never point at another Content's target, so a control must never be able
  * to offer one — not even for the width of a round trip.
  *
- * Asks nothing at all when the Field does not pin, or when no Content is
- * chosen. A failure leaves an empty list, which every caller shows alongside
- * the newest Version, and is reported through the provider's `onError` against
- * `fieldId` — the Field it degrades.
+ * Asks nothing at all when the Field does not pin, when no Content is chosen,
+ * or when the Adapter does not implement `listPinTargets` — it is optional, and
+ * a Consumer that has not implemented pinning gets an empty list rather than an
+ * error. That absence is silent, because it is a configuration rather than a
+ * failure.
+ *
+ * A call that *rejects* also leaves an empty list — which every caller shows
+ * alongside the newest Version — but is reported through the provider's
+ * `onError` against `fieldId`, the Field it degrades.
  */
 export function usePinTargets(
 	contentId: string | null,
@@ -46,7 +51,11 @@ export function usePinTargets(
 	const report = useAdapterErrorReporter(fieldId, "Reference adapter failed");
 
 	useEffect(() => {
-		if (!adapter || !contentId || mode === "none") {
+		// An Adapter without `listPinTargets` is treated exactly like a Field
+		// that does not pin: nothing is asked for and nothing is on its way, so
+		// the control offers the newest Version alone.
+		const listPinTargets = adapter?.listPinTargets;
+		if (!listPinTargets || !contentId || mode === "none") {
 			setState(NONE);
 			return;
 		}
@@ -54,8 +63,8 @@ export function usePinTargets(
 		// Emptied, not merely marked loading: what is on screen must never
 		// outlive the Content it belonged to.
 		setState({ targets: [], loading: true });
-		adapter
-			.listPinTargets(contentId, mode)
+		listPinTargets
+			.call(adapter, contentId, mode)
 			.then((targets) => {
 				if (cancelled) return;
 				setState({ targets, loading: false });

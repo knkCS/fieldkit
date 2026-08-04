@@ -647,6 +647,31 @@ describe("ReferenceField", () => {
 			expect(stored()).toEqual([{ id: "article-2" }]);
 		});
 
+		it("still offers the newest Version when the Adapter omits listPinTargets", async () => {
+			const user = userEvent.setup();
+			const onError = vi.fn();
+			// Stripped rather than failed: a Consumer that never implemented
+			// pinning gets a degraded second step, not an error.
+			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+				adapter,
+				onError,
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+
+			await user.click(
+				within(step).getByRole("button", { name: /Newest version/ }),
+			);
+			expect(stored()).toEqual([{ id: "article-2" }]);
+			// The omission is a configuration, not a failure.
+			expect(onError).not.toHaveBeenCalled();
+		});
+
 		it("starts the next add over rather than reopening on the second step", async () => {
 			const user = userEvent.setup();
 			renderField({
