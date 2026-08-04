@@ -1,4 +1,11 @@
-import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
+import {
+	Box,
+	Button,
+	Flex,
+	IconButton,
+	Text,
+	VisuallyHidden,
+} from "@chakra-ui/react";
 import {
 	closestCenter,
 	DndContext,
@@ -413,6 +420,11 @@ export function ReferenceTree({
 	// the rows a release would adopt, held together because they are one answer
 	// and showing half of it is what makes an adoption silent.
 	const [pending, setPending] = useState<ResolvedDrop | null>(null);
+	// What the strip an Author is on has just moved to, or null when nobody is
+	// operating one. Held here rather than in the strip because there are as
+	// many strips as there are gaps and a control wants one voice — see the
+	// live regions at the foot of this component.
+	const [insertPreview, setInsertPreview] = useState<string | null>(null);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -520,6 +532,10 @@ export function ReferenceTree({
 	function handleDragStart(event: DragStartEvent) {
 		setActiveKey(draggedKey(event));
 		setPending(null);
+		// The strips become spacers for the duration, so whatever one of them
+		// was offering has stopped being true. React fires no blur for an
+		// element that simply unmounts, so nothing else would clear it.
+		setInsertPreview(null);
 	}
 
 	/**
@@ -595,6 +611,7 @@ export function ReferenceTree({
 				depthCeiling={depthCeiling}
 				disabled={atItemCap ?? false}
 				onInsert={handleInsert}
+				onAnnounce={setInsertPreview}
 			/>
 		);
 	}
@@ -655,6 +672,19 @@ export function ReferenceTree({
 			>
 				{adoptionNotice(pending?.adopted.size ?? 0)}
 			</Text>
+			{/* One region per affordance, and never both speaking: the strips are
+			    spacers for as long as a drag is running. Two, rather than one
+			    shared, because they say different things — a drag reports only
+			    what it would restructure, while a strip reports its whole
+			    sentence — and a region that changed subject would make an
+			    interrupted announcement read as a correction to the last one.
+
+			    Hidden, unlike the drag's, because the strip already draws its
+			    sentence on itself: a second copy under the tree would say to
+			    everyone what only a screen reader is missing. */}
+			<VisuallyHidden role="status" data-testid="reference-insert-notice">
+				{insertPreview ?? ""}
+			</VisuallyHidden>
 		</DndContext>
 	);
 }
