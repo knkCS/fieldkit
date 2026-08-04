@@ -121,9 +121,15 @@ for the Schema's message to reach the field instead of a browser bubble (see
 
 ## Table Cell and Read Mode
 
-The table cell renders the referenced Content's **id** — a cell has neither
-adapter access nor async and cannot resolve a name. Read mode bypasses the
-cell for that reason and renders the resolved name, falling back to the id.
+The table cell renders a **count** — "1 reference", or the empty-cell dash
+when there is none. A cell has neither adapter access nor async and so cannot
+resolve a name, and an id is storage rather than a name; a count is what the
+tree Reference Field's cell shows for the same reason (ADR-0008), so a column
+of one and a column of the other read alike.
+
+Read mode bypasses the cell and renders the resolved name, falling back to the
+id when the Content cannot be resolved. That bypass is the plugin's own
+`readComponent`, not a branch in read mode's code — see the SpecForm docs.
 
 <Canvas of={Stories.Empty} />
 <Canvas of={Stories.WithAStoredReference} />

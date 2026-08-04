@@ -2,6 +2,7 @@ import { Link2 } from "lucide-react";
 import { z } from "zod";
 import { ReferenceSettingsEditor } from "../../editor/field-settings/reference-settings";
 import { ReferenceField } from "../../renderer/fields/reference-field";
+import { ReferenceReadValue } from "../../renderer/fields/reference-read";
 import { ReferenceCell } from "../../table/cells/reference-cell";
 import type {
 	FieldContext,
@@ -137,6 +138,12 @@ export function createReferencePlugin({
 		settingsComponent: ReferenceSettingsEditor,
 		fieldComponent: ReferenceField,
 		cellComponent: ReferenceCell,
+		// Minted types get read mode too, which is the point of putting it on
+		// the plugin: a `field_type === "reference"` check in read mode's own
+		// code could never have covered a Consumer's own id (ADR-0010), so a
+		// minted type would have read as a count while `reference` read as a
+		// tree.
+		readComponent: ReferenceReadValue,
 
 		// The Attribute Spec is composed here rather than by the shared builder,
 		// which is the whole of ADR-0007: a plugin reaches into its own settings

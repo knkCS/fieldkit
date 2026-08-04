@@ -114,8 +114,9 @@ an architectural choice.
    - Use anker form components for simple inputs; `Controller` for complex values (see `docs/react-hook-form-reference.md`)
    - Set `displayName` on the exported component
    - Add Storybook story (`.stories.tsx`) and MDX documentation (`.mdx`)
-4. Create table cell: `src/table/cells/<name>-cell.tsx`, set it as the plugin's `cellComponent` (also used by SpecForm's read mode), and set `displayName`
+4. Create table cell: `src/table/cells/<name>-cell.tsx`, set it as the plugin's `cellComponent` (SpecForm's read mode renders through it too, unless the plugin declares a `readComponent`), and set `displayName`
 5. Register the cell in `src/table/get-cell-for-type.tsx` (SpecDataTable column mapping)
+6. Only when reading wants more than a cell can give — a cell has neither adapter access nor async and one row of height — add a `readComponent` (`ReadProps`: `field`, `value`, and a `renderChild` that renders a child value the same way). `group`, `reference` and `single_reference` are the built-ins that do.
 
 There is no manual renderer registration: `FieldComponent` resolves `plugin.fieldComponent` through the registry at render time.
 

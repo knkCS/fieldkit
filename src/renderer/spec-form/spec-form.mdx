@@ -24,7 +24,7 @@ behaves identically to `FieldRenderer`.
 | Prop       | Type                       | Default  | Description                                                        |
 |------------|----------------------------|----------|---------------------------------------------------------------------|
 | `schema`   | `Schema`                   | —        | The field specification to render.                                  |
-| `mode`     | `"edit" \| "read"`         | `"edit"` | `"read"` renders values via table cell components instead of inputs. |
+| `mode`     | `"edit" \| "read"`         | `"edit"` | `"read"` renders values through each plugin's `readComponent`, or its table cell, instead of inputs. |
 | `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
@@ -200,21 +200,33 @@ Each field's value is resolved in this order:
 
 1. Empty values (`undefined`, `null`, `""`, or an empty array) render an
    em dash (`—`).
-2. Otherwise, the field type's registered `cellComponent` (the same one used
-   by `SpecDataTable`) renders the value. Two field types are the exception
-   and bypass their `cellComponent` entirely: `group` renders each item as
-   its own indented row of child fields, and `single_reference` resolves the
-   referenced Content's name through the reference adapter (its cell can only
-   show an id, having neither adapter access nor async), falling back to the
-   id when it cannot be resolved.
-3. If no `cellComponent` is registered for the field type, a type-aware
+2. Otherwise, the field type's own `readComponent`, when the plugin declares
+   one. This is where a type whose reading differs from its table cell says
+   so, and read mode names no field type to find it (ADR-0007). It receives
+   `field`, `value`, and a `renderChild(field, value)` callback that runs this
+   same four-step resolution — so a container renders what it holds without
+   read mode knowing what that is. Three built-ins declare one:
+   - `group` renders each item as its own indented row of child fields, where
+     its cell counts them;
+   - `single_reference` resolves the referenced Content's name through the
+     reference adapter, falling back to the id;
+   - `reference` (and every type minted by `createReferencePlugin`) renders
+     the resolved tree — names through the adapter, indented by depth, each
+     Reference's Attribute values against it — where its cell counts.
+
+   A cell can do none of this: it has neither adapter access nor async
+   (ADR-0008). Read mode sits inside the renderer, so it has both.
+3. Otherwise, the field type's registered `cellComponent` (the same one used
+   by `SpecDataTable`) renders the value — the ordinary case.
+4. If no `cellComponent` is registered for the field type, a type-aware
    fallback formats the value: booleans render as `labels.booleanYes`/
    `labels.booleanNo` (not `String(value)`'s `"true"`/`"false"`), and arrays
    of only strings/numbers/booleans are joined with `", "` (booleans inside
    the array use the same labels). Objects, and arrays containing an object,
    fall back to the em dash — a plugin with non-string values should ship a
-   `cellComponent` for full control over its read-mode rendering. Anything
-   else (strings, numbers) passes through `String(value)` unchanged.
+   `cellComponent`, or a `readComponent` when reading wants more than a cell
+   can give. Anything else (strings, numbers) passes through `String(value)`
+   unchanged.
 
 Because read mode has no form state, there are no dirty dots or error
 badges on its tabs, and no submit-jump behavior.

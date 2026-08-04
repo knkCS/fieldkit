@@ -134,6 +134,15 @@ describe("createFakeReferenceAdapter", () => {
 		expect(items.map((item) => item.id)).toEqual(["article-1"]);
 	});
 
+	it("records the ids it was asked to fetch, and stays empty until asked", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		expect(adapter.fetches).toEqual([]);
+		await adapter.fetch(["article-1", "deleted-42"]);
+
+		expect(adapter.fetches).toEqual([["article-1", "deleted-42"]]);
+	});
+
 	it("renames a Content the way an Author elsewhere would", async () => {
 		const adapter = createFakeReferenceAdapter();
 

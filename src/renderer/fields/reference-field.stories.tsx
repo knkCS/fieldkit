@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { builtInFieldTypes } from "../../schema/field-types";
 import type { Field } from "../../schema/types";
 import {
 	createFakeReferenceAdapter,
 	fakeCatalogue,
 } from "../../test/fake-reference-adapter";
+import { FieldKitProvider } from "../provider";
+import { SpecForm } from "../spec-form/spec-form";
 import {
 	FieldStoryWrapper,
 	type FieldStoryWrapperProps,
@@ -290,5 +293,45 @@ export const WithAttributes: Story = {
 			}}
 			adapters={{ reference: referenceAdapter }}
 		/>
+	),
+};
+
+/**
+ * Read mode: the same structure editing shows, resolved and static.
+ *
+ * It bypasses the table cell — which can only count, having neither adapter
+ * access nor async — and renders the tree: each Content's current name at the
+ * depth it sits at, with its Attribute values against it (ADR-0008). No form
+ * is involved; `SpecForm` in read mode needs no `FormProvider`.
+ */
+export const ReadMode: Story = {
+	render: () => (
+		<FieldKitProvider
+			plugins={builtInFieldTypes}
+			adapters={{ reference: referenceAdapter }}
+		>
+			<SpecForm
+				schema={[
+					makeField(
+						{},
+						{
+							blueprints: ["article"],
+							attributes: [attribute("number", "page", "Page")],
+						},
+					),
+				]}
+				mode="read"
+				values={{
+					related: [
+						{
+							id: "article-1",
+							attributes: { page: 12 },
+							children: [{ id: "article-2", attributes: { page: 88 } }],
+						},
+						{ id: "article-3" },
+					],
+				}}
+			/>
+		</FieldKitProvider>
 	),
 };
