@@ -55,12 +55,12 @@ A third spelling exists: core's `outline_tree` reads `settings.text_type_id`, an
 
 | | core | fieldkit |
 |---|---|---|
-| settings | `blueprints`, `always_latest`, `max_items`, `max_depth`, `attributes`, **`max_items_per_page`**, **`children`** | `blueprints`, `max_items`, `max_depth` |
+| settings | `blueprints`, `always_latest`, `max_items`, `max_depth`, `attributes`, **`max_items_per_page`**, **`children`** | `blueprints`, `max_items`, `max_depth`, **`pin_mode`** |
 | value | flat `ContentReferenceFlat[]` with `ancestor_ids`, `parent_id`, `index`; attributes positional | nested `{ id, pin?, attributes?, children? }`; attributes keyed by Accessor |
 
 The value divergence is settled, not open: **ADR-0008** chose fieldkit's nested shape because it makes an orphan unrepresentable, and core maps at its own save/load boundary. It is recorded here because a settings-only comparison makes `reference` look identical when the shapes behind it are not.
 
-The settings row moved after the reading above. #63 rebuilt the plugin: `always_latest` is gone (superseded by the `pin_mode` a later ticket adds, per #61), and `attributes` is gone as a `string[]` — it returns as an Attribute Spec, `Field[]`, not a list of keys. `max_items` is now a pure cap that never changes the value's shape (ADR-0005), and `max_depth` is declared but unenforced until the list nests.
+The settings row moved after the reading above. #63 rebuilt the plugin: `always_latest` is gone, and `attributes` is gone as a `string[]` — it returns as an Attribute Spec, `Field[]`, not a list of keys. `max_items` is now a pure cap that never changes the value's shape (ADR-0005), and `max_depth` is declared but unenforced until the list nests. #68 then added `pin_mode`, which is what supersedes `always_latest`: core's boolean said "always latest" where fieldkit's three-valued setting says which *kind* of target a Pin points at, `"none"` being what the boolean's `true` meant. A mapper reads it to decide which of core's two columns to write.
 
 Open: core's two extra settings keys. **46 `reference` fields** in the derivations.
 
