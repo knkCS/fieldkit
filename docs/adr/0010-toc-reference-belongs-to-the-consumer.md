@@ -4,6 +4,8 @@ ADR-0002 drew the line at "the catalogue is generic, the integration surface is 
 
 That adds a corollary to ADR-0002. The catalogue stays generic, but it exports the parts a Consumer needs to assemble a domain type, rather than leaving each Consumer to build one from nothing — which is what made moving this type out cheap enough to be worth doing.
 
+> Core's side of this comparison is tabulated in [knkCMS core parity](../knkcms-core-parity.md).
+
 ## Consequences
 
 Breaking removal. The plugin, field component, table cell, stories, MDX and tests all go, and a Spec containing `toc_reference` renders nothing until its Consumer registers a replacement. Fieldkit's implementation was wrong in any case — it held a single string, where a table of contents is a tree — so nothing correct is being lost.

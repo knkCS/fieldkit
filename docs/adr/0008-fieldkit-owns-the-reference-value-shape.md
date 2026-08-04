@@ -4,6 +4,8 @@ A Reference is `{ id, pin?, attributes?, children? }` — a genuinely nested tre
 
 `reference` holds `Reference[]`, `single_reference` holds `Reference | null`, and they are separate field types for the reason ADR-0005 gives rather than one type switching shape on `max_items`.
 
+> Core's side of this comparison is tabulated in [knkCMS core parity](../knkcms-core-parity.md).
+
 ## Considered options
 
 Emitting `ContentReferenceFlat` verbatim needs no mapper at all. Rejected: it bakes a knkCMS payload into a library whose catalogue is meant to stay generic (ADR-0002), it makes every backend change a fieldkit release, and it inherits the orphan problem rather than designing it away. Letting the adapter own serialisation entirely, with the value opaque in between, was rejected because `toZodType()` would then have nothing to validate and the editor could not reason about the value at all.
