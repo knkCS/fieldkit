@@ -27,6 +27,38 @@ The depth a drop lands at is decided by **pure functions** in `src/schema/refere
 
 There is no pagination, deliberately: it cannot coexist with dragging to a position nobody can see.
 
+## Adding a Reference where it belongs
+
+An **insertion strip** sits in the gap between every pair of rows on screen, and before the first — so every position is reachable, including the top of the tree, which knkCMS core's equivalent cannot reach. Pointing at one grows it and draws a line at the depth a new Reference would land at; moving the pointer sideways changes that depth, one level per `24px` indent step. Clicking opens the same browse drawer the Add control does, and the Content lands at that position and that depth.
+
+The strip **says what it will do** — the sentence it shows is also its accessible name, so the two cannot drift apart:
+
+| The strip reads | What it means |
+|---|---|
+| `Insert as a child of X` | One level deeper than the row above: X's first child |
+| `Insert as a sibling of Y` | At an existing rank: Y is the Reference it would follow, or — before the first row of that rank — the one it would precede |
+| `…, adopting 2 References` | Landing shallower than the rows below takes them as children. See [Adoption](#adoption) |
+
+It names **what it actually names**: the sibling in the sibling case, the parent in the child case. Core names the prospective *parent* in both, so its strip can read "+ Add sibling of A" while re-parenting A's whole branch.
+
+The depth on offer is bounded by the row above (nesting may not skip a level), by the row below (the floor), and by `max_depth` — all of them `projectInsertDepth`'s answer, the same model the drag reads with a different pair of neighbours. Inserting **under a folded Reference** lands at the end of its branch and unfolds it, exactly as a drop into a folded branch already does.
+
+At `max_items` the strips are disabled, on the same terms the Add control is — an unset cap is no cap. While a drag is running they are replaced by inert spacers of the same height, so two insertion affordances never compete for one gap and the list does not jump when a row is lifted.
+
+The **Add control stays**, and appends at the root. It is the way into an empty tree, which has no gaps to put a strip in.
+
+Operating a strip from the keyboard — choosing the depth without a pointer — is not built yet; the strip is a real button, so it can be reached and pressed, but the depth it offers is the shallowest the neighbours allow.
+
+### Adoption
+
+A Reference arriving **shallower than the rows below it** takes them, and their branches, as its children. Inserting a root between a Reference and its children therefore gives the new Reference those children. This is deliberate (ADR-0012) and matches core, so an Author working in either system gets one answer.
+
+It is not an operation anything performs: `spliceReference` puts one entry in the flat list and moves nothing, and `nestReferences` reads order and depth alone — so the rows that follow a shallower entry *are* its children. There is no ancestor surgery, and an orphan stays unrepresentable.
+
+Because it restructures rows the Author never pointed at, it is **announced before the click** — that announcement is part of the decision, not decoration. The count is of rows **on screen**: a folded Reference counts as one and brings its branch, which is the same rule folding and dragging already agree on.
+
+Adoption cannot make a tree too deep. Splicing moves no other row, and a row is adopted only when it is already deeper than the arrival, so re-nesting never pushes an existing row down. What `max_depth` does withdraw is the offer to rearrange a branch on a tree that *already* breaks the cap, where no placement could make it legal.
+
 ## Value
 
 Fieldkit owns the shape; a Consumer maps it to whatever it persists (ADR-0008).
@@ -227,7 +259,9 @@ Pass it to `FieldKitProvider` and `TypePicker` beside `builtInFieldTypes` and it
 
 **Registering a replacement is not a migration.** Fieldkit's removed `toc_reference` stored a bare id string; a minted type stores a Reference Tree, so stored values have to be converted — `"x"` becomes `[{ id: "x" }]` — or they fail the Schema and render as an empty tree. Its `always_latest` and `attributes` settings keys are gone with it; `pin_mode: "none"` is what `always_latest` meant.
 
-For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, `names` — a record keyed by Content id — and `depthCeiling`, a 0-based depth index that `referenceDepthCeiling(settings)` converts a `max_depth` setting into. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
+For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, `names` — a record keyed by Content id — and `depthCeiling`, a 0-based depth index that `referenceDepthCeiling(settings)` converts a `max_depth` setting into. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either.
+
+The insertion strips are the same bargain. Pass `onInsert` and the tree renders them; it is called with a `ReferenceInsertRequest` — where the Reference would go, at what depth, and a `commit` that puts one there once your own browse has produced it. The write stays in the tree because folding has to follow it. Without `onInsert` there are no strips. `atItemCap` disables them, and should be read through `referenceItemCap(settings)` — an unset `max_items` is no cap, never a cap of zero. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
 
 ## Errors
 
@@ -236,7 +270,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 ## Known Limitations
 
 - Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required Attribute — is shown under the tree rather than on the row or the Attribute that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
-- The drawer always adds at the root; a new Reference is nested by dragging it.
+- An insertion strip cannot be *operated* from the keyboard: it can be focused and pressed, but the depth it offers cannot be chosen without a pointer.
 - An Attribute is checked by the Schema but nothing shared validates the Attribute *Spec* — a hand-written duplicate accessor among Attributes goes unreported (ADR-0007, above).
 - `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — an Attribute of one of those types needs its `settings.options` hand-authored. Not specific to Attributes.
 - Attributes are not reorderable in the settings list; they render in declaration order.
