@@ -43,6 +43,8 @@ describe("FieldTypePlugin", () => {
 		expect(plugin.maxPerSpec).toBeUndefined();
 	});
 
+	// `toc_reference` is a Consumer's type, not fieldkit's (ADR-0010); no
+	// built-in declares `maxPerSpec` any more.
 	it("should support maxPerSpec constraint", () => {
 		const plugin: FieldTypePlugin = {
 			id: "toc_reference",

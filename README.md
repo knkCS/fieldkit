@@ -58,7 +58,7 @@ function ProductForm() {
 }
 ```
 
-## Built-in Field Types (28)
+## Built-in Field Types (27)
 
 | Category | Types |
 |---|---|
@@ -68,7 +68,10 @@ function ProductForm() {
 | Selection | `select`, `radio`, `checkboxes` |
 | Boolean | `boolean` |
 | Structural | `section`, `card`, `group`, `fieldset`, `blocks`, `array`, `list` |
-| Reference | `reference`, `single_reference`, `toc_reference`, `media`, `virtual_table` |
+| Reference | `reference`, `single_reference`, `media`, `virtual_table` |
+
+The catalogue is deliberately generic: a field type whose meaning is a
+consumer's domain belongs to that consumer, not here (ADR-0002).
 
 ## Custom Field Types
 
@@ -86,6 +89,43 @@ const myPlugin: FieldTypePlugin = {
   toZodType: () => z.string(),
 };
 ```
+
+### Reference-shaped types
+
+A domain type that *is* a reference tree does not need rebuilding — mint it
+from the parts fieldkit exports (ADR-0010). `toc_reference` used to be a
+built-in; it is now a few lines in the consumer that gives it meaning:
+
+```ts
+import { createReferencePlugin } from "@knkcs/fieldkit/schema";
+import { BookOpen } from "lucide-react";
+
+const tocReference = createReferencePlugin({
+  id: "toc_reference",
+  name: "TOC Reference",
+  description: "The publication tree this content hangs in",
+  icon: BookOpen,
+  maxPerSpec: 1,              // one per blueprint
+  availableIn: ["blueprint"],
+});
+```
+
+The tree, the browse drawer, the count cell, the settings editor and the Zod
+schema are fieldkit's own, so a consumer type cannot drift from `reference`.
+
+> **Registering this is not a migration.** Fieldkit's old `toc_reference` stored
+> a bare id string; the minted type stores a Reference Tree, so stored values
+> must be converted (`"x"` → `[{ id: "x" }]`) or they fail validation and render
+> empty. The old `always_latest` and `attributes` settings keys are gone too —
+> `pin_mode: "none"` is what `always_latest` meant.
+
+For a control of your own around the same tree, `ReferenceTree` is exported from
+`@knkcs/fieldkit/renderer`. It renders and reorders rows and nothing else: give
+it `rows` from `readReferenceTree(value)`, the `value` itself, an `onChange` that
+writes the value back, and a `names` record keyed by content id — resolving those
+names is yours to do, because only your adapter can. `readReferenceTree` and
+`countReferences` (every reference at every level, what `max_items` caps) come
+from `@knkcs/fieldkit/schema`.
 
 ## Tech Stack
 

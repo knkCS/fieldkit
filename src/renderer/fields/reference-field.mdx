@@ -178,6 +178,32 @@ The blast radius mirrors ADR-0007's: declaring a required Attribute starts check
 
 `ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, the same way `max_items` will. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
 
+## Minting a reference-shaped type of your own
+
+The catalogue stays generic, but it exports the parts (ADR-0010). A field type whose meaning is *your* domain — a table-of-contents reference, a publication tree — is a `createReferencePlugin()` call rather than a rebuilt tree:
+
+```ts
+import { createReferencePlugin } from "@knkcs/fieldkit/schema";
+import { BookOpen } from "lucide-react";
+
+export const tocReference = createReferencePlugin({
+  id: "toc_reference",              // what a Spec stores, and what a backend addresses
+  name: "TOC Reference",
+  description: "The publication tree this Content hangs in",
+  icon: BookOpen,
+  maxPerSpec: 1,                    // one per blueprint
+  availableIn: ["blueprint"],
+});
+```
+
+Pass it to `FieldKitProvider` and `TypePicker` beside `builtInFieldTypes` and it behaves as a built-in does: the same tree, the same browse drawer, the same count cell, the same settings editor, the same Schema. Only the catalogue entry is yours — `id`, `name`, `description`, `icon`, `category`, `maxPerSpec`, `availableIn`, and `defaultSettings`, which is merged **over** the reference defaults so naming blueprints does not silently turn pinning on.
+
+`maxPerSpec` is enforced everywhere it always was: `validateSpec()` reports a second instance, the type picker greys the type out once one exists, the canvas blocks the duplicate, and `SpecEditor` refuses to save.
+
+**Registering a replacement is not a migration.** Fieldkit's removed `toc_reference` stored a bare id string; a minted type stores a Reference Tree, so stored values have to be converted — `"x"` becomes `[{ id: "x" }]` — or they fail the Schema and render as an empty tree. Its `always_latest` and `attributes` settings keys are gone with it; `pin_mode: "none"` is what `always_latest` meant.
+
+For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, and `names` — a record keyed by Content id. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either. `readReferenceTree` and `countReferences` — every Reference at every level, what `max_items` caps — come from `@knkcs/fieldkit/schema`.
+
 ## Errors
 
 An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attributed to the field it degrades. The control never renders an error of its own, and never rewrites the stored value.
