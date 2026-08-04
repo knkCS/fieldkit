@@ -4,7 +4,12 @@ import type { FieldTypePlugin } from "../../plugin";
 import type { Field } from "../../types";
 import { validateSpec } from "../../validate-spec";
 import type { ReferencePluginOptions, ReferenceSettings } from "../reference";
-import { createReferencePlugin, referencePlugin } from "../reference";
+import {
+	createReferencePlugin,
+	referenceDepthCeiling,
+	referenceItemCap,
+	referencePlugin,
+} from "../reference";
 
 function makeField(
 	overrides: { required?: boolean; settings?: ReferenceSettings | null } = {},
@@ -143,6 +148,231 @@ describe("referencePlugin", () => {
 	});
 });
 
+/** The messages and paths a failed parse reports, in the order Zod raised them. */
+function issues(
+	zodType: ReturnType<typeof referencePlugin.toZodType>,
+	value: unknown,
+) {
+	const parsed = zodType.safeParse(value);
+	return parsed.success
+		? []
+		: parsed.error.issues.map((issue) => ({
+				path: issue.path,
+				message: issue.message,
+			}));
+}
+
+describe("referenceItemCap", () => {
+	it("reads the cap an Author set", () => {
+		expect(referenceItemCap({ max_items: 3 })).toBe(3);
+	});
+
+	it("reads an unset cap as no cap — undefined, null, or no settings at all", () => {
+		// The criterion knkCMS core gets wrong: an uncapped Field must not
+		// behave as one capped at zero.
+		expect(referenceItemCap({})).toBeUndefined();
+		expect(referenceItemCap({ max_items: undefined })).toBeUndefined();
+		expect(
+			referenceItemCap({ max_items: null } as unknown as ReferenceSettings),
+		).toBeUndefined();
+		expect(referenceItemCap(null)).toBeUndefined();
+		expect(referenceItemCap(undefined)).toBeUndefined();
+	});
+
+	it("reads zero as a cap of zero, which is not the same as unset", () => {
+		expect(referenceItemCap({ max_items: 0 })).toBe(0);
+	});
+
+	it("ignores a cap that is not a number at all", () => {
+		expect(
+			referenceItemCap({ max_items: "3" } as unknown as ReferenceSettings),
+		).toBeUndefined();
+		expect(referenceItemCap({ max_items: Number.NaN })).toBeUndefined();
+	});
+});
+
+describe("referenceDepthCeiling", () => {
+	it("turns a count of levels into the deepest depth index, roots being 0", () => {
+		// `max_depth` counts levels; `projectDropDepth` and the Schema both
+		// take a depth index. One level of References is roots and nothing
+		// under them, which is depth 0.
+		expect(referenceDepthCeiling({ max_depth: 1 })).toBe(0);
+		expect(referenceDepthCeiling({ max_depth: 2 })).toBe(1);
+		expect(referenceDepthCeiling({ max_depth: 3 })).toBe(2);
+	});
+
+	it("reads an unset depth as no ceiling", () => {
+		expect(referenceDepthCeiling({})).toBeUndefined();
+		expect(referenceDepthCeiling({ max_depth: undefined })).toBeUndefined();
+		expect(
+			referenceDepthCeiling({
+				max_depth: null,
+			} as unknown as ReferenceSettings),
+		).toBeUndefined();
+		expect(referenceDepthCeiling(null)).toBeUndefined();
+	});
+
+	it("reads zero levels as a ceiling no depth reaches", () => {
+		expect(referenceDepthCeiling({ max_depth: 0 })).toBe(-1);
+	});
+});
+
+describe("the max_items cap in the Schema", () => {
+	const capped = (max_items: number | undefined) =>
+		referencePlugin.toZodType(makeField({ settings: { max_items } }));
+
+	it("counts every Reference in the tree, not only the roots", () => {
+		// Two roots and one child is three References, which is one past a cap
+		// of two even though only two of them are roots.
+		expect(
+			issues(capped(2), [{ id: "a", children: [{ id: "a1" }] }, { id: "b" }]),
+		).toEqual([
+			{ path: [], message: "Related articles holds at most 2 references" },
+		]);
+	});
+
+	it("allows a tree that sits exactly on the cap", () => {
+		expect(
+			capped(3).safeParse([{ id: "a", children: [{ id: "a1" }] }, { id: "b" }])
+				.success,
+		).toBe(true);
+	});
+
+	it("reports at the Field's own path, so the form can show it on the Field", () => {
+		expect(issues(capped(1), [{ id: "a" }, { id: "b" }])[0].path).toEqual([]);
+	});
+
+	it("caps nothing when max_items is unset", () => {
+		// The criterion: an unset cap is no cap, however large the tree is.
+		const uncapped = referencePlugin.toZodType(makeField({ settings: {} }));
+		expect(
+			uncapped.safeParse([
+				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+				{ id: "b" },
+			]).success,
+		).toBe(true);
+	});
+
+	it("caps at zero when max_items is zero, which unset never does", () => {
+		expect(capped(0).safeParse([{ id: "a" }]).success).toBe(false);
+		expect(capped(0).safeParse([]).success).toBe(true);
+	});
+
+	it("names one reference in the singular", () => {
+		expect(issues(capped(1), [{ id: "a" }, { id: "b" }])[0].message).toBe(
+			"Related articles holds at most 1 reference",
+		);
+	});
+});
+
+describe("the max_depth cap in the Schema", () => {
+	const nested = (max_depth: number | undefined) =>
+		referencePlugin.toZodType(makeField({ settings: { max_depth } }));
+
+	it("forbids nesting entirely at max_depth 1, roots being the one level", () => {
+		// The boundary, spelled out: `max_depth` counts levels, so one level is
+		// a flat list. This is the assertion the whole dialect turns on.
+		expect(nested(1).safeParse([{ id: "a" }, { id: "b" }]).success).toBe(true);
+		expect(
+			nested(1).safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+		).toBe(false);
+	});
+
+	it("permits exactly one level of nesting at max_depth 2", () => {
+		expect(
+			nested(2).safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+		).toBe(true);
+		expect(
+			nested(2).safeParse([
+				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+			]).success,
+		).toBe(false);
+	});
+
+	it("reports at the path of the offending Reference", () => {
+		expect(
+			issues(nested(2), [
+				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+			]),
+		).toEqual([
+			{
+				path: [0, "children", 0, "children", 0],
+				message: "Related articles nests at most 2 levels deep",
+			},
+		]);
+	});
+
+	it("reports the Reference that broke the cap, not every one under it", () => {
+		const reported = issues(nested(1), [
+			{
+				id: "a",
+				children: [{ id: "a1", children: [{ id: "a1x" }] }, { id: "a2" }],
+			},
+		]);
+
+		expect(reported.map((issue) => issue.path)).toEqual([
+			[0, "children", 0],
+			[0, "children", 1],
+		]);
+	});
+
+	it("nests as far as an Author drags it when max_depth is unset", () => {
+		expect(
+			nested(undefined).safeParse([
+				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+			]).success,
+		).toBe(true);
+	});
+
+	it("allows no Reference at all at max_depth 0, which unset never does", () => {
+		expect(nested(0).safeParse([{ id: "a" }]).success).toBe(false);
+		expect(nested(0).safeParse([]).success).toBe(true);
+	});
+
+	it("names one level in the singular", () => {
+		expect(
+			issues(nested(1), [{ id: "a", children: [{ id: "a1" }] }])[0].message,
+		).toBe("Related articles nests at most 1 level deep");
+	});
+});
+
+describe("both caps at once", () => {
+	it("reports each cap the tree breaks, at its own path", () => {
+		const zodType = referencePlugin.toZodType(
+			makeField({ settings: { max_items: 1, max_depth: 1 } }),
+		);
+
+		expect(
+			issues(zodType, [{ id: "a", children: [{ id: "a1" }] }]).map(
+				(issue) => issue.path,
+			),
+		).toEqual([[], [0, "children", 0]]);
+	});
+
+	it("still blocks an empty required tree while a cap is set", () => {
+		const zodType = referencePlugin.toZodType(
+			makeField({ required: true, settings: { max_items: 2 } }),
+		);
+
+		expect(issues(zodType, [])).toEqual([
+			{ path: [], message: "Related articles is required" },
+		]);
+	});
+
+	it("never rewrites a value to fit a cap", () => {
+		// Stored data over a cap is reported, never truncated: the parse fails
+		// and nothing partial is handed back for a Consumer to save.
+		const zodType = referencePlugin.toZodType(
+			makeField({ settings: { max_items: 1 } }),
+		);
+		const value = [{ id: "a" }, { id: "b" }];
+
+		const parsed = zodType.safeParse(value);
+		expect(parsed.success).toBe(false);
+		expect(value).toEqual([{ id: "a" }, { id: "b" }]);
+	});
+});
+
 /**
  * The Consumer's own reference-shaped type, minted the way ADR-0010 says core
  * mints `toc_reference`: an id, a name, an icon and a cap. Everything else —
@@ -259,6 +489,45 @@ describe("createReferencePlugin", () => {
 
 			expect(() => schema.parse([])).toThrow(/Table of contents is required/);
 			expect(schema.parse([{ id: "a" }])).toEqual([{ id: "a" }]);
+		});
+
+		it("enforces both caps, so a Consumer's type cannot drift from reference", () => {
+			const plugin = tocReference();
+			const field = mintedField(plugin);
+
+			const capped = plugin.toZodType({
+				...field,
+				settings: { max_items: 2 },
+			});
+			expect(
+				capped.safeParse([{ id: "a", children: [{ id: "a1" }] }, { id: "b" }])
+					.success,
+			).toBe(false);
+
+			const shallow = plugin.toZodType({
+				...field,
+				settings: { max_depth: 1 },
+			});
+			expect(
+				shallow.safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+			).toBe(false);
+			expect(shallow.safeParse([{ id: "a" }, { id: "b" }]).success).toBe(true);
+		});
+
+		it("carries a cap the Consumer defaulted into every new Field", () => {
+			const plugin = tocReference({ defaultSettings: { max_depth: 2 } });
+
+			expect(plugin.defaultSettings?.max_depth).toBe(2);
+			expect(
+				plugin
+					.toZodType({
+						...mintedField(plugin),
+						settings: plugin.defaultSettings ?? null,
+					})
+					.safeParse([
+						{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+					]).success,
+			).toBe(false);
 		});
 
 		it("seeds a fresh empty tree per form", () => {

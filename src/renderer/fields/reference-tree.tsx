@@ -222,12 +222,14 @@ export interface ReferenceTreeProps {
 	/** Hands the whole value back; the caller writes it to the form. */
 	onChange: (next: unknown[]) => void;
 	/**
-	 * The deepest depth a drop may land at, roots being 0.
+	 * The deepest depth a drop may land at, roots being 0. Absent leaves the
+	 * neighbours the only bound.
 	 *
-	 * Nothing fills this in yet: the `max_depth` setting that will is #66's,
-	 * along with every other cap. The seam is here because the projection
-	 * needs somewhere to take a ceiling from, not because this control has an
-	 * opinion about one.
+	 * A depth *index*, not a count of levels: the Reference Field fills it in
+	 * from its `max_depth` setting through `referenceDepthCeiling`, which is
+	 * where that conversion lives. Clamping here is a courtesy — the Field's
+	 * Schema is what actually refuses a tree that is too deep, including one
+	 * that arrived already too deep.
 	 */
 	depthCeiling?: number;
 }

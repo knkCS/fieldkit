@@ -132,6 +132,10 @@ export type { MediaSettings } from "./media";
 export type { NumberSettings } from "./number";
 export type { RadioSettings } from "./radio";
 export type { ReferencePluginOptions, ReferenceSettings } from "./reference";
+// How the two Reference caps are read — the one place that says an unset cap
+// is no cap, and the one place `max_depth`'s count of levels becomes the depth
+// index the tree model works in.
+export { referenceDepthCeiling, referenceItemCap } from "./reference";
 export type { RichTextSettings } from "./rich-text";
 export type { SelectSettings } from "./select";
 export type { SingleReferenceSettings } from "./single-reference";

@@ -3,6 +3,7 @@ import { Stack } from "@chakra-ui/react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { SettingsProps } from "../../schema/plugin";
 import { BlueprintPicker } from "./blueprint-picker";
+import { CapInput } from "./cap-input";
 import { PinModePicker } from "./pin-mode-picker";
 
 /**
@@ -20,6 +21,21 @@ export function ReferenceSettingsEditor({
 	field,
 	onChange,
 }: SettingsProps<ReferenceSettings>) {
+	/**
+	 * Writes a cap, or takes the key out altogether when it is cleared.
+	 *
+	 * Deleting rather than writing `undefined` is what keeps "no cap" and "a cap
+	 * of zero" apart all the way into stored JSON, where `undefined` does not
+	 * survive. It is the same shape the panel's validation tab uses for its own
+	 * numeric settings.
+	 */
+	function commitCap(key: "max_items" | "max_depth", cap: number | undefined) {
+		const next = { ...settings };
+		if (cap === undefined) delete next[key];
+		else next[key] = cap;
+		onChange(next);
+	}
+
 	return (
 		<Stack gap="4">
 			<BlueprintPicker
@@ -32,6 +48,27 @@ export function ReferenceSettingsEditor({
 				selectPlaceholder="Any blueprint"
 				idInputPlaceholder="Blueprint ids, comma separated"
 				idInputTestId="reference-blueprints-input"
+			/>
+			<CapInput
+				label="Maximum references"
+				helperText="Counts every reference, nested ones included. Leave empty for no limit."
+				value={settings?.max_items}
+				min={0}
+				placeholder="No limit"
+				onChange={(cap) => commitCap("max_items", cap)}
+				testId="reference-max-items-input"
+			/>
+			<CapInput
+				label="Maximum depth"
+				// `max_depth` counts levels, not the index of the deepest one —
+				// saying so here is the difference between a flat list and one
+				// level of nesting.
+				helperText="How many levels of references the tree may hold. 1 is a flat list; 2 allows one level of nesting. Leave empty for no limit."
+				value={settings?.max_depth}
+				min={1}
+				placeholder="No limit"
+				onChange={(cap) => commitCap("max_depth", cap)}
+				testId="reference-max-depth-input"
 			/>
 			<PinModePicker
 				label="Pin references to"
