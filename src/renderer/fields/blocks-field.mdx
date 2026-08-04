@@ -42,7 +42,7 @@ id, most obviously — and validation arriving is no reason to prune them.
 A block type that declares no fields keeps the opaque block it always had, as
 does `toZodType` called with a Field alone (no composer).
 
-> Every stored block of every existing Blocks field is now checked, so a spec
+> Every stored block of every existing Blocks field is now checked, so a Spec
 > whose blocks were never validated can begin blocking submit on data that was
 > already saved.
 
@@ -83,11 +83,12 @@ Renders the block count via `BlocksCell`.
 - A block type's fields live in `settings.allowed_blocks[].fields`, not in
   `children`, and only this plugin reaches into them. `resolveSpec()`,
   `validateSpec()` and `resolveMarkerConvention()` all walk `Field.children`
-  only, so a Fieldset declared inside a block type is never resolved — it
-  validates as the opaque record any unresolved Fieldset does, though the
-  renderer still self-resolves it for display — and a duplicate accessor
-  between two fields of one block type is never reported, the later one
-  winning the composed shape.
+  only (ADR-0007), so: a Fieldset declared inside a block type is never
+  resolved — it validates as the opaque record any unresolved Fieldset does,
+  though the renderer still self-resolves it for display — and no check
+  `validateSpec()` runs reaches these fields, so a duplicate accessor between
+  two of them is never reported (the later one wins the composed shape), and
+  neither is an empty name or an empty accessor.
 - No drag-to-reorder — uses arrow buttons for moving blocks up/down
 - No min/max block limits
 - No per-block-type limits (e.g., max 1 hero block)

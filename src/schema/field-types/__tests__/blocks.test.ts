@@ -206,6 +206,15 @@ describe("blocksPlugin", () => {
 			});
 		});
 
+		it("stays opaque where no types are allowed at all", () => {
+			// The branch that returns before any composing. Covered here through
+			// the Schema path, not just through a bare toZodType call.
+			expect(
+				schema([]).safeParse({ content: [{ _type: "anything", body: 1 }] })
+					.success,
+			).toBe(true);
+		});
+
 		it("stays an opaque block where the type declares no fields", () => {
 			expect(
 				schema([

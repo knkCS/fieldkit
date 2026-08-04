@@ -56,10 +56,10 @@ export function validateSpec(
 	// live in `settings` (e.g. allowed_blocks[].fields), not
 	// `Field.children`. Documented-by-design; resolveMarkerConvention and
 	// resolveSpec share the same boundary (see their docstrings). Those
-	// Fields DO reach a Schema, composed by the plugin that owns them
-	// (#59, ADR-0007) — so a duplicate accessor between two fields of one
-	// block type goes unreported here and the later one silently wins the
-	// composed shape. Composing is not walking; the boundary stands.
+	// Fields DO reach a Schema, composed by the plugin that owns them —
+	// composing is not walking, so none of the checks below see them and a
+	// duplicate accessor among a block type's fields goes unreported.
+	// ADR-0007 states the boundary and what it costs.
 	checkAccessors(fields, fieldErrors);
 	checkCardLayout(fields, fieldErrors);
 	for (const fe of fieldErrors) {
