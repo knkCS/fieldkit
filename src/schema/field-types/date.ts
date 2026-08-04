@@ -32,5 +32,5 @@ export const datePlugin: FieldTypePlugin<DateSettings> = {
 	},
 
 	defaultSettings: { enable_range: false },
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

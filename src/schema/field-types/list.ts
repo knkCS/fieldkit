@@ -41,5 +41,5 @@ export const listPlugin: FieldTypePlugin<ListSettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

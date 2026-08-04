@@ -119,6 +119,9 @@ describe("referencePlugin", () => {
 		expect(referencePlugin.defaultSettings).toEqual({
 			blueprints: [],
 			pin_mode: "none",
+			// And declaring no Attributes: a Reference that carries nothing about
+			// the pointing is the ordinary case.
+			attributes: [],
 		});
 	});
 

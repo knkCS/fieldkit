@@ -28,5 +28,5 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

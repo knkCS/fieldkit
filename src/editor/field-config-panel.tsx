@@ -36,6 +36,20 @@ export interface PanelSectionProps {
 	 * warning and the auto-slug latch baseline, NOT collision checking. */
 	committedAccessors: Set<string>;
 	labels: PanelLabels;
+	/**
+	 * Opens the panel's drill-in on a Field this Field's *settings* hold, under
+	 * `settingsKey`, keyed by that Field's Accessor.
+	 *
+	 * The key travels from the plugin's own settings editor rather than being
+	 * known here: the panel learns that some settings hold a list of Fields, and
+	 * never which setting of which Field type. That is ADR-0007's instinct at
+	 * the authoring surface — a plugin reaches into its own settings and nothing
+	 * else does.
+	 */
+	onDrillIn: (settingsKey: string, accessor: string) => void;
+	/** Every registered field type, for a settings editor that offers a type
+	 * picker of its own. Absent when the panel was given no registry. */
+	plugins?: FieldTypePlugin[];
 }
 
 /**
@@ -136,6 +150,17 @@ export interface FieldConfigPanelProps {
 	baselineAccessor: string;
 	/** T12's DEFAULT_EDITOR_LABELS supplies English defaults; tests pass their own. */
 	labels: PanelLabels;
+	/**
+	 * Every registered plugin, used only to resolve a DRILLED field's own type
+	 * — the top-level field's plugin still arrives as `plugin` above.
+	 *
+	 * Optional, and absent means what it always meant: a drilled child shows
+	 * "No additional settings" rather than risking the wrong type's settings UI.
+	 * A settings-nested Field needs the real thing — a `select` Attribute is
+	 * useless without its options — which is why the registry reaches here at
+	 * all.
+	 */
+	plugins?: FieldTypePlugin[];
 }
 
 /** The config panel's three tab ids (0.10.0 tabs redesign). Captions come
@@ -144,16 +169,57 @@ export interface FieldConfigPanelProps {
 type PanelTab = "general" | "validation" | "type-settings";
 
 /**
+ * Which list of Fields on a parent a drill frame stepped into: the parent's own
+ * `children`, or a `Field[]` its settings hold under a named key.
+ *
+ * A bare key, not a Field type's name. The panel learns only that *some*
+ * settings hold Fields; which setting of which type is the plugin's own
+ * business, and travels in from its settings editor when it asks for the
+ * drill-in. That keeps the same line ADR-0007 draws through the schema layer —
+ * a plugin reaches into its own settings, shared machinery does not — at the
+ * authoring surface where an Attribute Spec is written.
+ */
+type DrillHolder = { kind: "children" } | { kind: "settings"; key: string };
+
+const CHILDREN: DrillHolder = { kind: "children" };
+
+/** The Fields a frame's holder offers on `parent`. */
+function readHolder(parent: Field, holder: DrillHolder): Field[] {
+	if (holder.kind === "children") return parent.children ?? [];
+	const settings = parent.settings as Record<string, unknown> | null;
+	const held = settings?.[holder.key];
+	return Array.isArray(held) ? (held as Field[]) : [];
+}
+
+/** `parent` with its holder's Fields replaced — the write half of the above. */
+function writeHolder(
+	parent: Field,
+	holder: DrillHolder,
+	fields: Field[],
+): Field {
+	if (holder.kind === "children") return { ...parent, children: fields };
+	return {
+		...parent,
+		settings: {
+			...(parent.settings as Record<string, unknown> | null),
+			[holder.key]: fields,
+		},
+	};
+}
+
+/**
  * A single level of the drill-in path. `accessor` is the LIVE lookup key —
  * it follows renames (see the rename-follow logic in
  * `handleActiveFieldChange`) so `resolveChain` keeps resolving the drilled
  * child. `baselineAccessor` is captured ONCE, when the frame is pushed (the
  * child's accessor at that moment), and is never rewritten by a rename — it
  * is the frozen value the disconnect warning compares the live input against.
+ * `holder` says where on the parent the frame stepped into, and never changes.
  */
 interface DrillFrame {
 	accessor: string;
 	baselineAccessor: string;
+	holder: DrillHolder;
 }
 
 /** Walks `drillStack` (a path of child frames) down from the top-level
@@ -163,7 +229,7 @@ function resolveChain(field: Field, drillStack: DrillFrame[]): Field[] {
 	const chain: Field[] = [field];
 	for (const frame of drillStack) {
 		const parent = chain[chain.length - 1];
-		const found = parent.children?.find(
+		const found = readHolder(parent, frame.holder).find(
 			(c) => c.config.api_accessor === frame.accessor,
 		);
 		if (!found) break;
@@ -183,6 +249,7 @@ export function FieldConfigPanel({
 	committedAccessors,
 	baselineAccessor,
 	labels,
+	plugins,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 	// Panel-local active tab (spec Decision 3). General is the default; the
@@ -338,11 +405,16 @@ export function FieldConfigPanel({
 	// it's -1 at the top level; both consumers guard on that, and any new
 	// consumer must too (an unguarded -1 silently changes slice semantics).
 	const activeFrameIndex = chain.length - 2;
-	// Children don't have a resolvable plugin here (FieldConfigPanel only
-	// receives the top-level field's plugin, not a full registry) — v1
-	// minimal drill-in shows "No additional settings" for a child rather
-	// than risk rendering the wrong type's settings UI.
-	const activePlugin = chain.length === 1 ? plugin : undefined;
+	// The top-level field's plugin arrives as a prop; a drilled field's is
+	// looked up, and only when a registry was supplied. Without one this stays
+	// what it always was — "No additional settings" for a child, rather than
+	// risking the wrong type's settings UI. With one, a drilled Field gets its
+	// own settings editor, which is what a settings-nested Spec needs: a select
+	// Attribute is useless until someone can give it options.
+	const activePlugin =
+		chain.length === 1
+			? plugin
+			: plugins?.find((p) => p.id === activeField.field_type);
 
 	// The active tab RESETS to General whenever the panel starts showing a
 	// DIFFERENT field (spec Decision 3): selecting another top-level field,
@@ -396,15 +468,18 @@ export function FieldConfigPanel({
 		}
 		// Rebuild the tree bottom-up, replacing each level's edited child by
 		// its PRE-edit accessor (captured in `chain`) so a rename of the
-		// active child doesn't orphan it from its parent's children array.
+		// active child doesn't orphan it from its parent's list. Each level is
+		// read and written through ITS OWN frame's holder, so a Field drilled
+		// into out of settings is put back into settings.
 		let rebuilt = next;
 		for (let i = chain.length - 2; i >= 0; i--) {
 			const parent = chain[i];
+			const holder = drillStack[i].holder;
 			const oldChildAccessor = chain[i + 1].config.api_accessor;
-			const children = (parent.children ?? []).map((c) =>
+			const siblings = readHolder(parent, holder).map((c) =>
 				c.config.api_accessor === oldChildAccessor ? rebuilt : c,
 			);
-			rebuilt = { ...parent, children };
+			rebuilt = writeHolder(parent, holder, siblings);
 		}
 		onFieldChange(rebuilt);
 	}
@@ -435,11 +510,30 @@ export function FieldConfigPanel({
 	// competes with its siblings inside the parent group. The active field's
 	// own current accessor is excluded (re-typing it is a no-op, not a clash).
 	const collisionPool =
-		chain.length === 1 ? draft : (chain[chain.length - 2].children ?? []);
+		chain.length === 1
+			? draft
+			: readHolder(
+					chain[chain.length - 2],
+					drillStack[activeFrameIndex].holder,
+				);
 	const takenAccessors = new Set(
 		collisionPool.map((f) => f.config.api_accessor),
 	);
 	takenAccessors.delete(activeField.config.api_accessor);
+
+	/** Pushes a frame onto a Field list one of the ACTIVE field's settings
+	 * holds. `baselineAccessor` is frozen here, exactly as the group children
+	 * list freezes it — see DrillFrame. */
+	function drillIntoSettings(settingsKey: string, accessor: string) {
+		setDrillStack((s) => [
+			...s,
+			{
+				accessor,
+				baselineAccessor: accessor,
+				holder: { kind: "settings", key: settingsKey },
+			},
+		]);
+	}
 
 	const sectionProps: PanelSectionProps = {
 		field: activeField,
@@ -449,6 +543,8 @@ export function FieldConfigPanel({
 		takenAccessors,
 		committedAccessors,
 		labels,
+		onDrillIn: drillIntoSettings,
+		plugins,
 	};
 
 	const children = activeField.children ?? [];
@@ -684,6 +780,7 @@ export function FieldConfigPanel({
 															{
 																accessor: child.config.api_accessor,
 																baselineAccessor: child.config.api_accessor,
+																holder: CHILDREN,
 															},
 														])
 													}

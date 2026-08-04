@@ -2,6 +2,7 @@
 import { Stack } from "@chakra-ui/react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { SettingsProps } from "../../schema/plugin";
+import { AttributeSpecEditor } from "./attribute-spec-editor";
 import { BlueprintPicker } from "./blueprint-picker";
 import { PinModePicker } from "./pin-mode-picker";
 
@@ -19,6 +20,8 @@ export function ReferenceSettingsEditor({
 	settings,
 	field,
 	onChange,
+	onDrillIn,
+	plugins,
 }: SettingsProps<ReferenceSettings>) {
 	return (
 		<Stack gap="4">
@@ -39,6 +42,12 @@ export function ReferenceSettingsEditor({
 				// existed shows the mode it actually behaves as.
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
+			/>
+			<AttributeSpecEditor
+				attributes={settings?.attributes ?? []}
+				onChange={(attributes) => onChange({ ...settings, attributes })}
+				plugins={plugins}
+				onDrillIn={onDrillIn}
 			/>
 		</Stack>
 	);

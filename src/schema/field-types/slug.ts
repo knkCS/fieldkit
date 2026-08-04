@@ -35,5 +35,5 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

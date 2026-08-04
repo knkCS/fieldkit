@@ -26,5 +26,5 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 	},
 
 	defaultSettings: { view_mode: "full" },
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

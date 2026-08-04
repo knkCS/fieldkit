@@ -34,5 +34,5 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

@@ -11,6 +11,7 @@ import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
+import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import { ReferenceTree } from "./reference-tree";
 
@@ -41,10 +42,22 @@ export function ReferenceField({
 	const adapter = adapters.reference;
 
 	const [picking, setPicking] = useState(false);
+	// Which Reference's Attributes are open, by where it sits in the stored
+	// value — never the row object, which is rebuilt on every keystroke inside
+	// the drawer. The name is carried along because it is the drawer's title
+	// and resolving it again would be a second chance to disagree.
+	const [filling, setFilling] = useState<{
+		path: number[];
+		name: string;
+	} | null>(null);
 
 	// A Consumer's settings object is a fresh literal on every render, and the
 	// drawer's search effect must not churn with it.
 	const blueprints = useStableValue(settings?.blueprints ?? []);
+
+	// The Attribute Spec, on the same terms: `NestedItemFields` memoizes the
+	// remapped Spec by identity, so a fresh array per render would defeat it.
+	const attributeSpec = useStableValue(settings?.attributes ?? []);
 
 	// One read of the stored value, used both to render and to mutate: two
 	// reads of the same array is two chances for them to disagree.
@@ -114,6 +127,13 @@ export function ReferenceField({
 							names={names}
 							readOnly={readOnly}
 							onChange={formField.onChange}
+							attributeSpec={attributeSpec}
+							onOpenAttributes={(row) =>
+								setFilling({
+									path: row.path,
+									name: names[row.reference.id] ?? row.reference.id,
+								})
+							}
 						/>
 
 						{!readOnly && (
@@ -138,6 +158,22 @@ export function ReferenceField({
 								// The one thing that decides whether adding is one
 								// step or two.
 								pinMode={settings?.pin_mode}
+							/>
+						)}
+
+						{filling && (
+							// Keyed by the path, so switching Reference mounts a fresh
+							// drawer rather than one still registered under the last
+							// Reference's Attributes.
+							<ReferenceAttributesDrawer
+								key={filling.path.join(".")}
+								open
+								onClose={() => setFilling(null)}
+								spec={attributeSpec}
+								accessor={accessor}
+								path={filling.path}
+								name={filling.name}
+								readOnly={readOnly}
 							/>
 						)}
 					</Box>
