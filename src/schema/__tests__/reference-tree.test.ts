@@ -220,6 +220,9 @@ describe("projectDropDepth — the dragged branch", () => {
 	const pruned = [row("a", 0, 1), row("b", 0)];
 
 	it("reads the same whether the caller prunes the branch or renders it", () => {
+		// Dragged to the bottom and rightwards: a lands under b, and b's own
+		// depth is what says how far under.
+		const underB = { depth: 1, minDepth: 0, maxDepth: 1 };
 		expect(
 			projectDropDepth({
 				items: withBranch,
@@ -228,7 +231,8 @@ describe("projectDropDepth — the dragged branch", () => {
 				offsetX: 1000,
 				indentWidth: INDENT,
 			}),
-		).toEqual(
+		).toEqual(underB);
+		expect(
 			projectDropDepth({
 				items: pruned,
 				activeIndex: 0,
@@ -236,7 +240,7 @@ describe("projectDropDepth — the dragged branch", () => {
 				offsetX: 1000,
 				indentWidth: INDENT,
 			}),
-		);
+		).toEqual(underB);
 	});
 
 	it("never offers a Reference a place inside its own branch", () => {
