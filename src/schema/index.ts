@@ -98,6 +98,8 @@ export type {
 	FieldProps,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	ReadProps,
+	RenderReadValue,
 	SettingsProps,
 } from "./plugin";
 // The Reference value shape

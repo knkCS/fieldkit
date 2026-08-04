@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { fieldsetPlugin } from "../../../schema/field-types/fieldset";
+import { groupPlugin } from "../../../schema/field-types/group";
 import { listPlugin } from "../../../schema/field-types/list";
 import type { FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
@@ -72,24 +73,13 @@ describe("SpecForm — read mode", () => {
 	});
 
 	it("renders group items as per-item rows, not the group's cell component", () => {
-		// Mirrors production: the group plugin ships a cellComponent (GroupCell →
-		// CountCell, "N items") for table density. Read mode must bypass it and
-		// show the actual per-item rows instead.
-		const groupPlugins = [
-			...testPlugins,
-			{
-				id: "group",
-				name: "Group",
-				description: "",
-				icon: () => null,
-				category: "structural" as const,
-				fieldComponent: () => null,
-				cellComponent: ({ value }: { value: unknown }) => (
-					<span>{Array.isArray(value) ? value.length : 0} items</span>
-				),
-				toZodType: () => z.array(z.record(z.unknown())),
-			},
-		];
+		// The real plugin, not a stub: read mode's bypass now travels with the
+		// plugin as its `readComponent` (ADR-0007) rather than being a
+		// `field_type === "group"` branch in shared machinery, so a stub
+		// registered under the id would prove nothing about production. The
+		// group plugin ships a cellComponent (GroupCell → CountCell, "N items")
+		// for table density; read mode must show the per-item rows instead.
+		const groupPlugins = [...testPlugins, groupPlugin];
 		const hiddenChild = makeField("secret", "Secret");
 		hiddenChild.config.hidden = true;
 		const groupField: Field = {
