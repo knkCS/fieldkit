@@ -30,5 +30,5 @@ export const colorPlugin: FieldTypePlugin<ColorSettings> = {
 	},
 
 	defaultSettings: { default_color: "#000000" },
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

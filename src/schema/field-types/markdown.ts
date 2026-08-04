@@ -41,5 +41,5 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

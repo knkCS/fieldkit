@@ -11,7 +11,7 @@ A **Reference Tree**: References to other Contents, ordered and nested. Each row
 
 Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items" — and when the arrangement of those links is itself meaningful. For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
 
-Per-Reference attributes arrive in a later ticket.
+Each Reference can also carry **Attributes** — values about the pointing itself rather than about either Content, such as the page a citation appears on. See [Attributes](#attributes).
 
 ## The Tree
 
@@ -38,7 +38,7 @@ Reference[]
 interface Reference {
   id: string                            // the referenced Content
   pin?: string | null                   // the Pin's target id; absent = newest Version
-  attributes?: Record<string, unknown>  // later ticket
+  attributes?: Record<string, unknown>  // keyed by the Attribute's accessor
   children?: Reference[]                // the branch under this Reference
 }
 ```
@@ -59,8 +59,37 @@ A display name is **never stored**. Names are resolved through the adapter on ev
 | `max_items`  | `number`                           | —        | A cap over the whole tree — a nested child counts as much as a root. Declared, not yet enforced |
 | `max_depth`  | `number`                           | —        | The deepest a Reference may sit, roots being zero. Declared, not yet enforced |
 | `pin_mode`   | `"none" \| "release" \| "version"` | `"none"` | Whether References are fixed to a release, to a version, or track the newest version. Absent reads as `"none"` |
+| `attributes` | `Field[]`                          | `[]`     | The Attribute Spec — the Fields every Reference carries about the pointing. See [Attributes](#attributes) |
 
 The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
+
+## Attributes
+
+An **Attribute** is a value a Reference carries about the *pointing* — the page a citation appears on, the role a credit names — not about either Content. An Author declares them once per field, as a Spec of ordinary Fields, so "page" can be a number and "role" a select and either can be required. Someone filling in the form opens a drawer per Reference and fills them in with real controls.
+
+Values are stored **keyed by Accessor** on the Reference itself, which is what makes them survive: moving a Reference moves its whole entry, Attributes included, so nothing has to keep a parallel structure in step. In knkCMS core these are bare strings positionally aligned to a settings array.
+
+Each row shows a **filled count** — `1/2` — so it is visible at a glance which References still need attention. The count is over exactly what the Schema composes: a hidden Attribute, a value-less Marker a hand-written Spec slipped in, and an entry that is not a Field at all are none of them counted, asked for, or composed — a stray costs itself and nothing else. A key left behind by an Attribute since deleted is not counted either. `false` and `0` count as filled: they are what an unchecked box and a zero page number are, and the count must not disagree with the Schema about whether a required Attribute is satisfied. A field declaring no Attributes shows no affordance at all.
+
+### Authoring them
+
+The Attribute Spec is authored in the config panel's **Type settings** tab. Adding one is the ordinary type picker; configuring one is the panel's incumbent **drill-in** — the same Back control, the same three tabs, the same accessor gate a group's child gets. There is no separate nested editor.
+
+The picker offers strictly less than the canvas does, through a new `FieldContext` value, `"attribute"`:
+
+- **no Markers** — a drawer has no Tab and no Card for a Section or a Card to open;
+- **no containers** — `group`, `fieldset` and `blocks` would be composed but never checked (see the boundary below);
+- **no reference types** — cycle rejection walks `children`, so a Reference Field declared as an Attribute is a recursion nothing would catch.
+
+### The settings-nested boundary (ADR-0007)
+
+The Attribute Spec lives in `settings.attributes`, following the Blocks precedent, and inherits ADR-0007's boundary **verbatim**. `resolveSpec()`, `validateSpec()` and `resolveMarkerConvention()` walk `Field.children` only, so nothing shared reaches an Attribute Field. Concretely:
+
+- a **duplicate accessor** between two Attributes is never reported — the later one silently wins the composed shape (the editor generates unique accessors, so only a hand-written Spec can produce one);
+- an **empty name** and an **empty accessor** are never reported either;
+- a **Fieldset** declared as an Attribute is never resolved, and composes as the opaque record any unresolved Fieldset does — which is why the picker does not offer one.
+
+The reference plugin composes the Spec itself, exactly as the Blocks plugin composes a block type's fields. Composing is not walking, so the boundary is unmoved. `src/schema/reference-attributes.ts` is where this is written down.
 
 ## Pinning, and the drawer's second step
 
@@ -121,16 +150,27 @@ Both methods are **optional**. Without them the picker degrades to a search box 
 | `required`  | At least one Reference                                    |
 | per item    | Each entry must be a Reference — an object with a non-empty `id` |
 | per branch  | A nested Reference is held to the same rules as a root one |
+| per Attribute | Each declared Attribute is checked as the type it is; a required one blocks submit and reports at its own key under the Reference that owns it |
 
 ```ts
 // Optional
-z.array(referenceTreeSchema)
+z.array(referenceTreeSchemaWith(attributes))
 
 // Required
-z.array(referenceTreeSchema).min(1, "Related articles is required")
+z.array(referenceTreeSchemaWith(attributes)).min(1, "Related articles is required")
 ```
 
-`referenceTreeSchema` is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list.
+The node schema is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list. The recursion is also what puts the Attribute Spec on every Reference at every level.
+
+`attributes` is the Attribute Spec composed through the plugin's `composeChildren` argument (ADR-0007), and takes one of three shapes:
+
+- **no Attribute declared** — the opaque `Record<string, unknown>` ADR-0008 declares, unchanged from before Attributes existed;
+- **no required Attribute** — the composed object, optional and `passthrough`, so a Reference carrying nothing stores no `attributes` key at all;
+- **a required Attribute** — the same object with a `{}` default, so a Reference added before the Attribute was declared cannot slip past the check.
+
+`passthrough` throughout, as both container types do: a stored record carries keys the Spec no longer declares, and validation arriving is no reason to prune an Author's data. A required Attribute reports at `related.0.attributes.role` — under the Reference that is missing it — and at `related.0.children.0.attributes.role` for a nested one.
+
+The blast radius mirrors ADR-0007's: declaring a required Attribute starts checking every stored Reference of that field, so data that saved successfully before can begin blocking submit.
 
 `max_items` and `max_depth` are not in the Schema yet — see Settings above.
 
@@ -172,7 +212,10 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 - `max_items` and `max_depth` are declared but not enforced — neither the Schema nor the drag clamps to them yet.
 - The drawer always adds at the root; a new Reference is nested by dragging it.
-- No per-Reference attributes yet.
+- An Attribute is checked by the Schema but nothing shared validates the Attribute *Spec* — a hand-written duplicate accessor among Attributes goes unreported (ADR-0007, above).
+- `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — an Attribute of one of those types needs its `settings.options` hand-authored. Not specific to Attributes.
+- Attributes are not reorderable in the settings list; they render in declaration order.
+- The row's filled count does not say which Attribute is *invalid*, only how many are filled.
 - A stored pin is not shown on the row; it is chosen when the Reference is added and changed by removing and re-adding it.
 - Read mode shows the count from the cell rather than a resolved tree.
 - The browse drawer's page size is fixed at 10.
@@ -237,3 +280,9 @@ No blueprints configured: the adapter decides what may be referenced.
 ### Read Only
 
 <Canvas of={Stories.ReadOnly} />
+
+### With Attributes
+
+Two Attributes — a number and a required select. Each row shows its filled count; the button opens the drawer.
+
+<Canvas of={Stories.WithAttributes} />

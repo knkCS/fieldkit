@@ -348,6 +348,24 @@ export interface ReferenceRow extends FlatReference {
 }
 
 /**
+ * A row's index path as the dotted name the stored value takes in a form —
+ * `[1, 0]` reads `1.children.0`, so under a Field's Accessor it addresses
+ * exactly the entry the path came from.
+ *
+ * It lives with `path` rather than in the control that uses it because it is
+ * the same fact: where in the *value* a row sits. A form path is only that
+ * fact spelled the way React Hook Form asks for it, and getting the two out of
+ * step would write one Reference's Attributes onto another.
+ */
+export function referenceRowPath(path: readonly number[]): string {
+	return path
+		.map((index, level) =>
+			level === 0 ? String(index) : `children.${String(index)}`,
+		)
+		.join(".");
+}
+
+/**
  * Reads a stored value as a Reference Tree's rows, top to bottom, dropping
  * anything that is not a Reference at any level.
  *

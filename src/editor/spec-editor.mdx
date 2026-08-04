@@ -350,7 +350,14 @@ instructions, required, default value, hidden/read-only/localizable, and —
 `group` fields only — a read-only Children list with per-row Edit buttons
 that drill the panel into a child, with a Back control), **Validation**
 (min/max length, pattern + message, unique), and **Type settings** (the
-plugin's own settings UI). Panel order, top to bottom: Back row (drill-in
+plugin's own settings UI). A settings UI holding a **Spec of its own** — a
+Reference Field's Attribute Spec is the one built-in case — drills into it
+through that **same** Back-and-frames mechanism rather than a nested editor
+of its own: it calls `onDrillIn(settingsKey, accessor)` from
+`SettingsProps`, and the panel never learns which setting of which field
+type holds Fields. A drilled field resolves its **own** plugin's settings
+UI when `SpecEditor` supplied the registry (it always does), so a drilled
+child is no longer limited to "No additional settings". Panel order, top to bottom: Back row (drill-in
 only) → header (name/type/close) → duplicate-accessor banner (above the
 strip — visible from ANY tab) → tab strip → tab body. The active tab is
 panel-local state: General is the default, and the panel RESETS to General

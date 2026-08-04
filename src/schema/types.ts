@@ -42,3 +42,22 @@ export interface Field<T = unknown> {
 
 /** A specification is an array of field definitions. */
 export type Schema = Field[];
+
+/**
+ * Whether a value is a Field.
+ *
+ * Needed wherever a list of Fields arrives from outside the type system —
+ * a Spec nested in settings, which nothing shared validates (ADR-0007), and a
+ * hand-authored Spec generally. Reading `config.api_accessor` off a string
+ * throws, and one stray entry must cost that entry, never the surface
+ * rendering it.
+ */
+export function isField(value: unknown): value is Field {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		typeof (value as Field).field_type === "string" &&
+		typeof (value as Field).config?.api_accessor === "string"
+	);
+}

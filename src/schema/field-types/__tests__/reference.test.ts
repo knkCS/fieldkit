@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { FieldTypePlugin } from "../../plugin";
 import type { Field } from "../../types";
 import { validateSpec } from "../../validate-spec";
+import { specToZodSchema } from "../../zod-builder";
+import { builtInFieldTypes } from "../index";
 import type { ReferencePluginOptions, ReferenceSettings } from "../reference";
 import { createReferencePlugin, referencePlugin } from "../reference";
 
@@ -122,6 +124,9 @@ describe("referencePlugin", () => {
 		expect(referencePlugin.defaultSettings).toEqual({
 			blueprints: [],
 			pin_mode: "none",
+			// And declaring no Attributes: a Reference that carries nothing about
+			// the pointing is the ordinary case.
+			attributes: [],
 		});
 	});
 
@@ -212,6 +217,7 @@ describe("createReferencePlugin", () => {
 			expect(plugin.defaultSettings).toEqual({
 				blueprints: [],
 				pin_mode: "none",
+				attributes: [],
 				max_depth: 3,
 			});
 		});
@@ -259,6 +265,37 @@ describe("createReferencePlugin", () => {
 
 			expect(() => schema.parse([])).toThrow(/Table of contents is required/);
 			expect(schema.parse([{ id: "a" }])).toEqual([{ id: "a" }]);
+		});
+
+		it("composes a minted type's own Attribute Spec", () => {
+			// The factory's promise: a Consumer's reference-shaped type cannot
+			// drift from `reference` without the drift being deliberate — so an
+			// Attribute declared on one is checked on the same terms (ADR-0007).
+			const plugin = tocReference();
+			const field = mintedField(plugin);
+			field.settings = {
+				attributes: [
+					{
+						field_type: "number",
+						config: {
+							name: "Page",
+							api_accessor: "page",
+							required: true,
+							instructions: "",
+						},
+						settings: null,
+						children: null,
+						system: false,
+					},
+				],
+			};
+			const schema = specToZodSchema([field], [...builtInFieldTypes, plugin]);
+
+			expect(schema.safeParse({ toc: [{ id: "a" }] }).success).toBe(false);
+			expect(
+				schema.safeParse({ toc: [{ id: "a", attributes: { page: 3 } }] })
+					.success,
+			).toBe(true);
 		});
 
 		it("seeds a fresh empty tree per form", () => {

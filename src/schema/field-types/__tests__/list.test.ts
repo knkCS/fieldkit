@@ -82,6 +82,13 @@ describe("listPlugin", () => {
 	});
 
 	it("is available in every field context", () => {
-		expect(listPlugin.availableIn).toEqual(["blueprint", "task", "form"]);
+		expect(listPlugin.availableIn).toEqual([
+			"blueprint",
+			"task",
+			"form",
+			// A List holds free text and no child Fields, so it is as available
+			// inside a Reference's Attribute drawer as anywhere else.
+			"attribute",
+		]);
 	});
 });
