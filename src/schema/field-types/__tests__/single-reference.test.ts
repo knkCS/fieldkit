@@ -96,6 +96,24 @@ describe("singleReferencePlugin", () => {
 		);
 	});
 
+	it("reports the same way when the key is missing altogether", () => {
+		const schema = specToZodSchema(
+			[singleReferenceField({ required: true })],
+			builtInFieldTypes,
+		);
+
+		// A partial payload — a Consumer submitting only what changed — must
+		// still get the Field's own message, not Zod's bare "Required".
+		const parsed = schema.safeParse({});
+		expect(parsed.success).toBe(false);
+		expect(parsed.success === false && parsed.error.issues[0].path).toEqual([
+			"primary_article",
+		]);
+		expect(parsed.success === false && parsed.error.issues[0].message).toBe(
+			"Primary article is required",
+		);
+	});
+
 	it("lets an optional Single Reference stay empty", () => {
 		const schema = specToZodSchema([singleReferenceField()], builtInFieldTypes);
 

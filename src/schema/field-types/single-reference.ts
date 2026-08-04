@@ -36,10 +36,12 @@ export const singleReferencePlugin: FieldTypePlugin<SingleReferenceSettings> = {
 		const schema = referenceValueSchema.nullable();
 		if (!field.config.required) return schema;
 
-		// `refine` over a non-nullable object, so an empty Field reports the
-		// Field's own name at the Field's own path instead of Zod's
-		// "expected object, received null".
-		return schema.refine((value) => value !== null, {
+		// `refine` over a schema that accepts both ways of being empty, rather
+		// than rejecting them in the type: an empty Field then reports the
+		// Field's own name at the Field's own path, instead of Zod's "expected
+		// object, received null" for an explicit `null` or a bare "Required"
+		// for a payload that omits the key altogether.
+		return schema.optional().refine((value) => value != null, {
 			message: `${field.config.name} is required`,
 		});
 	},

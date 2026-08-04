@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFieldKit } from "../provider";
+import { useAdapterErrorReporter } from "./use-adapter-error-reporter";
 
 /**
  * The current display name of one referenced Content, resolved through the
@@ -19,9 +20,10 @@ export function useResolvedContentName(
 	id: string | null,
 	fieldId: string,
 ): string | null {
-	const { adapters, onError } = useFieldKit();
+	const { adapters } = useFieldKit();
 	const adapter = adapters.reference;
 	const [name, setName] = useState<string | null>(null);
+	const report = useAdapterErrorReporter(fieldId, "Reference adapter failed");
 
 	useEffect(() => {
 		if (!adapter || !id) {
@@ -38,19 +40,12 @@ export function useResolvedContentName(
 			.catch((error: unknown) => {
 				if (cancelled) return;
 				setName(null);
-				// The Consumer's own error channel, not the console: an Adapter
-				// failure is theirs to surface, reported against the Field it
-				// degrades. Without a configured `onError` it still reaches the
-				// console, so the degrade is never silent.
-				const wrapped =
-					error instanceof Error ? error : new Error(String(error));
-				if (onError) onError(wrapped, fieldId);
-				else console.error("Reference adapter failed:", wrapped);
+				report(error);
 			});
 		return () => {
 			cancelled = true;
 		};
-	}, [adapter, id, onError, fieldId]);
+	}, [adapter, id, report]);
 
 	return name;
 }

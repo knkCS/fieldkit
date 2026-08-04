@@ -72,9 +72,10 @@ configured".
 |------------|-----------|--------------------------------------------------------|
 | `required` | `boolean` | When true, an empty field blocks submit and reports at its own path |
 
-The generated Schema is the only source of truth for emptiness: the control
-suppresses the browser's native required check so a Consumer sees the field's
-own message rather than a browser bubble.
+Like every fieldkit field component, a required Single Reference renders the
+native `required` attribute, so a Consumer's `<form>` must carry `noValidate`
+for the Schema's message to reach the field instead of a browser bubble (see
+`docs/react-hook-form-reference.md`).
 
 ## Table Cell and Read Mode
 

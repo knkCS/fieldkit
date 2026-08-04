@@ -11,8 +11,11 @@ import { FieldKitProvider } from "../../renderer/provider";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import { singleReferencePlugin } from "../../schema/field-types/single-reference";
+import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
 import { SingleReferenceSettingsEditor } from "../field-settings/single-reference-settings";
+import { SettingsSection } from "../panel-sections/settings-section";
+import { DEFAULT_EDITOR_LABELS } from "../spec-editor";
 import { TypePicker } from "../type-picker";
 
 const BLUEPRINTS: BlueprintSummary[] = [
@@ -210,9 +213,23 @@ describe("single_reference in the type picker", () => {
 		expect(onSelect).toHaveBeenCalledWith("single_reference");
 	});
 
-	it("carries the settings editor the config panel mounts", () => {
-		expect(singleReferencePlugin.settingsComponent).toBe(
-			SingleReferenceSettingsEditor,
+	it("offers its Blueprints setting in the config panel's Type settings tab", () => {
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
+					<SettingsSection
+						field={FIELD as Field}
+						plugin={singleReferencePlugin as FieldTypePlugin}
+						onFieldChange={vi.fn()}
+						accessorError={null}
+						takenAccessors={new Set()}
+						committedAccessors={new Set()}
+						labels={DEFAULT_EDITOR_LABELS}
+					/>
+				</FieldKitProvider>
+			</ChakraProvider>,
 		);
+
+		expect(screen.getByLabelText(/Blueprints/)).toBeInTheDocument();
 	});
 });

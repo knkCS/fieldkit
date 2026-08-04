@@ -138,7 +138,11 @@ function ReadValue({
 
 	// Single References bypass their cellComponent for the same reason Groups
 	// do: the cell is table-density (an id, because a cell cannot resolve a
-	// name), read mode shows the Content's actual name.
+	// name), read mode shows the Content's actual name. Following the Group
+	// precedent is the design decision #61 took for the Reference types
+	// rather than minting a plugin-level read component — note that this is
+	// now the second name this shared machinery knows, which ADR-0007's "shared
+	// machinery does not learn Field type names" is the argument against.
 	if (field.field_type === "single_reference") {
 		return <SingleReferenceReadValue field={field} value={value} />;
 	}

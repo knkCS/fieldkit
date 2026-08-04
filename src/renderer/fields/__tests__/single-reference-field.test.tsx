@@ -83,7 +83,14 @@ function renderField({
 					onError={onError}
 				>
 					<FormProvider {...methods}>
-						<form onSubmit={methods.handleSubmit((data) => submitted(data))}>
+						{/* `noValidate`, as every Consumer's form must be: field
+						    components render the native `required` attribute, and
+						    the browser would otherwise block the submit before
+						    React Hook Form saw it (docs/react-hook-form-reference.md). */}
+						<form
+							noValidate
+							onSubmit={methods.handleSubmit((data) => submitted(data))}
+						>
 							<FieldComponent field={field} readOnly={readOnly} />
 							<StoredValue />
 							<button type="submit">Save</button>

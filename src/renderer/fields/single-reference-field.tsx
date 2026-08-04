@@ -1,11 +1,12 @@
 import { Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
 import { FormField } from "@knkcs/anker/forms";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { Reference } from "../../schema/reference";
+import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useFieldKit } from "../provider";
 
@@ -33,7 +34,7 @@ export function SingleReferenceField({
 	field,
 	readOnly,
 }: FieldProps<SingleReferenceSettings>) {
-	const { adapters, onError } = useFieldKit();
+	const { adapters } = useFieldKit();
 	const { config, settings } = field;
 	const accessor = config.api_accessor;
 	const adapter = adapters.reference;
@@ -63,18 +64,7 @@ export function SingleReferenceField({
 	// vanishing, and the stored value is never rewritten.
 	const resolvedName = useResolvedContentName(selectedId, accessor);
 
-	// The Consumer's own error channel, not the console: an Adapter failure is
-	// theirs to surface, reported against the Field it degrades. Without a
-	// configured `onError` it still reaches the console, so the degrade is
-	// never silent.
-	const report = useCallback(
-		(error: unknown) => {
-			const wrapped = error instanceof Error ? error : new Error(String(error));
-			if (onError) onError(wrapped, accessor);
-			else console.error("Reference adapter failed:", wrapped);
-		},
-		[onError, accessor],
-	);
+	const report = useAdapterErrorReporter(accessor, "Reference adapter failed");
 
 	// Search only while the menu is open: a form can hold many Reference
 	// Fields, and none of them should call the Adapter until someone looks.
@@ -144,18 +134,14 @@ export function SingleReferenceField({
 					// the label names react-select's input.
 					inputId={accessor}
 					aria-describedby={formField["aria-describedby"]}
-					// chakra-react-select otherwise reads `required` off the
-					// surrounding Field and mounts a hidden required input, which
-					// makes the browser block submit before React Hook Form ever
-					// validates. The generated Schema is the one source of truth
-					// for whether this Field may be empty, exactly as it is for
-					// every other field type.
-					required={false}
 					options={options}
 					value={selected}
-					// BaseSelect has no read-only mode of its own — a composite
-					// widget cannot be typed into and left focusable in a useful
-					// way — so read mode disables it.
+					// CLAUDE.md says to pass `readOnly`, not `disabled`, because
+					// anker styles them differently. anker's `BaseSelect` exposes
+					// only `disabled` (`BaseSelectProps`), so this is the one way
+					// to stop a read-mode control being changed. The surrounding
+					// `FormField` still gets `readOnly`, so the label and helper
+					// text keep read-mode styling.
 					disabled={readOnly}
 					loading={searching}
 					filterOption={null}
