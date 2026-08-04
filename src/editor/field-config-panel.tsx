@@ -6,6 +6,7 @@ import { ChevronLeft, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
+import { isField } from "../schema/types";
 import type { SpecFieldError } from "../schema/validate-spec";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
@@ -183,12 +184,17 @@ type DrillHolder = { kind: "children" } | { kind: "settings"; key: string };
 
 const CHILDREN: DrillHolder = { kind: "children" };
 
-/** The Fields a frame's holder offers on `parent`. */
+/** The Fields a frame's holder offers on `parent`.
+ *
+ * Filtered by `isField`, because a settings key names whatever the plugin says
+ * it names: `blueprints` is a `string[]`, and a hand-written Attribute Spec may
+ * hold anything at all. A key that resolves to something else must resolve to
+ * nothing, never take the panel down. */
 function readHolder(parent: Field, holder: DrillHolder): Field[] {
 	if (holder.kind === "children") return parent.children ?? [];
 	const settings = parent.settings as Record<string, unknown> | null;
 	const held = settings?.[holder.key];
-	return Array.isArray(held) ? (held as Field[]) : [];
+	return Array.isArray(held) ? held.filter(isField) : [];
 }
 
 /** `parent` with its holder's Fields replaced — the write half of the above. */

@@ -9,7 +9,7 @@ export interface ReferenceAttributesDrawerProps {
 	open: boolean;
 	onClose: () => void;
 	/** The Attribute Spec this Field declares. */
-	spec: Field[];
+	attributeSpec: Field[];
 	/** The Reference Field's own Accessor. */
 	accessor: string;
 	/** Index path of the Reference being filled in — a row's `path`. */
@@ -42,25 +42,27 @@ export interface ReferenceAttributesDrawerProps {
 export function ReferenceAttributesDrawer({
 	open,
 	onClose,
-	spec,
+	attributeSpec,
 	accessor,
 	path,
 	name,
 	readOnly,
 }: ReferenceAttributesDrawerProps) {
-	const attributes = declaredAttributes(spec);
+	// Only what an Author is actually being asked for — the same skip the shared
+	// builder makes, so the drawer and the row's count cannot disagree.
+	const asked = declaredAttributes(attributeSpec);
 	const prefix = `${accessor}.${referenceRowPath(path)}.attributes`;
 
 	return (
 		<DrawerRoot open={open} onClose={onClose} title={name} closeLabel="Done">
 			<Stack gap="4" data-testid="reference-attributes-drawer">
-				{attributes.length === 0 ? (
+				{asked.length === 0 ? (
 					<Text fontSize="sm" color="fg.muted">
 						This field declares no attributes.
 					</Text>
 				) : (
 					<NestedItemFields
-						childFields={attributes}
+						childFields={asked}
 						// No `index`: the record is nested directly under this
 						// Reference's own path, the way a Fieldset's one record is —
 						// there is nothing repeating here to number.

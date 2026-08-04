@@ -69,7 +69,7 @@ An **Attribute** is a value a Reference carries about the *pointing* — the pag
 
 Values are stored **keyed by Accessor** on the Reference itself, which is what makes them survive: moving a Reference moves its whole entry, Attributes included, so nothing has to keep a parallel structure in step. In knkCMS core these are bare strings positionally aligned to a settings array.
 
-Each row shows a **filled count** — `1/2` — so it is visible at a glance which References still need attention. A hidden Attribute is neither counted nor asked for, and a key left behind by an Attribute since deleted is not counted either. `false` and `0` count as filled: they are what an unchecked box and a zero page number are, and the count must not disagree with the Schema about whether a required Attribute is satisfied. A field declaring no Attributes shows no affordance at all.
+Each row shows a **filled count** — `1/2` — so it is visible at a glance which References still need attention. The count is over exactly what the Schema composes: a hidden Attribute, a value-less Marker a hand-written Spec slipped in, and an entry that is not a Field at all are none of them counted, asked for, or composed — a stray costs itself and nothing else. A key left behind by an Attribute since deleted is not counted either. `false` and `0` count as filled: they are what an unchecked box and a zero page number are, and the count must not disagree with the Schema about whether a required Attribute is satisfied. A field declaring no Attributes shows no affordance at all.
 
 ### Authoring them
 

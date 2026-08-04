@@ -169,7 +169,7 @@ export function ReferenceField({
 								key={filling.path.join(".")}
 								open
 								onClose={() => setFilling(null)}
-								spec={attributeSpec}
+								attributeSpec={attributeSpec}
 								accessor={accessor}
 								path={filling.path}
 								name={filling.name}

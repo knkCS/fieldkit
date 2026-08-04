@@ -32,16 +32,31 @@
 import { type ZodTypeAny, z } from "zod";
 import type { ComposeChildrenSchema } from "./plugin";
 import type { Field } from "./types";
+import { isField } from "./types";
+import { fieldProducesValue } from "./zod-builder";
+
+/**
+ * The entries of an Attribute Spec that are Fields at all.
+ *
+ * Nothing shared validates this Spec (ADR-0007) and it may have been written by
+ * hand, so a stray entry is possible and must cost only itself — reading an
+ * Accessor off a string would take down every surface that touches the Spec.
+ * Every other function here starts from this.
+ */
+export function attributeFields(spec: readonly unknown[]): Field[] {
+	return spec.filter(isField);
+}
 
 /**
  * The Attributes an Author is actually being asked for.
  *
- * A hidden Field produces no control and is skipped by the shared builder, so
- * it is neither counted nor asked for here — otherwise a Reference could show
- * "1 of 2 filled" with nothing on screen to fill.
+ * Exactly what the shared builder composes, by the same predicate — so a hidden
+ * Field, and a value-less Marker a hand-written Spec slipped in (the type picker
+ * offers neither), are skipped here too. Counting one of those would leave a
+ * Reference permanently one short of full, with nothing on screen to fill.
  */
-export function declaredAttributes(spec: readonly Field[]): Field[] {
-	return spec.filter((attribute) => !attribute.config.hidden);
+export function declaredAttributes(spec: readonly unknown[]): Field[] {
+	return attributeFields(spec).filter(fieldProducesValue);
 }
 
 /**
@@ -68,7 +83,7 @@ export function isAttributeFilled(value: unknown): boolean {
  * see or change, so counting it would report attention that no drawer offers.
  */
 export function countFilledAttributes(
-	spec: readonly Field[],
+	spec: readonly unknown[],
 	attributes: Record<string, unknown> | undefined,
 ): number {
 	if (!attributes) return 0;
@@ -78,7 +93,7 @@ export function countFilledAttributes(
 }
 
 /** Whether any declared Attribute must be answered before submit. */
-export function hasRequiredAttribute(spec: readonly Field[]): boolean {
+export function hasRequiredAttribute(spec: readonly unknown[]): boolean {
 	return declaredAttributes(spec).some(
 		(attribute) => attribute.config.required,
 	);
@@ -108,14 +123,16 @@ export function hasRequiredAttribute(spec: readonly Field[]): boolean {
  * it with a Field alone — the record stays the opaque one ADR-0008 declares.
  */
 export function attributesZodType(
-	spec: readonly Field[] | undefined,
+	spec: readonly unknown[] | undefined,
 	composeChildren?: ComposeChildrenSchema,
 ): ZodTypeAny {
-	const attributes = spec ?? [];
+	// The Fields, and only the Fields: the shared builder makes its own hidden
+	// and Marker skips, but it would throw on a stray entry rather than skip it.
+	const attributes = attributeFields(spec ?? []);
 	if (!composeChildren || attributes.length === 0) {
 		return z.record(z.unknown()).optional();
 	}
-	const composed = composeChildren([...attributes]).passthrough();
+	const composed = composeChildren(attributes).passthrough();
 	return hasRequiredAttribute(attributes)
 		? composed.default({})
 		: composed.optional();

@@ -107,6 +107,17 @@ describe("counting what a Reference has filled in", () => {
 			1,
 		);
 	});
+
+	it("asks for no value-less Marker either", () => {
+		// The type picker offers neither, but nothing validates a hand-written
+		// Spec (ADR-0007) — and a Marker counted would leave every Reference
+		// permanently one short of full, with nothing on screen to fill.
+		const marker = attribute("section", "details", "Details");
+		expect(
+			declaredAttributes([PAGE, marker]).map((f) => f.config.name),
+		).toEqual(["Page"]);
+		expect(countFilledAttributes([PAGE, marker], { page: 1 })).toBe(1);
+	});
 });
 
 describe("the Attribute Spec in a Reference Field's Schema", () => {
@@ -265,6 +276,21 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 		expect(
 			(resolved[0].settings as ReferenceSettings).attributes?.[0].children,
 		).toBeNull();
+	});
+
+	it("drops an entry of the Spec that is not a Field at all", () => {
+		// Nothing shared validates this Spec, so a hand-written one may hold
+		// anything. A stray costs itself: it is not counted, not composed, and
+		// does not throw where an Accessor was expected.
+		const spec = ["not-a-field", null, PAGE] as unknown as Field[];
+
+		expect(declaredAttributes(spec)).toEqual([PAGE]);
+		expect(countFilledAttributes(spec, { page: 3 })).toBe(1);
+		expect(
+			schemaFor(spec).safeParse({
+				related: [{ id: "a", attributes: { page: "three" } }],
+			}).success,
+		).toBe(false);
 	});
 
 	it("still composes what it does not check — the later duplicate wins", () => {

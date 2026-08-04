@@ -44,7 +44,7 @@ export function ReferenceSettingsEditor({
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
 			/>
 			<AttributeSpecEditor
-				attributes={settings?.attributes ?? []}
+				attributeSpec={settings?.attributes ?? []}
 				onChange={(attributes) => onChange({ ...settings, attributes })}
 				plugins={plugins}
 				onDrillIn={onDrillIn}

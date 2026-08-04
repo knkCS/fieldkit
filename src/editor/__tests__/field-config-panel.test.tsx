@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { builtInFieldTypes } from "../../schema/field-types";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
 import type { SpecFieldError } from "../../schema/validate-spec";
@@ -47,6 +48,7 @@ function Harness({
 	initialField,
 	otherFields = [],
 	plugin,
+	plugins,
 	committedAccessors = new Set<string>(),
 	fieldErrors = [],
 	autoFocusLabel = false,
@@ -57,6 +59,9 @@ function Harness({
 	/** Other fields present in the live draft alongside the edited field. */
 	otherFields?: Field[];
 	plugin?: FieldTypePlugin;
+	/** The registry a DRILLED field's own plugin is resolved from. Omitted by
+	 * every test that predates it, which is the "no registry" behaviour. */
+	plugins?: FieldTypePlugin[];
 	committedAccessors?: Set<string>;
 	fieldErrors?: SpecFieldError[];
 	autoFocusLabel?: boolean;
@@ -74,6 +79,7 @@ function Harness({
 			<FieldConfigPanel
 				field={field}
 				plugin={plugin}
+				plugins={plugins}
 				draft={draft}
 				fieldErrors={fieldErrors}
 				onFieldChange={(next) => {
@@ -721,6 +727,58 @@ describe("FieldConfigPanel", () => {
 		const dump = readDump();
 		expect(dump.field_type).toBe("group");
 		expect(dump.children?.[0].config.name).toBe("Renamed Item");
+	});
+
+	it("shows a drilled child its OWN type settings once a registry is supplied", async () => {
+		// #67 widened this: the drill-in used to show "No additional settings"
+		// for every child because the panel had no registry to resolve one from.
+		// SpecEditor now always supplies one, so a child is configurable as the
+		// type it is — which a settings-nested Spec (a Reference Field's
+		// Attributes) needs, and which a Group's child gets for free.
+		const group = makeGroupField();
+		group.children = [
+			{
+				field_type: "list",
+				config: {
+					name: "Tags",
+					api_accessor: "tags",
+					required: false,
+					instructions: "",
+				},
+				settings: null,
+				system: false,
+			},
+		];
+
+		render(
+			<EditorWrap>
+				<Harness initialField={group} plugins={builtInFieldTypes} />
+			</EditorWrap>,
+		);
+		fireEvent.click(screen.getByTestId("panel-child-edit-tags"));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
+		});
+
+		expect(
+			screen.getByTestId("list-max-items-per-page-input"),
+		).toBeInTheDocument();
+	});
+
+	it("still shows no settings for a drilled child when no registry is supplied", async () => {
+		const group = makeGroupField();
+
+		render(
+			<EditorWrap>
+				<Harness initialField={group} />
+			</EditorWrap>,
+		);
+		fireEvent.click(screen.getByTestId("panel-child-edit-item_name"));
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Type settings" }));
+		});
+
+		expect(screen.getByText(testLabels.panelNoSettings)).toBeVisible();
 	});
 
 	it("drill-in stays on the child when a name edit auto-slugs its accessor", () => {

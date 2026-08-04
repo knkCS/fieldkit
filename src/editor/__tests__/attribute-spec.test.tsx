@@ -258,6 +258,38 @@ describe("configuring one Attribute through the panel's drill-in", () => {
 		expect(screen.queryByTestId("panel-back")).toBeNull();
 	});
 
+	it("ignores an entry in the Spec that is not a Field", async () => {
+		const user = userEvent.setup();
+		renderPanel({
+			...REFERENCE_FIELD,
+			settings: {
+				// Nothing shared validates the Attribute Spec (ADR-0007), so a
+				// hand-written one may hold anything. Walking a string as though it
+				// were a Field would take the whole panel down.
+				attributes: [
+					"not-a-field",
+					{
+						field_type: "text",
+						config: {
+							name: "Role",
+							api_accessor: "role",
+							required: false,
+							instructions: "",
+						},
+						settings: null,
+						children: null,
+						system: false,
+					},
+				] as unknown as Field[],
+			},
+		});
+
+		await openTypeSettings(user);
+		await user.click(screen.getByTestId("attribute-edit-role"));
+
+		expect(screen.getByTestId("panel-name-input")).toHaveValue("Role");
+	});
+
 	it("re-opens an Attribute declared earlier", async () => {
 		const user = userEvent.setup();
 		renderPanel({

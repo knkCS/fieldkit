@@ -3,6 +3,7 @@ import { Box, Flex, Text } from "@chakra-ui/react";
 import { Button, IconButton } from "@knkcs/anker/atoms";
 import { Trash2 } from "lucide-react";
 import type { FieldTypePlugin } from "../../schema/plugin";
+import { attributeFields } from "../../schema/reference-attributes";
 import type { Field } from "../../schema/types";
 import { createField } from "../draft-ops";
 import { TypePickerPopover } from "../type-picker-popover";
@@ -13,7 +14,7 @@ export const ATTRIBUTES_SETTINGS_KEY = "attributes";
 
 export interface AttributeSpecEditorProps {
 	/** The Attribute Spec as it stands. */
-	attributes: Field[];
+	attributeSpec: Field[];
 	/** Hands the whole list back; the caller writes it into settings. */
 	onChange: (attributes: Field[]) => void;
 	/** Every registered field type. Absent — a settings editor mounted outside
@@ -40,11 +41,17 @@ export interface AttributeSpecEditorProps {
  * `availableIn`, not here. See `FieldContext`.
  */
 export function AttributeSpecEditor({
-	attributes,
+	attributeSpec,
 	onChange,
 	plugins,
 	onDrillIn,
 }: AttributeSpecEditorProps) {
+	// Nothing shared validates this Spec (ADR-0007) and a hand-written one may
+	// hold anything, so a stray entry costs itself and not the panel. It is also
+	// what gets written back on an edit — an entry nobody can see or reach is
+	// not one the editor should keep carrying.
+	const declared = attributeFields(attributeSpec);
+
 	function addAttribute(pluginId: string) {
 		const plugin = plugins?.find((p) => p.id === pluginId);
 		if (!plugin) return;
@@ -52,15 +59,15 @@ export function AttributeSpecEditor({
 		// Accessor is unique among its own siblings — nothing shared checks
 		// that here (ADR-0007), which is exactly why it must not be left to
 		// chance.
-		const created = createField(plugin, attributes);
-		onChange([...attributes, created]);
+		const created = createField(plugin, declared);
+		onChange([...declared, created]);
 		// Straight into the drill-in: a fresh Attribute is named "Number" with
 		// a generated Accessor, and neither is what the Author meant.
 		onDrillIn?.(ATTRIBUTES_SETTINGS_KEY, created.config.api_accessor);
 	}
 
 	function removeAttribute(accessor: string) {
-		onChange(attributes.filter((a) => a.config.api_accessor !== accessor));
+		onChange(declared.filter((a) => a.config.api_accessor !== accessor));
 	}
 
 	return (
@@ -75,19 +82,19 @@ export function AttributeSpecEditor({
 						// The one thing that keeps a Marker, a container or a
 						// Reference Field out of an Attribute drawer.
 						context="attribute"
-						currentSpec={attributes}
+						currentSpec={declared}
 						onPick={addAttribute}
 						triggerLabel="Add attribute"
 					/>
 				)}
 			</Flex>
 
-			{attributes.length === 0 ? (
+			{declared.length === 0 ? (
 				<Text fontSize="xs" color="fg.muted">
 					No attributes. Every reference carries the same ones.
 				</Text>
 			) : (
-				attributes.map((attribute) => (
+				declared.map((attribute) => (
 					<Flex
 						key={attribute.config.api_accessor}
 						align="center"

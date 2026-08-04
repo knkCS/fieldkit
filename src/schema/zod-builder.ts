@@ -8,6 +8,18 @@ import type { Field } from "./types";
  * (defaults) skip these before any plugin/config lookup. */
 const STRUCTURAL_TYPES = new Set(["section", "card"]);
 
+/**
+ * Whether a Field contributes a key to the form's data at all.
+ *
+ * The value-less Markers produce none, and a hidden Field is not asked for.
+ * Exported because a caller counting what a Spec *asks* for — the Attribute
+ * count on a Reference row — has to agree with what this builder composes, and
+ * two copies of the skip list would be two things to drift.
+ */
+export function fieldProducesValue(field: Field): boolean {
+	return !STRUCTURAL_TYPES.has(field.field_type) && !field.config.hidden;
+}
+
 export interface ZodBuilderOptions {
 	overrides?: Record<string, (base: ZodTypeAny) => ZodTypeAny>;
 }
@@ -36,8 +48,7 @@ function buildObject(
 	const shape: ZodRawShape = {};
 
 	for (const field of fields) {
-		if (STRUCTURAL_TYPES.has(field.field_type)) continue;
-		if (field.config.hidden) continue;
+		if (!fieldProducesValue(field)) continue;
 
 		const plugin = pluginMap.get(field.field_type);
 		if (!plugin) continue;
@@ -90,8 +101,7 @@ function buildDefaults(
 	const defaults: Record<string, unknown> = {};
 
 	for (const field of fields) {
-		if (STRUCTURAL_TYPES.has(field.field_type)) continue;
-		if (field.config.hidden) continue;
+		if (!fieldProducesValue(field)) continue;
 		if (field.config.default_value !== undefined) {
 			defaults[field.config.api_accessor] = field.config.default_value;
 			continue;
