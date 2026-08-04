@@ -345,3 +345,23 @@ export function fakeCatalogue(count: number, blueprintId = "article") {
 		status: index % 2 === 0 ? "published" : "draft",
 	}));
 }
+
+/**
+ * A Reference Tree of `count` References over {@link fakeCatalogue}'s ids.
+ *
+ * Parent/child pairs, so every other row carries a branch to fold — which is
+ * what a tree big enough to open collapsed has to be made of. `count` is the
+ * *whole* tree, children included, because that is what the Field counts.
+ */
+export function fakeReferenceTree(count: number, blueprintId = "article") {
+	const roots = [];
+	for (let n = 1; n <= count; n += 2) {
+		const root = { id: `${blueprintId}-${n}` };
+		roots.push(
+			n + 1 <= count
+				? { ...root, children: [{ id: `${blueprintId}-${n + 1}` }] }
+				: root,
+		);
+	}
+	return roots;
+}

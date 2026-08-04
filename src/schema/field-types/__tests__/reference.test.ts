@@ -44,6 +44,32 @@ describe("referencePlugin", () => {
 		).toBe(true);
 	});
 
+	it("keeps a nested branch rather than parsing it away", () => {
+		// The tree is genuinely nested (ADR-0008), and an object schema that
+		// did not name `children` would strip it — a drag would then nest a
+		// Reference on screen and submit a flat list.
+		const zodType = referencePlugin.toZodType(makeField());
+		const tree = [
+			{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+			{ id: "b" },
+		];
+
+		const parsed = zodType.safeParse(tree);
+		expect(parsed.success).toBe(true);
+		expect(parsed.success && parsed.data).toEqual(tree);
+	});
+
+	it("holds a nested Reference to the same rules as a root one", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		expect(
+			zodType.safeParse([{ id: "a", children: [{ id: "" }] }]).success,
+		).toBe(false);
+		expect(zodType.safeParse([{ id: "a", children: ["a1"] }]).success).toBe(
+			false,
+		);
+	});
+
 	it("keeps its array shape whatever max_items says", () => {
 		// ADR-0005: incompatible value shapes must not hide behind one
 		// field_type. `max_items: 1` is a cap, not a second shape — Single

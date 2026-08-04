@@ -51,6 +51,22 @@ describe("ReferenceCell", () => {
 		expect(screen.getByText("2 references")).toBeDefined();
 	});
 
+	it("counts a nested Reference too — a child is as real as a root", () => {
+		render(
+			<ReferenceCell
+				field={makeField()}
+				value={[
+					{
+						id: "article-1",
+						children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+					},
+					{ id: "article-4" },
+				]}
+			/>,
+		);
+		expect(screen.getByText("4 references")).toBeDefined();
+	});
+
 	it("renders an empty cell for an empty list", () => {
 		render(<ReferenceCell field={makeField()} value={[]} />);
 		expect(screen.getByText("—")).toBeDefined();

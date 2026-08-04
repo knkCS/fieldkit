@@ -11,20 +11,31 @@
  * ```
  * const items = flattenReferences(value);            // rows, top to bottom
  * const { depth } = projectDropDepth({ items, … });  // where a release lands
- * // on drop: move the dragged entry and its branch to the new slot, shift
- * // that branch's depths by (depth - dragged.depth), then:
+ * const moved = moveReferenceBranch({ items, … , depth });   // on release
  * const next = nestReferences(moved);                // back to a value
  * ```
+ *
+ * `referenceBranchEnd` is the rest of what a tree UI asks of the list: which
+ * rows a Reference's branch occupies, which is what a drag moves and what a
+ * collapsed Reference hides.
  *
  * `countReferences` is the same model's answer to "how big is this tree",
  * which is what `max_items` caps — every Reference at every level, since a
  * nested child is as real as a root.
+ *
+ * One step further out sit `readReferenceTree`, `writeReferenceTree` and
+ * `removeReferenceAt`, which deal with a *stored value* rather than a tree.
+ * Form data arrives from a Consumer and is only as well-formed as whatever
+ * produced it, so reading it is a job of its own: the reader drops what is
+ * not a Reference and remembers where the rest came from, and the writer
+ * puts the strays back. Everything above them can then assume a real tree.
  *
  * No DOM, no React, no dnd-kit: the drag maths is asserted with plain
  * assertions, following the precedent `resolve-drop-target.ts` set for the
  * editor canvas.
  */
 import type { Reference } from "./reference";
+import { asReference } from "./reference";
 
 /** A Reference with its branch removed — everything a flattened entry keeps. */
 export type FlatReferenceValue = Omit<Reference, "children">;
@@ -160,13 +171,41 @@ export interface DepthProjection {
 /**
  * The last index of the branch rooted at `index` — the rows below it that
  * sit deeper, which flattening guarantees are contiguous. Equal to `index`
- * itself for a leaf, and for a caller that pruned the branch already.
+ * itself for a leaf, for a caller that pruned the branch already, and for an
+ * index the list does not reach.
+ *
+ * A branch is therefore always a slice, which is the whole reason the flat
+ * list is worth having: a drag moves that slice, and a collapsed Reference
+ * hides it. Depth is all it reads, so a list a caller built by hand answers
+ * as readily as a flattened one.
  */
-function branchEnd(items: readonly FlatReference[], index: number): number {
-	const { depth } = items[index];
+export function referenceBranchEnd(
+	items: readonly Pick<FlatReference, "depth">[],
+	index: number,
+): number {
+	const entry = items[index];
+	if (!entry) return index;
 	let end = index;
-	while (end + 1 < items.length && items[end + 1].depth > depth) end++;
+	while (end + 1 < items.length && items[end + 1].depth > entry.depth) end++;
 	return end;
+}
+
+/**
+ * Where a lifted branch lands: an index into the list *without* it.
+ *
+ * Below itself, the rows it vacated have already shifted up; at or above
+ * itself — which includes hovering its own branch, an ask for nothing — it
+ * lands where the pointer is. Shared by the projection and the move so the
+ * two can never disagree about which slot they are talking about.
+ */
+function dropSlot(
+	activeIndex: number,
+	branchEnd: number,
+	overIndex: number,
+): number {
+	return overIndex > branchEnd
+		? overIndex - (branchEnd - activeIndex)
+		: Math.min(overIndex, activeIndex);
 }
 
 /**
@@ -204,15 +243,9 @@ export function projectDropDepth({
 	// The list the drop would leave behind: the whole branch travels, so
 	// none of it can be a neighbour of the slot it is looking for — not even
 	// when the caller is still rendering it.
-	const end = branchEnd(items, activeIndex);
+	const end = referenceBranchEnd(items, activeIndex);
 	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
-	// Where the branch lands in `rest`: below itself, the rows it vacated
-	// have already shifted up; at or above itself — which includes hovering
-	// its own branch, an ask for nothing — it lands where the pointer is.
-	const slot =
-		overIndex > end
-			? overIndex - (end - activeIndex)
-			: Math.min(overIndex, activeIndex);
+	const slot = dropSlot(activeIndex, end, overIndex);
 	const above = rest[slot - 1];
 	const below = rest[slot];
 
@@ -233,6 +266,167 @@ export function projectDropDepth({
 		minDepth,
 		maxDepth,
 	};
+}
+
+/** What `moveReferenceBranch` is asked. */
+export interface BranchMoveInput<T extends NestableReference> {
+	/**
+	 * The flattened list, in the same state `projectDropDepth` was given it —
+	 * and carrying whatever else the caller needs back, which is what the
+	 * generic is for.
+	 */
+	items: readonly T[];
+	/** Index in `items` of the Reference being dragged. */
+	activeIndex: number;
+	/** Index in `items` of the row the drop landed on. */
+	overIndex: number;
+	/** The depth the dragged Reference lands at — `projectDropDepth`'s answer. */
+	depth: number;
+}
+
+/**
+ * Moves a dragged Reference and everything under it to where the drop landed,
+ * re-depthing that branch by the difference — the second half of every drag,
+ * and the half `projectDropDepth` deliberately leaves out. Hand the answer to
+ * `nestReferences` and the drag is done.
+ *
+ * The branch travels as one slice, so a Reference's descendants keep their
+ * shape and their order under it however far it moves: only depths change,
+ * and all of them by the same amount. Reordering among siblings is the same
+ * operation with a shift of zero, so a drop never has to decide which kind of
+ * move it was.
+ *
+ * Generic in the entry because a caller usually carries more than the model
+ * needs — a row key, a rendering flag — and getting that back in the new
+ * order is what lets it follow the move without redoing this arithmetic.
+ * Every field is carried across untouched except `depth`; anything the caller
+ * derived from the tree's *shape* is stale in the result, `height` above all,
+ * and is re-read by flattening the tree this list nests into.
+ */
+export function moveReferenceBranch<T extends NestableReference>({
+	items,
+	activeIndex,
+	overIndex,
+	depth,
+}: BranchMoveInput<T>): T[] {
+	// An index that no longer resolves: hand the list back as it stands
+	// rather than reordering around a Reference that isn't there.
+	const active = items[activeIndex];
+	if (!active) return [...items];
+
+	const end = referenceBranchEnd(items, activeIndex);
+	const shift = depth - active.depth;
+	const branch = items
+		.slice(activeIndex, end + 1)
+		.map((item): T => ({ ...item, depth: item.depth + shift }));
+	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
+	const slot = Math.max(
+		0,
+		Math.min(dropSlot(activeIndex, end, overIndex), rest.length),
+	);
+	return [...rest.slice(0, slot), ...branch, ...rest.slice(slot)];
+}
+
+/** One flattened Reference, and where in the stored value it came from. */
+export interface ReferenceRow extends FlatReference {
+	/**
+	 * Index path into the stored value — `[1, 0]` is `value[1].children[0]`.
+	 *
+	 * Worth keeping because a stored value may hold entries that are not
+	 * References at all: they yield no row, so a row's place among the rows is
+	 * not its place in the array a targeted edit has to splice.
+	 */
+	path: number[];
+	/**
+	 * `path` as a string: a name for the row that is stable for as long as the
+	 * value is, which is what a caller keying rows — for React, for a drag
+	 * library, for a set of folded branches — needs and a Reference cannot
+	 * give. The same Content may legitimately be referenced twice, so an id is
+	 * not an identity here.
+	 */
+	key: string;
+}
+
+/**
+ * Reads a stored value as a Reference Tree's rows, top to bottom, dropping
+ * anything that is not a Reference at any level.
+ *
+ * The one place that turns a Consumer's data into something the rest of this
+ * model may assume is well-formed. Nothing is repaired and nothing throws:
+ * an entry that is not a Reference simply yields no row, and `path` is what
+ * lets a caller still find it in the array it came from.
+ */
+export function readReferenceTree(value: unknown): ReferenceRow[] {
+	const paths: number[][] = [];
+	const walk = (entries: unknown, prefix: readonly number[]): Reference[] => {
+		if (!Array.isArray(entries)) return [];
+		const kept: Reference[] = [];
+		entries.forEach((entry, index) => {
+			const reference = asReference(entry);
+			if (!reference) return;
+			const path = [...prefix, index];
+			// Recorded before descending, so `paths` comes out in the same
+			// depth-first order `flattenReferences` produces below.
+			paths.push(path);
+			const { children: _branch, ...rest } = reference;
+			const children = walk(reference.children, path);
+			kept.push(children.length > 0 ? { ...rest, children } : rest);
+		});
+		return kept;
+	};
+	return flattenReferences(walk(value, [])).map((entry, index) => ({
+		...entry,
+		path: paths[index],
+		key: paths[index].join("."),
+	}));
+}
+
+/**
+ * Writes a tree back over the value it was read from, keeping the entries
+ * that were never References at the positions they held.
+ *
+ * Only top-level strays survive, and that is a fact about the value rather
+ * than a compromise: the stored value is an array of roots and stays one, so
+ * a root's neighbours keep their indices — while every branch below is rebuilt
+ * from depths, leaving a stray nested inside one nowhere to be put back. A
+ * value with a stray in a branch cannot pass the Field's Schema anyway.
+ */
+export function writeReferenceTree(
+	value: unknown,
+	roots: readonly Reference[],
+): unknown[] {
+	const entries: unknown[] = Array.isArray(value) ? value : [];
+	const next: unknown[] = [...roots];
+	entries.forEach((entry, index) => {
+		if (asReference(entry) === null) {
+			next.splice(Math.min(index, next.length), 0, entry);
+		}
+	});
+	return next;
+}
+
+/**
+ * The stored value with the Reference at `path` taken out of it, and its
+ * branch with it — removing a Reference removes what hangs off it.
+ *
+ * Everything else is left exactly as it stands, strays included: a removal is
+ * a targeted edit, and nothing an Author did asked for the rest to change.
+ */
+export function removeReferenceAt(
+	value: unknown,
+	path: readonly number[],
+): unknown[] {
+	const entries: unknown[] = Array.isArray(value) ? value : [];
+	const [index, ...rest] = path;
+	if (rest.length === 0) return entries.filter((_, i) => i !== index);
+	return entries.map((entry, i) => {
+		if (i !== index) return entry;
+		const reference = entry as Reference;
+		const children = removeReferenceAt(reference.children, rest) as Reference[];
+		if (children.length > 0) return { ...reference, children };
+		const { children: _emptied, ...withoutBranch } = reference;
+		return withoutBranch;
+	});
 }
 
 /**
