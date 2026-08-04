@@ -42,7 +42,7 @@ src/
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
 │   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
 │   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule
-│   ├── resolve-spec.ts  # resolveSpec() — expands fieldsets into a Resolved Spec (dedupes fetches, throws on cycles)
+│   ├── resolve-spec.ts  # resolveSpec() — expands fieldsets into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — would it fetch anything?
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
@@ -65,7 +65,7 @@ src/
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
-│   └── try-it-view.tsx  # Real SpecForm on a scratch form
+│   └── try-it-view.tsx  # Preview: resolveSpec() on the draft, then a real SpecForm on a scratch form
 ├── renderer/            # Field renderer
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons

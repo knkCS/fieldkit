@@ -182,6 +182,12 @@ export interface EditorLabels {
 	errorEmptyName?: string;
 	errorEmptyAccessor?: string;
 	errorLooseFieldInCardedTab?: string;
+	/**
+	 * Alert title in Preview when the draft's Fieldsets could not be resolved
+	 * — the blueprint adapter rejected (#54). Preview degrades to the
+	 * unresolved draft rather than failing, so this says what was lost.
+	 */
+	previewResolveFailed?: string;
 }
 
 export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
@@ -228,6 +234,8 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 
 	testSubmit: "Test submit",
 	testSubmitSuccess: "Form submitted successfully",
+	previewResolveFailed:
+		"Some embedded fields could not be loaded — the rest of the form still previews",
 
 	addSection: "+ Section",
 	newSectionName: "New section",
@@ -759,6 +767,7 @@ export function SpecEditor({
 							labels={{
 								testSubmit: mergedLabels.testSubmit,
 								testSubmitSuccess: mergedLabels.testSubmitSuccess,
+								previewResolveFailed: mergedLabels.previewResolveFailed,
 								defaultTab: mergedLabels.defaultTab,
 								searchPlaceholder: mergedLabels.searchPlaceholder,
 								noResults: mergedLabels.noResults,

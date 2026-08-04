@@ -422,6 +422,33 @@ view** (via a bump counter), so scratch data typed in a previous visit can
 never leak into or survive a later one. Selecting **Build** returns to
 editing without losing the draft.
 
+### Fieldset resolution
+
+Preview is a consumer of the draft like any other, so it runs the two-phase
+load ADR-0004 requires: `resolveSpec(draft, adapters)` first, then the Zod
+schema built from the **resolved** draft. That is what makes a required field
+inside a Fieldset block the test submit — unresolved, a Fieldset validates as
+an opaque record, and Preview would pass a form the real one rejects.
+
+The adapters come from your `FieldKitProvider` (see
+[FieldKitProvider requirement](#fieldkitprovider-requirement)); nothing new is
+passed to `SpecEditor`. Behavior by case:
+
+- **Blueprint adapter configured** — Preview shows a spec-shaped skeleton
+  while the Blueprints load, then the real form with the embedded fields
+  validating as their own.
+- **No blueprint adapter** — nothing can be fetched, so nothing is awaited:
+  Preview renders immediately and each Fieldset shows its
+  "Blueprint adapter not configured" stub. Same for a draft with no Fieldset
+  in it — no skeleton frame it never needed.
+- **Resolution failed** — a `labels.previewResolveFailed` warning alert sits
+  above the form, the unresolved draft renders below it (Fieldsets degrade to
+  their own "Failed to load blueprint fields" state), and the editor is
+  otherwise untouched: **Build** still returns you to the canvas.
+
+Resolution follows the **draft**, re-running whenever it changes — Preview
+never shows the last saved spec.
+
 ## Keyboard Support
 
 - **Shells**: focusable (`tabIndex=0`); <kbd>Enter</kbd> or <kbd>Space</kbd>
@@ -477,6 +504,7 @@ are shown.
 | `dirty` | `"Unsaved changes"` | Toolbar dirty-dot indicator's aria-label |
 | `testSubmit` | `"Test submit"` | Preview mode's submit button |
 | `testSubmitSuccess` | `"Form submitted successfully"` | Preview mode's success toast |
+| `previewResolveFailed` | `"Some embedded fields could not be loaded — the rest of the form still previews"` | Alert title in Preview when the blueprint adapter rejected a Fieldset's Blueprint |
 | `addSection` | `"+ Section"` | Toolbar add-section button (rendered with the section plugin's icon) |
 | `newSectionName` | `"New section"` | Default name for a freshly added section |
 | `sectionNameInput` | `"Section name"` | Inline rename input's aria-label |

@@ -1,6 +1,6 @@
 // src/schema/__tests__/resolve-spec.test.ts
 import { describe, expect, it, vi } from "vitest";
-import { resolveSpec } from "../resolve-spec";
+import { resolveSpec, specNeedsResolution } from "../resolve-spec";
 import type { Field, Schema } from "../types";
 
 function textField(name: string, accessor: string): Field {
@@ -249,5 +249,55 @@ describe("resolveSpec", () => {
 		// null would read as "not resolved" and send the renderer back to the
 		// adapter for a Blueprint that has nothing to give.
 		expect(resolved[0].children).toEqual([]);
+	});
+});
+
+describe("specNeedsResolution", () => {
+	// The contract that matters: whatever this answers, `resolveSpec` must
+	// agree — false only where resolving would fetch nothing at all.
+	const blueprint = blueprintAdapter({ address_bp: [] });
+
+	it("is false with no blueprint adapter, however many Fieldsets there are", () => {
+		expect(specNeedsResolution([fieldset("address", "address_bp")], {})).toBe(
+			false,
+		);
+	});
+
+	it("is false for a Spec with no Fieldset in it", () => {
+		const spec: Schema = [
+			textField("Title", "title"),
+			group("rows", [textField("Street", "street")]),
+		];
+
+		expect(specNeedsResolution(spec, { blueprint })).toBe(false);
+	});
+
+	it("is false for a Fieldset with no Blueprint chosen yet", () => {
+		expect(specNeedsResolution([fieldset("address")], { blueprint })).toBe(
+			false,
+		);
+	});
+
+	it("is false for an already-Resolved Spec, empty children included", () => {
+		expect(
+			specNeedsResolution([fieldset("address", "address_bp", [])], {
+				blueprint,
+			}),
+		).toBe(false);
+	});
+
+	it("is true for a Fieldset naming a Blueprint it has no children for", () => {
+		expect(
+			specNeedsResolution([fieldset("address", "address_bp")], { blueprint }),
+		).toBe(true);
+	});
+
+	it("is true for a Fieldset nested inside another container's children", () => {
+		const spec: Schema = [
+			textField("Title", "title"),
+			group("rows", [fieldset("address", "address_bp")]),
+		];
+
+		expect(specNeedsResolution(spec, { blueprint })).toBe(true);
 	});
 });
