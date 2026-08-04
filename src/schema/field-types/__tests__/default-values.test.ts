@@ -33,7 +33,6 @@ const UNSEEDED = [
 	"date",
 	"radio",
 	"rich_text",
-	"toc_reference",
 	"section",
 	"card",
 ];

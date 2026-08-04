@@ -20,6 +20,7 @@ export type {
 	MediaSettings,
 	NumberSettings,
 	RadioSettings,
+	ReferencePluginOptions,
 	ReferenceSettings,
 	RichTextSettings,
 	SelectSettings,
@@ -27,11 +28,11 @@ export type {
 	SlugSettings,
 	TextareaSettings,
 	TextSettings,
-	TocReferenceSettings,
 	UrlSettings,
 	VirtualTableSettings,
 } from "./field-types";
-// Built-in field type plugins
+// Built-in field type plugins, and the factory a Consumer mints its own
+// reference-shaped type with (ADR-0010)
 export {
 	arrayPlugin,
 	blocksPlugin,
@@ -42,6 +43,7 @@ export {
 	codePlugin,
 	colorPlugin,
 	complexTextFieldTypes,
+	createReferencePlugin,
 	datePlugin,
 	emailPlugin,
 	fieldsetPlugin,
@@ -64,7 +66,6 @@ export {
 	textareaPlugin,
 	textPlugin,
 	timePlugin,
-	tocReferencePlugin,
 	urlPlugin,
 	virtualTablePlugin,
 } from "./field-types";
@@ -105,6 +106,16 @@ export {
 	type Reference,
 	withPin,
 } from "./reference";
+// The Reference Tree model — only the parts a Consumer assembling its own
+// reference-shaped type needs: the rows `ReferenceTree` renders, and the count
+// `max_items` caps. The drag arithmetic stays the tree control's own business.
+export {
+	countReferences,
+	type FlatReference,
+	type FlatReferenceValue,
+	type ReferenceRow,
+	readReferenceTree,
+} from "./reference-tree";
 export type { PluginRegistry } from "./registry";
 // Registry
 export { createRegistry } from "./registry";

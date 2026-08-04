@@ -43,6 +43,10 @@ describe("validateSpec", () => {
 		expect(result.errors).toHaveLength(0);
 	});
 
+	// The two below stand in for a Consumer's plugin: `toc_reference` left
+	// fieldkit's catalogue (ADR-0010) and took `maxPerSpec`'s only built-in
+	// user with it. See `field-types/__tests__/create-reference-plugin.test.ts`
+	// for the same rule against a plugin actually minted by a Consumer.
 	it("should return error when maxPerSpec is exceeded", () => {
 		const plugins = new Map([
 			["toc_reference", mockPlugin("toc_reference", { maxPerSpec: 1 })],
