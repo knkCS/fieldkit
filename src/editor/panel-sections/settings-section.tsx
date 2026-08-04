@@ -28,6 +28,7 @@ export function SettingsSection({
 	return (
 		<SettingsComponent
 			settings={settings}
+			field={field}
 			onChange={(next) => onFieldChange({ ...field, settings: next })}
 		/>
 	);

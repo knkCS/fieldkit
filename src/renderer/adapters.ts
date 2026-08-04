@@ -1,5 +1,13 @@
 // src/renderer/adapters.ts
-import type { BlueprintSchemaAdapter } from "../schema/resolve-spec";
+import type {
+	BlueprintSchemaAdapter,
+	BlueprintSummary,
+} from "../schema/resolve-spec";
+
+/** Re-exported so the blueprint adapter's whole vocabulary is reachable from
+ * the layer that declares it, as well as from `/schema` where it is defined
+ * beside `BlueprintSchemaAdapter`. */
+export type { BlueprintSummary };
 
 export interface ReferenceItem {
 	id: string;
@@ -62,6 +70,21 @@ export interface FieldKitAdapters {
 	 * adapters object serves `resolveSpec()` and the provider alike. */
 	blueprint?: BlueprintSchemaAdapter & {
 		getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
+		/**
+		 * The Blueprints an Author may embed, for the Fieldset config panel's
+		 * picker (#52).
+		 *
+		 * **Optional on purpose.** Fetching one Blueprint and enumerating them
+		 * are different capabilities, and a Consumer built against the former
+		 * must keep working: without this, the panel degrades to Blueprint id
+		 * entry rather than breaking.
+		 *
+		 * Fieldkit does no filtering of its own — it has no notion of a
+		 * Blueprint kind (ADR-0002). Return exactly the Blueprints this Author
+		 * may embed; knkCMS core, for instance, narrows to its `fieldset`
+		 * blueprint type on its side.
+		 */
+		list?: () => Promise<BlueprintSummary[]>;
 	};
 	textType?: {
 		getEditorSpec: (id: string) => Promise<EditorSpecData>;

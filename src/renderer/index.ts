@@ -2,6 +2,7 @@
 
 // Adapters
 export type {
+	BlueprintSummary,
 	DataPage,
 	DataQuery,
 	EditorSpecData,

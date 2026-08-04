@@ -25,6 +25,12 @@ export interface FieldProps<S = unknown> {
 export interface SettingsProps<S = unknown> {
 	settings: S;
 	onChange: (settings: S) => void;
+	/** The Field being configured. Optional so the contract stays additive —
+	 * every settings editor written before it keeps compiling. Present when
+	 * the editor's config panel mounts the component; use it for anything that
+	 * must name the Field rather than just edit its settings, such as
+	 * reporting an adapter failure through the provider's `onError`. */
+	field?: Field<S>;
 }
 
 /** Props passed to a field type's table cell component. */

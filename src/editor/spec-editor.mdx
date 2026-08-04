@@ -43,6 +43,11 @@ and that component calls `useFieldKit()` internally. **`SpecEditor` must
 therefore be mounted inside the consumer's `FieldKitProvider`** — outside one,
 it throws (`useFieldKit must be used within a FieldKitProvider`).
 
+The provider is also how the config panel's type-settings editors reach the
+adapters: a Fieldset's Blueprint picker lists through
+`adapters.blueprint.list()`, degrading to Blueprint id entry where that
+optional capability is missing.
+
 The provider's `plugins` registry and the `plugins` prop passed to
 `SpecEditor` must be **the same set**. They serve different jobs (the
 provider resolves a field's component/adapters at render time; the `plugins`
