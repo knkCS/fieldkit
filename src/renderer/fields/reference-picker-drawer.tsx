@@ -152,10 +152,12 @@ export interface ReferencePickerDrawerProps {
 	 * fact is free to disagree with the first, which is the drift ADR-0012's
 	 * announcement exists to prevent.
 	 *
-	 * Optional, for a Consumer assembling its own control that has nothing to
-	 * say about position — the line is then absent rather than empty.
+	 * Required, and every entry point has an answer: a strip announced one
+	 * already, and the Add control's root append is put into the same words by
+	 * `describeAppend`. Saying nothing about where a Reference is going is the
+	 * state this exists to end.
 	 */
-	destination?: string;
+	destination: string;
 	title?: string;
 }
 
@@ -360,10 +362,12 @@ export function ReferencePickerDrawer({
 			closeLabel="Cancel"
 		>
 			<Stack gap="4">
-				{/* anker marks the active step `aria-current="step"` itself, which
-				    is its documented rule for this component — driving it with a
-				    controlled index is what earns that, and is why the step
-				    nothing has reached yet is not merely styled differently. */}
+				{/* `StepperStep` puts `aria-current="step"` on the active step
+				    itself — anker's accessibility rule for this component, stated
+				    in its README's Accessibility section. What the controlled
+				    index is for is *which* step that is: left uncontrolled the
+				    Stepper rests on step one for good, so the second step would
+				    never be marked as reached. */}
 				<Stepper step={pinStep ? 1 : 0} data-testid="reference-picker-steps">
 					{stepTitles.map((stepTitle) => (
 						<StepperStep
@@ -376,15 +380,13 @@ export function ReferencePickerDrawer({
 
 				{/* Through both steps, since it is the destination of the whole add
 				    and not of either half of it. */}
-				{destination && (
-					<Text
-						fontSize="sm"
-						color="fg.muted"
-						data-testid="reference-picker-destination"
-					>
-						{destination}
-					</Text>
-				)}
+				<Text
+					fontSize="sm"
+					color="fg.muted"
+					data-testid="reference-picker-destination"
+				>
+					{destination}
+				</Text>
 
 				{pinStep ? (
 					<Stack gap="2" data-testid="reference-picker-pin-step">

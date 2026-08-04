@@ -137,7 +137,7 @@ When the field pins, picking a Content opens a **second step** listing what that
 
 Two things the drawer says about itself, above whichever step is showing.
 
-**Its steps**, through anker's `Stepper`. The titles are `Choose content` and — when the field pins — `Choose a release` or `Choose a version`, whichever `pin_mode` named. The active step carries `aria-current="step"`, which is anker's documented accessibility rule for the component; driving the Stepper with a controlled index is what earns it.
+**Its steps**, through anker's `Stepper`. The titles are `Choose content` and — when the field pins — `Choose a release` or `Choose a version`, whichever `pin_mode` named. The active step carries `aria-current="step"`, anker's accessibility rule for the component (its README, *Accessibility*); `StepperStep` sets it itself, and the controlled `step` index is what makes the mark follow the flow instead of resting on step one.
 
 The step **count** follows `pin_mode` alone, exactly as the flow does. Whether the Stepper is *there* does not: it renders in the one-step flow too, so the drawer's chrome does not change shape depending on a field setting.
 

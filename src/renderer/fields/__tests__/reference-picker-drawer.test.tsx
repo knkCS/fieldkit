@@ -280,6 +280,11 @@ describe("where the Reference will land", () => {
 		// The destination belongs to the whole add rather than to either half of
 		// it, and step two is the last thing between the click and the write.
 		expect(destination()).toBe(said);
+		// Both steps are on the strip's way in too, not only the Add control's.
+		expect(steps()).toEqual([
+			["Choose content", false],
+			["Choose a release", true],
+		]);
 	});
 
 	it("says what will actually happen — the tree agrees with the sentence", async () => {
@@ -347,10 +352,25 @@ describe("where the Add control's Reference will land", () => {
 
 		await openThroughAdd(user);
 
-		// The Add control appends at the root, so it arrives beside the last
-		// root — not beside the last *row*, which is one of Content 1's
-		// children, and not with an empty line where a destination should be.
+		// Not an empty line where a destination should be.
 		expect(destination()).toBe("Insert as a sibling of Content 4");
+	});
+
+	it("names the last root, not the last row, when they differ", async () => {
+		const user = userEvent.setup();
+		// Content 3 is the bottom row but a child of Content 2, so naming the
+		// last *row* would claim a nesting the Add control never performs.
+		renderField({
+			value: [
+				{ id: "article-1" },
+				{ id: "article-2", children: [{ id: "article-3" }] },
+			],
+		});
+		await screen.findByText("Content 3");
+
+		await openThroughAdd(user);
+
+		expect(destination()).toBe("Insert as a sibling of Content 2");
 	});
 
 	it("reads as a root Reference arriving on an empty tree", async () => {
