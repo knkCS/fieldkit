@@ -5,8 +5,8 @@
  *
  * The value is nested (ADR-0008) and stays nested; the flat, depth-indexed
  * list these functions produce is an implementation detail of the Field, not
- * of the value, and exists because tree drag-and-drop needs a list. So a drag
- * reads:
+ * of the value, and exists because placing a Reference in a tree — by drag or
+ * by insertion — is an operation on rows. So a drag reads:
  *
  * ```
  * const items = flattenReferences(value);            // rows, top to bottom
@@ -14,6 +14,23 @@
  * const moved = moveReferenceBranch({ items, … , depth });   // on release
  * const next = nestReferences(moved);                // back to a value
  * ```
+ *
+ * An insert reads the same way, through the two functions that are its half of
+ * the pair:
+ *
+ * ```
+ * const { depth, adopted } = projectInsertDepth({ items, slot, … });
+ * const spliced = spliceReference({ items, reference, slot, depth });
+ * const next = nestReferences(spliced);
+ * ```
+ *
+ * Both projections answer with the rows a placement would **adopt** — the ones
+ * that follow a Reference arriving shallower than they are, and so become its
+ * children (ADR-0012). Adoption is not an operation either function performs:
+ * it falls out of re-nesting a list by order and depth alone. What the model
+ * owes is that the arithmetic around it is honest, which is why the rows that
+ * would move come back from the projection rather than being re-derived by
+ * every affordance that has to announce them.
  *
  * `referenceBranchEnd` is the rest of what a tree UI asks of the list: which
  * rows a Reference's branch occupies, which is what a drag moves and what a
@@ -32,9 +49,9 @@
  * not a Reference and remembers where the rest came from, and the writer
  * puts the strays back. Everything above them can then assume a real tree.
  *
- * No DOM, no React, no dnd-kit: the drag maths is asserted with plain
- * assertions, following the precedent `resolve-drop-target.ts` set for the
- * editor canvas.
+ * No DOM, no React, no dnd-kit: the drag and insert maths are asserted with
+ * plain assertions, following the precedent `resolve-drop-target.ts` set for
+ * the editor canvas.
  */
 import type { Reference } from "./reference";
 import { asReference } from "./reference";
@@ -128,7 +145,7 @@ export function nestReferences(
 }
 
 /** What `projectDropDepth` is asked. */
-export interface DepthProjectionInput {
+export interface DepthProjectionInput<T extends FlatReference = FlatReference> {
 	/**
 	 * The flattened list, top to bottom, in whatever state the caller holds
 	 * it: with the dragged Reference's own branch still in it, or with that
@@ -138,7 +155,7 @@ export interface DepthProjectionInput {
 	 *
 	 * `activeIndex` and `overIndex` index into this same list.
 	 */
-	items: readonly FlatReference[];
+	items: readonly T[];
 	/** Index in `items` of the Reference being dragged. */
 	activeIndex: number;
 	/** Index in `items` of the row the pointer is currently over. */
@@ -160,14 +177,33 @@ export interface DepthProjectionInput {
 	depthCeiling?: number;
 }
 
-/** Where a drop would land, and the bounds that decided it. */
-export interface DepthProjection {
-	/** The depth the drop lands at: the pointer's ask, clamped to the bounds. */
+/**
+ * Where a placement would land, the bounds that decided it, and what it would
+ * take with it — the one answer a drop and an insert both read.
+ */
+export interface DepthProjection<T extends FlatReference = FlatReference> {
+	/** The depth it lands at: the pointer's ask, clamped to the bounds. */
 	depth: number;
 	/** The shallowest depth this slot allows, the ceiling already applied. */
 	minDepth: number;
 	/** The deepest depth this slot allows, the ceiling already applied. */
 	maxDepth: number;
+	/**
+	 * The rows that would become the placed Reference's descendants — every
+	 * one that moves, so a branch's rows are all here and not only its root.
+	 * Empty when the placement adopts nothing, which is the ordinary case.
+	 *
+	 * They come back from the projection because both affordances have to
+	 * *announce* adoption before it happens (ADR-0012): the insertion strip
+	 * names the rows in its label, the drag marks them mid-drag. Leaving each
+	 * caller to re-derive them from `depth` would be the same rule written
+	 * twice, and a label that disagreed with the release is the defect this
+	 * behaviour was modelled on.
+	 *
+	 * Entries are the caller's own, in the order they hold them, so a row's
+	 * key or name travels back with it.
+	 */
+	adopted: T[];
 }
 
 /**
@@ -211,36 +247,135 @@ function dropSlot(
 }
 
 /**
- * Projects the depth a dragged Reference would land at — the answer both the
- * drop handler and the live mid-drag indent read, so what an Author sees
- * while dragging is what releasing does. The precedent is the editor
- * canvas's `resolveDropTarget`, for the same reason: drag maths asserted
- * through a DOM is fragile, and one resolution has to serve both callers.
+ * The rows a Reference arriving at `depth` in the slot at `slot` would take as
+ * its own — Adoption, read off the list rather than performed on it.
+ *
+ * They are the run of rows following the slot that sit deeper than the
+ * arrival: order and depth are the whole of what `nestReferences` reads, so a
+ * row deeper than the entry above it *is* that entry's child, whether or not
+ * anyone asked. The run is contiguous, because flattening guarantees a branch
+ * is a slice, and it stops at the first row shallow enough to close it.
+ *
+ * Empty for a placement at or below the depth of the row beneath it, which is
+ * every placement that adopts nothing.
+ */
+function adoptedRows<T extends Pick<FlatReference, "depth">>(
+	items: readonly T[],
+	slot: number,
+	depth: number,
+): T[] {
+	let end = slot;
+	while (end < items.length && items[end].depth > depth) end++;
+	return items.slice(slot, end);
+}
+
+/** What {@link adoptionFloor} is asked. */
+interface AdoptionFloorInput<T extends Pick<FlatReference, "depth">> {
+	/** The rows the placement will land among — the dragged branch already out
+	 * of them, so nothing it is taking with it counts as a neighbour. */
+	items: readonly T[];
+	/** Where the Reference arrives, as an index into `items`. */
+	slot: number;
+	/**
+	 * Whether this placement may adopt at all. An insert always may. A drag
+	 * may only when the Reference it carries is a leaf: one bringing a branch
+	 * cannot take a second one as well, so it keeps the floor at the row
+	 * below's own depth, where nothing follows it deeper.
+	 */
+	adopting: boolean;
+	/** The deepest depth any Reference may sit at, roots being 0. */
+	depthCeiling?: number;
+}
+
+/**
+ * The shallowest depth the row below a slot leaves for a Reference arriving in
+ * it — the floor, and the one bound ADR-0012 moved.
+ *
+ * Where adoption is on offer the floor is one level shallower than the row
+ * below, and *exactly* one — so adopting is reachable at a single depth, and
+ * the branch it would take is known without asking which depth the pointer
+ * chose. `depthCeiling` is then spent on that branch as well as on the one
+ * being placed: adopting hangs those rows under the arrival, and a level that
+ * would leave the deepest of them past the ceiling is not offered at all —
+ * the ceiling less the adopted branch's height, since the run's shallowest row
+ * is the level below the arrival and its deepest is that height further down.
+ *
+ * The reach is read off the adopted rows' own depths rather than off the
+ * `height` cached on them, and the difference matters twice. A `height` is
+ * measured over the *whole* tree, so a row about to lose the very branch that
+ * gave it its height — the dragged Reference's own ancestor — would be read as
+ * taller than it is about to be. And the run already holds every descendant
+ * still in the list, because it stops only at a row shallow enough to close
+ * it, so the deepest row in the run *is* the reach.
+ *
+ * Note what this can and cannot do. Splicing a Reference in and re-nesting
+ * never deepens a row that was already there — `nestReferences` clamps a
+ * skipped level *down*, and an adopted row was already deeper than the arrival
+ * — so on a tree within its ceiling this never binds. What it guards is a tree
+ * that is *already* too deep, where an offered adoption would move rows the
+ * Schema is about to complain about, and a placement should not go rearranging
+ * a branch it cannot make legal.
+ */
+function adoptionFloor<T extends Pick<FlatReference, "depth">>({
+	items,
+	slot,
+	adopting,
+	depthCeiling,
+}: AdoptionFloorInput<T>): number {
+	const below = items[slot];
+	// Nothing below the slot: nothing to land shallower than, and nothing to
+	// adopt. A root is as shallow as depths go.
+	if (!below) return 0;
+	const floor = below.depth - 1;
+	if (!adopting || floor < 0) return below.depth;
+	if (depthCeiling === undefined) return floor;
+	const reach = adoptedRows(items, slot, floor).reduce(
+		(deepest, row) => Math.max(deepest, row.depth),
+		floor,
+	);
+	return reach > depthCeiling ? below.depth : floor;
+}
+
+/**
+ * Projects the depth a dragged Reference would land at, and the rows landing
+ * there would adopt — the answer both the drop handler and the live mid-drag
+ * feedback read, so what an Author sees while dragging is what releasing does.
+ * The precedent is the editor canvas's `resolveDropTarget`, for the same
+ * reason: drag maths asserted through a DOM is fragile, and one resolution has
+ * to serve both callers.
  *
  * The pointer's horizontal travel asks for a depth; the Reference above the
  * slot and the Reference below it decide how much of that ask is available.
  * One level deeper than the Reference above is the most nesting on offer
- * (anything more would skip a level); the Reference below sets the floor,
- * since landing shallower than it would silently adopt it and its branch.
+ * (anything more would skip a level). The Reference below sets the floor at
+ * **one level shallower than itself** when the dragged Reference is a leaf:
+ * landing there makes it and its branch the arrival's children, which is
+ * Adoption, and ADR-0012 makes it deliberate rather than an accident to be
+ * forbidden. A Reference carrying children of its own keeps the older floor —
+ * the row below's own depth — because it cannot take a branch while bringing
+ * one.
  *
  * `depthCeiling` then caps all of it, minus the height of the branch being
- * dragged — the ceiling is a promise about the whole tree, so a Reference
- * with children of its own has to leave them room under it. Where that cap
- * and the floor disagree, the cap wins: a drop that adopts the Reference
- * below it is a shrug, and one that breaks the ceiling is a broken promise.
+ * dragged — the ceiling is a promise about the whole tree, so a Reference with
+ * children of its own has to leave them room under it — and minus the height
+ * of the branch that would be adopted, which is what withdraws the adopting
+ * level. Where the cap and the floor disagree the cap still wins: a drop that
+ * breaks the ceiling is a broken promise, and the ceiling squeezing a drop
+ * shallower than the row below is an adoption like any other, reported in
+ * `adopted` rather than allowed to happen unannounced.
  */
-export function projectDropDepth({
+export function projectDropDepth<T extends FlatReference = FlatReference>({
 	items,
 	activeIndex,
 	overIndex,
 	offsetX,
 	indentWidth,
 	depthCeiling,
-}: DepthProjectionInput): DepthProjection {
+}: DepthProjectionInput<T>): DepthProjection<T> {
 	// An empty tree, or an index that no longer resolves: the only depth on
 	// offer is a root, and a drag has nothing to read the pointer against.
 	const active = items[activeIndex];
-	if (!active) return { depth: 0, minDepth: 0, maxDepth: 0 };
+	if (!active) return { depth: 0, minDepth: 0, maxDepth: 0, adopted: [] };
 
 	// The list the drop would leave behind: the whole branch travels, so
 	// none of it can be a neighbour of the slot it is looking for — not even
@@ -249,7 +384,6 @@ export function projectDropDepth({
 	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
 	const slot = dropSlot(activeIndex, end, overIndex);
 	const above = rest[slot - 1];
-	const below = rest[slot];
 
 	const levels = indentWidth > 0 ? Math.round(offsetX / indentWidth) : 0;
 	const asked = active.depth + levels;
@@ -261,13 +395,149 @@ export function projectDropDepth({
 			? Number.POSITIVE_INFINITY
 			: Math.max(0, depthCeiling - active.height);
 	const maxDepth = Math.min(above ? above.depth + 1 : 0, capped);
-	const minDepth = Math.min(below ? below.depth : 0, maxDepth);
-
-	return {
-		depth: Math.min(Math.max(asked, minDepth), maxDepth),
-		minDepth,
+	const minDepth = Math.min(
+		adoptionFloor({
+			items: rest,
+			slot,
+			// Only a leaf may adopt: a Reference that carries a branch cannot
+			// take a second one as well.
+			adopting: active.height === 0,
+			depthCeiling,
+		}),
 		maxDepth,
+	);
+
+	const depth = Math.min(Math.max(asked, minDepth), maxDepth);
+	return { depth, minDepth, maxDepth, adopted: adoptedRows(rest, slot, depth) };
+}
+
+/** What `projectInsertDepth` is asked. */
+export interface InsertProjectionInput<
+	T extends FlatReference = FlatReference,
+> {
+	/**
+	 * The flattened list the Reference would be inserted into, top to bottom —
+	 * the rows on screen, since a slot an Author cannot see is not one they
+	 * pointed at.
+	 */
+	items: readonly T[];
+	/**
+	 * Where in `items` the Reference would go: the index it would take, so `0`
+	 * is before the first row and `items.length` is after the last. Every
+	 * position is expressible, unlike core's strip, which sits only *after* a
+	 * row and so cannot reach the top of the tree.
+	 */
+	slot: number;
+	/**
+	 * How far into the row the pointer sits, measured from the tree's left
+	 * edge — where a drag's `offsetX` is travel *since it began*, an insert
+	 * has no depth to travel from, so this names a level outright.
+	 */
+	offsetX: number;
+	/** Pixels one level of indentation is drawn at — how `offsetX` reads. */
+	indentWidth: number;
+	/**
+	 * The deepest depth a Reference may sit at, roots being 0. Undefined for a
+	 * Field that sets no ceiling, which leaves the neighbours the only bound —
+	 * the same dialect `projectDropDepth` takes, converted from a `max_depth`
+	 * setting by `referenceDepthCeiling`.
+	 */
+	depthCeiling?: number;
+}
+
+/**
+ * Projects the depth a Reference would be inserted at, and the rows the insert
+ * would adopt — everything an insertion affordance needs to say what a click
+ * will do before it happens.
+ *
+ * The rows either side of the slot decide it, exactly as they do for a drop:
+ * one level deeper than the row above is the most nesting on offer, and the
+ * row below sets the floor one level shallower than itself, which is the level
+ * that takes it and its branch as children. `depthCeiling` caps both, and is
+ * spent on the adopted branch as well.
+ *
+ * It is a separate function from `projectDropDepth` rather than a mode of it
+ * because the two are asked different questions — a drag is *somewhere* and
+ * asks how far it has moved, an insert is nowhere and asks for a level — and
+ * they answer in the same shape so that a strip and a drag describe their
+ * outcomes with one vocabulary. The Reference being inserted is always a leaf:
+ * a Content is picked one at a time, and a branch on it would be nested twice.
+ */
+export function projectInsertDepth<T extends FlatReference = FlatReference>({
+	items,
+	slot,
+	offsetX,
+	indentWidth,
+	depthCeiling,
+}: InsertProjectionInput<T>): DepthProjection<T> {
+	const at = Math.max(0, Math.min(slot, items.length));
+	const above = items[at - 1];
+
+	// Whole levels from the left edge: the pointer is *in* a column rather
+	// than partway to the next one, so the first pixel of a level is already
+	// that level.
+	const asked = indentWidth > 0 ? Math.floor(offsetX / indentWidth) : 0;
+
+	const capped = depthCeiling ?? Number.POSITIVE_INFINITY;
+	const maxDepth = Math.max(0, Math.min(above ? above.depth + 1 : 0, capped));
+	const minDepth = Math.min(
+		// A Content is picked one at a time and arrives without a branch, so an
+		// insert may always adopt.
+		adoptionFloor({ items, slot: at, adopting: true, depthCeiling }),
+		maxDepth,
+	);
+
+	const depth = Math.min(Math.max(asked, minDepth), maxDepth);
+	return { depth, minDepth, maxDepth, adopted: adoptedRows(items, at, depth) };
+}
+
+/** What `spliceReference` is asked. */
+export interface ReferenceSpliceInput {
+	/** The flattened list to insert into, top to bottom. */
+	items: readonly NestableReference[];
+	/**
+	 * The Reference to insert. Its own `children` are dropped: depth and order
+	 * are the whole of what re-nesting reads, so a branch travelling in on the
+	 * value would be nested a second time.
+	 */
+	reference: Reference;
+	/** Where it goes — the index it takes, `projectInsertDepth`'s `slot`. */
+	slot: number;
+	/** The depth it lands at — `projectInsertDepth`'s answer. */
+	depth: number;
+}
+
+/**
+ * Splices one Reference into a flattened tree at a position and a depth. Hand
+ * the answer to `nestReferences` and the insert is done.
+ *
+ * It moves nothing and rewrites nothing: the rows either side keep the depths
+ * they had, and Adoption happens — or does not — purely because re-nesting
+ * reads a list by order and depth. Inserting a root between a Reference and
+ * its children takes those children, because there is no other tree that list
+ * describes; inserting at their own depth leaves them where they are. Both
+ * outcomes fall out of the same two lines, which is why adoption needs no
+ * ancestor surgery here (ADR-0012) and why the round trip through
+ * `flattenReferences` is lossless across it.
+ *
+ * Unlike `moveReferenceBranch` it is not generic in the entry: the Reference
+ * arriving has no counterpart in whatever the caller hangs on its own rows, so
+ * a generic result would be a union nobody could read. A caller that needs its
+ * own rows back reads them off the value it writes.
+ */
+export function spliceReference({
+	items,
+	reference,
+	slot,
+	depth,
+}: ReferenceSpliceInput): NestableReference[] {
+	const { children: _branch, ...value } = reference;
+	const at = Math.max(0, Math.min(slot, items.length));
+	const entry: NestableReference = {
+		reference: value,
+		depth: Math.max(0, depth),
 	};
+	return [...items.slice(0, at), entry, ...items.slice(at)];
 }
 
 /** What `moveReferenceBranch` is asked. */
