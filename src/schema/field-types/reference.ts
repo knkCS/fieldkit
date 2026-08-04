@@ -12,6 +12,7 @@ import type {
 import type { PinMode } from "../reference";
 import { referenceTreeSchemaWith } from "../reference";
 import { attributesZodType } from "../reference-attributes";
+import { countReferences, referencesPastDepth } from "../reference-tree";
 import type { Field } from "../types";
 
 export interface ReferenceSettings {
@@ -20,18 +21,33 @@ export interface ReferenceSettings {
 	 * (ADR-0002). */
 	blueprints?: string[];
 	/**
-	 * At most this many References.
+	 * At most this many References, counted over the **flattened** tree — every
+	 * Reference at every level, since a nested child is as real as a root.
 	 *
 	 * A pure cap, never a change of shape: `max_items: 1` still stores a
 	 * one-element array, because Single Reference is its own Field Type
-	 * (ADR-0005). Declared, not yet enforced — the cap counts the *flattened*
-	 * tree, so enforcing it belongs with the ticket that adds nesting rather
-	 * than to a list that is still flat.
+	 * (ADR-0005).
+	 *
+	 * Absent is no cap. `0` is a cap of zero and is **not** the same thing —
+	 * read it through {@link referenceItemCap} rather than with `?? 0`, which
+	 * is the reading that makes an uncapped Field refuse to add anything.
 	 */
 	max_items?: number;
-	/** The deepest a Reference may sit, roots being zero. Declared on the same
-	 * terms as `max_items` and enforced by the same later ticket; the tree
-	 * itself nests as far as an Author drags it. */
+	/**
+	 * How many **levels** of References the tree may hold, roots being level 1.
+	 *
+	 * A count, not an index: `max_depth: 1` is a flat list and forbids nesting
+	 * altogether, `max_depth: 2` allows roots with children but no
+	 * grandchildren. That is the dialect every other `max_*` setting in this
+	 * package speaks, and it is the one knkCMS core's `reference` speaks too
+	 * — core clamps its drag to `max_depth - 1` over 0-based depths.
+	 *
+	 * The depth *index* the tree model works in is therefore one less; the
+	 * conversion happens once, in {@link referenceDepthCeiling}, and both the
+	 * Schema and the drag clamp read it from there.
+	 *
+	 * Absent is no ceiling, and the tree nests as far as an Author drags it.
+	 */
 	max_depth?: number;
 	/**
 	 * Whether this Field fixes its References to a Release, to a Version, or
@@ -58,6 +74,62 @@ export interface ReferenceSettings {
 	 * attributes.ts` is where that boundary and what it costs are written down.
 	 */
 	attributes?: Field[];
+}
+
+/**
+ * A cap as the settings actually stored it, or `undefined` when none was.
+ *
+ * Only a real, finite number is a cap. `undefined`, `null` and anything that
+ * is not a `number` are all "unset" — a Spec's settings are free-form JSON from
+ * a Consumer, so a missing key and a null one mean the same thing and neither
+ * means zero. **Zero is a cap of zero**, which is why this cannot be written as
+ * `settings?.max_items ?? 0`: that reading turns every uncapped Field into one
+ * capped at nothing, which is precisely the bug knkCMS core's add affordance
+ * has today.
+ */
+function storedCap(raw: unknown): number | undefined {
+	return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+}
+
+/**
+ * The `max_items` cap a Field sets, or `undefined` when it sets none.
+ *
+ * The one place that decides what "unset" means, so the Schema that blocks
+ * submit and the add affordance that stops an Author reaching the cap cannot
+ * disagree about whether a Field has one. Exported because a Consumer building
+ * its own control around `ReferenceTree` needs the same answer (ADR-0010).
+ */
+export function referenceItemCap(
+	settings: ReferenceSettings | null | undefined,
+): number | undefined {
+	return storedCap(settings?.max_items);
+}
+
+/**
+ * The deepest depth **index** a Reference may sit at, roots being 0 — or
+ * `undefined` when the Field sets no `max_depth`.
+ *
+ * This is the whole conversion between the two dialects, in one place:
+ * `max_depth` counts levels and the tree model indexes them, so a Field
+ * allowing `n` levels has a ceiling of `n - 1`. `max_depth: 1` therefore
+ * yields 0, which forbids nesting; `projectDropDepth` and the Schema both take
+ * the result as-is.
+ *
+ * `max_depth: 0` yields `-1`, a ceiling no Reference can be within. Degenerate
+ * rather than special: it says "no levels of References", exactly as
+ * `max_items: 0` says "no References", and it is reported rather than quietly
+ * read as unset.
+ */
+export function referenceDepthCeiling(
+	settings: ReferenceSettings | null | undefined,
+): number | undefined {
+	const levels = storedCap(settings?.max_depth);
+	return levels === undefined ? undefined : levels - 1;
+}
+
+/** English for a count, so one Reference is not "1 references". */
+function plural(count: number, one: string, many: string): string {
+	return `${count} ${count === 1 ? one : many}`;
 }
 
 /**
@@ -116,7 +188,9 @@ export interface ReferencePluginOptions {
  *
  * The Schema is recursive because the value is (ADR-0008): a nested branch has
  * to survive a parse, or a drop that nests on screen would submit a flat list.
- * Neither cap is enforced yet; both count the whole tree.
+ * Both caps are enforced in it, so an import or an API write is checked on the
+ * same terms a form is — and a Consumer-minted type cannot quietly be the
+ * unenforced one.
  */
 export function createReferencePlugin({
 	id,
@@ -152,17 +226,52 @@ export function createReferencePlugin({
 		// Fieldset resolution reaches an Attribute Field. See
 		// `../reference-attributes.ts`.
 		//
-		// Minted types get it too, which is the factory's whole promise: a
-		// Consumer's reference-shaped type cannot drift from `reference` without
-		// the drift being deliberate.
+		// Both caps are checked here too, and for the same reason the Attributes
+		// are: only this plugin knows what its own settings mean. Minted types
+		// get all of it, which is the factory's whole promise — a Consumer's
+		// reference-shaped type cannot drift from `reference` without the drift
+		// being deliberate.
 		toZodType(field: Field<ReferenceSettings>, composeChildren) {
-			const schema = z.array(
+			const label = field.config.name;
+			const array = z.array(
 				referenceTreeSchemaWith(
 					attributesZodType(field.settings?.attributes, composeChildren),
 				),
 			);
-			if (!field.config.required) return schema;
-			return schema.min(1, `${field.config.name} is required`);
+			const tree = field.config.required
+				? array.min(1, `${label} is required`)
+				: array;
+
+			// Neither cap goes through `.max()`, because neither is a fact about
+			// the array: `max_items` counts the whole flattened tree, and
+			// `max_depth` has to name *which* Reference broke it. Stored data is
+			// held to exactly these rules — a Spec whose caps were never enforced
+			// can therefore start blocking submit on data that saved fine before,
+			// which is the point. Nothing is ever truncated or re-nested to fit:
+			// the value is reported, never repaired.
+			return tree.superRefine((references, ctx) => {
+				const items = referenceItemCap(field.settings);
+				if (items !== undefined && countReferences(references) > items) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						// No path of its own: an over-full tree is the Field's
+						// problem, not any one Reference's, and the Field's own path
+						// is where a form can show it.
+						message: `${label} holds at most ${plural(items, "reference", "references")}`,
+					});
+				}
+
+				const ceiling = referenceDepthCeiling(field.settings);
+				if (ceiling === undefined) return;
+				const levels = ceiling + 1;
+				for (const path of referencesPastDepth(references, ceiling)) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path,
+						message: `${label} nests at most ${plural(levels, "level", "levels")} deep`,
+					});
+				}
+			});
 		},
 
 		// A new Field tracks the newest Version: pinning is a deliberate choice

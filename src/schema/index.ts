@@ -53,7 +53,9 @@ export {
 	mediaPlugin,
 	numberPlugin,
 	radioPlugin,
+	referenceDepthCeiling,
 	referenceFieldTypes,
+	referenceItemCap,
 	referencePlugin,
 	richTextPlugin,
 	sectionPlugin,
@@ -109,14 +111,16 @@ export {
 	withPin,
 } from "./reference";
 // The Reference Tree model — only the parts a Consumer assembling its own
-// reference-shaped type needs: the rows `ReferenceTree` renders, and the count
-// `max_items` caps. The drag arithmetic stays the tree control's own business.
+// reference-shaped type needs: the rows `ReferenceTree` renders, the count
+// `max_items` caps, and where a tree breaks the depth `max_depth` caps. The
+// drag arithmetic stays the tree control's own business.
 export {
 	countReferences,
 	type FlatReference,
 	type FlatReferenceValue,
 	type ReferenceRow,
 	readReferenceTree,
+	referencesPastDepth,
 } from "./reference-tree";
 export type { PluginRegistry } from "./registry";
 // Registry

@@ -90,8 +90,12 @@ function renderEditor({
 
 	return {
 		onChange,
+		/** The settings as the editor last handed them back. */
+		latest: () => onChange.mock.calls.at(-1)?.[0] as ReferenceSettings,
 		blueprints: () => screen.getByLabelText(/Blueprints/),
 		pinMode: () => screen.getByLabelText(/Pin references to/),
+		maxItems: () => screen.getByLabelText(/Maximum references/),
+		maxDepth: () => screen.getByLabelText(/Maximum depth/),
 	};
 }
 
@@ -205,6 +209,108 @@ describe("ReferenceSettingsEditor", () => {
 		).toBeInTheDocument();
 	});
 
+	describe("the two caps", () => {
+		it("offers a control for each", () => {
+			const { maxItems, maxDepth } = renderEditor();
+
+			expect(maxItems()).toBeInTheDocument();
+			expect(maxDepth()).toBeInTheDocument();
+		});
+
+		it("shows an unset cap as an empty box saying there is no limit", () => {
+			const { maxItems, maxDepth } = renderEditor();
+
+			expect(maxItems()).toHaveValue(null);
+			expect(maxItems()).toHaveAttribute("placeholder", "No limit");
+			expect(maxDepth()).toHaveValue(null);
+		});
+
+		it("stores the number of references an Author caps the Field at", async () => {
+			const user = userEvent.setup();
+			const { onChange, maxItems } = renderEditor();
+
+			await user.type(maxItems(), "5");
+
+			expect(onChange).toHaveBeenLastCalledWith({ max_items: 5 });
+		});
+
+		it("stores the number of levels an Author allows", async () => {
+			const user = userEvent.setup();
+			const { onChange, maxDepth } = renderEditor();
+
+			await user.type(maxDepth(), "3");
+
+			expect(onChange).toHaveBeenLastCalledWith({ max_depth: 3 });
+		});
+
+		it("says what one level means, so a flat list is not authored by accident", () => {
+			renderEditor();
+
+			expect(screen.getByText(/1 is a flat list/i)).toBeInTheDocument();
+		});
+
+		it("says the reference cap counts nested references too", () => {
+			renderEditor();
+
+			expect(
+				screen.getByText(/counts every reference, nested ones included/i),
+			).toBeInTheDocument();
+		});
+
+		it("unsets the cap when the box is emptied, rather than storing zero", async () => {
+			const user = userEvent.setup();
+			const { latest, maxItems } = renderEditor({ initial: { max_items: 3 } });
+
+			await user.clear(maxItems());
+
+			// The key is gone, not set to 0: an unset cap and a cap of zero are
+			// different settings, and only one of them stops an Author adding.
+			expect(latest()).not.toHaveProperty("max_items");
+		});
+
+		it("unsets the depth the same way", async () => {
+			const user = userEvent.setup();
+			const { latest, maxDepth } = renderEditor({ initial: { max_depth: 2 } });
+
+			await user.clear(maxDepth());
+
+			expect(latest()).not.toHaveProperty("max_depth");
+		});
+
+		it("keeps a depth of zero out of reach, since it would allow nothing", async () => {
+			const user = userEvent.setup();
+			const { onChange, maxDepth } = renderEditor();
+
+			await user.type(maxDepth(), "0");
+
+			expect(onChange).toHaveBeenLastCalledWith({ max_depth: 1 });
+		});
+
+		it("leaves the Field's other settings alone", async () => {
+			const user = userEvent.setup();
+			const { onChange, maxDepth } = renderEditor({
+				initial: { blueprints: ["article"], pin_mode: "release" },
+			});
+
+			await user.type(maxDepth(), "2");
+
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: ["article"],
+				pin_mode: "release",
+				max_depth: 2,
+			});
+		});
+
+		it("shows the caps a Spec already stores", () => {
+			const { maxItems, maxDepth } = renderEditor({
+				initial: { max_items: 8, max_depth: 3 },
+			});
+
+			expect(maxItems()).toHaveValue(8);
+			expect(maxDepth()).toHaveValue(3);
+		});
+	});
+
 	it("falls back to blueprint id entry when the adapter cannot list", async () => {
 		const user = userEvent.setup();
 		const { onChange, blueprints } = renderEditor({
@@ -251,5 +357,7 @@ describe("reference in the type picker", () => {
 
 		expect(screen.getByLabelText(/Blueprints/)).toBeInTheDocument();
 		expect(screen.getByLabelText(/Pin references to/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Maximum references/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Maximum depth/)).toBeInTheDocument();
 	});
 });

@@ -56,12 +56,14 @@ A display name is **never stored**. Names are resolved through the adapter on ev
 | Setting      | Type                               | Default  | Description                                                        |
 |--------------|------------------------------------|----------|--------------------------------------------------------------------|
 | `blueprints` | `string[]`                         | `[]`     | The blueprints this field may point at. Empty means the adapter decides |
-| `max_items`  | `number`                           | —        | A cap over the whole tree — a nested child counts as much as a root. Declared, not yet enforced |
-| `max_depth`  | `number`                           | —        | The deepest a Reference may sit, roots being zero. Declared, not yet enforced |
+| `max_items`  | `number`                           | —        | At most this many References, counted over the whole tree — a nested child counts as much as a root |
+| `max_depth`  | `number`                           | —        | How many **levels** the tree may hold, roots being level 1. `1` is a flat list; `2` allows one level of nesting |
 | `pin_mode`   | `"none" \| "release" \| "version"` | `"none"` | Whether References are fixed to a release, to a version, or track the newest version. Absent reads as `"none"` |
 | `attributes` | `Field[]`                          | `[]`     | The Attribute Spec — the Fields every Reference carries about the pointing. See [Attributes](#attributes) |
 
-The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
+`max_depth` is a **count of levels, not the index of the deepest one** — the dialect every other `max_*` setting in this package speaks, and the one knkCMS core's `reference` speaks too. The tree model works in 0-based depth indices, so the conversion happens once, in `referenceDepthCeiling()`; `referenceItemCap()` is its twin for `max_items`. Read both through those functions rather than with `?? 0`: **an unset cap is no cap**, and `0` is a cap of zero. Conflating the two is how an uncapped field ends up refusing to add anything.
+
+The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints. Each cap is a number box whose empty state means "no limit" — emptying it removes the key rather than storing `0`. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
 
 ## Attributes
 
@@ -151,13 +153,17 @@ Both methods are **optional**. Without them the picker degrades to a search box 
 | per item    | Each entry must be a Reference — an object with a non-empty `id` |
 | per branch  | A nested Reference is held to the same rules as a root one |
 | per Attribute | Each declared Attribute is checked as the type it is; a required one blocks submit and reports at its own key under the Reference that owns it |
+| `max_items` | The flattened tree holds at most that many References. Reported **at the field's path** |
+| `max_depth` | No Reference sits deeper than that many levels. Reported **at the offending Reference's path** — `related.0.children.1` |
 
 ```ts
 // Optional
-z.array(referenceTreeSchemaWith(attributes))
+z.array(referenceTreeSchemaWith(attributes)).superRefine(caps)
 
 // Required
-z.array(referenceTreeSchemaWith(attributes)).min(1, "Related articles is required")
+z.array(referenceTreeSchemaWith(attributes))
+  .min(1, "Related articles is required")
+  .superRefine(caps)
 ```
 
 The node schema is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list. The recursion is also what puts the Attribute Spec on every Reference at every level.
@@ -172,11 +178,15 @@ The node schema is **lazily recursive**: it names `children`, so a nested branch
 
 The blast radius mirrors ADR-0007's: declaring a required Attribute starts checking every stored Reference of that field, so data that saved successfully before can begin blocking submit.
 
-`max_items` and `max_depth` are not in the Schema yet — see Settings above.
+Both caps live in the **Schema**, not only in the control, so an import or an API write is checked on the same terms a form is. The UI additionally disables the add affordance at `max_items` and clamps a drop to `max_depth`, but neither is where the rule lives.
+
+That has a blast radius, and it is intended: **a Spec whose caps were never enforced can begin blocking submit on data that saved fine before.** What does not happen is fieldkit quietly fixing it — a value over a cap is reported, never truncated, and a branch past the depth is reported, never re-nested. Only the shallowest Reference in each over-deep branch is reported, since everything under it is too deep because of it.
+
+`ReferenceField` renders those messages under the tree, because `FormField` shows only the message on the field's *own* node and `max_depth` deliberately reports deeper. The same collection catches a required Attribute, which reports at `related.0.attributes.page` for the same reason — and which lives inside a drawer, so without it a submit blocked by an Attribute would be a submit blocked by nothing visible at all.
 
 ## Table Cell and Read Mode
 
-`ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, the same way `max_items` will. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids. `SingleReferenceCell` counts on the same terms ("1 reference"), so the two types read alike in one table.
+`ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, exactly as `max_items` does. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids. `SingleReferenceCell` counts on the same terms ("1 reference"), so the two types read alike in one table.
 
 Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's Attribute values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never folds — collapsing is there to make a tall tree draggable, and there is nothing to drag when reading — and it never touches react-hook-form, so read mode still needs no `FormProvider`.
 
@@ -206,7 +216,7 @@ Pass it to `FieldKitProvider` and `TypePicker` beside `builtInFieldTypes` and it
 
 **Registering a replacement is not a migration.** Fieldkit's removed `toc_reference` stored a bare id string; a minted type stores a Reference Tree, so stored values have to be converted — `"x"` becomes `[{ id: "x" }]` — or they fail the Schema and render as an empty tree. Its `always_latest` and `attributes` settings keys are gone with it; `pin_mode: "none"` is what `always_latest` meant.
 
-For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, and `names` — a record keyed by Content id. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either. `readReferenceTree` and `countReferences` — every Reference at every level, what `max_items` caps — come from `@knkcs/fieldkit/schema`.
+For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, `names` — a record keyed by Content id — and `depthCeiling`, a 0-based depth index that `referenceDepthCeiling(settings)` converts a `max_depth` setting into. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
 
 ## Errors
 
@@ -214,7 +224,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 ## Known Limitations
 
-- `max_items` and `max_depth` are declared but not enforced — neither the Schema nor the drag clamps to them yet.
+- Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required Attribute — is shown under the tree rather than on the row or the Attribute that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
 - The drawer always adds at the root; a new Reference is nested by dragging it.
 - An Attribute is checked by the Schema but nothing shared validates the Attribute *Spec* — a hand-written duplicate accessor among Attributes goes unreported (ADR-0007, above).
 - `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — an Attribute of one of those types needs its `settings.options` hand-authored. Not specific to Attributes.
