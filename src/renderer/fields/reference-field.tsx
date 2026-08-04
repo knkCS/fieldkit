@@ -99,10 +99,20 @@ export function ReferenceField({
 			readOnly={readOnly}
 		>
 			{(formField) => {
-				function handleAdd(content: ReferenceItem) {
-					// The id and nothing else. A display name in stored data would
-					// go stale the moment the Content is renamed.
-					formField.onChange([...entries, { id: content.id }]);
+				function handleAdd(content: ReferenceItem, pin: string | null) {
+					// The id, and the Pin's target id where there is one. Never a
+					// display name — it would go stale the moment the Content is
+					// renamed — and never which *kind* of target the Pin is: the
+					// Field's `pin_mode` is the only thing that says (ADR-0008).
+					//
+					// No Pin means no key, rather than an explicit null: "the
+					// newest Version" is what an absent Pin already means, and a
+					// Field that does not pin must store exactly what it always
+					// stored.
+					const reference: Reference = pin
+						? { id: content.id, pin }
+						: { id: content.id };
+					formField.onChange([...entries, reference]);
 					setPicking(false);
 				}
 
@@ -172,6 +182,9 @@ export function ReferenceField({
 								onPick={handleAdd}
 								blueprintIds={blueprints}
 								fieldId={accessor}
+								// The one thing that decides whether adding is one
+								// step or two.
+								pinMode={settings?.pin_mode}
 							/>
 						)}
 					</Box>

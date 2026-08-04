@@ -265,4 +265,187 @@ describe("SingleReferenceField", () => {
 		expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
 		expect(control()).toBeDisabled();
 	});
+
+	describe("pinning", () => {
+		function pinningField(pinMode: "release" | "version" = "release") {
+			return makeField({
+				settings: { blueprints: ["article"], pin_mode: pinMode },
+			});
+		}
+
+		/** The second select — the one beside the Content select. */
+		function pinControl(name: RegExp = /Release/) {
+			return screen.getByLabelText(name);
+		}
+
+		it("renders no second select when the Field does not pin", () => {
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "none" },
+				}),
+			});
+
+			expect(screen.queryByLabelText(/Release/)).not.toBeInTheDocument();
+			expect(screen.queryByLabelText(/Version/)).not.toBeInTheDocument();
+		});
+
+		it("treats a Spec written before pinning existed as not pinning", () => {
+			renderField({ field: makeField({ settings: { blueprints: [] } }) });
+
+			expect(screen.queryByLabelText(/Release/)).not.toBeInTheDocument();
+		});
+
+		it("renders a second select beside the Content select when it pins", async () => {
+			renderField({ field: pinningField(), value: { id: "article-1" } });
+
+			// Both on screen at once: one Content and its Release chosen without
+			// a drawer in sight.
+			expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
+			expect(pinControl()).toBeInTheDocument();
+		});
+
+		it("offers the kind of target the Field's setting names", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter();
+			renderField({
+				field: pinningField("version"),
+				value: { id: "article-1" },
+				adapter,
+			});
+
+			await user.click(pinControl(/Version/));
+
+			expect(await screen.findByText("Version 3")).toBeInTheDocument();
+			expect(screen.queryByText("Spring release")).not.toBeInTheDocument();
+			await waitFor(() =>
+				expect(adapter.pinTargetQueries).toContainEqual({
+					contentId: "article-1",
+					mode: "version",
+				}),
+			);
+		});
+
+		it("stores only the target id", async () => {
+			const user = userEvent.setup();
+			renderField({ field: pinningField(), value: { id: "article-1" } });
+
+			await user.click(pinControl());
+			await user.click(await screen.findByText("Spring release"));
+
+			// Which kind of target it is is never written down — the Field's
+			// `pin_mode` is the only thing that says (ADR-0008).
+			expect(stored()).toEqual({ id: "article-1", pin: "article-1-r2" });
+		});
+
+		it("stores no Pin at all until one is chosen", async () => {
+			renderField({ field: pinningField(), value: { id: "article-1" } });
+
+			// A Reference with no Pin resolves to the newest Version, and the
+			// control says so where a chosen target would otherwise read.
+			expect(stored()).toEqual({ id: "article-1" });
+			expect(await screen.findByText("Newest version")).toBeInTheDocument();
+		});
+
+		it("clears back to the newest Version", async () => {
+			const user = userEvent.setup();
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "article-1-r2" },
+			});
+
+			await screen.findByText("Spring release");
+			await user.click(pinControl());
+			await user.keyboard("{Backspace}");
+
+			expect(stored()).toEqual({ id: "article-1" });
+		});
+
+		it("shows a stored Pin under its current label", async () => {
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "article-1-r1" },
+			});
+
+			expect(await screen.findByText("Launch")).toBeInTheDocument();
+		});
+
+		it("still shows a Pin it cannot resolve, under its id", async () => {
+			renderField({
+				field: pinningField(),
+				// What a `pin_mode` change leaves behind: an id that no longer
+				// names anything this Field offers.
+				value: { id: "article-1", pin: "article-1-v2" },
+			});
+
+			expect(await screen.findByText("article-1-v2")).toBeInTheDocument();
+			// And the stored value is left exactly as it was — nulling a stranded
+			// Pin is the Consumer's upgrade to do, not this control's.
+			expect(stored()).toEqual({ id: "article-1", pin: "article-1-v2" });
+		});
+
+		it("clears the Pin when the Content changes", async () => {
+			const user = userEvent.setup();
+			const { control } = renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "article-1-r2" },
+			});
+
+			await screen.findByText("Spring release");
+			await user.click(control());
+			await user.click(await screen.findByText("Dogs of the world"));
+
+			// A Pin can never point at a Release of a different Content.
+			expect(stored()).toEqual({ id: "article-2" });
+		});
+
+		it("clears the Pin when the Content is cleared", async () => {
+			const user = userEvent.setup();
+			const { control } = renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "article-1-r2" },
+			});
+
+			await screen.findByText("Cats of the world");
+			await user.click(control());
+			await user.keyboard("{Backspace}");
+
+			expect(stored()).toBeNull();
+		});
+
+		it("has nothing to pin to until a Content is chosen", () => {
+			renderField({ field: pinningField() });
+
+			expect(pinControl()).toBeDisabled();
+		});
+
+		it("reports a failed target lookup without losing the control", async () => {
+			const onError = vi.fn();
+			const adapter = createFakeReferenceAdapter({
+				failPinTargets: new Error("pin lookup exploded"),
+			});
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1" },
+				adapter,
+				onError,
+			});
+
+			await waitFor(() =>
+				expect(onError).toHaveBeenCalledWith(expect.any(Error), ACCESSOR),
+			);
+			expect(pinControl()).toBeInTheDocument();
+			expect(stored()).toEqual({ id: "article-1" });
+		});
+
+		it("cannot be changed in read-only mode", async () => {
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1", pin: "article-1-r2" },
+				readOnly: true,
+			});
+
+			expect(await screen.findByText("Spring release")).toBeInTheDocument();
+			expect(pinControl()).toBeDisabled();
+		});
+	});
 });

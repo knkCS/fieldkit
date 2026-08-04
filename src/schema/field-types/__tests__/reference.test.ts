@@ -88,4 +88,28 @@ describe("referencePlugin", () => {
 	it("offers a settings editor for the Field", () => {
 		expect(referencePlugin.settingsComponent).toBeDefined();
 	});
+
+	it("starts a new Field on the newest Version rather than pinning", () => {
+		expect(referencePlugin.defaultSettings).toEqual({
+			blueprints: [],
+			pin_mode: "none",
+		});
+	});
+
+	it("carries no always_latest, which pin_mode superseded", () => {
+		// It drove no behaviour anywhere and was removed rather than
+		// reimplemented (ADR-0008): `pin_mode: "none"` is what it meant.
+		expect(referencePlugin.defaultSettings).not.toHaveProperty("always_latest");
+	});
+
+	it("stores a Pin as a bare target id", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		// Nothing about which *kind* of target it is: only the Field's
+		// `pin_mode` says (ADR-0008).
+		expect(zodType.safeParse([{ id: "a", pin: "r-1" }]).success).toBe(true);
+		// And no Pin at all is just as valid — that is the newest Version.
+		expect(zodType.safeParse([{ id: "a" }]).success).toBe(true);
+		expect(zodType.safeParse([{ id: "a", pin: null }]).success).toBe(true);
+	});
 });

@@ -134,4 +134,17 @@ describe("singleReferencePlugin", () => {
 			"form",
 		]);
 	});
+
+	it("starts a new Field on the newest Version rather than pinning", () => {
+		expect(singleReferencePlugin.defaultSettings).toEqual({
+			blueprints: [],
+			pin_mode: "none",
+		});
+	});
+
+	it("carries no always_latest, which pin_mode superseded", () => {
+		expect(singleReferencePlugin.defaultSettings).not.toHaveProperty(
+			"always_latest",
+		);
+	});
 });

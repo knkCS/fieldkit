@@ -88,7 +88,11 @@ function renderEditor({
 		</ChakraProvider>,
 	);
 
-	return { onChange, blueprints: () => screen.getByLabelText(/Blueprints/) };
+	return {
+		onChange,
+		blueprints: () => screen.getByLabelText(/Blueprints/),
+		pinMode: () => screen.getByLabelText(/Pin references to/),
+	};
 }
 
 describe("ReferenceSettingsEditor", () => {
@@ -136,6 +140,61 @@ describe("ReferenceSettingsEditor", () => {
 		expect(await screen.findByText("Author")).toBeInTheDocument();
 	});
 
+	it("offers a pin mode of none, release or version", () => {
+		const { pinMode } = renderEditor();
+
+		expect(
+			Array.from(pinMode().querySelectorAll("option")).map(
+				(option) => option.value,
+			),
+		).toEqual(["none", "release", "version"]);
+	});
+
+	it("starts a Field on the newest version", () => {
+		const { pinMode } = renderEditor();
+
+		expect(pinMode()).toHaveValue("none");
+	});
+
+	it("stores the pin mode the Author chooses", async () => {
+		const user = userEvent.setup();
+		const { onChange, pinMode } = renderEditor();
+
+		await user.selectOptions(pinMode(), "release");
+
+		expect(onChange).toHaveBeenLastCalledWith({ pin_mode: "release" });
+	});
+
+	it("leaves the Field's other settings alone when the pin mode changes", async () => {
+		const user = userEvent.setup();
+		const { onChange, pinMode } = renderEditor({
+			initial: { blueprints: ["article"] },
+		});
+
+		await user.selectOptions(pinMode(), "version");
+
+		expect(onChange).toHaveBeenLastCalledWith({
+			blueprints: ["article"],
+			pin_mode: "version",
+		});
+	});
+
+	it("shows a Spec written before pinning existed as not pinning", () => {
+		const { pinMode } = renderEditor({ initial: { blueprints: ["article"] } });
+
+		expect(pinMode()).toHaveValue("none");
+	});
+
+	it("warns that changing the pin mode strands the pins already saved", () => {
+		renderEditor();
+
+		// Fieldkit cannot refuse the change — only a Consumer knows whether any
+		// Content would be stranded (ADR-0008) — so it says so instead.
+		expect(
+			screen.getByText(/clears every pin already saved/i),
+		).toBeInTheDocument();
+	});
+
 	it("falls back to blueprint id entry when the adapter cannot list", async () => {
 		const user = userEvent.setup();
 		const { onChange, blueprints } = renderEditor({
@@ -181,5 +240,6 @@ describe("reference in the type picker", () => {
 		);
 
 		expect(screen.getByLabelText(/Blueprints/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Pin references to/)).toBeInTheDocument();
 	});
 });

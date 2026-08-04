@@ -1,10 +1,22 @@
 // src/test/fake-reference-adapter.ts
 import type {
 	FieldKitAdapters,
+	PinTarget,
 	ReferenceItem,
 	ReferenceSearchQuery,
 } from "../renderer/adapters";
+import type { PinningMode } from "../schema/reference";
 import type { Field } from "../schema/types";
+
+/**
+ * What one Content offers to be pinned to, per kind.
+ *
+ * A record keyed by `PinningMode` rather than two fields, so a Content says
+ * what it offers in exactly the terms `listPinTargets` is asked in. A kind left
+ * out falls back to the generated targets — declaring Releases must not
+ * silently empty a Content's Versions.
+ */
+export type FakePinTargets = Partial<Record<PinningMode, PinTarget[]>>;
 
 /**
  * A Content in the fake catalogue. `ReferenceItem`'s index signature is what
@@ -24,6 +36,11 @@ export interface FakeContent extends ReferenceItem {
 	 * ever reads it.
 	 */
 	status?: string;
+	/**
+	 * What this Content offers to be pinned to. Absent — the usual case — means
+	 * the generated targets below, which every Content has.
+	 */
+	pin_targets?: FakePinTargets;
 }
 
 export interface FakeReferenceAdapterOptions {
@@ -33,6 +50,8 @@ export interface FakeReferenceAdapterOptions {
 	failSearch?: Error;
 	/** Reject every `fetch` with this error, for the degrade paths. */
 	failFetch?: Error;
+	/** Reject every `listPinTargets` with this error, for the degrade paths. */
+	failPinTargets?: Error;
 	/**
 	 * The Spec `getSearchFilters()` answers with. `null` omits the method
 	 * altogether — the degrade path for a Consumer that has not implemented
@@ -58,6 +77,13 @@ export interface FakeReferenceAdapter
 	 * held it, with nothing inspected, renamed or dropped on the way.
 	 */
 	readonly searches: ReferenceSearchQuery[];
+	/**
+	 * Every Pin target lookup, oldest first.
+	 *
+	 * The one way to assert that the *Field's* setting decided which kind of
+	 * target was offered — the value never says, so nothing else can prove it.
+	 */
+	readonly pinTargetQueries: { contentId: string; mode: PinningMode }[];
 	/**
 	 * Rename a Content the way an Author working somewhere else would.
 	 *
@@ -137,6 +163,39 @@ export const FAKE_SEARCH_FILTERS: Field[] = [
 	}),
 ];
 
+/**
+ * The Pin targets a Content has unless it declares its own.
+ *
+ * Deliberately worded so the two kinds cannot be mistaken for each other: a
+ * test that reads "Spring release" on screen has proved the Field's `pin_mode`
+ * — and nothing in the value — chose what was offered. Newest first, which is
+ * the order a person expects to pick from.
+ */
+function generatedPinTargets(
+	contentId: string,
+	mode: PinningMode,
+): PinTarget[] {
+	if (mode === "release") {
+		return [
+			{
+				id: `${contentId}-r2`,
+				label: "Spring release",
+				description: "Published 2 March 2026",
+			},
+			{
+				id: `${contentId}-r1`,
+				label: "Launch",
+				description: "Published 1 March 2026",
+			},
+		];
+	}
+	return [3, 2, 1].map((n) => ({
+		id: `${contentId}-v${String(n)}`,
+		label: `Version ${String(n)}`,
+		description: `Saved ${String(n)} March 2026`,
+	}));
+}
+
 /** How this fake describes one Content row — the picker's result columns. */
 export const FAKE_RESULT_COLUMNS: Field[] = [
 	field("text", "display_name", "Name"),
@@ -149,11 +208,8 @@ export const FAKE_RESULT_COLUMNS: Field[] = [
  * Every adapter-backed Reference test drives through this rather than
  * hand-rolling a `vi.fn()` per test, so "what the Adapter does" is written
  * down once: search honours the Blueprint constraint, the query, the filters
- * and the page; `fetch` returns only the Contents that exist; and a name only
- * ever comes from here.
- *
- * Shaped to grow: Pin targets (#68) are an addition to the options and the
- * returned object, not a rewrite of either.
+ * and the page; `fetch` returns only the Contents that exist; `listPinTargets`
+ * answers in the kind it was asked for; and a name only ever comes from here.
  */
 export function createFakeReferenceAdapter(
 	options: FakeReferenceAdapterOptions = {},
@@ -164,6 +220,7 @@ export function createFakeReferenceAdapter(
 		...content,
 	}));
 	const searches: ReferenceSearchQuery[] = [];
+	const pinTargetQueries: { contentId: string; mode: PinningMode }[] = [];
 
 	const searchFilters =
 		options.searchFilters === undefined
@@ -212,6 +269,7 @@ export function createFakeReferenceAdapter(
 	return {
 		contents,
 		searches,
+		pinTargetQueries,
 
 		rename(id, displayName) {
 			const content = contents.find((candidate) => candidate.id === id);
@@ -251,6 +309,19 @@ export function createFakeReferenceAdapter(
 				.map((id) => contents.find((content) => content.id === id))
 				.filter((content): content is FakeContent => content !== undefined)
 				.map((content) => ({ ...content }));
+		},
+
+		async listPinTargets(contentId, mode) {
+			pinTargetQueries.push({ contentId, mode });
+			if (options.failPinTargets) throw options.failPinTargets;
+
+			const content = contents.find((candidate) => candidate.id === contentId);
+			// A Content that no longer resolves has nothing to pin to, the same
+			// way `fetch` simply omits it: an empty list, not an error.
+			if (!content) return [];
+			return (
+				content.pin_targets?.[mode] ?? generatedPinTargets(contentId, mode)
+			).map((target) => ({ ...target }));
 		},
 
 		// Omitted entirely when the options said so, so a test can drive the

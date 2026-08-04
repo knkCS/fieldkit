@@ -467,6 +467,206 @@ describe("ReferenceField", () => {
 		});
 	});
 
+	describe("pinning", () => {
+		/** Picks a Content in step one and waits for the second step to arrive. */
+		async function pickInStepOne(
+			user: ReturnType<typeof userEvent.setup>,
+			name: string,
+		) {
+			await user.click(await screen.findByText(name));
+			return await screen.findByTestId("reference-picker-pin-step");
+		}
+
+		it("has exactly one step when the Field does not pin", async () => {
+			const user = userEvent.setup();
+			const { adapter } = renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "none" },
+				}),
+			});
+
+			await openPicker(user);
+			await user.click(await screen.findByText("Dogs of the world"));
+
+			// Picked and stored in one move: no second step ever appeared, and
+			// nothing asked the Adapter what this Content could be pinned to.
+			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(
+				screen.queryByTestId("reference-picker-pin-step"),
+			).not.toBeInTheDocument();
+			expect(adapter.pinTargetQueries).toHaveLength(0);
+		});
+
+		it("treats a Spec written before pinning existed as not pinning", async () => {
+			const user = userEvent.setup();
+			renderField({ field: makeField({ settings: { blueprints: [] } }) });
+
+			await openPicker(user);
+			await user.click(await screen.findByText("Dogs of the world"));
+
+			expect(stored()).toEqual([{ id: "article-2" }]);
+		});
+
+		it("gains a second step listing that Content's Pin targets", async () => {
+			const user = userEvent.setup();
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+
+			// The browse is gone, and nothing was stored on the way here.
+			expect(screen.queryByTestId("reference-picker")).not.toBeInTheDocument();
+			expect(stored()).toEqual([]);
+			expect(
+				await within(step).findByRole("button", { name: /Spring release/ }),
+			).toBeInTheDocument();
+			expect(
+				within(step).getByRole("button", { name: /Launch/ }),
+			).toBeInTheDocument();
+		});
+
+		it("offers the kind of target the Field's setting names, never the value's", async () => {
+			const user = userEvent.setup();
+			const { adapter } = renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "version" },
+				}),
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+
+			expect(
+				await within(step).findByRole("button", { name: /Version 3/ }),
+			).toBeInTheDocument();
+			expect(
+				within(step).queryByRole("button", { name: /Spring release/ }),
+			).not.toBeInTheDocument();
+			// Asked for the Content that was picked, in the Field's mode.
+			expect(adapter.pinTargetQueries).toEqual([
+				{ contentId: "article-2", mode: "version" },
+			]);
+		});
+
+		it("stores the Reference with only the target's id", async () => {
+			const user = userEvent.setup();
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+			await user.click(
+				await within(step).findByRole("button", { name: /Spring release/ }),
+			);
+
+			// The id and nothing else — not the label, not which kind of target
+			// it is. Only the Field's `pin_mode` says that (ADR-0008).
+			expect(stored()).toEqual([{ id: "article-2", pin: "article-2-r2" }]);
+			await waitFor(() =>
+				expect(
+					screen.queryByTestId("reference-picker-pin-step"),
+				).not.toBeInTheDocument(),
+			);
+		});
+
+		it("stores no Pin at all when the newest Version is chosen", async () => {
+			const user = userEvent.setup();
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+			await user.click(
+				within(step).getByRole("button", { name: /Newest version/ }),
+			);
+
+			// No `pin` key, which is what "resolves to the newest Version"
+			// looks like in stored data.
+			expect(stored()).toEqual([{ id: "article-2" }]);
+		});
+
+		it("goes back to the browse without storing anything", async () => {
+			const user = userEvent.setup();
+			const { adapter } = renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+			});
+
+			const picker = await openPicker(user);
+			await user.type(
+				within(picker).getByRole("textbox", { name: "Search content" }),
+				"dogs",
+			);
+			await waitFor(() => expect(adapter.searches.at(-1)?.query).toBe("dogs"));
+			const step = await pickInStepOne(user, "Dogs of the world");
+			await user.click(within(step).getByRole("button", { name: "Back" }));
+
+			// Back to the browse, still narrowed to what was searched — and the
+			// search box still shows it, so the two agree.
+			const again = await screen.findByTestId("reference-picker");
+			expect(
+				within(again).getByRole("textbox", { name: "Search content" }),
+			).toHaveValue("dogs");
+			expect(stored()).toEqual([]);
+		});
+
+		it("still offers the newest Version when the target lookup fails", async () => {
+			const user = userEvent.setup();
+			const onError = vi.fn();
+			const adapter = createFakeReferenceAdapter({
+				failPinTargets: new Error("pin lookup exploded"),
+			});
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+				adapter,
+				onError,
+			});
+
+			await openPicker(user);
+			const step = await pickInStepOne(user, "Dogs of the world");
+
+			await waitFor(() =>
+				expect(onError).toHaveBeenCalledWith(expect.any(Error), ACCESSOR),
+			);
+			await user.click(
+				within(step).getByRole("button", { name: /Newest version/ }),
+			);
+			expect(stored()).toEqual([{ id: "article-2" }]);
+		});
+
+		it("starts the next add over rather than reopening on the second step", async () => {
+			const user = userEvent.setup();
+			renderField({
+				field: makeField({
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				}),
+			});
+
+			await openPicker(user);
+			await pickInStepOne(user, "Dogs of the world");
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+			await openPicker(user);
+
+			expect(
+				screen.queryByTestId("reference-picker-pin-step"),
+			).not.toBeInTheDocument();
+		});
+	});
+
 	describe("what the Schema enforces", () => {
 		it("blocks submit and reports at its own path when required and empty", async () => {
 			const user = userEvent.setup();

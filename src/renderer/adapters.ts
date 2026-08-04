@@ -1,4 +1,5 @@
 // src/renderer/adapters.ts
+import type { PinningMode } from "../schema/reference";
 import type {
 	BlueprintSchemaAdapter,
 	BlueprintSummary,
@@ -55,6 +56,25 @@ export interface ReferenceSearchResult {
 	total: number;
 }
 
+/**
+ * One thing a Reference may be pinned to, already normalised by the Adapter.
+ *
+ * Deliberately not a Release and not a Version: fieldkit models neither
+ * (ADR-0002), so the Adapter flattens whichever it was asked for into an id to
+ * store and words to read. The Field's `pin_mode` is what says which kind
+ * these are — a target never says so itself, and neither does the stored Pin.
+ */
+export interface PinTarget {
+	/** What a Reference's `pin` stores. The only part that is ever written. */
+	id: string;
+	/** What the person filling in the form reads — a Release's title, a
+	 * Version's number, whatever the Consumer calls it. */
+	label: string;
+	/** A second line where one helps tell two targets apart: a publication
+	 * date, an author, a tag. Optional because not every Consumer has one. */
+	description?: string;
+}
+
 export interface MediaItem {
 	id: string;
 	filename: string;
@@ -100,6 +120,21 @@ export interface FieldKitAdapters {
 	reference?: {
 		search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
 		fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+		/**
+		 * What one Content offers to be pinned to, in the kind the Field's
+		 * `pin_mode` asked for.
+		 *
+		 * Required, unlike the two Spec methods below: a Field that pins with
+		 * nothing to pin to is a broken Field, not a degraded one, and only the
+		 * Adapter can know a Content's Releases or Versions. A Consumer whose
+		 * Contents have no such thing answers with an empty list.
+		 *
+		 * Never called with `"none"` — a Field that does not pin never asks.
+		 */
+		listPinTargets: (
+			contentId: string,
+			mode: PinningMode,
+		) => Promise<PinTarget[]>;
 		/**
 		 * The Fields describing a query over this Consumer's Contents — what
 		 * the picker's filter form renders.

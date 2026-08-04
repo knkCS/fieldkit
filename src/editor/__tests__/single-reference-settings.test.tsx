@@ -88,7 +88,11 @@ function renderEditor({
 		</ChakraProvider>,
 	);
 
-	return { onChange, blueprints: () => screen.getByLabelText(/Blueprints/) };
+	return {
+		onChange,
+		blueprints: () => screen.getByLabelText(/Blueprints/),
+		pinMode: () => screen.getByLabelText(/Pin the reference to/),
+	};
 }
 
 describe("SingleReferenceSettingsEditor", () => {
@@ -142,6 +146,46 @@ describe("SingleReferenceSettingsEditor", () => {
 			// opening the panel.
 			expect(await screen.findByText("retired_bp")).toBeInTheDocument();
 			expect(onChange).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("the pin mode", () => {
+		it("offers none, release or version", () => {
+			const { pinMode } = renderEditor();
+
+			expect(
+				Array.from(pinMode().querySelectorAll("option")).map(
+					(option) => option.value,
+				),
+			).toEqual(["none", "release", "version"]);
+		});
+
+		it("starts a Field on the newest version", () => {
+			const { pinMode } = renderEditor();
+
+			expect(pinMode()).toHaveValue("none");
+		});
+
+		it("stores the mode the Author chooses, leaving the rest alone", async () => {
+			const user = userEvent.setup();
+			const { onChange, pinMode } = renderEditor({
+				initial: { blueprints: ["article"] },
+			});
+
+			await user.selectOptions(pinMode(), "release");
+
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: ["article"],
+				pin_mode: "release",
+			});
+		});
+
+		it("warns that changing it strands the pins already saved", () => {
+			renderEditor();
+
+			expect(
+				screen.getByText(/clears every pin already saved/i),
+			).toBeInTheDocument();
 		});
 	});
 

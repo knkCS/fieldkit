@@ -1,12 +1,14 @@
-import { Box, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
 import { DrawerRoot } from "@knkcs/anker/components";
 import { SearchInput } from "@knkcs/anker/forms";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
+import type { PinMode } from "../../schema/reference";
 import type { Field } from "../../schema/types";
 import { getDefaultValues } from "../../schema/zod-builder";
 import { SpecDataTable } from "../../table/spec-data-table";
-import type { ReferenceItem } from "../adapters";
+import type { PinTarget, ReferenceItem } from "../adapters";
 import { FieldRenderer } from "../field-renderer";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { useStableValue } from "../hooks/use-stable-value";
@@ -36,26 +38,80 @@ const NAME_ONLY_COLUMNS: Field[] = [
 	},
 ];
 
+/**
+ * One choosable Pin target — or the newest Version, which is the absence of
+ * one.
+ *
+ * A real `<Button>` rather than a styled row, so what a person clicks is what a
+ * keyboard reaches, and the label and its description together are the
+ * accessible name.
+ */
+function PinTargetOption({
+	label,
+	description,
+	onSelect,
+}: {
+	label: string;
+	description?: string;
+	onSelect: () => void;
+}) {
+	return (
+		<Button
+			variant="outline"
+			justifyContent="flex-start"
+			height="auto"
+			py="2"
+			px="3"
+			onClick={onSelect}
+		>
+			<Stack gap="0" align="start" textAlign="left">
+				<Text fontSize="sm">{label}</Text>
+				{description && (
+					<Text fontSize="xs" color="fg.muted" fontWeight="normal">
+						{description}
+					</Text>
+				)}
+			</Stack>
+		</Button>
+	);
+}
+PinTargetOption.displayName = "PinTargetOption";
+
 export interface ReferencePickerDrawerProps {
 	open: boolean;
 	onClose: () => void;
-	/** Called with the Content the person chose. Closing is the caller's to do,
-	 * so the same drawer can serve a picker that stays open for a second step. */
-	onPick: (content: ReferenceItem) => void;
+	/**
+	 * Called with the Content the person chose and the Pin they chose for it —
+	 * `null` for the newest Version, which is what a Field that does not pin
+	 * always answers.
+	 *
+	 * Closing is the caller's to do, so the drawer can stay open across the
+	 * second step.
+	 */
+	onPick: (content: ReferenceItem, pin: string | null) => void;
 	/** The Blueprints the Field is constrained to. */
 	blueprintIds: string[];
 	/** The Field being filled in, so an Adapter failure names it. */
 	fieldId: string;
+	/**
+	 * Whether the Field pins, and to which kind of target — the only thing that
+	 * decides whether this drawer has one step or two.
+	 *
+	 * Defaults to not pinning, so a caller that has no such setting keeps the
+	 * one-step flow.
+	 */
+	pinMode?: PinMode;
 	title?: string;
 }
 
 /**
- * Step one of adding a Reference: browse the Contents the Adapter offers.
+ * Adding a Reference, in one step or two.
  *
- * Browsing rather than only searching is the point — someone filling in a form
- * has to be able to find one Content among thousands without remembering its
- * name. So this is a paginated table over a total the Adapter reports, with a
- * search box and, where the Adapter describes them, filters.
+ * **Step one — browse the Contents the Adapter offers.** Browsing rather than
+ * only searching is the point: someone filling in a form has to be able to find
+ * one Content among thousands without remembering its name. So this is a
+ * paginated table over a total the Adapter reports, with a search box and,
+ * where the Adapter describes them, filters.
  *
  * Neither the filters nor the columns are fieldkit's vocabulary. The Adapter
  * describes both as Specs (ADR-0009); the filter form is rendered by
@@ -63,6 +119,13 @@ export interface ReferencePickerDrawerProps {
  * its own control and its own cell for free. The values the filter form
  * collects are handed back through `search` as an opaque record — this
  * component never reads a key of it, and never reshapes it.
+ *
+ * **Step two — choose what to pin to**, and only when the Field pins. The
+ * Adapter normalises whichever kind `pin_mode` named into an id, a label and a
+ * description, so fieldkit models neither a Release nor a Version (ADR-0008);
+ * this step just lists what came back, plus the newest Version, which is the
+ * choice that stores no Pin at all. A Field that does not pin never reaches
+ * here and never asks the Adapter anything.
  */
 export function ReferencePickerDrawer({
 	open,
@@ -70,6 +133,7 @@ export function ReferencePickerDrawer({
 	onPick,
 	blueprintIds,
 	fieldId,
+	pinMode = "none",
 	title = "Add reference",
 }: ReferencePickerDrawerProps) {
 	const { adapters, getAllPlugins } = useFieldKit();
@@ -112,6 +176,13 @@ export function ReferencePickerDrawer({
 	const [total, setTotal] = useState(0);
 	const [loading, setLoading] = useState(false);
 
+	// The Content step one settled on, and what it may be pinned to. Non-null
+	// is what "we are on step two" means — there is no separate step state to
+	// disagree with it.
+	const [picked, setPicked] = useState<ReferenceItem | null>(null);
+	const [targets, setTargets] = useState<PinTarget[]>([]);
+	const [loadingTargets, setLoadingTargets] = useState(false);
+
 	// Narrowing puts you back on page one — page 4 of the old results says
 	// nothing about the new ones. Adjusted during render, the documented way
 	// (and the way `blueprint-picker.tsx` re-seeds its input), so the search
@@ -135,6 +206,9 @@ export function ReferencePickerDrawer({
 		if (open) {
 			setQuery("");
 			setPage(1);
+			// Adding a Reference starts at step one every time. Reopening onto
+			// the second step would ask about a Content nobody just chose.
+			setPicked(null);
 		}
 	}
 
@@ -170,9 +244,99 @@ export function ReferencePickerDrawer({
 		};
 	}, [adapter, open, blueprintIds, query, filters, page, report]);
 
+	// Only once a Content is on the table, and only for a Field that pins: the
+	// targets belong to that one Content, so there is nothing to ask until step
+	// one has settled.
+	useEffect(() => {
+		if (!adapter || !picked || pinMode === "none") return;
+		let cancelled = false;
+		setLoadingTargets(true);
+		adapter
+			.listPinTargets(picked.id, pinMode)
+			.then((result) => {
+				if (cancelled) return;
+				setTargets(result);
+				setLoadingTargets(false);
+			})
+			.catch((error: unknown) => {
+				if (cancelled) return;
+				// The newest Version is still on offer below, so a failed lookup
+				// costs the targets and not the ability to add a Reference.
+				setTargets([]);
+				setLoadingTargets(false);
+				report(error);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [adapter, picked, pinMode, report]);
+
 	function handlePick(row: Record<string, unknown>) {
-		const picked = items.find((item) => item.id === row.id);
-		if (picked) onPick(picked);
+		const content = items.find((item) => item.id === row.id);
+		if (!content) return;
+		// One step or two, decided by the Field and nothing else. Not pinning
+		// means there is no target to choose and none to store.
+		if (pinMode === "none") {
+			onPick(content, null);
+			return;
+		}
+		setTargets([]);
+		setPicked(content);
+	}
+
+	if (picked) {
+		return (
+			<DrawerRoot
+				open={open}
+				onClose={onClose}
+				title={pinMode === "release" ? "Choose a release" : "Choose a version"}
+				closeLabel="Cancel"
+			>
+				<Stack gap="2" data-testid="reference-picker-pin-step">
+					<Flex align="center" gap="2">
+						{/* Back rather than a step indicator: two steps do not need
+						    a map, and the Content already chosen is the only
+						    context the second one is missing. */}
+						<Button
+							size="xs"
+							variant="ghost"
+							onClick={() => setPicked(null)}
+							aria-label="Back"
+						>
+							<ChevronLeft size={14} />
+							Back
+						</Button>
+						<Text fontSize="sm" fontWeight="medium">
+							{picked.display_name}
+						</Text>
+					</Flex>
+
+					{/* First and always available, including while the targets are
+					    still loading and after a lookup that failed: no Pin is a
+					    real answer, not a fallback (ADR-0008). */}
+					<PinTargetOption
+						label="Newest version"
+						description="Follows the content as it changes"
+						onSelect={() => onPick(picked, null)}
+					/>
+
+					{loadingTargets ? (
+						<Text fontSize="sm" color="fg.muted">
+							Loading…
+						</Text>
+					) : (
+						targets.map((target) => (
+							<PinTargetOption
+								key={target.id}
+								label={target.label}
+								description={target.description}
+								onSelect={() => onPick(picked, target.id)}
+							/>
+						))
+					)}
+				</Stack>
+			</DrawerRoot>
+		);
 	}
 
 	return (
@@ -181,6 +345,10 @@ export function ReferencePickerDrawer({
 				<SearchInput
 					aria-label="Search content"
 					placeholder="Search content…"
+					// Restored on the way back from step two, which remounts this
+					// box: the search state survives, so what it shows has to as
+					// well or the results would stay narrowed by an invisible query.
+					defaultValue={query}
 					// The default debounce is the point: the incumbent control
 					// searched on every keystroke, which a paginated browse over a
 					// real catalogue cannot afford.

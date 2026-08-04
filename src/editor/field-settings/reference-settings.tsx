@@ -1,7 +1,9 @@
 // src/editor/field-settings/reference-settings.tsx
+import { Stack } from "@chakra-ui/react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { SettingsProps } from "../../schema/plugin";
 import { BlueprintPicker } from "./blueprint-picker";
+import { PinModePicker } from "./pin-mode-picker";
 
 /**
  * Type-settings editor for `reference`, mounted by the config panel's Type
@@ -19,17 +21,27 @@ export function ReferenceSettingsEditor({
 	onChange,
 }: SettingsProps<ReferenceSettings>) {
 	return (
-		<BlueprintPicker
-			fieldId={field?.config.api_accessor ?? "reference"}
-			label="Blueprints"
-			helperText="The blueprints this field may point at. Leave empty to allow any."
-			multiple
-			value={settings?.blueprints ?? []}
-			onChange={(blueprints) => onChange({ ...settings, blueprints })}
-			selectPlaceholder="Any blueprint"
-			idInputPlaceholder="Blueprint ids, comma separated"
-			idInputTestId="reference-blueprints-input"
-		/>
+		<Stack gap="4">
+			<BlueprintPicker
+				fieldId={field?.config.api_accessor ?? "reference"}
+				label="Blueprints"
+				helperText="The blueprints this field may point at. Leave empty to allow any."
+				multiple
+				value={settings?.blueprints ?? []}
+				onChange={(blueprints) => onChange({ ...settings, blueprints })}
+				selectPlaceholder="Any blueprint"
+				idInputPlaceholder="Blueprint ids, comma separated"
+				idInputTestId="reference-blueprints-input"
+			/>
+			<PinModePicker
+				label="Pin references to"
+				// Absent reads as not pinning, so a Spec authored before pinning
+				// existed shows the mode it actually behaves as.
+				value={settings?.pin_mode ?? "none"}
+				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
+				testId="reference-pin-mode-select"
+			/>
+		</Stack>
 	);
 }
 ReferenceSettingsEditor.displayName = "ReferenceSettingsEditor";
