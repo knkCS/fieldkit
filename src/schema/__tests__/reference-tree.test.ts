@@ -10,6 +10,7 @@ import {
 	projectDropDepth,
 	readReferenceTree,
 	referenceBranchEnd,
+	referencesPastDepth,
 	removeReferenceAt,
 	writeReferenceTree,
 } from "../reference-tree";
@@ -131,6 +132,55 @@ describe("countReferences", () => {
 
 	it("counts an empty tree as none", () => {
 		expect(countReferences([])).toBe(0);
+	});
+});
+
+describe("referencesPastDepth", () => {
+	it("finds nothing in a tree the ceiling has room for", () => {
+		// `tree` reaches depth 2 (a → a1 → a1x), so a ceiling of 2 fits it.
+		expect(referencesPastDepth(tree, 2)).toEqual([]);
+	});
+
+	it("addresses the offender inside the stored value, `children` and all", () => {
+		// a1x sits at depth 2, one past a ceiling of 1 — and it is
+		// `value[0].children[0].children[0]`.
+		expect(referencesPastDepth(tree, 1)).toEqual([
+			[0, "children", 0, "children", 0],
+		]);
+	});
+
+	it("names the shallowest offender in a branch, never its descendants too", () => {
+		// a1 breaks a ceiling of 0, and a1x is only deep because a1 is: one
+		// error per branch, not one per Reference under it.
+		expect(referencesPastDepth(tree, 0)).toEqual([
+			[0, "children", 0],
+			[0, "children", 1],
+		]);
+	});
+
+	it("reports every branch that breaks the ceiling, not just the first", () => {
+		expect(
+			referencesPastDepth(
+				[
+					{ id: "a", children: [{ id: "a1" }] },
+					{ id: "b", children: [{ id: "b1" }] },
+				],
+				0,
+			),
+		).toEqual([
+			[0, "children", 0],
+			[1, "children", 0],
+		]);
+	});
+
+	it("reports the roots themselves when no depth at all is allowed", () => {
+		// A ceiling below zero has no legal depth in it — what `max_depth: 0`
+		// converts to. Degenerate, and reported rather than quietly ignored.
+		expect(referencesPastDepth(tree, -1)).toEqual([[0], [1]]);
+	});
+
+	it("finds nothing in an empty tree", () => {
+		expect(referencesPastDepth([], 0)).toEqual([]);
 	});
 });
 

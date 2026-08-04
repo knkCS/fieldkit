@@ -2,8 +2,12 @@ import { Box, Button, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useWatch } from "react-hook-form";
+import { get, useFormState, useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
+import {
+	referenceDepthCeiling,
+	referenceItemCap,
+} from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
 import { withPin } from "../../schema/reference";
 import { readReferenceTree } from "../../schema/reference-tree";
@@ -14,6 +18,44 @@ import { useFieldKit } from "../provider";
 import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import { ReferenceTree } from "./reference-tree";
+
+/**
+ * Every message reported *under* a Field's own error node, deduplicated.
+ *
+ * The Schema reports an over-deep Reference at that Reference's path —
+ * `related.0.children.1` — which is what makes the report precise, and also
+ * what puts it out of `FormField`'s reach: `FormField` renders the message on
+ * the Field's node, and a nested report leaves none there. Collecting them is
+ * the difference between a blocked submit and a submit that looks like nothing
+ * happened. The paths themselves stay in `formState.errors` for a Consumer that
+ * wants to point at rows.
+ *
+ * One message repeated once per offending branch says nothing the first said,
+ * so the same text is shown once.
+ *
+ * It collects *every* nested message, not only the depth cap's — a required
+ * Attribute reports at `related.0.attributes.page` and is out of reach for the
+ * same reason. That is deliberate: an Attribute lives inside a drawer, so
+ * without this a submit blocked by one is a submit blocked by nothing visible
+ * at all. Which Reference each message came from is still only in
+ * `formState.errors`; naming it on the row is a row's job, not this one's.
+ */
+function nestedErrorMessages(error: unknown): string[] {
+	const found = new Set<string>();
+	const walk = (node: object) => {
+		for (const [key, value] of Object.entries(node)) {
+			// A node's own report, and the DOM node it points at — everything
+			// else is a branch below it.
+			if (key === "message" || key === "type" || key === "ref") continue;
+			if (typeof value !== "object" || value === null) continue;
+			const message = (value as { message?: unknown }).message;
+			if (typeof message === "string" && message.length > 0) found.add(message);
+			walk(value);
+		}
+	};
+	if (typeof error === "object" && error !== null) walk(error);
+	return [...found];
+}
 
 /**
  * A Reference Tree, each row naming the Content it points at.
@@ -75,6 +117,22 @@ export function ReferenceField({
 		accessor,
 	);
 
+	// The Schema is the truth about both caps; these two only stop an Author
+	// reaching a limit the Schema would then report. `rows` is the same reading
+	// of the value the Schema counts — every Reference at every level — so the
+	// affordance and the Schema cannot disagree about how full the tree is.
+	// Read through `referenceItemCap`, never `?? 0`: an unset cap is no cap.
+	const itemCap = referenceItemCap(settings);
+	const atCap = itemCap !== undefined && rows.length >= itemCap;
+
+	// A depth *index*, converted from the `max_depth` count once, where the
+	// setting is defined. The tree clamps a drop to it; the Schema reports
+	// anything already past it.
+	const depthCeiling = referenceDepthCeiling(settings);
+
+	const { errors } = useFormState({ name: accessor });
+	const deepErrors = nestedErrorMessages(get(errors, accessor));
+
 	if (!adapter) {
 		return (
 			<FormField
@@ -127,6 +185,7 @@ export function ReferenceField({
 							names={names}
 							readOnly={readOnly}
 							onChange={formField.onChange}
+							depthCeiling={depthCeiling}
 							attributeSpec={attributeSpec}
 							onOpenAttributes={(row) =>
 								setFilling({
@@ -136,11 +195,29 @@ export function ReferenceField({
 							}
 						/>
 
+						{/* Reported here rather than on the Field, because that is
+						    where the Schema put them — see nestedErrorMessages. */}
+						{deepErrors.map((message) => (
+							<Text
+								key={message}
+								role="alert"
+								fontSize="sm"
+								color="fg.error"
+								mt="1"
+							>
+								{message}
+							</Text>
+						))}
+
 						{!readOnly && (
 							<Button
 								size="sm"
 								variant="outline"
 								mt="1"
+								// Disabled rather than hidden: an Author at the cap
+								// should see that adding is the thing that stopped
+								// being possible.
+								disabled={atCap}
 								onClick={() => setPicking(true)}
 							>
 								<Plus size={14} />

@@ -81,6 +81,8 @@ form is separate.
 | `Controller` | `select`, `list`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
 | `useWatch` | `reference`, `single-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
 | `useFieldArray` | `blocks-field`, `group-field` | Dynamic array management |
+| `useFormState` | `reference-field` | Subscribe to the errors under one name without re-rendering on every keystroke |
+| `get` | `reference-field` | Read an error at a dotted path (`related.0.children.1`) out of the nested `errors` object |
 | `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
 | `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
 | `zodResolver` | `edit-drawer` | Zod validation adapter |
@@ -88,6 +90,14 @@ form is separate.
 The Reference field components read with `useWatch` and write through anker's
 `FormField` render prop rather than a `Controller` of their own — anker's
 `FormField` is a `Controller` underneath, so a second one would be redundant.
+
+`ReferenceField` additionally reads `useFormState({ name })` and `get`. That is
+the one place a fieldkit field looks at errors itself, and the reason is the
+`max_depth` cap: it reports at the *offending Reference's* path, so the message
+lands at `related.0.children.1` and never on the field's own node — which is the
+only node `FormField` renders a message for. `get(errors, accessor)` is how the
+field reaches its own error subtree; walking it is `nestedErrorMessages`. A
+field whose Schema reports only at its own path needs none of this.
 
 ### Never used in production
 

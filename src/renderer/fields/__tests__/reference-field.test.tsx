@@ -699,4 +699,118 @@ describe("ReferenceField", () => {
 			);
 		});
 	});
+
+	describe("the caps", () => {
+		/** A Field capped however the test needs, Blueprints left as they were. */
+		function capped(settings: ReferenceSettings) {
+			return makeField({ settings: { blueprints: ["article"], ...settings } });
+		}
+
+		describe("the add affordance", () => {
+			it("is disabled once the tree is at max_items", async () => {
+				renderField({
+					field: capped({ max_items: 2 }),
+					value: [{ id: "article-1" }, { id: "article-2" }],
+				});
+
+				await screen.findByText("Cats of the world");
+				expect(addButton()).toBeDisabled();
+			});
+
+			it("counts a nested Reference towards the cap, not only the roots", async () => {
+				// Two References, one of them a child: the cap is reached even
+				// though only one of them is a root.
+				renderField({
+					field: capped({ max_items: 2 }),
+					value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+				});
+
+				await screen.findByText("Cats of the world");
+				expect(addButton()).toBeDisabled();
+			});
+
+			it("stays available while the tree is under the cap", async () => {
+				renderField({
+					field: capped({ max_items: 2 }),
+					value: [{ id: "article-1" }],
+				});
+
+				await screen.findByText("Cats of the world");
+				expect(addButton()).toBeEnabled();
+			});
+
+			it("is never disabled by an unset max_items, however long the tree", async () => {
+				// knkCMS core reads the cap as `settings.max_items ?? 0` and so
+				// disables adding on an uncapped Field from the first render. An
+				// unset cap is no cap.
+				renderField({
+					field: capped({}),
+					value: [
+						{ id: "article-1", children: [{ id: "article-2" }] },
+						{ id: "article-3" },
+					],
+				});
+
+				await screen.findByText("Cats of the world");
+				expect(addButton()).toBeEnabled();
+			});
+
+			it("is disabled by a max_items of zero, which unset never is", async () => {
+				renderField({ field: capped({ max_items: 0 }), value: [] });
+
+				expect(addButton()).toBeDisabled();
+			});
+		});
+
+		describe("stored data already over a cap", () => {
+			it("blocks submit and reports on the Field when there are too many", async () => {
+				const user = userEvent.setup();
+				const { submitted } = renderField({
+					field: capped({ max_items: 1 }),
+					value: [{ id: "article-1" }, { id: "article-2" }],
+				});
+
+				await screen.findByText("Cats of the world");
+				await user.click(screen.getByRole("button", { name: "Save" }));
+
+				expect(
+					await screen.findByText(`${LABEL} holds at most 1 reference`),
+				).toBeInTheDocument();
+				expect(submitted).not.toHaveBeenCalled();
+			});
+
+			it("blocks submit and reports when a branch is nested too deep", async () => {
+				const user = userEvent.setup();
+				const { submitted } = renderField({
+					field: capped({ max_depth: 1 }),
+					value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+				});
+
+				await screen.findByText("Cats of the world");
+				await user.click(screen.getByRole("button", { name: "Save" }));
+
+				expect(
+					await screen.findByText(`${LABEL} nests at most 1 level deep`),
+				).toBeInTheDocument();
+				expect(submitted).not.toHaveBeenCalled();
+			});
+
+			it("leaves the value exactly as it was rather than trimming it to fit", async () => {
+				const user = userEvent.setup();
+				const value = [
+					{ id: "article-1", children: [{ id: "article-2" }] },
+					{ id: "article-3" },
+				];
+				renderField({ field: capped({ max_items: 1, max_depth: 1 }), value });
+
+				await screen.findByText("Cats of the world");
+				await user.click(screen.getByRole("button", { name: "Save" }));
+
+				await screen.findByText(`${LABEL} holds at most 1 reference`);
+				// Reported, never repaired: nothing was truncated and nothing was
+				// re-nested to satisfy either cap.
+				expect(stored()).toEqual(value);
+			});
+		});
+	});
 });

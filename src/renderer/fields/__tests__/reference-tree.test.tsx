@@ -48,14 +48,21 @@ function renderTree({
 	value,
 	contents = fakeCatalogue(10),
 	readOnly = false,
+	settings,
 }: {
 	value: Reference[];
 	contents?: ReturnType<typeof fakeCatalogue>;
 	readOnly?: boolean;
+	/** Merged over the Field's own — how a cap gets into a drag test. */
+	settings?: ReferenceSettings;
 }) {
+	const capped: Field<ReferenceSettings> = {
+		...field,
+		settings: { ...field.settings, ...settings },
+	};
 	function Harness() {
 		const methods = useForm({
-			resolver: zodResolver(specToZodSchema([field], builtInFieldTypes)),
+			resolver: zodResolver(specToZodSchema([capped], builtInFieldTypes)),
 			defaultValues: { [ACCESSOR]: value },
 		});
 		return (
@@ -66,7 +73,7 @@ function renderTree({
 				>
 					<FormProvider {...methods}>
 						<form noValidate>
-							<FieldComponent field={field} readOnly={readOnly} />
+							<FieldComponent field={capped} readOnly={readOnly} />
 							<StoredValue />
 						</form>
 					</FormProvider>
@@ -439,6 +446,77 @@ describe("dragging, driven from the keyboard", () => {
 
 		await screen.findByText("Content 1");
 		expect(screen.queryByRole("button", { name: /^Reorder/ })).toBeNull();
+	});
+});
+
+describe("dragging against the max_depth cap", () => {
+	it("clamps a drop that would nest, at max_depth 1, rather than accepting it", async () => {
+		const rects = mockRowRects();
+		// One level of References is a flat list: `max_depth` counts levels,
+		// roots being the first, so 1 forbids nesting altogether.
+		renderTree({
+			value: [{ id: "article-1" }, { id: "article-2" }],
+			settings: { max_depth: 1 },
+		});
+		await screen.findByText("Content 1");
+
+		await keyboardDrag("Content 2", "ArrowRight");
+
+		// The same drag nests without a cap — see "nests a Reference under the
+		// one above it" above. Clamped, not refused: the drop still happened.
+		expect(stored()).toEqual([{ id: "article-1" }, { id: "article-2" }]);
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 0],
+		]);
+		rects.mockRestore();
+	});
+
+	it("clamps to the deepest level the cap leaves, not to the root", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+			settings: { max_depth: 2 },
+		});
+		await screen.findByText("Content 1");
+
+		// Two levels of indentation asked for, two allowed in total: Content 3
+		// becomes Content 2's sibling rather than its child.
+		await keyboardDrag("Content 3", "ArrowRight", "ArrowRight");
+
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [{ id: "article-2" }, { id: "article-3" }],
+			},
+		]);
+		rects.mockRestore();
+	});
+
+	it("nests as deep as the neighbours allow when max_depth is unset", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await keyboardDrag("Content 3", "ArrowRight", "ArrowRight");
+
+		// The very drag the cap clamped above, uncapped: an unset ceiling is no
+		// ceiling, not a ceiling of zero.
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+			},
+		]);
+		rects.mockRestore();
 	});
 });
 

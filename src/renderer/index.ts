@@ -25,8 +25,8 @@ export { FieldRenderer } from "./field-renderer";
 // Field itself — exported so a Consumer can assemble a reference-shaped type
 // around it rather than rebuild one (ADR-0010). Feed it `readReferenceTree`'s
 // rows from `/schema`; resolving `names` is the Consumer's own job, since only
-// its Adapter can. `depthCeiling` is a seam nothing fills in yet and is not
-// settled until caps land.
+// its Adapter can. `depthCeiling` is a depth index, roots being 0 —
+// `referenceDepthCeiling` in `/schema` converts a `max_depth` setting into one.
 export {
 	ReferenceTree,
 	type ReferenceTreeProps,

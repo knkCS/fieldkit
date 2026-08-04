@@ -21,7 +21,9 @@
  *
  * `countReferences` is the same model's answer to "how big is this tree",
  * which is what `max_items` caps — every Reference at every level, since a
- * nested child is as real as a root.
+ * nested child is as real as a root. `referencesPastDepth` is its answer to
+ * "how deep", which is what `max_depth` caps, and it answers with *where* so
+ * the Schema can report at the Reference that broke the cap.
  *
  * One step further out sit `readReferenceTree`, `writeReferenceTree` and
  * `removeReferenceAt`, which deal with a *stored value* rather than a tree.
@@ -456,4 +458,47 @@ export function removeReferenceAt(
  */
 export function countReferences(references: readonly Reference[]): number {
 	return flattenReferences(references).length;
+}
+
+/**
+ * Where a tree breaks a depth ceiling — the same model's answer to "how deep
+ * is this tree", which is what `max_depth` caps.
+ *
+ * Each answer is a key path into the *stored value*, spelled the way a Zod
+ * issue path is: `[0, "children", 1]` addresses `value[0].children[1]`. That is
+ * so a caller can hand it straight to `ctx.addIssue` and have the Schema report
+ * at the offending Reference rather than at the Field, which is the difference
+ * between "this tree is too deep somewhere" and "this Reference is the one".
+ *
+ * Only the *shallowest* offender in each branch is reported. Everything under a
+ * Reference that is already too deep is too deep because of it, so one error
+ * per branch says everything a per-descendant flood would, and an Author fixing
+ * the named Reference fixes them all at once.
+ *
+ * `ceiling` is a depth index, roots being 0 — the same dialect
+ * `projectDropDepth` takes, so the Schema and the drag clamp cannot disagree.
+ * Converting a Field's `max_depth` setting into one is that setting's business;
+ * `referenceDepthCeiling` is where it happens.
+ */
+export function referencesPastDepth(
+	references: readonly Reference[],
+	ceiling: number,
+): (string | number)[][] {
+	const found: (string | number)[][] = [];
+	const walk = (
+		nodes: readonly Reference[],
+		depth: number,
+		prefix: readonly (string | number)[],
+	): void => {
+		nodes.forEach((node, index) => {
+			const path = [...prefix, index];
+			if (depth > ceiling) {
+				found.push(path);
+				return;
+			}
+			walk(node.children ?? [], depth + 1, [...path, "children"]);
+		});
+	};
+	walk(references, 0, []);
+	return found;
 }
