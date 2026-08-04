@@ -44,6 +44,7 @@ src/
 │   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule
 │   ├── resolve-spec.ts  # resolveSpec() — expands fieldsets into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
+│   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
 │   └── field-types/     # Built-in field type plugin definitions
@@ -62,6 +63,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
+│   ├── field-settings/  # Per-type settings editors + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours)
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx

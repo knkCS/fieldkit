@@ -4,6 +4,7 @@ import type { ChangeEvent } from "react";
 import type { FieldsetSettings } from "../../schema/field-types/fieldset";
 import type { SettingsProps } from "../../schema/plugin";
 import { BlueprintPicker } from "./blueprint-picker";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /**
  * Type-settings editor for `fieldset`, mounted by the config panel's Type
@@ -20,6 +21,8 @@ export function FieldsetSettingsEditor({
 	field,
 	onChange,
 }: SettingsProps<FieldsetSettings>) {
+	const collapsibleLock = useSettingLock("collapsible");
+
 	function handleCollapsible(e: ChangeEvent<HTMLInputElement>) {
 		onChange({ ...settings, collapsible: e.target.checked });
 	}
@@ -28,6 +31,7 @@ export function FieldsetSettingsEditor({
 		<Box>
 			<BlueprintPicker
 				fieldId={field?.config.api_accessor ?? "fieldset"}
+				settingsKey="blueprint"
 				label="Blueprint"
 				helperText="The blueprint whose fields this fieldset embeds."
 				// One Blueprint, carried as an array of zero or one so the picker
@@ -44,10 +48,12 @@ export function FieldsetSettingsEditor({
 					type="checkbox"
 					checked={settings?.collapsible ?? false}
 					onChange={handleCollapsible}
+					disabled={collapsibleLock.locked}
 					data-testid="fieldset-collapsible-input"
 				/>
 				<Text fontSize="sm">Collapsible</Text>
 			</Box>
+			<SettingLockReason lock={collapsibleLock} />
 		</Box>
 	);
 }

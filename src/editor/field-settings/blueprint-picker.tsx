@@ -5,6 +5,7 @@ import { type ChangeEvent, useId, useState } from "react";
 import type { BlueprintSummary } from "../../renderer/adapters";
 import { useAdapterErrorReporter } from "../../renderer/hooks/use-adapter-error-reporter";
 import { useFieldKit } from "../../renderer/provider";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 import { useBlueprintList } from "./use-blueprint-list";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
@@ -18,6 +19,14 @@ export interface BlueprintPickerProps {
 	/** The Field being configured, so an Adapter failure names the Field it
 	 * leaves harder to configure. */
 	fieldId: string;
+	/**
+	 * The settings key this picker writes — `blueprints` for the reference
+	 * types, `blueprint` for a Fieldset. Declared so the control honours
+	 * `locked_settings` itself, in both of its modes: a frozen setting must not
+	 * become editable just because the adapter cannot enumerate Blueprints and
+	 * the picker degraded to id entry (ADR-0011).
+	 */
+	settingsKey: string;
 	label: string;
 	helperText: string;
 	/** Several Blueprints rather than one. Changes the control and how the
@@ -44,6 +53,7 @@ export interface BlueprintPickerProps {
  */
 export function BlueprintPicker({
 	fieldId,
+	settingsKey,
 	label,
 	helperText,
 	multiple = false,
@@ -53,6 +63,7 @@ export function BlueprintPicker({
 	idInputPlaceholder,
 	idInputTestId,
 }: BlueprintPickerProps) {
+	const lock = useSettingLock(settingsKey);
 	const { adapters } = useFieldKit();
 	const report = useAdapterErrorReporter(
 		fieldId,
@@ -106,6 +117,7 @@ export function BlueprintPicker({
 					value={typed}
 					onChange={handleTyped}
 					placeholder={idInputPlaceholder}
+					disabled={lock.locked}
 					data-testid={idInputTestId}
 				/>
 			) : (
@@ -116,6 +128,7 @@ export function BlueprintPicker({
 					size="sm"
 					isMulti={multiple}
 					options={options}
+					disabled={lock.locked}
 					value={multiple ? selected : (selected[0] ?? null)}
 					onChange={(next) => {
 						const picked = Array.isArray(next) ? next : next ? [next] : [];
@@ -132,9 +145,10 @@ export function BlueprintPicker({
 				/>
 			)}
 
-			<Text fontSize="xs" color="fg.muted" mt="1" mb="3">
+			<Text fontSize="xs" color="fg.muted" mt="1" mb={lock.locked ? "1" : "3"}>
 				{helperText}
 			</Text>
+			<SettingLockReason lock={lock} />
 		</Box>
 	);
 }

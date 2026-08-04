@@ -43,6 +43,7 @@ export function ReferenceSettingsEditor({
 		<Stack gap="4">
 			<BlueprintPicker
 				fieldId={field?.config.api_accessor ?? "reference"}
+				settingsKey="blueprints"
 				label="Blueprints"
 				helperText="The blueprints this field may point at. Leave empty to allow any."
 				multiple
@@ -53,6 +54,7 @@ export function ReferenceSettingsEditor({
 				idInputTestId="reference-blueprints-input"
 			/>
 			<CapInput
+				settingsKey="max_items"
 				label="Maximum references"
 				helperText="Counts every reference, nested ones included. Leave empty for no limit."
 				value={settings?.max_items}
@@ -65,6 +67,7 @@ export function ReferenceSettingsEditor({
 				testId="reference-max-items-input"
 			/>
 			<CapInput
+				settingsKey="max_depth"
 				label="Maximum depth"
 				// `max_depth` counts levels, not the index of the deepest one —
 				// saying so here is the difference between a flat list and one
@@ -81,6 +84,7 @@ export function ReferenceSettingsEditor({
 				testId="reference-max-depth-input"
 			/>
 			<PinModePicker
+				settingsKey="pin_mode"
 				label="Pin references to"
 				// Absent reads as not pinning, so a Spec authored before pinning
 				// existed shows the mode it actually behaves as.

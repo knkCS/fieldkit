@@ -3,6 +3,7 @@ import { Box, chakra, Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
 import { useId } from "react";
 import type { PinMode } from "../../schema/reference";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
  * `label` is what the Author reads. */
@@ -26,6 +27,13 @@ const PIN_MODE_OPTIONS: PinModeOption[] = [
 ];
 
 export interface PinModePickerProps {
+	/**
+	 * The settings key this select writes — `pin_mode` for both reference
+	 * types today, and passed rather than assumed so the control stays a
+	 * control: it honours `locked_settings` for whatever key it is told it
+	 * edits, and knows nothing about which Field type mounted it (ADR-0011).
+	 */
+	settingsKey: string;
 	label: string;
 	/** The mode currently set. Absent settings read as `"none"` at the caller,
 	 * so this control never has to model "unset" as a fourth state. */
@@ -50,8 +58,14 @@ export interface PinModePickerProps {
  * Consumer's content upgrade that nulls them. Saying so plainly is all this
  * control can do.
  */
-export function PinModePicker({ label, value, onChange }: PinModePickerProps) {
+export function PinModePicker({
+	settingsKey,
+	label,
+	value,
+	onChange,
+}: PinModePickerProps) {
 	const inputId = useId();
+	const lock = useSettingLock(settingsKey);
 	const selected =
 		PIN_MODE_OPTIONS.find((option) => option.id === value) ??
 		PIN_MODE_OPTIONS[0];
@@ -81,6 +95,7 @@ export function PinModePicker({ label, value, onChange }: PinModePickerProps) {
 				size="sm"
 				options={PIN_MODE_OPTIONS}
 				value={selected}
+				disabled={lock.locked}
 				onChange={(next) => {
 					const option = Array.isArray(next) ? next[0] : next;
 					// Clearing is not a fourth state: a Field always has a mode, and
@@ -89,10 +104,18 @@ export function PinModePicker({ label, value, onChange }: PinModePickerProps) {
 				}}
 			/>
 
-			<Text fontSize="xs" color="fg.muted" mt="1">
-				Changing this strands every pin already saved — those references fall
-				back to the newest version.
-			</Text>
+			{/* Frozen, and the Consumer's reason replaces the warning rather than
+			    joining it: "changing this strands every pin" describes an edit
+			    that can no longer be made, and only one of the two sentences is
+			    about the Field in front of the Author. */}
+			{lock.locked ? (
+				<SettingLockReason lock={lock} />
+			) : (
+				<Text fontSize="xs" color="fg.muted" mt="1">
+					Changing this strands every pin already saved — those references fall
+					back to the newest version.
+				</Text>
+			)}
 		</Box>
 	);
 }

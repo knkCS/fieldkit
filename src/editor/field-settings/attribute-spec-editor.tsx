@@ -7,6 +7,7 @@ import { attributeFields } from "../../schema/reference-attributes";
 import type { Field } from "../../schema/types";
 import { createField } from "../draft-ops";
 import { TypePickerPopover } from "../type-picker-popover";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /** The settings key the Attribute Spec lives under, and the one the drill-in
  * is asked for. One constant so the reader and the writer cannot drift. */
@@ -46,6 +47,13 @@ export function AttributeSpecEditor({
 	plugins,
 	onDrillIn,
 }: AttributeSpecEditorProps) {
+	// The Attribute Spec is one settings key like any other, so freezing it
+	// freezes the whole list — adding, removing and configuring an Attribute all
+	// write `settings.attributes` (ADR-0011). Drilling in is disabled with the
+	// rest: the panel refuses the write anyway, and an Edit button that opens an
+	// editor whose every change is silently dropped is worse than none.
+	const lock = useSettingLock(ATTRIBUTES_SETTINGS_KEY);
+
 	// Nothing shared validates this Spec (ADR-0007) and a hand-written one may
 	// hold anything, so a stray entry costs itself and not the panel. It is also
 	// what gets written back on an edit — an entry nobody can see or reach is
@@ -85,9 +93,12 @@ export function AttributeSpecEditor({
 						currentSpec={declared}
 						onPick={addAttribute}
 						triggerLabel="Add attribute"
+						disabled={lock.locked}
 					/>
 				)}
 			</Flex>
+
+			<SettingLockReason lock={lock} />
 
 			{declared.length === 0 ? (
 				<Text fontSize="xs" color="fg.muted">
@@ -122,7 +133,7 @@ export function AttributeSpecEditor({
 										attribute.config.api_accessor,
 									)
 								}
-								disabled={!onDrillIn}
+								disabled={!onDrillIn || lock.locked}
 								data-testid={`attribute-edit-${attribute.config.api_accessor}`}
 							>
 								Edit
@@ -132,6 +143,7 @@ export function AttributeSpecEditor({
 								size="xs"
 								variant="ghost"
 								onClick={() => removeAttribute(attribute.config.api_accessor)}
+								disabled={lock.locked}
 							>
 								<Trash2 size={14} />
 							</IconButton>

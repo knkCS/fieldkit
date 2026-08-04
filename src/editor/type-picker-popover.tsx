@@ -20,6 +20,10 @@ export interface TypePickerPopoverProps {
 	onPick: (pluginId: string) => void; // parent inserts + selects
 	triggerLabel: string; // aria-label for the ⊕ button
 	pickerLabels?: TypePickerLabels;
+	/** Greys the trigger out rather than hiding it, so an affordance that
+	 * cannot be used is still visible next to whatever says why (ADR-0011's
+	 * frozen settings-nested Spec is the case that needs it). */
+	disabled?: boolean;
 }
 
 export function TypePickerPopover({
@@ -29,6 +33,7 @@ export function TypePickerPopover({
 	onPick,
 	triggerLabel,
 	pickerLabels,
+	disabled,
 }: TypePickerPopoverProps) {
 	const [open, setOpen] = useState(false);
 	return (
@@ -44,6 +49,7 @@ export function TypePickerPopover({
 					size="2xs"
 					variant="ghost"
 					colorPalette="primary"
+					disabled={disabled}
 				>
 					<Plus size={14} />
 				</IconButton>

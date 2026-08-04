@@ -37,7 +37,19 @@ export interface FieldProps<S = unknown> {
 	readOnly?: boolean;
 }
 
-/** Props passed to a field type's settings editor component. */
+/**
+ * Props passed to a field type's settings editor component.
+ *
+ * There is deliberately **no `lockedSettings` prop** (ADR-0011). A settings
+ * editor that had to consult a list would be a settings editor that could
+ * forget to — so the lock travels to the *controls* instead: each of
+ * fieldkit's own (`BlueprintPicker`, `CapInput`, `PinModePicker`, the
+ * Attribute list) takes the settings key it writes and asks about that key
+ * itself, and an editor assembled from them honours the list without a line of
+ * its own. A component that renders raw inputs instead will render an editable
+ * control over a frozen setting; what it cannot do is write one — the config
+ * panel restores every frozen key before applying an `onChange`.
+ */
 export interface SettingsProps<S = unknown> {
 	settings: S;
 	onChange: (settings: S) => void;
