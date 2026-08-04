@@ -484,5 +484,37 @@ describe("SingleReferenceField", () => {
 			expect(await screen.findByText("Spring release")).toBeInTheDocument();
 			expect(pinControl()).toBeDisabled();
 		});
+
+		it("offers the newest Version alone when the Adapter omits listPinTargets", async () => {
+			const onError = vi.fn();
+			// Stripped rather than failed: this is a Consumer that never
+			// implemented pinning, which is a configuration and not an error.
+			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1" },
+				adapter,
+				onError,
+			});
+
+			await screen.findByText("Cats of the world");
+			expect(await screen.findByText("Newest version")).toBeInTheDocument();
+			expect(pinControl()).toBeInTheDocument();
+			expect(stored()).toEqual({ id: "article-1" });
+		});
+
+		it("does not report the omission through onError", async () => {
+			const onError = vi.fn();
+			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
+			renderField({
+				field: pinningField(),
+				value: { id: "article-1" },
+				adapter,
+				onError,
+			});
+
+			await screen.findByText("Cats of the world");
+			expect(onError).not.toHaveBeenCalled();
+		});
 	});
 });

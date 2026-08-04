@@ -124,14 +124,24 @@ export interface FieldKitAdapters {
 		 * What one Content offers to be pinned to, in the kind the Field's
 		 * `pin_mode` asked for.
 		 *
-		 * Required, unlike the two Spec methods below: a Field that pins with
-		 * nothing to pin to is a broken Field, not a degraded one, and only the
-		 * Adapter can know a Content's Releases or Versions. A Consumer whose
-		 * Contents have no such thing answers with an empty list.
+		 * **Optional, on the same terms as the two Spec methods below.** Without
+		 * it a pinning Field degrades to offering the newest Version and nothing
+		 * else — the same answer a Consumer gets from returning an empty list,
+		 * and the same one this Field already shows while the targets are in
+		 * flight or after a failed call. A Consumer that has not implemented
+		 * pinning should get that rather than an error (ADR-0009).
+		 *
+		 * Absence is a configuration, not a failure, so it is **not** reported
+		 * through `onError` — unlike a call that rejects, which is.
+		 *
+		 * Only the Adapter can know a Content's Releases or Versions, and it is
+		 * the Adapter that normalises whichever kind was asked for into an id, a
+		 * label and a description — so fieldkit models neither a Release nor a
+		 * Version.
 		 *
 		 * Never called with `"none"` — a Field that does not pin never asks.
 		 */
-		listPinTargets: (
+		listPinTargets?: (
 			contentId: string,
 			mode: PinningMode,
 		) => Promise<PinTarget[]>;

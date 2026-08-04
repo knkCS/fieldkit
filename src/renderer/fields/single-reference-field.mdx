@@ -78,7 +78,7 @@ Requires a `reference` adapter injected via `FieldKitProvider`:
 reference: {
   search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
-  listPinTargets: (
+  listPinTargets?: (              // optional
     contentId: string,
     mode: "release" | "version",
   ) => Promise<PinTarget[]>;
@@ -97,11 +97,13 @@ interface PinTarget {
   query (ADR-0002).
 - `fetch` resolves the stored id to a name on load. A Content the adapter
   cannot return still renders, showing its id rather than disappearing.
-- `listPinTargets` is called only when the field pins, and only once a Content
-  is chosen. The adapter normalises whichever kind `pin_mode` named into an id,
-  a label and a description, so **fieldkit models neither a Release nor a
-  Version**. A Consumer whose Contents have no such thing answers with an empty
-  list.
+- `listPinTargets` is **optional**, and is called only when the field pins, and
+  only once a Content is chosen. The adapter normalises whichever kind
+  `pin_mode` named into an id, a label and a description, so **fieldkit models
+  neither a Release nor a Version**. A Consumer whose Contents have no such
+  thing answers with an empty list; one that has not implemented pinning at all
+  omits the method, and the field then offers the newest Version alone rather
+  than erroring. That absence is silent, unlike a call that rejects.
 - Adapter failures are reported through the provider's `onError`, against this
   field's accessor. A failed pin lookup costs the targets, not the control.
 
