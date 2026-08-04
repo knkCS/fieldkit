@@ -29,17 +29,39 @@ interface BlockDefinition {
 
 ## Validation
 
-The Zod schema validates the array structure but does not validate per-block-type fields:
+Each allowed type validates the fields it declares. A required field inside a
+`heading` blocks submit and reports at `content.1.title` — the path
+`NestedItemFields` registers it under, so the message lands on the offending
+field inside the block (ADR-0007).
 
-```ts
-z.array(z.object({ _type: z.string() }).passthrough())
-```
+`_type` is applied after the declared fields, so a type declaring a field of
+that accessor cannot overwrite the discriminator. Each branch stays
+`passthrough`: a stored block carries keys its type doesn't declare — a backend
+id, most obviously — and validation arriving is no reason to prune them.
+
+A block type that declares no fields keeps the opaque block it always had, as
+does `toZodType` called with a Field alone (no composer).
+
+> Every stored block of every existing Blocks field is now checked, so a Spec
+> whose blocks were never validated can begin blocking submit on data that was
+> already saved.
 
 ## Zod Output
 
 ```ts
-// Always (regardless of settings)
+// No allowed_blocks — any block with a _type string
 z.array(z.object({ _type: z.string() }).passthrough())
+
+// One allowed type — literal match, since discriminatedUnion needs 2+
+z.array(z.object({ ...headingFields, _type: z.literal("heading") }).passthrough())
+
+// Two or more — discriminated on _type, each branch composing its own fields
+z.array(
+  z.discriminatedUnion("_type", [
+    z.object({ ...headingFields, _type: z.literal("heading") }).passthrough(),
+    z.object({ ...imageFields, _type: z.literal("image") }).passthrough(),
+  ]),
+)
 ```
 
 ## Adding a Block
@@ -58,7 +80,15 @@ Renders the block count via `BlocksCell`.
 
 ## Known Limitations
 
-- No per-block-type Zod validation — all blocks use a passthrough object schema
+- A block type's fields live in `settings.allowed_blocks[].fields`, not in
+  `children`, and only this plugin reaches into them. `resolveSpec()`,
+  `validateSpec()` and `resolveMarkerConvention()` all walk `Field.children`
+  only (ADR-0007), so: a Fieldset declared inside a block type is never
+  resolved — it validates as the opaque record any unresolved Fieldset does,
+  though the renderer still self-resolves it for display — and no check
+  `validateSpec()` runs reaches these fields, so a duplicate accessor between
+  two of them is never reported (the later one wins the composed shape), and
+  neither is an empty name or an empty accessor.
 - No drag-to-reorder — uses arrow buttons for moving blocks up/down
 - No min/max block limits
 - No per-block-type limits (e.g., max 1 hero block)

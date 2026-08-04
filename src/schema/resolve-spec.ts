@@ -56,7 +56,10 @@ export interface ResolveSpecAdapters {
  *
  * Not walked: Fields nested inside `settings` rather than `children` (a
  * block's `allowed_blocks[].fields`, an array's settings). That is the same
- * boundary `validateSpec` and `resolveMarkerConvention` draw.
+ * boundary `validateSpec` and `resolveMarkerConvention` draw, and the plugin
+ * owning those settings composing them into a Schema does not move it — so a
+ * Fieldset declared inside a block type is never resolved here. ADR-0007
+ * states the boundary and what it costs.
  *
  * @throws if a Fieldset's Blueprint transitively embeds itself — the message
  * names the Blueprint chain — or, unchanged, whatever the adapter rejects
