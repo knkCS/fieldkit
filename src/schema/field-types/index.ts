@@ -15,7 +15,7 @@ import { markdownPlugin } from "./markdown";
 import { mediaPlugin } from "./media";
 import { numberPlugin } from "./number";
 import { radioPlugin } from "./radio";
-import { referencePlugin } from "./reference";
+import { createReferencePlugin, referencePlugin } from "./reference";
 import { richTextPlugin } from "./rich-text";
 import { sectionPlugin } from "./section";
 import { selectPlugin } from "./select";
@@ -24,7 +24,6 @@ import { slugPlugin } from "./slug";
 import { textPlugin } from "./text";
 import { textareaPlugin } from "./textarea";
 import { timePlugin } from "./time";
-import { tocReferencePlugin } from "./toc-reference";
 import { urlPlugin } from "./url";
 import { virtualTablePlugin } from "./virtual-table";
 
@@ -71,7 +70,6 @@ export const complexTextFieldTypes: FieldTypePlugin<any>[] = [
 export const referenceFieldTypes: FieldTypePlugin<any>[] = [
 	referencePlugin,
 	singleReferencePlugin,
-	tocReferencePlugin,
 	mediaPlugin,
 	virtualTablePlugin,
 ];
@@ -112,9 +110,11 @@ export {
 	richTextPlugin,
 	referencePlugin,
 	singleReferencePlugin,
-	tocReferencePlugin,
 	mediaPlugin,
 	virtualTablePlugin,
+	// The factory a Consumer mints its own reference-shaped type with, and
+	// which `referencePlugin` above is itself minted by (ADR-0010).
+	createReferencePlugin,
 };
 
 export type { ArraySettings } from "./array";
@@ -131,7 +131,7 @@ export type { MarkdownSettings } from "./markdown";
 export type { MediaSettings } from "./media";
 export type { NumberSettings } from "./number";
 export type { RadioSettings } from "./radio";
-export type { ReferenceSettings } from "./reference";
+export type { ReferencePluginOptions, ReferenceSettings } from "./reference";
 export type { RichTextSettings } from "./rich-text";
 export type { SelectSettings } from "./select";
 export type { SingleReferenceSettings } from "./single-reference";
@@ -139,6 +139,5 @@ export type { SlugSettings } from "./slug";
 // Settings types
 export type { TextSettings } from "./text";
 export type { TextareaSettings } from "./textarea";
-export type { TocReferenceSettings } from "./toc-reference";
 export type { UrlSettings } from "./url";
 export type { VirtualTableSettings } from "./virtual-table";

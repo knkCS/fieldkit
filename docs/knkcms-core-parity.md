@@ -15,7 +15,7 @@ Where fieldkit's catalogue stands against the field types knkCMS core registers,
 
 Core stores `settings` as free-form JSON. A missing Go `Settings` struct does **not** mean "no settings" — it means Go ignores them and React reads them, so both columns matter. Two types below have settings in one place only.
 
-**Counts: core 27, fieldkit 27, 22 ids shared.**
+**Counts: core 27, fieldkit 27, 21 ids shared** — `toc_reference` left fieldkit on 2026-08-04 (ADR-0010), taking a shared id with it, and `single_reference` arrived to keep the total at 27.
 
 ## A. Compatible — no work
 
@@ -30,7 +30,6 @@ Core stores `settings` as free-form JSON. A missing Go `Settings` struct does **
 | `virtual_table` | `blueprint`, `always_latest`, `max_records_per_page` — identical |
 | `code` `color` `markdown` | core free-form; fieldkit adds `language` / `default_color` / `placeholder` |
 | `text` | `placeholder`, `prepend`, `append` — identical |
-| `toc_reference` | fieldkit mirrors `reference`; core has neither a Go struct nor a config UI, so nothing conflicts. Leaving fieldkit per ADR-0010 — see *Pending* |
 
 `virtual_table` is worth a note: core's Go struct also carries `fields`, an inline row schema. It is code-emitted only, the config UI cannot edit it, and the derivation pipeline is instructed never to produce it — so the editable surface really is the three keys fieldkit has.
 
@@ -107,8 +106,11 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 | `ti_overlay` | 0 (whole `typesetting_instructions` track) | — |
 | `outline_tree` | 0 | `levels`, `text_type_id` |
 | `manipulation_tree` | 0 | `blueprints`, `replacement_blueprints`, `always_latest`, `max_items`, plus frontend-only `enable_validity_filtering`, `latest_release_strategy`, `max_items_per_page` |
+| `toc_reference` | 0 | none the backend interprets, and no config UI — core addresses the type *by id* to expand a publication subtree |
 
-**None has derivation-level demand.** All five are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
+**None has derivation-level demand.** All six are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
+
+`toc_reference` joined this list on 2026-08-04, and is the corollary's first user: core mints it with `createReferencePlugin({ id: "toc_reference", name: …, maxPerSpec: 1, availableIn: ["blueprint"] })` and gets fieldkit's Reference Tree, browse drawer, count cell, settings editor and Zod schema. The other five still have to be written by hand.
 
 ## D. fieldkit-only
 
@@ -123,21 +125,21 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 | Should `section` carry a `render_card` flag? | No — `card` is its own marker (**ADR-0006**) |
 | Should fieldkit emit core's flat reference value? | No — nested shape; core maps at its boundary (**ADR-0008**) |
 | Should the reference picker know about status/assignee? | No — the adapter describes its filters and columns as Specs (**ADR-0009**) |
-| Should fieldkit keep `toc_reference`? | No — it moves to the Consumer; fieldkit exports `createReferencePlugin()` (**ADR-0010**) |
+| Should fieldkit keep `toc_reference`? | No — it moved to the Consumer on 2026-08-04; fieldkit exports `createReferencePlugin()` (**ADR-0010**) |
 | Who decides a setting is unsafe to change? | The Consumer, via `locked_settings` (**ADR-0011**) |
 
 ## Pending decisions not yet in code
 
 Verified still absent from the registry on 2026-08-04:
 
-- **`toc_reference` removal** (ADR-0010) — still registered and still mirroring `reference`'s settings. core has no config UI for it, so nothing is lost on core's side when it goes. Once removed, shared drops to 21 and core-only rises to 6.
-- **`single_reference`** (ADR-0008) — holds `Reference | null`, separate from `reference` for the reason ADR-0005 gives. Not yet implemented; core has no counterpart.
 - **`locked_settings`** (ADR-0011) — not yet on `FieldConfig`.
+
+**Landed since this was written:** `single_reference` (ADR-0008), which holds `Reference | null` and which core has no counterpart for; and `toc_reference`'s removal (ADR-0010), which put shared at 21 and core-only at 6 exactly as predicted.
 
 ## Two framing questions
 
 1. **Which direction is authoritative?** Every divergence in B closes by changing fieldkit *or* by changing core plus migrating seeded data. B1 and B3 have live data behind them, so those cost money either way. Note that `fieldset` and `list` were both closed by fieldkit adopting core's keys — if that is the standing convention, most of B answers itself.
-2. **How far does "generic" go?** With `list` and `fieldset` shipped and `toc_reference` leaving, the boundary ADR-0002 drew is holding. The five in section C are the test of it: plugin extension point, or built-in types?
+2. **How far does "generic" go?** With `list` and `fieldset` shipped and `toc_reference` gone, the boundary ADR-0002 drew is holding. The six in section C are the test of it: plugin extension point, or built-in types? `toc_reference` shows the extension point can be made cheap — but only because a reference tree was already there to export.
 
 ## Caveats
 

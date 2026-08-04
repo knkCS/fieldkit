@@ -78,8 +78,8 @@ form is separate.
 | Hook/Component | Used In | Purpose |
 |---|---|---|
 | `useFormContext` | All field components, `slug-field` | Access form state from `FormProvider` |
-| `Controller` | `select`, `list`, `toc-reference`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
-| `useWatch` | `reference`, `single-reference`, `toc-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
+| `Controller` | `select`, `list`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
+| `useWatch` | `reference`, `single-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
 | `useFieldArray` | `blocks-field`, `group-field` | Dynamic array management |
 | `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
 | `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
@@ -130,9 +130,9 @@ const { control } = useFormContext();
 />
 ```
 
-**Naming convention:** Always destructure as `{ field: formField }` to avoid shadowing fieldkit's `field` prop (`FieldProps`). This is consistent across all six files using `Controller`.
+**Naming convention:** Always destructure as `{ field: formField }` to avoid shadowing fieldkit's `field` prop (`FieldProps`). This is consistent across every file using `Controller`.
 
-Used by: `select-field` (multi), `reference-field`, `toc-reference-field`, `media-field`, `rich-text-field`, `virtual-table-field`
+Used by: `select-field` (multi), `list-field`, `media-field`, `rich-text-field`, `virtual-table-field`
 
 ### Pattern C: watch + setValue for derived fields
 

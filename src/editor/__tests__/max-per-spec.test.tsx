@@ -1,67 +1,14 @@
 // src/editor/__tests__/max-per-spec.test.tsx
-import { ConfirmModalProvider } from "@knkcs/anker/feedback";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { FieldTypePlugin } from "../../schema/plugin";
-import type { Schema } from "../../schema/types";
-import { EditorCanvas } from "../editor-canvas";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
-import { useSpecDraft } from "../use-spec-draft";
-import { EditorWrap, makeField, testPlugins } from "./editor-helpers";
-
-const LABELS = {
-	defaultTab: "General",
-	searchPlaceholder: "Find field…",
-	noResults: "No fields found",
-	hiddenField: "Hidden field:",
-	groupPreview: "Repeating group",
-	addField: "Add field",
-	emptySpec: "No fields yet. Add the first one:",
-	dragField: "Drag to reorder",
-	editField: "Edit field",
-	duplicateField: "Duplicate field",
-	deleteField: "Delete field",
-	viewField: "View definition",
-	systemLocked: "System field",
-	moveToSection: "Move to section",
-	renameSection: "Rename",
-	moveLeft: "Move left",
-	moveRight: "Move right",
-	deleteSection: "Delete section",
-	deleteSectionConfirm:
-		'Delete section "{section}"? Its fields move to the previous tab.',
-	orientationH: "Horizontal tabs",
-	orientationV: "Vertical tabs",
-	sectionMenu: "Section menu: {section}",
-	sectionNameInput: "Section name",
-};
-
-function CanvasHarness({
-	schema,
-	plugins,
-}: {
-	schema: Schema;
-	plugins: FieldTypePlugin[];
-}) {
-	const spec = useSpecDraft(schema, plugins, vi.fn());
-	const [selected, setSelected] = useState<string | null>(null);
-	const [activeTabIndex, setActiveTabIndex] = useState(0);
-	return (
-		<ConfirmModalProvider>
-			<EditorCanvas
-				spec={spec}
-				plugins={plugins}
-				selectedAccessor={selected}
-				onSelect={setSelected}
-				onEdit={setSelected}
-				labels={LABELS}
-				activeTabIndex={activeTabIndex}
-				onActiveTabChange={setActiveTabIndex}
-			/>
-		</ConfirmModalProvider>
-	);
-}
+import {
+	CanvasHarness,
+	EditorWrap,
+	makeField,
+	testPlugins,
+} from "./editor-helpers";
 
 const L = DEFAULT_EDITOR_LABELS;
 
