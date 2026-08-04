@@ -25,7 +25,8 @@ import {
 	Tags,
 	Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import type { Reference } from "../../schema/reference";
 import {
 	countFilledAttributes,
 	declaredAttributes,
@@ -38,9 +39,14 @@ import {
 	readReferenceTree,
 	referenceBranchEnd,
 	removeReferenceAt,
+	spliceReference,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
+import {
+	ReferenceInsertSpacer,
+	ReferenceInsertStrip,
+} from "./reference-insert-strip";
 
 /** Pixels of indentation one level of nesting is drawn at. Exported because
  * read mode draws the same tree and has to draw a level at the same width. */
@@ -149,10 +155,11 @@ interface ResolvedDrop {
  * outlines always describe the same tree an Author is looking at, and a fold
  * changes both together rather than making one of them lie.
  *
- * The wording wants to stay the insertion affordance's too — it describes the
- * same fact about the same projection, and two affordances naming one outcome
- * differently is how an Author learns to distrust both. Nothing shares it yet:
- * the strip is a lane of its own, and this is the string it has to match.
+ * The wording is the insertion strip's too — see `describeInsert`, whose
+ * clause reads "…, adopting 2 References" off the same projection under the
+ * same counting rule. Two affordances naming one outcome differently is how an
+ * Author learns to distrust both, so the two strings move together or not at
+ * all.
  */
 function adoptionNotice(count: number): string {
 	if (count <= 0) return "";
@@ -242,6 +249,17 @@ function draggedKey(event: DragMoveEvent | DragEndEvent | DragStartEvent) {
 }
 
 /**
+ * The name a row about to exist is carried under while the collapsed set is
+ * carried across an insert.
+ *
+ * `carryCollapsed` pairs the two lists by index, so the list *before* an
+ * insert has to hold a place for the arriving row. Every real key is an index
+ * path — digits and dots — so this one can never collide with, or be found in,
+ * the set it is passed through.
+ */
+const ARRIVING_ROW = "+";
+
+/**
  * Arrow keys drive a tree drag: up and down step through the rows, left and
  * right change how deeply the drop nests — one level per press, the same
  * distance a pointer would have to travel for it.
@@ -257,6 +275,35 @@ const treeKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
 	}
 	return sortableKeyboardCoordinates(event, args);
 };
+
+/**
+ * A click on an insertion strip: where a Reference would go, and the way to
+ * put one there.
+ *
+ * The two halves are split across the two controls because that is where the
+ * knowledge is. The tree knows the position — including the translation from
+ * the rows on screen to the rows in the value, which is what puts an insert
+ * under a folded Reference at the end of its branch — and it owns the write,
+ * because folding has to follow one. Only the Field can produce a Reference:
+ * it holds the Adapter and the browse drawer. So the tree hands out the
+ * position with the write already bound to it, and the Field calls `commit`
+ * once someone has chosen a Content.
+ *
+ * `commit` reads the tree as it stood when the strip was clicked. The drawer
+ * is modal, so nothing an Author can do in between changes it.
+ */
+export interface ReferenceInsertRequest {
+	/**
+	 * Where the Reference would go, as an index into the *stored* tree's rows —
+	 * every row, not only the ones on screen.
+	 */
+	slot: number;
+	/** The depth it would land at — what the strip was offering when it was
+	 * clicked. */
+	depth: number;
+	/** Puts a Reference there, and hands the whole next value to `onChange`. */
+	commit: (reference: Reference) => void;
+}
 
 export interface ReferenceTreeProps {
 	/** The rows to render — `readReferenceTree` of the stored value. */
@@ -288,6 +335,24 @@ export interface ReferenceTreeProps {
 	/** Opens the Attributes of one Reference. The drawer belongs to the Field,
 	 * which is the only thing that knows the Accessor its paths hang off. */
 	onOpenAttributes?: (row: ReferenceRow) => void;
+	/**
+	 * Asked to find a Content for an insertion strip somebody clicked, with the
+	 * write to perform once one is chosen (see {@link ReferenceInsertRequest}).
+	 *
+	 * Absent puts no strips on the tree at all, which is what a Consumer
+	 * assembling its own control around this one gets until it has a browse of
+	 * its own to open: only its Adapter can produce a Reference.
+	 */
+	onInsert?: (request: ReferenceInsertRequest) => void;
+	/**
+	 * Whether the tree is already holding `max_items`, which disables the
+	 * strips exactly as it disables the Field's own Add control.
+	 *
+	 * A boolean rather than the cap itself, because reading a cap is where the
+	 * `?? 0` mistake lives: an unset `max_items` is *no* cap, and
+	 * `referenceItemCap` in `/schema` is what says so.
+	 */
+	atItemCap?: boolean;
 }
 
 /**
@@ -307,6 +372,13 @@ export interface ReferenceTreeProps {
  *   from how big the tree was when it opened, and it follows a Reference
  *   through a move rather than being reset by one. Nothing about which
  *   branches are folded is ever stored.
+ *
+ * An **insertion strip** sits in every gap between rows, and before the first
+ * one, so a Reference can be added where it belongs rather than at the end and
+ * then dragged. It is the same round trip as a drag with a different pair of
+ * neighbours: `projectInsertDepth` for the depth and the rows it would adopt,
+ * `spliceReference` to put one entry in the flat list, `nestReferences` back to
+ * a value — so adoption (ADR-0012) is not an operation anything here performs.
  */
 export function ReferenceTree({
 	rows,
@@ -317,6 +389,8 @@ export function ReferenceTree({
 	depthCeiling,
 	attributeSpec,
 	onOpenAttributes,
+	onInsert,
+	atItemCap,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -377,6 +451,55 @@ export function ReferenceTree({
 		const next = removeReferenceAt(value, row.path);
 		setCollapsed(carryCollapsed(kept, readReferenceTree(next), collapsed));
 		onChange(next);
+	}
+
+	/**
+	 * Puts one Reference in at `slot` and `depth`, and hands the whole next
+	 * value back — the insert's half of the round trip a drag already makes.
+	 *
+	 * Nothing rewrites anyone's parentage: `spliceReference` moves no other
+	 * row, and the rows that follow a shallower arrival become its children
+	 * purely because `nestReferences` reads a list by order and depth
+	 * (ADR-0012). What has to be maintained is the folding, which is keyed by
+	 * position and so is renamed by an insert: the set is carried across the
+	 * change of shape, and whatever the Reference landed *inside* is unfolded,
+	 * on the same terms a drop into a folded branch already gets.
+	 */
+	function insertReference(slot: number, depth: number, reference: Reference) {
+		const at = Math.max(0, Math.min(slot, rows.length));
+		const placed = spliceReference({ items: rows, reference, slot: at, depth });
+		const next = writeReferenceTree(value, nestReferences(placed));
+		// `placed` and the rows the new value reads back as are both depth-first
+		// over the same tree, so an index means the same row in either.
+		const nextRows = readReferenceTree(next);
+		const before = [
+			...rows.slice(0, at),
+			{ key: ARRIVING_ROW },
+			...rows.slice(at),
+		];
+		const carried = carryCollapsed(before, nextRows, collapsed);
+		for (const key of ancestorKeys(nextRows, at)) carried.delete(key);
+
+		setCollapsed(carried);
+		onChange(next);
+	}
+
+	/**
+	 * A strip was clicked. The slot it names is among the rows *on screen*; the
+	 * write is over every row, so the two have to be reconciled — and the row
+	 * below the strip is what reconciles them, since that is the row the
+	 * Reference lands before whether or not anything between them is folded
+	 * away. A strip under a folded Reference therefore lands at the end of its
+	 * branch, which is what a drop into one already does.
+	 */
+	function handleInsert(shownSlot: number, depth: number) {
+		const below = shown[shownSlot];
+		const slot = below ? rows.indexOf(below) : rows.length;
+		onInsert?.({
+			slot,
+			depth,
+			commit: (reference) => insertReference(slot, depth, reference),
+		});
 	}
 
 	function handleDragStart(event: DragStartEvent) {
@@ -440,6 +563,27 @@ export function ReferenceTree({
 		onChange(next);
 	}
 
+	// No strips without somewhere to put a Reference *between*: an empty tree
+	// has no gaps, and the Field's Add control is its way in.
+	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
+
+	/** The gap at `slot`: a strip, or the inert spacer a drag replaces it with. */
+	function insertionGap(slot: number) {
+		if (!stripsOffered) return null;
+		if (activeKey !== null) return <ReferenceInsertSpacer />;
+		return (
+			<ReferenceInsertStrip
+				rows={shown}
+				slot={slot}
+				names={names}
+				indentWidth={INDENT_WIDTH}
+				depthCeiling={depthCeiling}
+				disabled={atItemCap ?? false}
+				onInsert={handleInsert}
+			/>
+		);
+	}
+
 	return (
 		<DndContext
 			sensors={sensors}
@@ -454,30 +598,35 @@ export function ReferenceTree({
 				items={shown.map((row) => row.key)}
 				strategy={verticalListSortingStrategy}
 			>
-				{shown.map((row) => (
-					<ReferenceTreeRowItem
-						key={row.key}
-						row={row}
-						name={names[row.reference.id] ?? row.reference.id}
-						// The dragged row indents to where releasing would put it,
-						// and the rows it would take are marked — both from the same
-						// resolution the release itself uses.
-						depth={row.key === activeKey && pending ? pending.depth : row.depth}
-						adopted={pending?.adopted.has(row.key) ?? false}
-						collapsed={collapsed.has(row.key)}
-						readOnly={readOnly ?? false}
-						attributesAsked={askedFor.length}
-						attributesFilled={countFilledAttributes(
-							askedFor,
-							row.reference.attributes,
-						)}
-						onToggle={() => toggle(row.key)}
-						onRemove={() => handleRemove(row)}
-						onOpenAttributes={
-							onOpenAttributes ? () => onOpenAttributes(row) : undefined
-						}
-					/>
+				{shown.map((row, index) => (
+					<Fragment key={row.key}>
+						{insertionGap(index)}
+						<ReferenceTreeRowItem
+							row={row}
+							name={names[row.reference.id] ?? row.reference.id}
+							// The dragged row indents to where releasing would put it,
+							// and the rows it would take are marked — both from the
+							// same resolution the release itself uses.
+							depth={
+								row.key === activeKey && pending ? pending.depth : row.depth
+							}
+							adopted={pending?.adopted.has(row.key) ?? false}
+							collapsed={collapsed.has(row.key)}
+							readOnly={readOnly ?? false}
+							attributesAsked={askedFor.length}
+							attributesFilled={countFilledAttributes(
+								askedFor,
+								row.reference.attributes,
+							)}
+							onToggle={() => toggle(row.key)}
+							onRemove={() => handleRemove(row)}
+							onOpenAttributes={
+								onOpenAttributes ? () => onOpenAttributes(row) : undefined
+							}
+						/>
+					</Fragment>
 				))}
+				{insertionGap(shown.length)}
 			</SortableContext>
 			{/* Always rendered, empty and all: a live region an Author's screen
 			    reader only meets once the drag has already started is one it may

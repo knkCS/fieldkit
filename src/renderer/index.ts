@@ -32,7 +32,12 @@ export { EmptyReadValue } from "./fields/empty-value";
 // rows from `/schema`; resolving `names` is the Consumer's own job, since only
 // its Adapter can. `depthCeiling` is a depth index, roots being 0 —
 // `referenceDepthCeiling` in `/schema` converts a `max_depth` setting into one.
+// `onInsert` is what puts the insertion strips on the tree: it is asked to find
+// a Content for the gap somebody clicked, and hands back the write that puts
+// one there (ADR-0012). Without it there are no strips, since only a Consumer's
+// own Adapter can produce a Reference.
 export {
+	type ReferenceInsertRequest,
 	ReferenceTree,
 	type ReferenceTreeProps,
 } from "./fields/reference-tree";
