@@ -20,15 +20,15 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Reference } from "../../schema/reference";
-import { asReference } from "../../schema/reference";
-import type { FlatReference } from "../../schema/reference-tree";
+import type { ReferenceRow } from "../../schema/reference-tree";
 import {
-	flattenReferences,
 	moveReferenceBranch,
 	nestReferences,
 	projectDropDepth,
+	readReferenceTree,
 	referenceBranchEnd,
+	removeReferenceAt,
+	writeReferenceTree,
 } from "../../schema/reference-tree";
 
 /** Pixels of indentation one level of nesting is drawn at. */
@@ -47,95 +47,22 @@ const INDENT_WIDTH = 24;
  */
 export const REFERENCE_TREE_COLLAPSE_THRESHOLD = 20;
 
-/** One rendered row: a flattened Reference, and where it came from. */
-export interface ReferenceTreeRow extends FlatReference {
-	/**
-	 * Index path into the *stored* value — `[1, 0]` is
-	 * `value[1].children[0]`.
-	 *
-	 * Kept because form data is only as well-formed as whatever produced it:
-	 * an entry that is not a Reference renders no row, so a row's place among
-	 * the rows is not its place in the array a remove has to splice.
-	 */
-	path: number[];
-	/** `path` as a string — the row's drag id, its React key, its collapse key. */
-	key: string;
-}
-
-/** What {@link readReferenceTree} makes of a stored value. */
-export interface StoredReferenceTree {
-	/** The value read as a tree, with anything that is not a Reference dropped. */
-	tree: Reference[];
-	/** That tree flattened: one entry per row, top to bottom. */
-	rows: ReferenceTreeRow[];
-}
-
-/**
- * Reads a stored value as a Reference Tree, remembering where each Reference
- * came from.
- *
- * The walk is depth-first and records a path before descending, so the paths
- * it collects line up one for one with what `flattenReferences` produces from
- * the same tree.
- */
-export function readReferenceTree(value: unknown): StoredReferenceTree {
-	const paths: number[][] = [];
-	const walk = (entries: unknown, prefix: readonly number[]): Reference[] => {
-		if (!Array.isArray(entries)) return [];
-		const kept: Reference[] = [];
-		entries.forEach((entry, index) => {
-			const reference = asReference(entry);
-			if (!reference) return;
-			const path = [...prefix, index];
-			paths.push(path);
-			const { children: _ignored, ...rest } = reference;
-			const children = walk(reference.children, path);
-			kept.push(children.length > 0 ? { ...rest, children } : rest);
-		});
-		return kept;
-	};
-	const tree = walk(value, []);
-	const rows = flattenReferences(tree).map((entry, index) => ({
-		...entry,
-		path: paths[index],
-		key: paths[index].join("."),
-	}));
-	return { tree, rows };
-}
-
-/**
- * The stored value with the Reference at `path` taken out of it — its branch
- * with it, since removing a Reference removes what hangs off it.
- *
- * Everything else is left exactly as it was, including entries that were
- * never References: they render no row, so nothing an Author did asked for
- * them to go.
- */
-function removeAtPath(value: unknown, path: readonly number[]): unknown[] {
-	const entries: unknown[] = Array.isArray(value) ? value : [];
-	const [index, ...rest] = path;
-	if (rest.length === 0) return entries.filter((_, i) => i !== index);
-	return entries.map((entry, i) => {
-		if (i !== index) return entry;
-		const reference = entry as Reference;
-		const children = removeAtPath(reference.children, rest) as Reference[];
-		if (children.length > 0) return { ...reference, children };
-		const { children: _emptied, ...withoutBranch } = reference;
-		return withoutBranch;
-	});
+/** Whether a Reference has anything under it to fold away. */
+function hasBranch(row: ReferenceRow): boolean {
+	return row.height > 0;
 }
 
 /** The rows an Author can see: everything not inside a collapsed Reference. */
 function visibleRows(
-	rows: readonly ReferenceTreeRow[],
+	rows: readonly ReferenceRow[],
 	collapsed: ReadonlySet<string>,
-): ReferenceTreeRow[] {
-	const shown: ReferenceTreeRow[] = [];
+): ReferenceRow[] {
+	const shown: ReferenceRow[] = [];
 	let hiddenThrough = -1;
 	rows.forEach((row, index) => {
 		if (index <= hiddenThrough) return;
 		shown.push(row);
-		if (row.height > 0 && collapsed.has(row.key)) {
+		if (hasBranch(row) && collapsed.has(row.key)) {
 			hiddenThrough = referenceBranchEnd(rows, index);
 		}
 	});
@@ -164,9 +91,23 @@ function carryCollapsed(
 }
 
 /** The collapsed set a tree opens with — see the threshold above. */
-function initialCollapsed(rows: readonly ReferenceTreeRow[]): Set<string> {
+function initialCollapsed(rows: readonly ReferenceRow[]): Set<string> {
 	if (rows.length <= REFERENCE_TREE_COLLAPSE_THRESHOLD) return new Set();
-	return new Set(rows.filter((row) => row.height > 0).map((row) => row.key));
+	return new Set(rows.filter(hasBranch).map((row) => row.key));
+}
+
+/** What {@link resolveDrop} is asked: a drag, as the two lists see it. */
+interface DropResolutionInput {
+	/** Every row, folded ones included — the list a move reorders. */
+	rows: readonly ReferenceRow[];
+	/** The rows on screen — the list a depth is offered against. */
+	shown: readonly ReferenceRow[];
+	collapsed: ReadonlySet<string>;
+	activeKey: string;
+	overKey: string | null;
+	/** How far the drag has travelled horizontally. */
+	offsetX: number;
+	depthCeiling: number | undefined;
 }
 
 /** Where a drag would land, in the terms the model works in. */
@@ -177,41 +118,80 @@ interface ResolvedDrop {
 }
 
 /**
- * Resolves a drag against the flat list — the one answer both the live indent
- * and the release read, so what an Author watches is what letting go does.
- * The precedent is the editor canvas's `resolveDropTarget`.
+ * Resolves a drag — the one answer both the live indent and the release read,
+ * so what an Author watches is what letting go does. The precedent is the
+ * editor canvas's `resolveDropTarget`.
+ *
+ * It reads the two lists for two different things, and the split is the whole
+ * point:
+ *
+ * - **Order comes from every row.** A branch travels with its Reference
+ *   whether or not it is folded away, so the move is expressed over the full
+ *   list. A collapsed Reference stands in for everything it hides, so landing
+ *   below one means below its whole branch.
+ * - **Depth comes from the rows on screen.** A drop may only reach a depth an
+ *   Author can see: a folded Reference offers itself as a parent, never the
+ *   descendants hidden under it. Projecting against the full list would let a
+ *   drag reach a depth whose neighbours are invisible.
  */
-function resolveDrop(
-	rows: readonly ReferenceTreeRow[],
-	collapsed: ReadonlySet<string>,
-	activeId: string,
-	overId: string | null,
-	offsetX: number,
-	depthCeiling: number | undefined,
-): ResolvedDrop | null {
-	const activeIndex = rows.findIndex((row) => row.key === activeId);
+function resolveDrop({
+	rows,
+	shown,
+	collapsed,
+	activeKey,
+	overKey,
+	offsetX,
+	depthCeiling,
+}: DropResolutionInput): ResolvedDrop | null {
+	const activeIndex = rows.findIndex((row) => row.key === activeKey);
 	if (activeIndex === -1) return null;
 
-	const over = rows.findIndex((row) => row.key === overId);
+	const over = rows.findIndex((row) => row.key === overKey);
 	// Over nothing that resolves is a drag hovering its own row: no move, but
 	// still a depth the pointer may have asked for.
 	let overIndex = over === -1 ? activeIndex : over;
-	// A collapsed Reference stands in for everything it hides. Dropping below
-	// it means below its whole branch, never silently inside a branch nobody
-	// can see.
 	if (overIndex > activeIndex && collapsed.has(rows[overIndex].key)) {
 		overIndex = referenceBranchEnd(rows, overIndex);
 	}
 
+	// The dragged row is always on screen — it is the one carrying the grip.
+	const shownActive = shown.findIndex((row) => row.key === activeKey);
+	const shownOver = shown.findIndex((row) => row.key === overKey);
 	const { depth } = projectDropDepth({
-		items: rows,
-		activeIndex,
-		overIndex,
+		items: shown,
+		activeIndex: shownActive,
+		overIndex: shownOver === -1 ? shownActive : shownOver,
 		offsetX,
 		indentWidth: INDENT_WIDTH,
 		depthCeiling,
 	});
 	return { activeIndex, overIndex, depth };
+}
+
+/**
+ * The keys of everything the branch now at `index` sits inside.
+ *
+ * A drop may land under a Reference that is folded, and a Reference has to be
+ * visible where it was dropped — so what it landed inside is unfolded.
+ */
+function ancestorKeys(
+	rows: readonly { depth: number; key: string }[],
+	index: number,
+): string[] {
+	const keys: string[] = [];
+	let depth = rows[index]?.depth ?? 0;
+	for (let above = index - 1; above >= 0 && depth > 0; above--) {
+		if (rows[above].depth < depth) {
+			keys.push(rows[above].key);
+			depth = rows[above].depth;
+		}
+	}
+	return keys;
+}
+
+/** The key of the row a drag event is carrying. */
+function draggedKey(event: DragMoveEvent | DragEndEvent | DragStartEvent) {
+	return String(event.active.id);
 }
 
 /**
@@ -232,8 +212,8 @@ const treeKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
 };
 
 export interface ReferenceTreeProps {
-	/** The rows to render — {@link readReferenceTree} of the stored value. */
-	rows: readonly ReferenceTreeRow[];
+	/** The rows to render — `readReferenceTree` of the stored value. */
+	rows: readonly ReferenceRow[];
 	/** The stored value itself, which a remove splices and a drop rewrites. */
 	value: unknown;
 	/** Resolved display names, keyed by Content id; absent falls back to the id. */
@@ -263,11 +243,12 @@ export interface ReferenceTreeProps {
  *   `moveReferenceBranch` and re-nests. None of that arithmetic lives here,
  *   so none of it is asserted through a DOM.
  * - **A branch travels whole.** Dragging a Reference takes its descendants
- *   with it, at the depths they held relative to it — collapsed or not.
- * - **A drop rewrites the value.** A remove splices the one Reference out by
- *   its stored path and leaves everything else untouched; a drop re-nests the
- *   whole tree, so entries that were never Reference-shaped — which render no
- *   row — do not survive one.
+ *   with it, at the depths they held relative to it — collapsed or not, and
+ *   whatever it lands inside is unfolded so it can be seen where it went.
+ * - **Folding is this control's own state, never the value's.** It is seeded
+ *   from how big the tree was when it opened, and it follows a Reference
+ *   through a move rather than being reset by one. Nothing about which
+ *   branches are folded is ever stored.
  */
 export function ReferenceTree({
 	rows,
@@ -301,32 +282,39 @@ export function ReferenceTree({
 		});
 	}
 
-	function handleRemove(row: ReferenceTreeRow) {
+	/** The one reading of a drag, from whichever event carries it. */
+	function resolveFrom(
+		event: DragMoveEvent | DragEndEvent,
+	): ResolvedDrop | null {
+		return resolveDrop({
+			rows,
+			shown,
+			collapsed,
+			activeKey: draggedKey(event),
+			overKey: event.over ? String(event.over.id) : null,
+			offsetX: event.delta.x,
+			depthCeiling,
+		});
+	}
+
+	function handleRemove(row: ReferenceRow) {
 		// The branch goes with it, so the rows left behind are the ones either
-		// side of that slice — which is what the collapsed set has to follow.
+		// side of that slice — which is what the folded set has to follow.
 		const from = rows.indexOf(row);
 		const end = referenceBranchEnd(rows, from);
 		const kept = rows.filter((_, index) => index < from || index > end);
-		const next = removeAtPath(value, row.path);
-		setCollapsed(carryCollapsed(kept, readReferenceTree(next).rows, collapsed));
+		const next = removeReferenceAt(value, row.path);
+		setCollapsed(carryCollapsed(kept, readReferenceTree(next), collapsed));
 		onChange(next);
 	}
 
 	function handleDragStart(event: DragStartEvent) {
-		setActiveKey(String(event.active.id));
+		setActiveKey(draggedKey(event));
 		setProjectedDepth(null);
 	}
 
 	function handleDragMove(event: DragMoveEvent) {
-		const resolved = resolveDrop(
-			rows,
-			collapsed,
-			String(event.active.id),
-			event.over ? String(event.over.id) : null,
-			event.delta.x,
-			depthCeiling,
-		);
-		setProjectedDepth(resolved?.depth ?? null);
+		setProjectedDepth(resolveFrom(event)?.depth ?? null);
 	}
 
 	function handleDragCancel() {
@@ -337,30 +325,29 @@ export function ReferenceTree({
 	function handleDragEnd(event: DragEndEvent) {
 		setActiveKey(null);
 		setProjectedDepth(null);
-		const resolved = resolveDrop(
-			rows,
-			collapsed,
-			String(event.active.id),
-			event.over ? String(event.over.id) : null,
-			event.delta.x,
-			depthCeiling,
-		);
+		const resolved = resolveFrom(event);
 		if (!resolved) return;
 
 		const moved = moveReferenceBranch({ items: rows, ...resolved });
 		// A drag that ended where it started: leave the stored value alone
-		// rather than rewriting it — a rewrite would dirty the form and
-		// normalise away entries nobody asked to lose.
+		// rather than rewriting it, which would dirty the form for nothing.
 		const settled = moved.every(
 			(row, index) =>
 				row.key === rows[index].key && row.depth === rows[index].depth,
 		);
 		if (settled) return;
 
-		const next = nestReferences(moved);
-		setCollapsed(
-			carryCollapsed(moved, readReferenceTree(next).rows, collapsed),
-		);
+		const next = writeReferenceTree(value, nestReferences(moved));
+		// `moved` and the rows the new value reads back as are both depth-first
+		// over the same tree, so an index means the same row in either.
+		const nextRows = readReferenceTree(next);
+		const carried = carryCollapsed(moved, nextRows, collapsed);
+		const landed = moved.findIndex((row) => row.key === draggedKey(event));
+		// Unfold whatever the branch landed inside: a Reference has to be
+		// visible where it was dropped.
+		for (const key of ancestorKeys(nextRows, landed)) carried.delete(key);
+
+		setCollapsed(carried);
 		onChange(next);
 	}
 
@@ -402,7 +389,7 @@ export function ReferenceTree({
 ReferenceTree.displayName = "ReferenceTree";
 
 interface ReferenceTreeRowItemProps {
-	row: ReferenceTreeRow;
+	row: ReferenceRow;
 	name: string;
 	/** What to draw at — the row's own depth, or where a drag would land it. */
 	depth: number;

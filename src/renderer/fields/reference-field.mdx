@@ -17,11 +17,13 @@ Per-Reference attributes and pinning arrive in later tickets.
 
 Every row carries a drag grip. Dragging a row reorders it among its siblings; dragging it rightwards nests it under the Reference above, one level per `24px` of travel. **A Reference's descendants travel with it** — a branch keeps its shape however far it moves.
 
-A Reference with children carries a chevron that folds its branch away, so one branch can be worked on without the rest in the way. A tree of more than `REFERENCE_TREE_COLLAPSE_THRESHOLD` References **opens with every parent collapsed**; at or below it, expanded. The threshold is a provisional guess and wants tuning against a real Spec.
+A Reference with children carries a chevron that folds its branch away, so one branch can be worked on without the rest in the way. A tree of more than `REFERENCE_TREE_COLLAPSE_THRESHOLD` References **opens with every parent collapsed**; at or below it, expanded. The threshold is a provisional guess and wants tuning against a real Spec. Folding is the control's own state and is never stored.
+
+Folding and dragging agree on two rules. A folded Reference **stands in for its whole branch**: dropping below one lands below everything it hides, and a drop can reach a depth of "child of the folded Reference" but never deeper — a drop may only land somewhere an Author can see. And whatever a Reference lands *inside* is **unfolded on the drop**, so it is visible where it went.
 
 Dragging works from the keyboard as well as the pointer: focus a grip, press <kbd>Space</kbd> to lift, <kbd>↑</kbd>/<kbd>↓</kbd> to move between rows, <kbd>←</kbd>/<kbd>→</kbd> to change how deeply the drop nests, then <kbd>Space</kbd> to drop or <kbd>Esc</kbd> to cancel.
 
-Two things worth knowing about how it is built. The depth a drop lands at is decided by **pure functions** in `src/schema/reference-tree.ts` — flatten, project, move the branch, re-nest — so none of the drag arithmetic is asserted through a DOM. And the tree is genuinely nested in the value: a drop rewrites the whole array, so stored entries that were never Reference-shaped (they render no row) do not survive one.
+The depth a drop lands at is decided by **pure functions** in `src/schema/reference-tree.ts` — read the stored value, flatten, project a depth, move the branch, re-nest, write back — so none of the drag arithmetic is asserted through a DOM.
 
 There is no pagination, deliberately: it cannot coexist with dragging to a position nobody can see.
 
@@ -42,6 +44,8 @@ interface Reference {
 ```
 
 The nesting is genuine rather than a flat list with ancestor ids, which is what makes an orphan unrepresentable. Flat encodings are the Consumer's business.
+
+Form data is only as well-formed as whatever produced it, so a stored entry that is not a Reference renders no row. Removing and dragging both leave such an entry at the top-level position it held; one nested inside a branch does not survive a drop, because every branch is rebuilt from depths — and a value holding one cannot pass the Schema anyway.
 
 A display name is **never stored**. Names are resolved through the adapter on every load, so a Content renamed elsewhere reads correctly here, and one that no longer resolves keeps its id on screen rather than vanishing.
 
@@ -111,7 +115,7 @@ z.array(referenceTreeSchema).min(1, "Related articles is required")
 
 ## Table Cell
 
-`ReferenceCell` renders a count — "3 references" — at table density. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
+`ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, the same way `max_items` will. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
 
 ## Errors
 

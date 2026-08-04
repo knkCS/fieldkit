@@ -12,6 +12,7 @@ import { specToZodSchema } from "../../../schema/zod-builder";
 import {
 	createFakeReferenceAdapter,
 	fakeCatalogue,
+	fakeReferenceTree,
 } from "../../../test/fake-reference-adapter";
 import { FieldComponent } from "../../field-component";
 import { FieldKitProvider } from "../../provider";
@@ -77,13 +78,13 @@ function renderTree({
 }
 
 /** The rows on screen, top to bottom, as `[name, depth]`. */
-function visibleRows(): [string, number][] {
-	return screen.queryAllByTestId("reference-row").map((row) => {
-		// The name is the row's only free text; the buttons carry labels, not
-		// text nodes.
-		const name = row.querySelector("p, span, div > p")?.textContent ?? "";
-		return [name.trim(), Number(row.getAttribute("data-depth"))];
-	});
+function renderedRows(): [string, number][] {
+	return screen.queryAllByTestId("reference-row").map((row) => [
+		// The resolved name is the row's only text: its buttons are icons with
+		// aria-labels, and contribute no text node.
+		row.textContent?.trim() ?? "",
+		Number(row.getAttribute("data-depth")),
+	]);
 }
 
 /**
@@ -144,20 +145,6 @@ async function keyboardDrag(name: string, ...codes: string[]) {
 	});
 }
 
-/** `count` References as parent/child pairs, so every other row has a branch
- * to collapse. Ids line up with `fakeCatalogue(count)`. */
-function treeOf(count: number): Reference[] {
-	const roots: Reference[] = [];
-	for (let n = 1; n <= count; n += 2) {
-		roots.push(
-			n + 1 <= count
-				? { id: `article-${n}`, children: [{ id: `article-${n + 1}` }] }
-				: { id: `article-${n}` },
-		);
-	}
-	return roots;
-}
-
 describe("the Reference Tree's rows", () => {
 	it("renders a nested Reference under its parent, at its own depth", async () => {
 		renderTree({
@@ -168,7 +155,7 @@ describe("the Reference Tree's rows", () => {
 		});
 
 		await screen.findByText("Content 1");
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 1", 0],
 			["Content 2", 1],
 			["Content 3", 0],
@@ -208,13 +195,13 @@ describe("collapsing a branch", () => {
 		await user.click(
 			await screen.findByRole("button", { name: "Collapse Content 1" }),
 		);
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 1", 0],
 			["Content 4", 0],
 		]);
 
 		await user.click(screen.getByRole("button", { name: "Expand Content 1" }));
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 1", 0],
 			["Content 2", 1],
 			["Content 3", 2],
@@ -250,7 +237,10 @@ describe("collapsing a branch", () => {
 describe("how big a tree opens", () => {
 	it("opens expanded at the threshold, so a small tree reads at once", async () => {
 		const count = REFERENCE_TREE_COLLAPSE_THRESHOLD;
-		renderTree({ value: treeOf(count), contents: fakeCatalogue(count) });
+		renderTree({
+			value: fakeReferenceTree(count),
+			contents: fakeCatalogue(count),
+		});
 
 		await screen.findByText("Content 1");
 		expect(screen.getAllByTestId("reference-row")).toHaveLength(count);
@@ -258,7 +248,10 @@ describe("how big a tree opens", () => {
 
 	it("opens with its parents collapsed above the threshold", async () => {
 		const count = REFERENCE_TREE_COLLAPSE_THRESHOLD + 2;
-		renderTree({ value: treeOf(count), contents: fakeCatalogue(count) });
+		renderTree({
+			value: fakeReferenceTree(count),
+			contents: fakeCatalogue(count),
+		});
 
 		await screen.findByText("Content 1");
 		// Only the roots: every parent starts collapsed, so the tree is
@@ -279,7 +272,7 @@ describe("dragging, driven from the keyboard", () => {
 		await keyboardDrag("Content 1", "ArrowDown");
 
 		expect(stored()).toEqual([{ id: "article-2" }, { id: "article-1" }]);
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 2", 0],
 			["Content 1", 0],
 		]);
@@ -298,7 +291,7 @@ describe("dragging, driven from the keyboard", () => {
 		expect(stored()).toEqual([
 			{ id: "article-1", children: [{ id: "article-2" }] },
 		]);
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 1", 0],
 			["Content 2", 1],
 		]);
@@ -375,6 +368,60 @@ describe("dragging, driven from the keyboard", () => {
 		rects.mockRestore();
 	});
 
+	it("cannot reach a depth inside a folded branch", async () => {
+		const user = userEvent.setup();
+		renderTree({
+			value: [
+				{ id: "article-3" },
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-4" },
+			],
+		});
+		await user.click(
+			await screen.findByRole("button", { name: "Collapse Content 1" }),
+		);
+		const rects = mockRowRects();
+
+		// Two levels of indentation asked for, below a folded Reference: the
+		// deepest thing on offer is being its child, never its hidden child's.
+		await keyboardDrag("Content 3", "ArrowDown", "ArrowRight", "ArrowRight");
+
+		expect(stored()).toEqual([
+			{ id: "article-1", children: [{ id: "article-2" }, { id: "article-3" }] },
+			{ id: "article-4" },
+		]);
+		// And what it landed in is unfolded, so it can be seen where it went.
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 1],
+			["Content 3", 1],
+			["Content 4", 0],
+		]);
+		rects.mockRestore();
+	});
+
+	it("keeps a stored entry that is not a Reference where it was", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				"not-a-reference",
+				{ id: "article-1" },
+				{ id: "article-2" },
+			] as unknown as Reference[],
+		});
+		await screen.findByText("Content 1");
+
+		await keyboardDrag("Content 1", "ArrowDown");
+
+		// The stray renders no row, so nothing an Author did asked for it to go.
+		expect(stored()).toEqual([
+			"not-a-reference",
+			{ id: "article-2" },
+			{ id: "article-1" },
+		]);
+		rects.mockRestore();
+	});
+
 	it("leaves the stored value alone when the drag ends where it began", async () => {
 		const rects = mockRowRects();
 		const value = [{ id: "article-1" }, { id: "article-2" }];
@@ -424,7 +471,7 @@ describe("read-only trees", () => {
 			await screen.findByRole("button", { name: "Collapse Content 1" }),
 		);
 
-		expect(visibleRows()).toEqual([["Content 1", 0]]);
+		expect(renderedRows()).toEqual([["Content 1", 0]]);
 	});
 });
 
@@ -439,7 +486,7 @@ describe("a tree whose stored value is not all References", () => {
 		});
 
 		await screen.findByText("Content 1");
-		expect(visibleRows()).toEqual([
+		expect(renderedRows()).toEqual([
 			["Content 1", 0],
 			["Content 2", 1],
 		]);

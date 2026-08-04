@@ -5,12 +5,13 @@ import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
+import { readReferenceTree } from "../../schema/reference-tree";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
-import { ReferenceTree, readReferenceTree } from "./reference-tree";
+import { ReferenceTree } from "./reference-tree";
 
 /**
  * A Reference Tree, each row naming the Content it points at.
@@ -53,7 +54,7 @@ export function ReferenceField({
 	// well-formed as whatever produced it. Each row remembers where in the
 	// *stored* value it came from, so a malformed entry that renders no row
 	// cannot make a remove act one place off.
-	const { rows } = useMemo(() => readReferenceTree(value), [value]);
+	const rows = useMemo(() => readReferenceTree(value), [value]);
 
 	const names = useResolvedContentNames(
 		rows.map((row) => row.reference.id),

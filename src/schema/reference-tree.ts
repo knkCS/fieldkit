@@ -23,11 +23,19 @@
  * which is what `max_items` caps — every Reference at every level, since a
  * nested child is as real as a root.
  *
+ * One step further out sit `readReferenceTree`, `writeReferenceTree` and
+ * `removeReferenceAt`, which deal with a *stored value* rather than a tree.
+ * Form data arrives from a Consumer and is only as well-formed as whatever
+ * produced it, so reading it is a job of its own: the reader drops what is
+ * not a Reference and remembers where the rest came from, and the writer
+ * puts the strays back. Everything above them can then assume a real tree.
+ *
  * No DOM, no React, no dnd-kit: the drag maths is asserted with plain
  * assertions, following the precedent `resolve-drop-target.ts` set for the
  * editor canvas.
  */
 import type { Reference } from "./reference";
+import { asReference } from "./reference";
 
 /** A Reference with its branch removed — everything a flattened entry keeps. */
 export type FlatReferenceValue = Omit<Reference, "children">;
@@ -317,6 +325,108 @@ export function moveReferenceBranch<T extends NestableReference>({
 		Math.min(dropSlot(activeIndex, end, overIndex), rest.length),
 	);
 	return [...rest.slice(0, slot), ...branch, ...rest.slice(slot)];
+}
+
+/** One flattened Reference, and where in the stored value it came from. */
+export interface ReferenceRow extends FlatReference {
+	/**
+	 * Index path into the stored value — `[1, 0]` is `value[1].children[0]`.
+	 *
+	 * Worth keeping because a stored value may hold entries that are not
+	 * References at all: they yield no row, so a row's place among the rows is
+	 * not its place in the array a targeted edit has to splice.
+	 */
+	path: number[];
+	/**
+	 * `path` as a string: a name for the row that is stable for as long as the
+	 * value is, which is what a caller keying rows — for React, for a drag
+	 * library, for a set of folded branches — needs and a Reference cannot
+	 * give. The same Content may legitimately be referenced twice, so an id is
+	 * not an identity here.
+	 */
+	key: string;
+}
+
+/**
+ * Reads a stored value as a Reference Tree's rows, top to bottom, dropping
+ * anything that is not a Reference at any level.
+ *
+ * The one place that turns a Consumer's data into something the rest of this
+ * model may assume is well-formed. Nothing is repaired and nothing throws:
+ * an entry that is not a Reference simply yields no row, and `path` is what
+ * lets a caller still find it in the array it came from.
+ */
+export function readReferenceTree(value: unknown): ReferenceRow[] {
+	const paths: number[][] = [];
+	const walk = (entries: unknown, prefix: readonly number[]): Reference[] => {
+		if (!Array.isArray(entries)) return [];
+		const kept: Reference[] = [];
+		entries.forEach((entry, index) => {
+			const reference = asReference(entry);
+			if (!reference) return;
+			const path = [...prefix, index];
+			// Recorded before descending, so `paths` comes out in the same
+			// depth-first order `flattenReferences` produces below.
+			paths.push(path);
+			const { children: _branch, ...rest } = reference;
+			const children = walk(reference.children, path);
+			kept.push(children.length > 0 ? { ...rest, children } : rest);
+		});
+		return kept;
+	};
+	return flattenReferences(walk(value, [])).map((entry, index) => ({
+		...entry,
+		path: paths[index],
+		key: paths[index].join("."),
+	}));
+}
+
+/**
+ * Writes a tree back over the value it was read from, keeping the entries
+ * that were never References at the positions they held.
+ *
+ * Only top-level strays survive, and that is a fact about the value rather
+ * than a compromise: the stored value is an array of roots and stays one, so
+ * a root's neighbours keep their indices — while every branch below is rebuilt
+ * from depths, leaving a stray nested inside one nowhere to be put back. A
+ * value with a stray in a branch cannot pass the Field's Schema anyway.
+ */
+export function writeReferenceTree(
+	value: unknown,
+	roots: readonly Reference[],
+): unknown[] {
+	const entries: unknown[] = Array.isArray(value) ? value : [];
+	const next: unknown[] = [...roots];
+	entries.forEach((entry, index) => {
+		if (asReference(entry) === null) {
+			next.splice(Math.min(index, next.length), 0, entry);
+		}
+	});
+	return next;
+}
+
+/**
+ * The stored value with the Reference at `path` taken out of it, and its
+ * branch with it — removing a Reference removes what hangs off it.
+ *
+ * Everything else is left exactly as it stands, strays included: a removal is
+ * a targeted edit, and nothing an Author did asked for the rest to change.
+ */
+export function removeReferenceAt(
+	value: unknown,
+	path: readonly number[],
+): unknown[] {
+	const entries: unknown[] = Array.isArray(value) ? value : [];
+	const [index, ...rest] = path;
+	if (rest.length === 0) return entries.filter((_, i) => i !== index);
+	return entries.map((entry, i) => {
+		if (i !== index) return entry;
+		const reference = entry as Reference;
+		const children = removeReferenceAt(reference.children, rest) as Reference[];
+		if (children.length > 0) return { ...reference, children };
+		const { children: _emptied, ...withoutBranch } = reference;
+		return withoutBranch;
+	});
 }
 
 /**

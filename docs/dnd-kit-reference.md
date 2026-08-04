@@ -45,7 +45,14 @@ height — so it takes the simpler shape rule 3 below allows: no `DragOverlay`,
 `closestCenter` (a collapsed row is unmounted, so there are no
 hidden-but-mounted droppables to filter out).
 
-Its one addition is a coordinate getter: `sortableKeyboardCoordinates` reads
+Its resolver reads **two lists**, and that split is load-bearing. Order comes
+from every row, folded ones included, because a branch travels with its
+Reference whether or not it is on screen; depth comes from the *visible* rows
+alone, so a drop can only reach a depth whose neighbours an Author can see —
+projecting against the full list lets a drag nest inside a folded branch,
+which was a real bug. A drop that lands inside a folded Reference unfolds it.
+
+Its other addition is a coordinate getter: `sortableKeyboardCoordinates` reads
 ArrowLeft/ArrowRight as "find a droppable that way", which in a single column
 finds nothing, so the tree intercepts those two codes and offsets `x` by one
 indent instead. That is what puts *nesting* — not just reordering — within
