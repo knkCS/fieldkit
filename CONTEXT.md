@@ -103,6 +103,10 @@ _Avoid_: hierarchy, outline, structure
 A value a Reference carries about the pointing itself, not about either Content — the page a citation appears on, the role a credit names. Attributes are declared once per Reference Field, as a Spec of their own, and filled in per Reference.
 _Avoid_: property, metadata, setting
 
+**Adoption**:
+What happens to the References that follow one that arrives shallower than they are: they become its children, and their branches travel with them. A Reference gains children this way whether it was inserted between rows or dragged there, and both say so before they do it — an insert names the rows that will move, a drag highlights them (ADR-0012). Adoption never changes what a Reference *is*, only whose child it is.
+_Avoid_: re-parenting, stealing, nesting
+
 **Version**:
 One saved state of a Content's data. Versions have no names of their own.
 _Avoid_: revision, snapshot, draft
