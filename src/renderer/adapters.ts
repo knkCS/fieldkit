@@ -43,6 +43,33 @@ export interface ReferenceSearchQuery {
 	 * of fieldkit's catalogue.
 	 */
 	filters: Record<string, unknown>;
+	/**
+	 * The Contents this Field already references — what the picker must stop
+	 * offering, since adding one again would put the same Content in the tree
+	 * twice.
+	 *
+	 * **Optional, and additive.** An Adapter that honours it excludes them at
+	 * the source, so its `total` counts exactly what it returned; one that
+	 * ignores it is not wrong, only less precise — fieldkit drops them from the
+	 * page it was handed either way, and the total it then shows is
+	 * approximate. Not honouring it is a valid implementation, which is what
+	 * the optional marker says, on the same terms as the optional methods below
+	 * (ADR-0009). The marker also keeps this type *constructible* by a Consumer
+	 * — one proxying, logging or re-issuing a query builds a
+	 * `ReferenceSearchQuery` of its own, and must not have to learn a new field
+	 * to keep compiling.
+	 *
+	 * Fieldkit itself always sends it, empty array included.
+	 *
+	 * It is the whole of what the Field holds, not its roots: a Content nested
+	 * three levels down is already referenced too. For a Single Reference it is
+	 * the one Content stored, so re-picking it is not offered as a change.
+	 *
+	 * This is a **policy about the picker, not about the value**: a Reference
+	 * Tree keys its rows by path precisely so the same Content *can* appear
+	 * twice, and nothing here refuses such a value.
+	 */
+	excludeIds?: string[];
 	/** 1-based. */
 	page: number;
 	page_size: number;

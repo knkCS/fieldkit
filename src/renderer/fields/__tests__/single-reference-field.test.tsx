@@ -205,6 +205,92 @@ describe("SingleReferenceField", () => {
 		expect(stored()).toEqual({ id: "article-2" });
 	});
 
+	describe("the Content it already holds", () => {
+		/** The options the menu is offering, read off react-select's listbox so
+		 * the Content shown *in* the control is never mistaken for one. */
+		function offered(): string[] {
+			return screen
+				.getAllByRole("option")
+				.map((option) => option.textContent ?? "");
+		}
+
+		it("is not offered as a change", async () => {
+			const user = userEvent.setup();
+			const { control } = renderField({ value: { id: "article-1" } });
+
+			await screen.findByText("Cats of the world");
+			await user.click(control());
+
+			await waitFor(() =>
+				expect(offered()).toEqual([
+					"Dogs of the world",
+					"Catalogues explained",
+				]),
+			);
+		});
+
+		it("is still shown in the control, though it is not on offer", async () => {
+			const user = userEvent.setup();
+			const { control } = renderField({ value: { id: "article-1" } });
+
+			await user.click(control());
+
+			// Excluding it from the search must not blank the control: the name
+			// comes from `fetch`, never from whatever the menu happens to hold.
+			expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
+		});
+
+		it("tells the Adapter which Content it already references", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter();
+			const { control } = renderField({ value: { id: "article-1" }, adapter });
+
+			await user.click(control());
+
+			await waitFor(() =>
+				expect(adapter.searches.at(-1)?.excludeIds).toEqual(["article-1"]),
+			);
+		});
+
+		it("excludes nothing while it holds no Reference", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter();
+			const { control } = renderField({ adapter });
+
+			await user.click(control());
+
+			await waitFor(() => expect(adapter.searches).toHaveLength(1));
+			expect(adapter.searches[0].excludeIds).toEqual([]);
+		});
+
+		it("stays out of the menu even when the Adapter ignores the field", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter({ ignoreExcludeIds: true });
+			const { control } = renderField({ value: { id: "article-1" }, adapter });
+
+			await screen.findByText("Cats of the world");
+			await user.click(control());
+
+			await waitFor(() =>
+				expect(offered()).toEqual([
+					"Dogs of the world",
+					"Catalogues explained",
+				]),
+			);
+		});
+
+		it("is offered again once the Reference is cleared", async () => {
+			const user = userEvent.setup();
+			const { control } = renderField({ value: { id: "article-1" } });
+
+			await screen.findByText("Cats of the world");
+			await user.click(control());
+			await user.keyboard("{Backspace}");
+
+			await waitFor(() => expect(offered()).toContain("Cats of the world"));
+		});
+	});
+
 	it("blocks submit and reports at its own path when required and empty", async () => {
 		const user = userEvent.setup();
 		const { submitted } = renderField({ field: makeField({ required: true }) });

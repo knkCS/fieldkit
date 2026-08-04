@@ -123,6 +123,7 @@ interface ReferenceSearchQuery {
   blueprintIds: string[];
   query: string;
   filters: Record<string, unknown>;   // opaque to fieldkit
+  excludeIds?: string[];              // optional — already referenced
   page: number;                       // 1-based
   page_size: number;
 }
@@ -142,6 +143,14 @@ Filtering and columns mean domain nouns — a status, an assigned user — that 
 The values the filter form collects travel back through `search` as `filters` — **an opaque record fieldkit never inspects**. A filter no field type can express needs a new field type rather than a bespoke control.
 
 Both methods are **optional**. Without them the picker degrades to a search box and a name column, which is what a Consumer that has not implemented them should get rather than an error.
+
+### Contents already in the tree
+
+The picker does not offer a Content the field already holds — adding it again would put the same Content in the tree twice. The ids travel with the search as `excludeIds`: **every Reference at every level**, not just the roots, deduplicated, and read from the same flattening `max_items` counts.
+
+The field is **optional and additive**, on the same terms as the methods above. An adapter that honours it excludes them at the source, so its `total` counts exactly what it returned. An adapter that ignores it is not wrong, only less precise: fieldkit drops them from the page it was handed either way, so the picker still offers none of them — but the total is the adapter's, so it still counts the Contents nobody can pick. A Consumer written before the field existed keeps working unchanged.
+
+This is a **policy about the picker, not about the value**. A Reference Tree keys its rows by path precisely so the same Content *can* appear twice; nothing here refuses such a value, rewrites one, or stops a drag producing one. [Single Reference](?path=/docs/fields-single-reference--docs) applies the one-item version of the same rule.
 
 `listPinTargets` is **optional on the same terms**. Only the adapter knows a Content's Releases or Versions, and it is the adapter that normalises whichever kind was asked for into an id, a label and a description — so **fieldkit models neither a Release nor a Version**. Without the method a pinning field offers the newest Version and nothing else: the same answer a Consumer gets from returning an empty list, and the same one the field already shows while the targets are in flight. A Consumer that has not implemented pinning gets that rather than an error.
 
@@ -234,6 +243,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 - The row's filled count does not say which Attribute is *invalid*, only how many are filled.
 - A stored pin is not shown on the row; it is chosen when the Reference is added and changed by removing and re-adding it. Read mode does not show it either.
 - The browse drawer's page size is fixed at 10.
+- When the adapter ignores `excludeIds`, the backstop shortens each page after it was cut, so a page can show fewer than 10 rows — or none at all, if a field already references ten Contents that land on the same page — while the total still promises more. Honouring `excludeIds` removes this entirely.
 - Very large trees are not virtualised.
 
 ## Examples
