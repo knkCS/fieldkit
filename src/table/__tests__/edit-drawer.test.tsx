@@ -188,6 +188,102 @@ describe("EditDrawer", () => {
 		);
 	});
 
+	// A field component that renders the native `required` attribute, as every
+	// real one does — anker's FormField passes `required` down to the control.
+	// Without it the browser has nothing to validate and this whole hazard is
+	// invisible, which is why it went unnoticed until now.
+	function RequiredField({ field }: FieldProps) {
+		const accessor = field.config.api_accessor;
+		const {
+			register,
+			formState: { errors },
+		} = useFormContext();
+		// Shows the Schema's message the way anker's FormField does, so the
+		// assertion below is "the form user was told what to fix" rather than
+		// an internals check.
+		const error = errors[accessor]?.message;
+		return (
+			<div data-testid={`field-${accessor}`}>
+				<label>
+					{field.config.name}
+					<input required {...register(accessor)} />
+				</label>
+				{typeof error === "string" && <span>{error}</span>}
+			</div>
+		);
+	}
+	RequiredField.displayName = "RequiredField";
+
+	const nativePlugins: FieldTypePlugin[] = plugins.map((plugin) =>
+		plugin.id === "text"
+			? {
+					...plugin,
+					fieldComponent: RequiredField,
+					toZodType: () => z.string().min(1, "Title is required"),
+				}
+			: plugin,
+	);
+
+	it("validates through the Schema, not the browser, when a required field is empty", async () => {
+		// The drawer owns this form, so the drawer is responsible for turning
+		// native validation off. Left on, the browser intercepts the submit,
+		// react-hook-form never runs, and the Schema's message never appears —
+		// and on a tab SpecForm has hidden, a browser can't even focus the
+		// offending control, so the save silently does nothing.
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={schema}
+				plugins={nativePlugins}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{ title: "", description: "" }}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByText("Save"));
+
+		expect(await screen.findByText("Title is required")).toBeInTheDocument();
+		expect(onSave).not.toHaveBeenCalled();
+	});
+
+	it("hands back the whole row, not just the part the spec describes", async () => {
+		// A Spec says what a form edits; a row holds more than that — an id,
+		// most obviously. The Schema is a z.object, so parsing drops everything
+		// it doesn't name, and react-hook-form submits the parsed values. The
+		// drawer has to put back what it never offered for editing, or a Save
+		// silently strips the row's identity.
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={schema}
+				plugins={plugins}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{
+					id: 7,
+					title: "Test",
+					description: "Desc",
+					updated_at: "2026-08-04",
+				}}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+		expect(onSave.mock.calls[0][0]).toEqual({
+			id: 7,
+			title: "Test",
+			description: "Desc",
+			updated_at: "2026-08-04",
+		});
+	});
+
 	it("should render Save button", () => {
 		render(
 			<EditDrawer

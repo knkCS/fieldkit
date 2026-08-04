@@ -111,6 +111,26 @@ inactive tab would unregister its fields and drop their values. This also
 means validation, dirty state, and errors are always live for every tab, not
 just the one currently in view.
 
+### Your `<form>` must carry `noValidate`
+
+Hidden-but-mounted panels and native browser validation don't mix. Field
+components render the native `required` attribute, and a browser refuses to
+submit a form holding an invalid control it cannot focus — which is precisely
+a required-empty field on an inactive tab. The submit is dropped, React Hook
+Form never runs, and Save appears to do nothing at all.
+
+So the consumer's form element needs `noValidate`, and the generated Schema
+does the validating:
+
+```tsx
+<form noValidate onSubmit={methods.handleSubmit(handleSave)}>
+  <SpecForm schema={spec.fields} />
+</form>
+```
+
+Submit-jump-to-first-error depends on it: the tab can only be switched once
+the submit reaches React Hook Form. `EditDrawer` sets it for you.
+
 ## Search
 
 A search box (`/` keyboard shortcut, unless focus is already in a text

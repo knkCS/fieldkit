@@ -168,6 +168,41 @@ describe("SpecDataTable", () => {
 		});
 	});
 
+	it("gives onRowSave the whole row back, id and all", async () => {
+		// The round trip a Consumer actually makes: click a row, save it,
+		// write it back. A row holds more than the Spec describes, and the
+		// Schema is built from the Spec — so without the drawer putting the
+		// rest back, the id needed to persist the row never returns.
+		const onRowSave = vi.fn();
+		const rows = [{ id: 42, title: "Item 1", count: 10, updated_by: "ada" }];
+
+		render(
+			<SpecDataTable
+				schema={schema}
+				data={rows}
+				plugins={plugins}
+				editable
+				onRowSave={onRowSave}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: /Item 1/ }));
+		await waitFor(() => {
+			expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
+		});
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => {
+			expect(onRowSave).toHaveBeenCalledWith(0, {
+				id: 42,
+				title: "Item 1",
+				count: 10,
+				updated_by: "ada",
+			});
+		});
+	});
+
 	it("should apply columnOverrides", () => {
 		render(
 			<SpecDataTable

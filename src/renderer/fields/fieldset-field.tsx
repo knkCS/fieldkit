@@ -16,11 +16,13 @@ type ResolveStatus = "ready" | "loading" | "error";
  * nested under the Fieldset's own accessor (ADR-0003).
  *
  * The children are never stored in the spec. A consumer who ran
- * `resolveSpec()` hands them in as `field.children` and nothing is
- * fetched; one who did not gets the documented degrade path — this component
- * self-resolves through `adapters.blueprint.getSchema` **for display only**.
- * Fields resolved that way render and hold values, but they are not part of
- * the generated Schema, so a required child does not block submit until #53.
+ * `resolveSpec()` hands them in as `field.children`, nothing is fetched, and
+ * those children are in the generated Schema — a required one blocks submit
+ * and reports on itself (#53). A consumer who did not gets the documented
+ * degrade path: this component self-resolves through
+ * `adapters.blueprint.getSchema` **for display only**. Fields resolved that
+ * way render and hold values, but the Schema was built before they existed,
+ * so nothing about them is validated. That is the reason to resolve.
  *
  * With no blueprint adapter at all the established stub renders, so a form
  * that contains a Fieldset still works for a consumer who configured none.

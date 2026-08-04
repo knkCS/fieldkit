@@ -48,9 +48,14 @@ export function EditDrawer({
 
 	const handleSave = useCallback(
 		(values: Record<string, unknown>) => {
-			onSave(values);
+			// react-hook-form submits what the Schema parsed, and the Schema is a
+			// z.object built from the Spec — so every key the Spec doesn't name
+			// (a row's id, its timestamps) is gone by the time it reaches here.
+			// A Spec describes what a form edits, not the whole record, so the
+			// row goes back underneath: edited fields win, the rest survives.
+			onSave({ ...initialValues, ...values });
 		},
-		[onSave],
+		[onSave, initialValues],
 	);
 
 	const handleDrawerSave = useCallback(() => {
@@ -73,7 +78,19 @@ export function EditDrawer({
 		>
 			<div data-testid="edit-drawer">
 				<FormProvider {...methods}>
-					<form ref={formRef} onSubmit={methods.handleSubmit(handleSave)}>
+					{/* The generated Schema is the validator, so the browser's own
+					    constraint check must stay out of the way: it fires first,
+					    blocks the submit before react-hook-form sees it, and
+					    replaces fieldkit's per-field messages with its own bubble.
+					    Worse inside SpecForm, whose inactive tabs stay mounted but
+					    hidden — a browser cannot focus an invalid control it has
+					    hidden, so Save would silently do nothing rather than jump
+					    to the offending tab. */}
+					<form
+						ref={formRef}
+						noValidate
+						onSubmit={methods.handleSubmit(handleSave)}
+					>
 						<FieldKitProvider plugins={plugins}>
 							<SpecForm schema={schema} />
 						</FieldKitProvider>

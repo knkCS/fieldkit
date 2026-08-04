@@ -36,7 +36,12 @@ export function FieldStoryWrapper({
 	return (
 		<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
 			<FormProvider {...methods}>
+				{/* `noValidate`: the generated Schema validates, so the browser's
+				    constraint check must not intercept the submit first — a story
+				    showing a required field would otherwise show a browser bubble
+				    instead of the field's own message. */}
 				<form
+					noValidate
 					onSubmit={methods.handleSubmit((data) => {
 						setSubmittedValues(data);
 					})}

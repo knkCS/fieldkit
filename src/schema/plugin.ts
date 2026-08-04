@@ -1,6 +1,6 @@
 // src/schema/plugin.ts
 import type { ComponentType } from "react";
-import type { ZodTypeAny } from "zod";
+import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import type { Field } from "./types";
 
 export type FieldTypeCategory =
@@ -40,6 +40,37 @@ export interface CellProps<S = unknown> {
 }
 
 /**
+ * Composes a list of child Fields into the object schema they would generate
+ * as a Spec of their own — the same marker skips, the same hidden skip, the
+ * same required/optional shaping.
+ *
+ * Handed to `toZodType` as an optional second argument so a container type can
+ * validate what it holds instead of accepting an opaque record (ADR-0007). The
+ * alternative was teaching `specToZodSchema` about `fieldset` by name, which
+ * would have made the value-less Marker skip-list a precedent for putting one
+ * Field type's knowledge into shared machinery.
+ *
+ * An object rather than a bare `ZodTypeAny`, because that is the contract worth
+ * promising: a caller can `.extend()`, `.partial()` or `.passthrough()` what it
+ * gets back. Parsing therefore strips keys the children don't declare, exactly
+ * as it does at the top level.
+ *
+ * `specToZodSchema`'s `overrides` are keyed by top-level accessor and are
+ * deliberately not applied to children: a Consumer overriding `street` means
+ * their own Field, not the one a Blueprint happens to embed under that name.
+ */
+export type ComposeChildrenSchema = (
+	children: Field[],
+) => ZodObject<ZodRawShape>;
+
+/** The defaults-side twin of {@link ComposeChildrenSchema}: the record a list
+ * of child Fields would seed as a Spec of its own, explicit `default_value`
+ * and per-plugin `defaultValue` alike. */
+export type ComposeChildrenDefaults = (
+	children: Field[],
+) => Record<string, unknown>;
+
+/**
  * A field type plugin defines everything about a field type:
  * metadata, UI components, Zod validation, and constraints.
  */
@@ -54,7 +85,15 @@ export interface FieldTypePlugin<S = unknown> {
 	fieldComponent: ComponentType<FieldProps<S>>;
 	cellComponent?: ComponentType<CellProps<S>>;
 
-	toZodType: (field: Field<S>) => ZodTypeAny;
+	/** `composeChildren` is what a container type needs and its own Field
+	 * cannot give it (#53). It is optional on both sides: every plugin written
+	 * against the one-argument signature keeps compiling and behaves
+	 * identically, and a plugin that wants it must still cope without it —
+	 * `toZodType` is public API and a Consumer may call it with a Field alone. */
+	toZodType: (
+		field: Field<S>,
+		composeChildren?: ComposeChildrenSchema,
+	) => ZodTypeAny;
 
 	defaultSettings?: S;
 	/** Sane form-value default for fields of this type when the spec has no
@@ -62,8 +101,14 @@ export interface FieldTypePlugin<S = unknown> {
 	 * settings, not values). Always a function: settings-dependent shapes
 	 * are natural, and array/object defaults stay fresh per call instead of
 	 * being shared across forms. Omit when no safe default exists — the
-	 * field then stays undefined. */
-	defaultValue?: (field: Field<S>) => unknown;
+	 * field then stays undefined.
+	 *
+	 * `composeChildren` mirrors `toZodType`'s, on the same terms: optional,
+	 * additive, and absent when a caller passes only a Field. */
+	defaultValue?: (
+		field: Field<S>,
+		composeChildren?: ComposeChildrenDefaults,
+	) => unknown;
 	maxPerSpec?: number;
 	availableIn?: FieldContext[];
 }

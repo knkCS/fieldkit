@@ -96,7 +96,7 @@ an architectural choice.
 - **Specification-driven**: One `Field[]` schema drives all three UI components (editor, renderer, table).
 - **External form ownership**: Consumers create and own the React Hook Form instance. Fieldkit uses `useFormContext()`.
 - **Adapter pattern for backend**: Reference, media, blueprint, and textType data comes through injected adapters, not direct API calls.
-- **Composable Zod**: Each plugin provides `toZodType()`. `specToZodSchema()` composes them. Consumers can override.
+- **Composable Zod**: Each plugin provides `toZodType()`. `specToZodSchema()` composes them. Consumers can override. A container type gets an optional second argument that composes its own children (`ComposeChildrenSchema`, and `ComposeChildrenDefaults` for `defaultValue`) — that is how a Fieldset validates and seeds what it holds without the shared builder knowing its name.
 - **Token-first styling**: Use anker's semantic tokens, not hardcoded colors.
 - **Lucide icons only**: All icons from lucide-react.
 - **displayName required**: All exported React components must have `displayName`.

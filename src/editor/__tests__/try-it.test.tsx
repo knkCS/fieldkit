@@ -62,12 +62,19 @@ function makeBooleanField(
 // actually drives react-hook-form state, and a toZodType that honors
 // `config.required` (unlike editor-helpers' plain `z.string()`) so a
 // required-empty submit actually fails validation.
+//
+// `required` is rendered on the control as every real field component does
+// (anker's FormField passes it down). It is what makes the badge test below a
+// real one: a browser refuses to submit a form holding an invalid control it
+// cannot focus — and SpecForm's inactive tabs are hidden — so without
+// `noValidate` on the Try-it form the submit is dropped and no badge appears.
 function TestField({ field }: FieldProps) {
 	const { register } = useFormContext();
 	return (
 		<input
 			data-testid={`field-${field.config.api_accessor}`}
 			aria-label={field.config.name}
+			required={field.config.required}
 			{...register(field.config.api_accessor)}
 		/>
 	);

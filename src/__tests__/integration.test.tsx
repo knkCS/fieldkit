@@ -1,6 +1,7 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -11,6 +12,7 @@ import {
 	builtInFieldTypes,
 	createRegistry,
 	defineSpec,
+	getDefaultValues,
 	number,
 	resolveSpec,
 	section,
@@ -342,6 +344,70 @@ describe("Integration: resolveSpec -> FieldRenderer", () => {
 		expect(screen.getByLabelText(/City/)).toBeInTheDocument();
 		// Once, by resolveSpec — the renderer took the children it was given.
 		expect(blueprint.getSchema).toHaveBeenCalledTimes(1);
+	});
+
+	// The whole ADR-0004 claim in one place: resolve, generate the Schema,
+	// then find out at the form whether a required child actually blocks
+	// submit and says so where a form user is looking (#53).
+	it("blocks submit on a required child of a resolved Fieldset", async () => {
+		const user = userEvent.setup();
+		const blueprint = {
+			getSchema: vi.fn(async () => [
+				text("street", { name: "Street", required: true }),
+				text("city", { name: "City" }),
+			]),
+			getData: vi.fn(async () => ({
+				items: [],
+				total: 0,
+				page: 1,
+				page_size: 25,
+			})),
+		};
+
+		const resolved = await resolveSpec([fieldsetField], { blueprint });
+		const zodSchema = specToZodSchema(resolved, builtInFieldTypes);
+		const onSubmit = vi.fn();
+
+		function TestForm() {
+			const methods = useForm({
+				defaultValues: getDefaultValues(resolved, builtInFieldTypes),
+				resolver: zodResolver(zodSchema),
+			});
+			return (
+				<FormProvider {...methods}>
+					<FieldKitProvider
+						plugins={builtInFieldTypes}
+						adapters={{ blueprint }}
+					>
+						{/* `noValidate`, as a react-hook-form + Zod consumer's form
+						    carries: the generated Schema is the validator, and the
+						    browser's own required-attribute check would otherwise
+						    block the submit before the resolver ran — which is the
+						    path under test here. */}
+						<form noValidate onSubmit={methods.handleSubmit(onSubmit)}>
+							<FieldRenderer schema={resolved} />
+							<button type="submit">Save</button>
+						</form>
+					</FieldKitProvider>
+				</FormProvider>
+			);
+		}
+
+		render(<TestForm />, { wrapper: ChakraWrapper });
+
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		expect(onSubmit).not.toHaveBeenCalled();
+		// On the offending child, not on the Fieldset.
+		expect(await screen.findByText("Street is required")).toBeInTheDocument();
+
+		await user.type(screen.getByLabelText(/Street/), "12 Bridge Lane");
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+		expect(onSubmit.mock.calls[0][0]).toEqual({
+			address: { street: "12 Bridge Lane", city: "" },
+		});
 	});
 });
 

@@ -20,9 +20,25 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 	fieldComponent: GroupField,
 	cellComponent: GroupCell,
 
-	toZodType(field: Field<GroupSettings>) {
+	toZodType(field: Field<GroupSettings>, composeChildren) {
 		const settings = field.settings ?? {};
-		let schema = z.array(z.record(z.unknown()));
+		const children = field.children;
+
+		// A row is the object its children describe, so a required field in row
+		// 2 blocks submit and reports at `authors.1.name` — the very path the
+		// renderer registers it under (ADR-0007). Unlike a Fieldset's, a
+		// Group's children live in the Spec, so there is nothing to resolve
+		// first; a Group that has none keeps the opaque row it always had.
+		//
+		// `passthrough`, because a stored row carries more than the Spec edits
+		// — a backend id most obviously — and validating rows must not start
+		// pruning them on submit.
+		const row =
+			composeChildren && children?.length
+				? composeChildren(children).passthrough()
+				: z.record(z.unknown());
+
+		let schema = z.array(row);
 
 		if (settings.min_items !== undefined) {
 			schema = schema.min(settings.min_items);

@@ -18,13 +18,30 @@ const methods = useForm({
 
 // Consumer wraps fieldkit
 <FormProvider {...methods}>
-  <form onSubmit={methods.handleSubmit(handleSave)}>
+  <form noValidate onSubmit={methods.handleSubmit(handleSave)}>
     <FieldKitProvider plugins={plugins} adapters={adapters}>
       <FieldRenderer schema={spec.fields} />
     </FieldKitProvider>
   </form>
 </FormProvider>
 ```
+
+### `noValidate` is not optional
+
+Field components render the native `required` attribute, so a consumer's
+`<form>` **must** carry `noValidate`. Without it the browser validates first:
+it blocks the submit before react-hook-form sees it, and replaces the Schema's
+per-field messages with its own bubble.
+
+Inside `SpecForm` it is worse than cosmetic. Inactive tabs stay mounted but
+hidden (react-hook-form needs every panel in the DOM), and a browser refuses to
+submit a form holding an invalid control it cannot focus — so a required-empty
+field on an inactive tab makes Save do *nothing*, with only a console message
+to show for it. `SpecForm`'s jump-to-the-offending-tab behaviour exists for
+exactly that case and can only run once the submit reaches react-hook-form.
+
+The forms fieldkit owns — `EditDrawer` and the editor's Try-it view — set it
+themselves.
 
 ### Why this matters
 
@@ -159,10 +176,16 @@ Each leaf field component sees a flat, fully-qualified `api_accessor` and regist
 
 Located in `src/schema/zod-builder.ts`. Converts a `Field[]` spec into a `ZodObject`:
 
-1. For each field, calls `plugin.toZodType(field)` to get the base Zod type
+1. For each field, calls `plugin.toZodType(field, composeChildren)` to get the base Zod type
 2. Wraps with `.optional()` if `field.config.required` is false
 3. Applies `options.overrides[accessor]` if provided
 4. Returns `z.object(shape)`
+
+`composeChildren` is the second argument a container plugin can use to build an
+object schema from `field.children`, by the same rules (ADR-0007) — that is how
+a resolved `fieldset` validates its children. Plugins that ignore it are
+unaffected. Overrides apply at the top level only; they are not passed down
+into children.
 
 ### Consumer override pattern
 
@@ -174,9 +197,17 @@ specToZodSchema(fields, plugins, {
 });
 ```
 
-### `getDefaultValues(fields)`
+### `getDefaultValues(fields, plugins?)`
 
-Extracts `field.config.default_value` for each field into a flat `Record<string, unknown>`. Used to seed `useForm({ defaultValues })`.
+Builds the `Record<string, unknown>` that seeds `useForm({ defaultValues })`. Per
+field: an explicit `config.default_value` wins; otherwise, when `plugins` is
+passed, the field's plugin `defaultValue(field)` seeds it (#38). Markers and
+hidden fields are skipped, and a field whose plugin has no `defaultValue` is
+left out entirely.
+
+The record is flat except where a container plugin nests one: a resolved
+`fieldset` composes its children's defaults under its own accessor, so
+`address` seeds `{ street: "", city: "" }` (ADR-0007).
 
 ## Form Value Typing
 
