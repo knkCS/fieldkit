@@ -63,18 +63,23 @@ function renderEditor({
 		);
 	}
 
-	render(
+	const tree = (current: FieldKitAdapters) => (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={[]} adapters={adapters}>
+			<FieldKitProvider plugins={[]} adapters={current}>
 				<Harness />
 			</FieldKitProvider>
-		</ChakraProvider>,
+		</ChakraProvider>
 	);
+
+	const { rerender } = render(tree(adapters));
 
 	return {
 		onChange,
 		blueprint: () => screen.getByLabelText(/Blueprint/),
 		collapsible: () => screen.getByLabelText(/Collapsible/),
+		/** What a consumer that builds its adapters object inline does on every
+		 * render of the component above `FieldKitProvider`. */
+		rerenderWithNewAdapters: (next: FieldKitAdapters) => rerender(tree(next)),
 	};
 }
 
@@ -198,6 +203,35 @@ describe("FieldsetSettingsEditor", () => {
 			expect(
 				await screen.findByText("No blueprints available"),
 			).toBeInTheDocument();
+		});
+
+		it("distinguishes a search that matched nothing from having none", async () => {
+			const user = userEvent.setup();
+			renderEditor({ adapters: listingAdapter() });
+
+			await user.type(await screen.findByLabelText(/Blueprint/), "zzz");
+
+			expect(
+				await screen.findByText("No blueprint matches"),
+			).toBeInTheDocument();
+		});
+
+		it("does not re-list when the consumer re-renders its adapters", async () => {
+			const user = userEvent.setup();
+			const list = vi.fn().mockResolvedValue(BLUEPRINTS);
+			const { rerenderWithNewAdapters } = renderEditor({
+				adapters: listingAdapter(list),
+			});
+
+			// The picker is open on the Author's screen when the consumer above
+			// the provider re-renders with a freshly built adapters object.
+			await user.click(await screen.findByLabelText(/Blueprint/));
+			expect(await screen.findByText("Address")).toBeInTheDocument();
+
+			rerenderWithNewAdapters(listingAdapter(list));
+
+			expect(list).toHaveBeenCalledTimes(1);
+			expect(screen.getByText("Address")).toBeInTheDocument();
 		});
 	});
 

@@ -1,11 +1,12 @@
 // src/editor/field-settings/fieldset-settings.tsx
 import { Box, chakra, Input, Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useId } from "react";
 import type { BlueprintSummary } from "../../renderer/adapters";
 import { useFieldKit } from "../../renderer/provider";
 import type { FieldsetSettings } from "../../schema/field-types/fieldset";
 import type { SettingsProps } from "../../schema/plugin";
+import { useBlueprintList } from "./use-blueprint-list";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
  * `label` is what the Author reads. */
@@ -13,13 +14,6 @@ interface BlueprintOption {
 	id: string;
 	label: string;
 }
-
-/** "unavailable" is both "the adapter cannot list" and "listing failed" —
- * the Author gets id entry either way, so the panel does not need to tell
- * them apart. */
-type ListStatus = "loading" | "ready" | "unavailable";
-
-const BLUEPRINT_INPUT_ID = "fieldset-blueprint";
 
 /**
  * Type-settings editor for `fieldset`, mounted by the config panel's Type
@@ -38,8 +32,12 @@ export function FieldsetSettingsEditor({
 	onChange,
 }: SettingsProps<FieldsetSettings>) {
 	const { adapters } = useFieldKit();
-	const { blueprints, status } = useBlueprintList(adapters.blueprint?.list);
+	const { blueprints, status } = useBlueprintList(adapters.blueprint);
 	const blueprintId = settings?.blueprint;
+	const inputId = useId();
+
+	const options = toOptions(blueprints, blueprintId);
+	const selected = options.find((option) => option.id === blueprintId) ?? null;
 
 	function handleBlueprintId(e: ChangeEvent<HTMLInputElement>) {
 		const blueprint = e.target.value.trim();
@@ -58,7 +56,7 @@ export function FieldsetSettingsEditor({
 			    <label> around react-select's composite would name the widget
 			    from everything inside it. */}
 			<chakra.label
-				htmlFor={BLUEPRINT_INPUT_ID}
+				htmlFor={inputId}
 				display="block"
 				fontSize="xs"
 				fontWeight="medium"
@@ -70,7 +68,7 @@ export function FieldsetSettingsEditor({
 
 			{status === "unavailable" ? (
 				<Input
-					id={BLUEPRINT_INPUT_ID}
+					id={inputId}
 					size="sm"
 					value={blueprintId ?? ""}
 					onChange={handleBlueprintId}
@@ -79,16 +77,24 @@ export function FieldsetSettingsEditor({
 				/>
 			) : (
 				<BaseSelect<BlueprintOption>
-					inputId={BLUEPRINT_INPUT_ID}
-					options={toOptions(blueprints, blueprintId)}
-					value={toValue(blueprints, blueprintId)}
+					inputId={inputId}
+					// Matches the id input this replaces, and the panel's other
+					// controls — one setting must not change size with the adapter.
+					size="sm"
+					options={options}
+					value={selected}
 					onChange={(next) => {
-						const selected = Array.isArray(next) ? next[0] : next;
-						onChange({ ...settings, blueprint: selected?.id ?? undefined });
+						const picked = Array.isArray(next) ? next[0] : next;
+						onChange({ ...settings, blueprint: picked?.id ?? undefined });
 					}}
 					loading={status === "loading"}
 					placeholder="Select a blueprint"
-					noOptionsMessage={() => "No blueprints available"}
+					// react-select shows this after filtering too, so an Author
+					// whose search matched nothing must not be told they have no
+					// blueprints at all.
+					noOptionsMessage={({ inputValue }) =>
+						inputValue ? "No blueprint matches" : "No blueprints available"
+					}
 				/>
 			)}
 
@@ -128,65 +134,4 @@ function toOptions(
 	}
 
 	return options;
-}
-
-function toValue(
-	blueprints: BlueprintSummary[] | null,
-	blueprintId: string | undefined,
-): BlueprintOption | null {
-	if (!blueprintId) return null;
-
-	return (
-		toOptions(blueprints, blueprintId).find(
-			(option) => option.id === blueprintId,
-		) ?? null
-	);
-}
-
-/**
- * The Blueprints on offer, fetched once per mount — the panel lives only as
- * long as an Author has one Fieldset selected, so a stale catalogue is not a
- * risk worth caching against.
- *
- * A rejected listing is reported and then treated as no capability at all:
- * the Author gets id entry and can still finish the job, which is the point
- * of keeping that fallback (#52).
- */
-function useBlueprintList(
-	list: (() => Promise<BlueprintSummary[]>) | undefined,
-) {
-	const [blueprints, setBlueprints] = useState<BlueprintSummary[] | null>(null);
-	// Seeded rather than defaulted: the effect runs after the first paint, and
-	// an adapter that can list must not flash the id input in the meantime.
-	const [status, setStatus] = useState<ListStatus>(() =>
-		list ? "loading" : "unavailable",
-	);
-
-	useEffect(() => {
-		if (!list) {
-			setStatus("unavailable");
-			return;
-		}
-
-		let cancelled = false;
-		setStatus("loading");
-		list()
-			.then((items) => {
-				if (cancelled) return;
-				setBlueprints(items);
-				setStatus("ready");
-			})
-			.catch((error) => {
-				if (cancelled) return;
-				console.error("Blueprint list fetch failed:", error);
-				setBlueprints(null);
-				setStatus("unavailable");
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [list]);
-
-	return { blueprints, status };
 }
