@@ -167,15 +167,26 @@ validates all the way down — and children obey the rules their top-level
 siblings do: Markers and hidden Fields are skipped, optional children accept
 the empty string (#38).
 
-**Unresolved**, it stays `z.record(z.unknown())`, so **`required` on the
-Fieldset is effectively inert**: the Schema asks only that the key be present,
-and `getDefaultValues` seeds a record that satisfies it. The self-resolved
-Fields of path 2 are not rejected either — failing a form over a Field fieldkit
-was never told about would be worse than not checking it.
+Parsing keeps only what the children declare — the record is a `z.object`, so
+undeclared keys and hidden children's values are dropped on submit, the same
+treatment the top level has always given a Spec (ADR-0007). Anything a Consumer
+needs in the payload has to be a Field.
+
+**Unresolved**, it stays `z.record(z.unknown())`: nothing about the children is
+checked, and the self-resolved Fields of path 2 are not rejected either —
+failing a form over a Field fieldkit was never told about would be worse than
+not checking it.
+
+**`required` on the Fieldset itself** governs only whether the record has to be
+there, resolved or not — a required *child* is what blocks submit. An optional
+Fieldset is absent-or-complete: omit the key and it passes, supply the record
+and its children are checked. In a form seeded by `getDefaultValues`
+the key is always present, so this distinction shows up only for a Consumer
+passing their own `defaultValues`.
 
 This is the whole point of the resolve step, and the plugin contract that makes
 it possible is additive: `toZodType` takes an optional second argument that
-composes child Fields into an object schema (`ComposeChildSchema`), and every
+composes child Fields into an object schema (`ComposeChildrenSchema`), and every
 plugin that ignores it is unchanged. `specToZodSchema`'s `overrides` are keyed
 by top-level Accessor and are deliberately *not* applied to children — an
 override for `street` means the Consumer's own Field, not one a Blueprint

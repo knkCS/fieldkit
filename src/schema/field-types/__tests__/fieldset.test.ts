@@ -113,6 +113,42 @@ describe("fieldsetPlugin", () => {
 		).toBe(true);
 	});
 
+	it("is absent-or-complete when the fieldset itself is optional", () => {
+		// What `required` on the Fieldset governs, resolved or not: whether the
+		// record has to be there at all. A form seeded by getDefaultValues
+		// always has the key — this is the shape a Consumer meets when they
+		// pass their own defaultValues instead.
+		const schema = specToZodSchema(
+			[resolvedFieldset([childField({ required: true })])],
+			builtInFieldTypes,
+		);
+		expect(schema.safeParse({}).success).toBe(true);
+		expect(schema.safeParse({ address: {} }).success).toBe(false);
+	});
+
+	it("demands the record when the fieldset itself is required", () => {
+		const schema = specToZodSchema(
+			[resolvedFieldset([childField()], { required: true })],
+			builtInFieldTypes,
+		);
+		expect(schema.safeParse({}).success).toBe(false);
+		expect(schema.safeParse({ address: {} }).success).toBe(true);
+	});
+
+	it("keeps only what its children declare", () => {
+		// The record is a z.object, so parsing drops undeclared keys — the
+		// treatment the top level has always given a Spec, now one level
+		// deeper (ADR-0007). Anything a Consumer needs on submit is a Field.
+		const schema = specToZodSchema(
+			[resolvedFieldset([childField()])],
+			builtInFieldTypes,
+		);
+		const parsed = schema.safeParse({
+			address: { street: "12 Bridge Lane", legacy_note: "dropped" },
+		});
+		expect(parsed.data).toEqual({ address: { street: "12 Bridge Lane" } });
+	});
+
 	it("lets an optional child through", () => {
 		const schema = specToZodSchema(
 			[resolvedFieldset([childField()])],
@@ -166,6 +202,11 @@ describe("fieldsetPlugin", () => {
 		);
 
 		expect(schema.safeParse({ address: {} }).success).toBe(true);
+		// Skipped means skipped both ways: a hidden child is neither required
+		// nor carried through, exactly as a hidden top-level Field.
+		expect(
+			schema.safeParse({ address: { internal: "not submitted" } }).data,
+		).toEqual({ address: {} });
 	});
 
 	it("seeds the record its children describe", () => {

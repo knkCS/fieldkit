@@ -1,6 +1,6 @@
 // src/schema/plugin.ts
 import type { ComponentType } from "react";
-import type { ZodTypeAny } from "zod";
+import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import type { Field } from "./types";
 
 export type FieldTypeCategory =
@@ -45,21 +45,28 @@ export interface CellProps<S = unknown> {
  * same required/optional shaping.
  *
  * Handed to `toZodType` as an optional second argument so a container type can
- * validate what it holds instead of accepting an opaque record (#53). The
+ * validate what it holds instead of accepting an opaque record (ADR-0007). The
  * alternative was teaching `specToZodSchema` about `fieldset` by name, which
  * would have made the value-less Marker skip-list a precedent for putting one
  * Field type's knowledge into shared machinery.
+ *
+ * An object rather than a bare `ZodTypeAny`, because that is the contract worth
+ * promising: a caller can `.extend()`, `.partial()` or `.passthrough()` what it
+ * gets back. Parsing therefore strips keys the children don't declare, exactly
+ * as it does at the top level.
  *
  * `specToZodSchema`'s `overrides` are keyed by top-level accessor and are
  * deliberately not applied to children: a Consumer overriding `street` means
  * their own Field, not the one a Blueprint happens to embed under that name.
  */
-export type ComposeChildSchema = (children: Field[]) => ZodTypeAny;
+export type ComposeChildrenSchema = (
+	children: Field[],
+) => ZodObject<ZodRawShape>;
 
-/** The defaults-side twin of {@link ComposeChildSchema}: the record a list of
- * child Fields would seed as a Spec of its own, explicit `default_value` and
- * per-plugin `defaultValue` alike. */
-export type ComposeChildDefaults = (
+/** The defaults-side twin of {@link ComposeChildrenSchema}: the record a list
+ * of child Fields would seed as a Spec of its own, explicit `default_value`
+ * and per-plugin `defaultValue` alike. */
+export type ComposeChildrenDefaults = (
 	children: Field[],
 ) => Record<string, unknown>;
 
@@ -85,7 +92,7 @@ export interface FieldTypePlugin<S = unknown> {
 	 * `toZodType` is public API and a Consumer may call it with a Field alone. */
 	toZodType: (
 		field: Field<S>,
-		composeChildren?: ComposeChildSchema,
+		composeChildren?: ComposeChildrenSchema,
 	) => ZodTypeAny;
 
 	defaultSettings?: S;
@@ -100,7 +107,7 @@ export interface FieldTypePlugin<S = unknown> {
 	 * additive, and absent when a caller passes only a Field. */
 	defaultValue?: (
 		field: Field<S>,
-		composeChildren?: ComposeChildDefaults,
+		composeChildren?: ComposeChildrenDefaults,
 	) => unknown;
 	maxPerSpec?: number;
 	availableIn?: FieldContext[];
