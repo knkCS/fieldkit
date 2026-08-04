@@ -249,6 +249,41 @@ describe("EditDrawer", () => {
 		expect(onSave).not.toHaveBeenCalled();
 	});
 
+	it("hands back the whole row, not just the part the spec describes", async () => {
+		// A Spec says what a form edits; a row holds more than that — an id,
+		// most obviously. The Schema is a z.object, so parsing drops everything
+		// it doesn't name, and react-hook-form submits the parsed values. The
+		// drawer has to put back what it never offered for editing, or a Save
+		// silently strips the row's identity.
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={schema}
+				plugins={plugins}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{
+					id: 7,
+					title: "Test",
+					description: "Desc",
+					updated_at: "2026-08-04",
+				}}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+		expect(onSave.mock.calls[0][0]).toEqual({
+			id: 7,
+			title: "Test",
+			description: "Desc",
+			updated_at: "2026-08-04",
+		});
+	});
+
 	it("should render Save button", () => {
 		render(
 			<EditDrawer

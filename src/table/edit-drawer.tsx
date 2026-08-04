@@ -48,9 +48,14 @@ export function EditDrawer({
 
 	const handleSave = useCallback(
 		(values: Record<string, unknown>) => {
-			onSave(values);
+			// react-hook-form submits what the Schema parsed, and the Schema is a
+			// z.object built from the Spec — so every key the Spec doesn't name
+			// (a row's id, its timestamps) is gone by the time it reaches here.
+			// A Spec describes what a form edits, not the whole record, so the
+			// row goes back underneath: edited fields win, the rest survives.
+			onSave({ ...initialValues, ...values });
 		},
-		[onSave],
+		[onSave, initialValues],
 	);
 
 	const handleDrawerSave = useCallback(() => {
