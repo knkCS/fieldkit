@@ -63,7 +63,19 @@ _Avoid_: array, tags, multi-value
 One string in a List. Entries are positional and carry no identity of their own.
 _Avoid_: item, row, value
 
-> The four are distinguished by what they produce: a Card produces no value, a Group produces an array of rows, a Fieldset produces one record, a List produces an array of strings.
+**Blocks**:
+The field type holding an ordered list of Blocks of differing shape, each added from one of the Block Types the Field allows. Distinct from Group, whose rows all hold the same Fields.
+_Avoid_: group, repeater, content zone
+
+**Block**:
+One item in a Blocks Field, identified by the `_type` of the Block Type it was added from.
+_Avoid_: card, section, component
+
+**Block Type**:
+One shape a Block may take: a `_type`, a name, and the Fields that shape declares. A Block Type's Fields live in the Blocks Field's settings rather than in `children`, so only that plugin reaches them — `resolveSpec()` and `validateSpec()` do not (ADR-0007).
+_Avoid_: field type (that's the kind of a Field; a Block Type is a shape within one Blocks Field)
+
+> The five are distinguished by what they produce: a Card produces no value, a Group produces an array of rows all shaped alike, a Fieldset produces one record, a List produces an array of strings, and Blocks produces an array of records each shaped by its own Block Type.
 
 ## Authoring
 
