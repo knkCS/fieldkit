@@ -161,7 +161,12 @@ function EditWrapper({
 	return (
 		<FieldKitProvider plugins={builtInFieldTypes}>
 			<FormProvider {...methods}>
+				{/* `noValidate` as every consumer's form should carry: the Schema
+				    validates, and the browser's own check would intercept the submit
+				    before react-hook-form ran — silently, for a required field on a
+				    tab SpecForm has hidden. */}
 				<form
+					noValidate
 					onSubmit={methods.handleSubmit((data) => {
 						console.log("Form submitted:", data);
 					})}

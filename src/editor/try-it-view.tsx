@@ -51,7 +51,16 @@ export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 
 	return (
 		<FormProvider {...methods}>
-			<form onSubmit={methods.handleSubmit(onValid)} data-testid="try-it-form">
+			{/* `noValidate` for the same reason `EditDrawer` carries it: the
+			    Schema validates, and the browser's constraint check would
+			    otherwise intercept the submit before react-hook-form ran — on a
+			    tab SpecForm has hidden, silently. An Author testing their draft
+			    must see the Spec's own validation, not the browser's. */}
+			<form
+				noValidate
+				onSubmit={methods.handleSubmit(onValid)}
+				data-testid="try-it-form"
+			>
 				<SpecForm
 					schema={schema}
 					labels={{

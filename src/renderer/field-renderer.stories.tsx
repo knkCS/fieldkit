@@ -71,7 +71,10 @@ function StoryWrapper({
 	return (
 		<FieldKitProvider plugins={builtInFieldTypes}>
 			<FormProvider {...methods}>
+				{/* `noValidate`: the generated Schema validates, so the browser's
+				    constraint check must not intercept the submit first. */}
 				<form
+					noValidate
 					onSubmit={methods.handleSubmit((data) => {
 						console.log("Form submitted:", data);
 					})}

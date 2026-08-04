@@ -73,7 +73,19 @@ export function EditDrawer({
 		>
 			<div data-testid="edit-drawer">
 				<FormProvider {...methods}>
-					<form ref={formRef} onSubmit={methods.handleSubmit(handleSave)}>
+					{/* The generated Schema is the validator, so the browser's own
+					    constraint check must stay out of the way: it fires first,
+					    blocks the submit before react-hook-form sees it, and
+					    replaces fieldkit's per-field messages with its own bubble.
+					    Worse inside SpecForm, whose inactive tabs stay mounted but
+					    hidden — a browser cannot focus an invalid control it has
+					    hidden, so Save would silently do nothing rather than jump
+					    to the offending tab. */}
+					<form
+						ref={formRef}
+						noValidate
+						onSubmit={methods.handleSubmit(handleSave)}
+					>
 						<FieldKitProvider plugins={plugins}>
 							<SpecForm schema={schema} />
 						</FieldKitProvider>

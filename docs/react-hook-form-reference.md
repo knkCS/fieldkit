@@ -18,13 +18,30 @@ const methods = useForm({
 
 // Consumer wraps fieldkit
 <FormProvider {...methods}>
-  <form onSubmit={methods.handleSubmit(handleSave)}>
+  <form noValidate onSubmit={methods.handleSubmit(handleSave)}>
     <FieldKitProvider plugins={plugins} adapters={adapters}>
       <FieldRenderer schema={spec.fields} />
     </FieldKitProvider>
   </form>
 </FormProvider>
 ```
+
+### `noValidate` is not optional
+
+Field components render the native `required` attribute, so a consumer's
+`<form>` **must** carry `noValidate`. Without it the browser validates first:
+it blocks the submit before react-hook-form sees it, and replaces the Schema's
+per-field messages with its own bubble.
+
+Inside `SpecForm` it is worse than cosmetic. Inactive tabs stay mounted but
+hidden (react-hook-form needs every panel in the DOM), and a browser refuses to
+submit a form holding an invalid control it cannot focus — so a required-empty
+field on an inactive tab makes Save do *nothing*, with only a console message
+to show for it. `SpecForm`'s jump-to-the-offending-tab behaviour exists for
+exactly that case and can only run once the submit reaches react-hook-form.
+
+The forms fieldkit owns — `EditDrawer` and the editor's Try-it view — set it
+themselves.
 
 ### Why this matters
 
