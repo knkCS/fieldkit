@@ -53,9 +53,23 @@ If fieldkit called `useForm()` internally, consumers couldn't:
 - Apply custom `zodResolver` overrides
 - Wire the form to their own `<form>` element
 
-### The one exception: EditDrawer
+### The exceptions: forms that are not the consumer's
 
-`src/table/edit-drawer.tsx` owns its own `useForm()` because it's a self-contained compound component. It still wraps internals with `<FormProvider {...methods}>` so `FieldRenderer` works inside it.
+A component may own a `useForm()` when the values it collects are **not part of
+the consumer's payload**. Each still wraps its internals with
+`<FormProvider {...methods}>` so `FieldRenderer` works inside it, and the
+nested provider is exactly what keeps the two form states apart.
+
+| Where | Whose values |
+|---|---|
+| `src/table/edit-drawer.tsx` | A row being edited — a self-contained compound component |
+| `src/renderer/fields/reference-picker-drawer.tsx` | The Reference picker's **filter** form. The adapter describes its filters as a Spec (ADR-0009) and fieldkit renders them with its own renderer; the values go straight back to `search()` as an opaque record and must never reach the form the consumer owns |
+| `src/editor/try-it-view.tsx`, `src/editor/editor-canvas.tsx` | The editor's scratch forms — nothing an Author fills in here is ever submitted |
+
+Note what the second one is *not*: a field component calling `useForm()` for
+its own value. The Reference field itself takes its value from
+`useFormContext()` like every other field; only the drawer's throwaway filter
+form is separate.
 
 ## Import Inventory
 
@@ -64,17 +78,21 @@ If fieldkit called `useForm()` internally, consumers couldn't:
 | Hook/Component | Used In | Purpose |
 |---|---|---|
 | `useFormContext` | All field components, `slug-field` | Access form state from `FormProvider` |
-| `Controller` | `select`, `reference`, `toc-reference`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
+| `Controller` | `select`, `list`, `toc-reference`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
+| `useWatch` | `reference`, `single-reference`, `toc-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
 | `useFieldArray` | `blocks-field`, `group-field` | Dynamic array management |
-| `FormProvider` | `edit-drawer` | Wrap internal form |
-| `useForm` | `edit-drawer` | Create form instance (exception) |
+| `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
+| `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
 | `zodResolver` | `edit-drawer` | Zod validation adapter |
+
+The Reference field components read with `useWatch` and write through anker's
+`FormField` render prop rather than a `Controller` of their own — anker's
+`FormField` is a `Controller` underneath, so a second one would be redundant.
 
 ### Never used in production
 
 - `useController` — `Controller` component used instead
 - `register` — only in tests; anker handles registration internally for simple fields
-- `useWatch` — `watch` from `useFormContext` used in `slug-field` instead
 
 ## Four Patterns for Form Integration
 
@@ -231,7 +249,7 @@ The nesting order doesn't matter — neither context depends on the other.
 
 ## Rules for New Field Components
 
-1. **Never call `useForm()`** — use `useFormContext()` if you need form state
+1. **Never call `useForm()` for the field's own value** — use `useFormContext()`. A `useForm()` is only ever for values that are not the consumer's payload at all; see "The exceptions" above before adding one
 2. **Prefer anker form components** for simple inputs — they handle RHF registration
 3. **Use `Controller`** for complex/custom inputs — destructure as `{ field: formField }`
 4. **Use `useFieldArray`** for repeaters — always key by `item.id`

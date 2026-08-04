@@ -1,0 +1,225 @@
+import { Box, Stack, Text } from "@chakra-ui/react";
+import { DrawerRoot } from "@knkcs/anker/components";
+import { SearchInput } from "@knkcs/anker/forms";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
+import type { Field } from "../../schema/types";
+import { getDefaultValues } from "../../schema/zod-builder";
+import { SpecDataTable } from "../../table/spec-data-table";
+import type { ReferenceItem } from "../adapters";
+import { FieldRenderer } from "../field-renderer";
+import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
+import { useStableValue } from "../hooks/use-stable-value";
+import { useFieldKit } from "../provider";
+
+/** How many Contents one page of the browse shows. Fixed rather than
+ * configurable: it is a property of this drawer's layout, not of the Field. */
+const PAGE_SIZE = 10;
+
+/**
+ * What the results table shows when the Adapter does not describe a Content —
+ * the one property fieldkit itself knows every Content has. This is the
+ * degrade ADR-0009 asks for: a name column, not an error.
+ */
+const NAME_ONLY_COLUMNS: Field[] = [
+	{
+		field_type: "text",
+		config: {
+			name: "Name",
+			api_accessor: "display_name",
+			required: false,
+			instructions: "",
+		},
+		settings: null,
+		children: null,
+		system: false,
+	},
+];
+
+export interface ReferencePickerDrawerProps {
+	open: boolean;
+	onClose: () => void;
+	/** Called with the Content the person chose. Closing is the caller's to do,
+	 * so the same drawer can serve a picker that stays open for a second step. */
+	onPick: (content: ReferenceItem) => void;
+	/** The Blueprints the Field is constrained to. */
+	blueprintIds: string[];
+	/** The Field being filled in, so an Adapter failure names it. */
+	fieldId: string;
+	title?: string;
+}
+
+/**
+ * Step one of adding a Reference: browse the Contents the Adapter offers.
+ *
+ * Browsing rather than only searching is the point — someone filling in a form
+ * has to be able to find one Content among thousands without remembering its
+ * name. So this is a paginated table over a total the Adapter reports, with a
+ * search box and, where the Adapter describes them, filters.
+ *
+ * Neither the filters nor the columns are fieldkit's vocabulary. The Adapter
+ * describes both as Specs (ADR-0009); the filter form is rendered by
+ * `FieldRenderer` and the results by `SpecDataTable`, so each field type brings
+ * its own control and its own cell for free. The values the filter form
+ * collects are handed back through `search` as an opaque record — this
+ * component never reads a key of it, and never reshapes it.
+ */
+export function ReferencePickerDrawer({
+	open,
+	onClose,
+	onPick,
+	blueprintIds,
+	fieldId,
+	title = "Add reference",
+}: ReferencePickerDrawerProps) {
+	const { adapters, getAllPlugins } = useFieldKit();
+	const adapter = adapters.reference;
+	const plugins = getAllPlugins();
+	const report = useAdapterErrorReporter(fieldId, "Reference adapter failed");
+
+	const filterSpec = useMemo(
+		() => adapter?.getSearchFilters?.() ?? [],
+		[adapter],
+	);
+	const columnSpec = useMemo(
+		() => adapter?.getResultColumns?.() ?? NAME_ONLY_COLUMNS,
+		[adapter],
+	);
+
+	// A form of its own, deliberately: the filter values are the Adapter's
+	// business and must never land in the form the Consumer owns. Nested
+	// `FormProvider` is what keeps the two apart while still letting the
+	// filters render through fieldkit's ordinary renderer. This and
+	// `EditDrawer` are the only two places fieldkit calls `useForm` — see
+	// docs/react-hook-form-reference.md.
+	const filterForm = useForm({
+		defaultValues: getDefaultValues(filterSpec, plugins),
+	});
+	// The record itself, held at a stable identity — never a JSON round-trip
+	// of it. Fieldkit passes these values through without inspecting or
+	// reshaping them, and re-parsing would silently rewrite a value type the
+	// Adapter chose.
+	const filters = useStableValue(
+		(useWatch({ control: filterForm.control }) ?? {}) as Record<
+			string,
+			unknown
+		>,
+	);
+
+	const [query, setQuery] = useState("");
+	const [page, setPage] = useState(1);
+	const [items, setItems] = useState<ReferenceItem[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(false);
+
+	// Narrowing puts you back on page one — page 4 of the old results says
+	// nothing about the new ones. Adjusted during render, the documented way
+	// (and the way `blueprint-picker.tsx` re-seeds its input), so the search
+	// below runs once on the right page instead of firing on the stale one
+	// first.
+	const narrowing = useStableValue({ query, filters });
+	const lastNarrowing = useRef(narrowing);
+	if (lastNarrowing.current !== narrowing) {
+		lastNarrowing.current = narrowing;
+		setPage(1);
+	}
+
+	// Each open starts the browse over. The drawer's body — the search box
+	// included — is unmounted while closed, so it comes back empty; the state
+	// behind it has to agree, or the results would stay narrowed by a query
+	// nothing on screen shows. Filters are different: their controls keep their
+	// values, so what is on screen and what is sent still match.
+	const wasOpen = useRef(open);
+	if (wasOpen.current !== open) {
+		wasOpen.current = open;
+		if (open) {
+			setQuery("");
+			setPage(1);
+		}
+	}
+
+	useEffect(() => {
+		// Not until someone looks. A form can hold many Reference Fields, and
+		// none of them should browse a catalogue nobody has opened.
+		if (!adapter || !open) return;
+		let cancelled = false;
+		setLoading(true);
+		adapter
+			.search({
+				blueprintIds,
+				query,
+				filters,
+				page,
+				page_size: PAGE_SIZE,
+			})
+			.then((result) => {
+				if (cancelled) return;
+				setItems(result.items);
+				setTotal(result.total);
+				setLoading(false);
+			})
+			.catch((error: unknown) => {
+				if (cancelled) return;
+				setItems([]);
+				setTotal(0);
+				setLoading(false);
+				report(error);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [adapter, open, blueprintIds, query, filters, page, report]);
+
+	function handlePick(row: Record<string, unknown>) {
+		const picked = items.find((item) => item.id === row.id);
+		if (picked) onPick(picked);
+	}
+
+	return (
+		<DrawerRoot open={open} onClose={onClose} title={title} closeLabel="Cancel">
+			<Stack gap="4" data-testid="reference-picker">
+				<SearchInput
+					aria-label="Search content"
+					placeholder="Search content…"
+					// The default debounce is the point: the incumbent control
+					// searched on every keystroke, which a paginated browse over a
+					// real catalogue cannot afford.
+					onSearch={setQuery}
+				/>
+
+				{filterSpec.length > 0 && (
+					<Box data-testid="reference-picker-filters">
+						<FormProvider {...filterForm}>
+							<FieldRenderer schema={filterSpec} />
+						</FormProvider>
+					</Box>
+				)}
+
+				<Text
+					fontSize="sm"
+					color="fg.muted"
+					data-testid="reference-picker-total"
+				>
+					{total === 1 ? "1 content" : `${String(total)} contents`}
+				</Text>
+
+				<SpecDataTable
+					schema={columnSpec}
+					data={items}
+					plugins={plugins}
+					loading={loading}
+					variant="hoverable"
+					// Server-driven: `items` is already the page the Adapter
+					// returned, and `total` is the count only it can know.
+					page={page}
+					total={total}
+					pageSize={PAGE_SIZE}
+					onPageChange={setPage}
+					onRowClick={(_index, row) => handlePick(row)}
+					emptyState="No content matches"
+				/>
+			</Stack>
+		</DrawerRoot>
+	);
+}
+ReferencePickerDrawer.displayName = "ReferencePickerDrawer";

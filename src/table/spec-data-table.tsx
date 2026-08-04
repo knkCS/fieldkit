@@ -26,6 +26,19 @@ export interface SpecDataTableProps {
 	pageSize?: number;
 	pageCount?: number;
 	onPageChange?: (page: number) => void;
+	/**
+	 * The page to show, when the caller owns the paging.
+	 *
+	 * Setting it makes pagination server-driven: `data` is taken to be that
+	 * page already and nothing is sliced here. Left unset, the table pages
+	 * through `data` itself, as it always has.
+	 */
+	page?: number;
+	/**
+	 * Rows across every page. Only a server-driven caller knows this; without
+	 * it the count is derived from `data` (or from `pageCount`).
+	 */
+	total?: number;
 	// Sorting
 	sorting?: SortingState;
 	onSortingChange?: (sorting: SortingState) => void;
@@ -50,6 +63,8 @@ export function SpecDataTable({
 	pageSize,
 	pageCount,
 	onPageChange,
+	page: controlledPage,
+	total: controlledTotal,
 	sorting: controlledSorting,
 	onSortingChange,
 	variant,
@@ -137,23 +152,26 @@ export function SpecDataTable({
 	const isClickable = editable || !!onRowClick;
 
 	// Compute pagination for DataTable from client-side pagination params
-	const currentPage = internalPage;
-	const total = pageCount ? pageCount * (pageSize ?? 1) : data.length;
+	const currentPage = controlledPage ?? internalPage;
+	const total =
+		controlledTotal ?? (pageCount ? pageCount * (pageSize ?? 1) : data.length);
 
 	const handlePageChange = useCallback(
 		(page: number) => {
-			setInternalPage(page);
+			if (controlledPage === undefined) setInternalPage(page);
 			onPageChange?.(page);
 		},
-		[onPageChange],
+		[onPageChange, controlledPage],
 	);
 
-	// Slice data for client-side pagination
+	// Slice data for client-side pagination. A controlled page means the caller
+	// already fetched exactly this page, so slicing it again would show the
+	// first `pageSize` rows of it — and nothing at all past page one.
 	const paginatedData = useMemo(() => {
-		if (!pageSize) return data;
+		if (!pageSize || controlledPage !== undefined) return data;
 		const start = (currentPage - 1) * pageSize;
 		return data.slice(start, start + pageSize);
-	}, [data, pageSize, currentPage]);
+	}, [data, pageSize, currentPage, controlledPage]);
 
 	return (
 		<div data-testid="spec-data-table">

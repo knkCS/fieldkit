@@ -3,101 +3,89 @@ import type { Field } from "../../types";
 import type { ReferenceSettings } from "../reference";
 import { referencePlugin } from "../reference";
 
+function makeField(
+	overrides: { required?: boolean; settings?: ReferenceSettings | null } = {},
+): Field<ReferenceSettings> {
+	return {
+		field_type: "reference",
+		config: {
+			name: "Related articles",
+			api_accessor: "related",
+			required: overrides.required ?? false,
+			instructions: "",
+		},
+		settings: overrides.settings === undefined ? {} : overrides.settings,
+		children: null,
+		system: false,
+	};
+}
+
 describe("referencePlugin", () => {
 	it("should have correct metadata", () => {
 		expect(referencePlugin.id).toBe("reference");
 		expect(referencePlugin.category).toBe("reference");
 	});
 
-	it("should generate single reference Zod type when max_items is 1", () => {
-		const field: Field<ReferenceSettings> = {
-			field_type: "reference",
-			config: {
-				name: "Author",
-				api_accessor: "author",
-				required: false,
-				instructions: "",
-			},
-			settings: { max_items: 1 },
-			children: null,
-			system: false,
-		};
-		const zodType = referencePlugin.toZodType(field);
-		expect(zodType.safeParse("some-id").success).toBe(true);
-		expect(zodType.safeParse("").success).toBe(true);
-		expect(zodType.safeParse(["id"]).success).toBe(false);
+	it("holds an array of References, never a bare id", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+		expect(zodType.safeParse(["article-1"]).success).toBe(false);
+		expect(zodType.safeParse({ id: "article-1" }).success).toBe(false);
 	});
 
-	it("should generate required single reference Zod type", () => {
-		const field: Field<ReferenceSettings> = {
-			field_type: "reference",
-			config: {
-				name: "Author",
-				api_accessor: "author",
-				required: true,
-				instructions: "",
-			},
-			settings: { max_items: 1 },
-			children: null,
-			system: false,
-		};
-		const zodType = referencePlugin.toZodType(field);
-		expect(zodType.safeParse("some-id").success).toBe(true);
-		expect(zodType.safeParse("").success).toBe(false);
+	it("accepts the parts of a Reference later tickets fill in", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		expect(
+			zodType.safeParse([
+				{ id: "article-1", pin: "v3", attributes: { page: "12" } },
+			]).success,
+		).toBe(true);
 	});
 
-	it("should generate multi-reference Zod type by default", () => {
-		const field: Field<ReferenceSettings> = {
-			field_type: "reference",
-			config: {
-				name: "Tags",
-				api_accessor: "tags",
-				required: false,
-				instructions: "",
-			},
-			settings: null,
-			children: null,
-			system: false,
-		};
-		const zodType = referencePlugin.toZodType(field);
-		expect(zodType.safeParse(["id-1", "id-2"]).success).toBe(true);
-		expect(zodType.safeParse([]).success).toBe(true);
-		expect(zodType.safeParse("single-string").success).toBe(false);
+	it("keeps its array shape whatever max_items says", () => {
+		// ADR-0005: incompatible value shapes must not hide behind one
+		// field_type. `max_items: 1` is a cap, not a second shape — Single
+		// Reference is its own Field Type.
+		const zodType = referencePlugin.toZodType(
+			makeField({ settings: { max_items: 1 } }),
+		);
+
+		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+		expect(zodType.safeParse("article-1").success).toBe(false);
 	});
 
-	it("should generate required multi-reference Zod type", () => {
-		const field: Field<ReferenceSettings> = {
-			field_type: "reference",
-			config: {
-				name: "Tags",
-				api_accessor: "tags",
-				required: true,
-				instructions: "",
-			},
-			settings: { blueprints: ["article"] },
-			children: null,
-			system: false,
-		};
-		const zodType = referencePlugin.toZodType(field);
-		expect(zodType.safeParse(["id-1"]).success).toBe(true);
-		expect(zodType.safeParse([]).success).toBe(false);
+	it("treats an empty list as empty when required", () => {
+		const zodType = referencePlugin.toZodType(makeField({ required: true }));
+
+		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+
+		const empty = zodType.safeParse([]);
+		expect(empty.success).toBe(false);
+		expect(!empty.success && empty.error.issues[0].message).toBe(
+			"Related articles is required",
+		);
 	});
 
-	it("should generate multi-reference when max_items > 1", () => {
-		const field: Field<ReferenceSettings> = {
-			field_type: "reference",
-			config: {
-				name: "Related",
-				api_accessor: "related",
-				required: false,
-				instructions: "",
-			},
-			settings: { max_items: 5 },
-			children: null,
-			system: false,
-		};
-		const zodType = referencePlugin.toZodType(field);
-		expect(zodType.safeParse(["id-1", "id-2"]).success).toBe(true);
-		expect(zodType.safeParse([]).success).toBe(true);
+	it("allows an empty list when not required", () => {
+		expect(referencePlugin.toZodType(makeField()).safeParse([]).success).toBe(
+			true,
+		);
+	});
+
+	it("rejects a Reference with no id", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		expect(zodType.safeParse([{ id: "" }]).success).toBe(false);
+		expect(zodType.safeParse([{}]).success).toBe(false);
+	});
+
+	it("seeds an empty list, so the control renders before anything is picked", () => {
+		expect(referencePlugin.defaultValue?.(makeField())).toEqual([]);
+	});
+
+	it("offers a settings editor for the Field", () => {
+		expect(referencePlugin.settingsComponent).toBeDefined();
 	});
 });

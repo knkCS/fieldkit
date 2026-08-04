@@ -1,16 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { createFakeReferenceAdapter } from "../fake-reference-adapter";
+import type { ReferenceSearchQuery } from "../../renderer/adapters";
+import {
+	createFakeReferenceAdapter,
+	fakeCatalogue,
+} from "../fake-reference-adapter";
 
 /**
  * The fixture every adapter-backed Reference test drives through. Its own
  * behaviour is asserted here so a UI test that says "only articles are
  * offered" is standing on something that actually narrows.
  */
+function query(overrides: Partial<ReferenceSearchQuery> = {}) {
+	return {
+		blueprintIds: [],
+		query: "",
+		filters: {},
+		page: 1,
+		page_size: 50,
+		...overrides,
+	};
+}
+
 describe("createFakeReferenceAdapter", () => {
 	it("narrows a search to the given Blueprints", async () => {
 		const adapter = createFakeReferenceAdapter();
 
-		const items = await adapter.search(["author"], "");
+		const { items } = await adapter.search(query({ blueprintIds: ["author"] }));
 
 		expect(items.map((item) => item.display_name)).toEqual([
 			"Ada Lovelace",
@@ -21,7 +36,7 @@ describe("createFakeReferenceAdapter", () => {
 	it("treats no Blueprints as no constraint", async () => {
 		const adapter = createFakeReferenceAdapter();
 
-		const items = await adapter.search([], "");
+		const { items } = await adapter.search(query());
 
 		expect(items).toHaveLength(5);
 	});
@@ -29,9 +44,86 @@ describe("createFakeReferenceAdapter", () => {
 	it("matches a query against the display name, case-insensitively", async () => {
 		const adapter = createFakeReferenceAdapter();
 
-		const items = await adapter.search(["article"], "CAT");
+		const { items } = await adapter.search(
+			query({ blueprintIds: ["article"], query: "CAT" }),
+		);
 
 		expect(items.map((item) => item.id)).toEqual(["article-1", "article-3"]);
+	});
+
+	it("narrows by the filter Spec's own values", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { items } = await adapter.search(
+			query({ filters: { status: "draft" } }),
+		);
+
+		expect(items.map((item) => item.id)).toEqual(["article-2", "author-2"]);
+	});
+
+	it("treats an unset filter as no constraint", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { items } = await adapter.search(query({ filters: { status: "" } }));
+
+		expect(items).toHaveLength(5);
+	});
+
+	it("returns one page and the total across every page", async () => {
+		const adapter = createFakeReferenceAdapter({ contents: fakeCatalogue(25) });
+
+		const first = await adapter.search(query({ page: 1, page_size: 10 }));
+		const third = await adapter.search(query({ page: 3, page_size: 10 }));
+
+		expect(first.items).toHaveLength(10);
+		expect(first.total).toBe(25);
+		expect(third.items).toHaveLength(5);
+		expect(third.total).toBe(25);
+		expect(third.items[0].display_name).toBe("Content 21");
+	});
+
+	it("counts what the query matched, not the whole catalogue", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const { total } = await adapter.search(
+			query({ blueprintIds: ["article"], query: "cat" }),
+		);
+
+		expect(total).toBe(2);
+	});
+
+	it("records the query it was called with, untouched", async () => {
+		const adapter = createFakeReferenceAdapter();
+		const sent = query({ filters: { status: "published", assignee: "u-7" } });
+
+		await adapter.search(sent);
+
+		expect(adapter.searches).toHaveLength(1);
+		expect(adapter.searches[0].filters).toEqual({
+			status: "published",
+			assignee: "u-7",
+		});
+	});
+
+	it("describes its filters and its result columns as Specs", () => {
+		const adapter = createFakeReferenceAdapter();
+
+		expect(
+			adapter.getSearchFilters?.().map((f) => f.config.api_accessor),
+		).toEqual(["status"]);
+		expect(
+			adapter.getResultColumns?.().map((f) => f.config.api_accessor),
+		).toEqual(["display_name", "status"]);
+	});
+
+	it("omits either Spec method on demand, for the degrade paths", () => {
+		const adapter = createFakeReferenceAdapter({
+			searchFilters: null,
+			resultColumns: null,
+		});
+
+		expect(adapter.getSearchFilters).toBeUndefined();
+		expect(adapter.getResultColumns).toBeUndefined();
 	});
 
 	it("returns only the ids that exist", async () => {
@@ -64,7 +156,7 @@ describe("createFakeReferenceAdapter", () => {
 			failFetch: new Error("gateway down"),
 		});
 
-		await expect(adapter.search([], "")).rejects.toThrow("search exploded");
+		await expect(adapter.search(query())).rejects.toThrow("search exploded");
 		await expect(adapter.fetch(["article-1"])).rejects.toThrow("gateway down");
 	});
 
@@ -75,7 +167,11 @@ describe("createFakeReferenceAdapter", () => {
 			],
 		});
 
-		expect(await adapter.search(["thing"], "")).toHaveLength(1);
-		expect(await adapter.search(["article"], "")).toHaveLength(0);
+		expect(
+			(await adapter.search(query({ blueprintIds: ["thing"] }))).items,
+		).toHaveLength(1);
+		expect(
+			(await adapter.search(query({ blueprintIds: ["article"] }))).items,
+		).toHaveLength(0);
 	});
 });

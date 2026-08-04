@@ -18,33 +18,63 @@ const makeField = (overrides?: {
 	system: false,
 });
 
+/**
+ * A cell has neither Adapter access nor async, so it cannot resolve a name.
+ * A count is the one thing that reads correctly at table density.
+ */
 describe("ReferenceCell", () => {
-	it("renders display names from array of objects", () => {
-		const refs = [
-			{ id: "1", display_name: "Article A" },
-			{ id: "2", display_name: "Article B" },
-		];
-		render(<ReferenceCell field={makeField()} value={refs} />);
-		expect(screen.getByText("Article A, Article B")).toBeDefined();
+	it("counts the References", () => {
+		render(
+			<ReferenceCell
+				field={makeField()}
+				value={[{ id: "article-1" }, { id: "article-2" }]}
+			/>,
+		);
+		expect(screen.getByText("2 references")).toBeDefined();
 	});
 
-	it("renders string values from array", () => {
-		render(<ReferenceCell field={makeField()} value={["id-1", "id-2"]} />);
-		expect(screen.getByText("id-1, id-2")).toBeDefined();
+	it("says one reference in the singular", () => {
+		render(<ReferenceCell field={makeField()} value={[{ id: "article-1" }]} />);
+		expect(screen.getByText("1 reference")).toBeDefined();
 	});
 
-	it("renders single string value", () => {
-		render(<ReferenceCell field={makeField()} value="single-ref" />);
-		expect(screen.getByText("single-ref")).toBeDefined();
+	it("counts the parts a later ticket fills in as one Reference each", () => {
+		render(
+			<ReferenceCell
+				field={makeField()}
+				value={[
+					{ id: "article-1", pin: "v3", attributes: { page: "12" } },
+					{ id: "article-2" },
+				]}
+			/>,
+		);
+		expect(screen.getByText("2 references")).toBeDefined();
 	});
 
-	it("renders empty cell value for null", () => {
-		render(<ReferenceCell field={makeField()} value={null} />);
-		expect(screen.getByText("\u2014")).toBeDefined();
-	});
-
-	it("renders empty cell value for empty array", () => {
+	it("renders an empty cell for an empty list", () => {
 		render(<ReferenceCell field={makeField()} value={[]} />);
-		expect(screen.getByText("\u2014")).toBeDefined();
+		expect(screen.getByText("—")).toBeDefined();
+	});
+
+	it("renders an empty cell for null", () => {
+		render(<ReferenceCell field={makeField()} value={null} />);
+		expect(screen.getByText("—")).toBeDefined();
+	});
+
+	it("renders an empty cell for a value that is not a list of References", () => {
+		// Form data is only as well-formed as whatever produced it, so a cell
+		// must not render "[object Object]" — or throw — on a stale shape.
+		render(<ReferenceCell field={makeField()} value="single-ref" />);
+		expect(screen.getByText("—")).toBeDefined();
+	});
+
+	it("ignores entries that are not References", () => {
+		render(
+			<ReferenceCell
+				field={makeField()}
+				value={[{ id: "article-1" }, "loose-id", null]}
+			/>,
+		);
+		expect(screen.getByText("1 reference")).toBeDefined();
 	});
 });

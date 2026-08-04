@@ -12,15 +12,17 @@ function Wrapper({
 	children,
 	defaultValues = { toc_ref: "" },
 	adapters = {},
+	onError,
 }: {
 	children: React.ReactNode;
 	defaultValues?: Record<string, unknown>;
 	adapters?: FieldKitAdapters;
+	onError?: (error: Error, fieldId: string) => void;
 }) {
 	const methods = useForm({ defaultValues });
 	return (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={[]} adapters={adapters}>
+			<FieldKitProvider plugins={[]} adapters={adapters} onError={onError}>
 				<FormProvider {...methods}>{children}</FormProvider>
 			</FieldKitProvider>
 		</ChakraProvider>
@@ -44,10 +46,13 @@ describe("TocReferenceField", () => {
 	};
 
 	const mockAdapter: FieldKitAdapters["reference"] = {
-		search: vi.fn().mockResolvedValue([
-			{ id: "page-1", display_name: "Page One" },
-			{ id: "page-2", display_name: "Page Two" },
-		]),
+		search: vi.fn().mockResolvedValue({
+			items: [
+				{ id: "page-1", display_name: "Page One" },
+				{ id: "page-2", display_name: "Page Two" },
+			],
+			total: 2,
+		}),
 		fetch: vi.fn().mockResolvedValue([]),
 	};
 
@@ -117,7 +122,7 @@ describe("TocReferenceField", () => {
 
 	it("displays selected item with remove button", async () => {
 		const fetchAdapter: FieldKitAdapters["reference"] = {
-			search: vi.fn().mockResolvedValue([]),
+			search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 			fetch: vi
 				.fn()
 				.mockResolvedValue([{ id: "page-1", display_name: "Page One" }]),
@@ -143,7 +148,7 @@ describe("TocReferenceField", () => {
 
 	it("hides search input when a value is already selected", async () => {
 		const fetchAdapter: FieldKitAdapters["reference"] = {
-			search: vi.fn().mockResolvedValue([]),
+			search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 			fetch: vi
 				.fn()
 				.mockResolvedValue([{ id: "page-1", display_name: "Page One" }]),
@@ -170,7 +175,7 @@ describe("TocReferenceField", () => {
 
 	it("hides remove button in readOnly mode", async () => {
 		const fetchAdapter: FieldKitAdapters["reference"] = {
-			search: vi.fn().mockResolvedValue([]),
+			search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 			fetch: vi
 				.fn()
 				.mockResolvedValue([{ id: "page-1", display_name: "Page One" }]),
@@ -194,7 +199,11 @@ describe("TocReferenceField", () => {
 		).not.toBeInTheDocument();
 	});
 
-	it("shows error on adapter failure", async () => {
+	it("reports a failed resolution through onError and keeps the id on screen", async () => {
+		// The Consumer's error channel, not a message in the control: an
+		// Adapter outage is theirs to surface, and the Reference must stay
+		// visible rather than being replaced by an error.
+		const onError = vi.fn();
 		const failingAdapter: FieldKitAdapters["reference"] = {
 			search: vi.fn().mockRejectedValue(new Error("Network error")),
 			fetch: vi.fn().mockRejectedValue(new Error("Fetch failed")),
@@ -204,13 +213,15 @@ describe("TocReferenceField", () => {
 			<Wrapper
 				adapters={{ reference: failingAdapter }}
 				defaultValues={{ toc_ref: "some-id" }}
+				onError={onError}
 			>
 				<TocReferenceField field={field} />
 			</Wrapper>,
 		);
 
+		expect(await screen.findByText("some-id")).toBeInTheDocument();
 		await waitFor(() => {
-			expect(screen.getByText("Failed to load references")).toBeInTheDocument();
+			expect(onError).toHaveBeenCalledWith(expect.any(Error), "toc_ref");
 		});
 	});
 

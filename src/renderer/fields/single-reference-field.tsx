@@ -1,13 +1,14 @@
 import { Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
 import { FormField } from "@knkcs/anker/forms";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { Reference } from "../../schema/reference";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
+import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
@@ -16,6 +17,11 @@ interface ContentOption {
 	id: string;
 	label: string;
 }
+
+/** How many Contents one open of the menu offers. A select shows what fits;
+ * narrowing further is what the search box is for. The Reference Field's
+ * drawer is the control for browsing a whole catalogue. */
+const MENU_PAGE_SIZE = 50;
 
 /**
  * Exactly one Reference, picked from the Contents the reference Adapter
@@ -39,13 +45,9 @@ export function SingleReferenceField({
 	const accessor = config.api_accessor;
 	const adapter = adapters.reference;
 
-	// Serialized, not the array itself: a Consumer's settings object is a
-	// fresh literal on every render, and effect deps must not churn with it.
-	const blueprintsKey = JSON.stringify(settings?.blueprints ?? []);
-	const blueprints = useMemo(
-		() => JSON.parse(blueprintsKey) as string[],
-		[blueprintsKey],
-	);
+	// A Consumer's settings object is a fresh literal on every render, and
+	// effect deps must not churn with it.
+	const blueprints = useStableValue(settings?.blueprints ?? []);
 
 	const value = useWatch({ name: accessor }) as Reference | null | undefined;
 	const selectedId = value?.id ?? null;
@@ -73,8 +75,16 @@ export function SingleReferenceField({
 		let cancelled = false;
 		setSearching(true);
 		adapter
-			.search(blueprints, query)
-			.then((items) => {
+			// No filters: this control has no room for a filter form, and an
+			// empty record is what "no narrowing beyond the query" means.
+			.search({
+				blueprintIds: blueprints,
+				query,
+				filters: {},
+				page: 1,
+				page_size: MENU_PAGE_SIZE,
+			})
+			.then(({ items }) => {
 				if (cancelled) return;
 				setOptions(
 					items.map((item) => ({ id: item.id, label: item.display_name })),
