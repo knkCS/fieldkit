@@ -48,7 +48,7 @@ Two facts constrain any answer:
 
 ### Not yet walked
 
-B5 `virtual_table` (core's code-emitted inline `fields` variant — does fieldkit need it?), B6 `array` settings reconciliation now that the facts are known, B7 minor divergences in `textarea`, `number`, `toc_reference`.
+B5 `virtual_table` (core's code-emitted inline `fields` variant — does fieldkit need it?), B6 `array` settings reconciliation now that the facts are known, B7 minor divergences in `textarea` and `number`. (`toc_reference` was on this list; it left fieldkit's catalogue on 2026-08-04 per ADR-0010, so there is nothing left to reconcile.)
 
 ## Related
 
