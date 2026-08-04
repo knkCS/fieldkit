@@ -142,7 +142,10 @@ displayed as "This blueprint has no fields" rather than fetched again.
 
 Fields nested inside `settings` rather than `children` — a block's
 `allowed_blocks[].fields`, for instance — are not walked, the same boundary
-`validateSpec()` draws.
+`validateSpec()` draws. Blocks do compose those Fields into the Schema
+themselves (ADR-0007), which does not move that boundary: a Fieldset declared
+inside a block type is never resolved, so it validates as the opaque record
+below while the component still self-resolves it for display.
 
 ## Value Shape
 

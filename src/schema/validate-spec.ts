@@ -54,8 +54,12 @@ export function validateSpec(
 	// NOT a collision, so `seen` must not be shared across recursive calls.
 	// Fields nested inside blocks/array settings are NOT traversed — they
 	// live in `settings` (e.g. allowed_blocks[].fields), not
-	// `Field.children`. Documented-by-design; resolveMarkerConvention
-	// shares the same boundary (see its docstring).
+	// `Field.children`. Documented-by-design; resolveMarkerConvention and
+	// resolveSpec share the same boundary (see their docstrings). Those
+	// Fields DO reach a Schema, composed by the plugin that owns them
+	// (#59, ADR-0007) — so a duplicate accessor between two fields of one
+	// block type goes unreported here and the later one silently wins the
+	// composed shape. Composing is not walking; the boundary stands.
 	checkAccessors(fields, fieldErrors);
 	checkCardLayout(fields, fieldErrors);
 	for (const fe of fieldErrors) {
