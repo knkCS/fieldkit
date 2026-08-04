@@ -12,6 +12,7 @@ import { usePinTargets } from "../hooks/use-pin-targets";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
+import { referencedContentIds, withoutExcluded } from "./exclude-referenced";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
  * `label` is what the person filling in the form reads. Serves both selects —
@@ -77,6 +78,12 @@ export function SingleReferenceField({
 	const selectedId = value?.id ?? null;
 	const pinnedId = value?.pin ?? null;
 
+	// The one-item version of the tree Field's rule: the Content already stored
+	// is not offered, so re-picking it is never proposed as a change. Read
+	// through the same function the tree reads, so the two cannot drift. Held at
+	// a stable identity because the menu searches on it.
+	const excludeIds = useStableValue(referencedContentIds(value));
+
 	const [options, setOptions] = useState<ContentOption[]>([]);
 	const [searching, setSearching] = useState(false);
 	const [query, setQuery] = useState("");
@@ -106,13 +113,21 @@ export function SingleReferenceField({
 				blueprintIds: blueprints,
 				query,
 				filters: {},
+				excludeIds,
 				page: 1,
 				page_size: MENU_PAGE_SIZE,
 			})
 			.then(({ items }) => {
 				if (cancelled) return;
+				// The same backstop the drawer applies, for the same reason: an
+				// Adapter that ignores `excludeIds` must still not offer the
+				// Content this Field already holds. There is no total here to go
+				// approximate — a menu shows what fits.
 				setOptions(
-					items.map((item) => ({ id: item.id, label: item.display_name })),
+					withoutExcluded(items, excludeIds).map((item) => ({
+						id: item.id,
+						label: item.display_name,
+					})),
 				);
 				setSearching(false);
 			})
@@ -125,7 +140,7 @@ export function SingleReferenceField({
 		return () => {
 			cancelled = true;
 		};
-	}, [adapter, blueprints, query, menuOpen, report]);
+	}, [adapter, blueprints, excludeIds, query, menuOpen, report]);
 
 	// Unlike the Content search, this runs without waiting for a menu to open: a
 	// stored Pin is an id, and the label beside it can only come from here —

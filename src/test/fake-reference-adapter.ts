@@ -63,6 +63,16 @@ export interface FakeReferenceAdapterOptions {
 	 * omits the method. Defaults to {@link FAKE_RESULT_COLUMNS}.
 	 */
 	resultColumns?: Field[] | null;
+	/**
+	 * Search as an Adapter written before `excludeIds` existed does: hand back
+	 * the already-referenced Contents, and count them in the total.
+	 *
+	 * The degrade path for the newest optional query field, driven through this
+	 * fixture rather than a hand-rolled Adapter so a test proving the
+	 * client-side backstop stands on the same search everything else does. The
+	 * query is still *recorded* — what is ignored is only what it does with it.
+	 */
+	ignoreExcludeIds?: boolean;
 }
 
 export interface FakeReferenceAdapter
@@ -87,7 +97,11 @@ export interface FakeReferenceAdapter
 	 *
 	 * The one way to assert what fieldkit sent rather than what it rendered —
 	 * most of all that the filter record arrived exactly as the filter form
-	 * held it, with nothing inspected, renamed or dropped on the way.
+	 * held it, with nothing inspected, renamed or dropped on the way, and that
+	 * the ids the Field already references travelled with it.
+	 *
+	 * The whole query object, so a field the query gains is recorded without
+	 * this having to gain anything.
 	 */
 	readonly searches: ReferenceSearchQuery[];
 	/**
@@ -268,6 +282,19 @@ export function createFakeReferenceAdapter(
 	}
 
 	/**
+	 * Whether this Content is one the Field already references.
+	 *
+	 * Honouring it at the source is what keeps the total honest: an excluded
+	 * Content is gone before the page is cut, so `total` counts exactly what a
+	 * browse can reach. `ignoreExcludeIds` is the other Adapter — the one that
+	 * never learnt the field — and it answers `false` throughout.
+	 */
+	function isExcluded(content: FakeContent, excludeIds?: string[]): boolean {
+		if (options.ignoreExcludeIds) return false;
+		return excludeIds?.includes(content.id) ?? false;
+	}
+
+	/**
 	 * Equality on whatever key the filter Spec named, skipping the ways a form
 	 * control says "nothing chosen".
 	 *
@@ -312,7 +339,8 @@ export function createFakeReferenceAdapter(
 						needle === "" ||
 						content.display_name.toLowerCase().includes(needle),
 				)
-				.filter((content) => matchesFilters(content, request.filters));
+				.filter((content) => matchesFilters(content, request.filters))
+				.filter((content) => !isExcluded(content, request.excludeIds));
 
 			const start = (Math.max(1, request.page) - 1) * request.page_size;
 			return {

@@ -14,6 +14,7 @@ import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { usePinTargets } from "../hooks/use-pin-targets";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
+import { withoutExcluded } from "./exclude-referenced";
 
 /** How many Contents one page of the browse shows. Fixed rather than
  * configurable: it is a property of this drawer's layout, not of the Field. */
@@ -30,6 +31,12 @@ const PIN_STEP_TITLES: Record<PinningMode, string> = {
 	release: "Choose a release",
 	version: "Choose a version",
 };
+
+/**
+ * The default for a caller with nothing to exclude, held at one identity so it
+ * cannot churn the search effect the way a fresh `[]` per render would.
+ */
+const NOTHING_EXCLUDED: string[] = [];
 
 /**
  * What the results table shows when the Adapter does not describe a Content —
@@ -104,6 +111,16 @@ export interface ReferencePickerDrawerProps {
 	onPick: (content: ReferenceItem, pin: string | null) => void;
 	/** The Blueprints the Field is constrained to. */
 	blueprintIds: string[];
+	/**
+	 * The Contents the Field already references — every one of them, at every
+	 * level of the tree, not just its roots.
+	 *
+	 * Sent with the search so an Adapter can exclude them at the source, and
+	 * dropped from whatever comes back so one that ignores the field still
+	 * offers none of them. Hold it at a stable identity: it is a search
+	 * dependency, and a fresh array per render would re-run the browse forever.
+	 */
+	excludeIds?: string[];
 	/** The Field being filled in, so an Adapter failure names it. */
 	fieldId: string;
 	/**
@@ -145,6 +162,7 @@ export function ReferencePickerDrawer({
 	onClose,
 	onPick,
 	blueprintIds,
+	excludeIds = NOTHING_EXCLUDED,
 	fieldId,
 	pinMode = "none",
 	title = "Add reference",
@@ -243,12 +261,19 @@ export function ReferencePickerDrawer({
 				blueprintIds,
 				query,
 				filters,
+				excludeIds,
 				page,
 				page_size: PAGE_SIZE,
 			})
 			.then((result) => {
 				if (cancelled) return;
-				setItems(result.items);
+				// The backstop, applied to every page however the Adapter answered:
+				// one that honoured `excludeIds` has nothing here left to drop, and
+				// one that ignored it must not offer a Content the tree already
+				// holds. Its `total` is left as reported — only the Adapter knows
+				// the count, and an approximate one is the price of the field being
+				// optional.
+				setItems(withoutExcluded(result.items, excludeIds));
 				setTotal(result.total);
 				setLoading(false);
 			})
@@ -262,7 +287,7 @@ export function ReferencePickerDrawer({
 		return () => {
 			cancelled = true;
 		};
-	}, [adapter, open, blueprintIds, query, filters, page, report]);
+	}, [adapter, open, blueprintIds, excludeIds, query, filters, page, report]);
 
 	function handlePick(row: Record<string, unknown>) {
 		const content = items.find((item) => item.id === row.id);
