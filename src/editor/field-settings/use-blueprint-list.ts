@@ -20,15 +20,14 @@ export interface BlueprintList {
  * (#52). `list` is optional on the adapter, so "no capability" is a normal
  * state here rather than an error — see `FieldKitAdapters["blueprint"]`.
  *
- * A rejected listing is reported and then treated as no capability at all:
- * the Author gets id entry and can still finish the job, which is the point
- * of keeping that fallback. `console.error` rather than the provider's
- * `onError`, which is the *field* error channel and wants a field id
- * (`field-component.tsx`) — the same call `fieldset-field.tsx` makes when its
- * own blueprint fetch fails.
+ * A rejected listing is reported through `onFailure` and then treated as no
+ * capability at all: the Author gets Blueprint id entry and can still finish
+ * the job, which is the point of keeping that fallback. `onFailure` need not
+ * be memoized — the hook latches the latest callback.
  */
 export function useBlueprintList(
 	adapter: FieldKitAdapters["blueprint"],
+	onFailure?: (error: Error) => void,
 ): BlueprintList {
 	const [blueprints, setBlueprints] = useState<BlueprintSummary[] | null>(null);
 	// Seeded rather than defaulted: the effect runs after the first paint, and
@@ -41,6 +40,13 @@ export function useBlueprintList(
 	// render of the component above it; keying the fetch on that identity
 	// would blank the picker under an Author who is mid-selection.
 	const fetched = useRef(false);
+
+	// Call-latest ref: the panel rebuilds its reporter every render, and that
+	// identity churn must not be a reason to re-run the fetch effect.
+	const onFailureRef = useRef(onFailure);
+	useEffect(() => {
+		onFailureRef.current = onFailure;
+	});
 
 	useEffect(() => {
 		if (!adapter?.list) {
@@ -61,9 +67,11 @@ export function useBlueprintList(
 				setBlueprints(items);
 				setStatus("ready");
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				if (cancelled) return;
-				console.error("Blueprint list fetch failed:", error);
+				onFailureRef.current?.(
+					error instanceof Error ? error : new Error(String(error)),
+				);
 				setBlueprints(null);
 				setStatus("unavailable");
 			});

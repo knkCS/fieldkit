@@ -40,6 +40,10 @@ Fieldset's config panel offers those Blueprints by name; where it does not, the
 panel falls back to Blueprint id entry:
 
 ```ts
+// BlueprintSummary is exported from both /schema (beside
+// BlueprintSchemaAdapter) and /renderer (beside FieldKitAdapters).
+import type { BlueprintSummary } from "@knkcs/fieldkit/schema";
+
 const adapters = {
   blueprint: {
     getSchema: (id) => api.blueprintFields(id),
@@ -63,8 +67,11 @@ What the panel does with the result:
 - A stored Blueprint the list does not offer — one since deleted, or one this
   Author may no longer embed — stays selected under its raw id rather than
   being silently dropped.
-- A `list` that rejects is reported to the console and treated as no capability
-  at all: the Author gets id entry and can still finish the job.
+- A `list` that rejects goes to the `FieldKitProvider`'s `onError`, named for
+  the Fieldset it leaves unconfigurable, and is then treated as no capability
+  at all: the Author gets id entry and can still finish the job. With no
+  `onError` configured it reaches the console instead, so the degrade is never
+  silent.
 - The list is fetched once per config-panel mount; it is not cached across
   fields.
 

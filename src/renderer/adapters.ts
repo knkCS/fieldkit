@@ -1,5 +1,13 @@
 // src/renderer/adapters.ts
-import type { BlueprintSchemaAdapter } from "../schema/resolve-spec";
+import type {
+	BlueprintSchemaAdapter,
+	BlueprintSummary,
+} from "../schema/resolve-spec";
+
+/** Re-exported so the blueprint adapter's whole vocabulary is reachable from
+ * the layer that declares it, as well as from `/schema` where it is defined
+ * beside `BlueprintSchemaAdapter`. */
+export type { BlueprintSummary };
 
 export interface ReferenceItem {
 	id: string;
@@ -46,16 +54,6 @@ export interface EditorSpecData {
 }
 
 export interface EditorSpecGlobalSettings {
-	[key: string]: unknown;
-}
-
-/** One Blueprint as an Author picks it: the id a Fieldset stores, and the
- * name they recognise it by. Deliberately thinner than a Blueprint — nothing
- * here needs its Fields, and asking for them would make listing as expensive
- * as resolving. Extra keys pass through, so a Consumer can carry its own. */
-export interface BlueprintSummary {
-	id: string;
-	name: string;
 	[key: string]: unknown;
 }
 

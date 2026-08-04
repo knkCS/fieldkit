@@ -9,6 +9,7 @@ import type {
 } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import type { FieldsetSettings } from "../../schema/field-types/fieldset";
+import type { Field } from "../../schema/types";
 import { FieldsetSettingsEditor } from "../field-settings/fieldset-settings";
 
 const BLUEPRINTS: BlueprintSummary[] = [
@@ -39,12 +40,27 @@ function listingAdapter(
 	};
 }
 
+/** The Fieldset being configured, as the config panel hands it over. */
+const FIELDSET: Field<FieldsetSettings> = {
+	field_type: "fieldset",
+	config: {
+		name: "Address",
+		api_accessor: "address",
+		required: false,
+		instructions: "",
+	},
+	settings: {},
+	system: false,
+};
+
 function renderEditor({
 	initial = {},
 	adapters = {},
+	onError,
 }: {
 	initial?: FieldsetSettings | null;
 	adapters?: FieldKitAdapters;
+	onError?: (error: Error, fieldId: string) => void;
 } = {}) {
 	const onChange = vi.fn();
 
@@ -55,6 +71,7 @@ function renderEditor({
 		return (
 			<FieldsetSettingsEditor
 				settings={settings as FieldsetSettings}
+				field={FIELDSET}
 				onChange={(next) => {
 					onChange(next);
 					setSettings(next);
@@ -65,7 +82,7 @@ function renderEditor({
 
 	const tree = (current: FieldKitAdapters) => (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={[]} adapters={current}>
+			<FieldKitProvider plugins={[]} adapters={current} onError={onError}>
 				<Harness />
 			</FieldKitProvider>
 		</ChakraProvider>
@@ -264,6 +281,38 @@ describe("FieldsetSettingsEditor", () => {
 			await user.type(blueprint(), "other_bp");
 
 			expect(onChange).toHaveBeenLastCalledWith({ blueprint: "other_bp" });
+		});
+
+		it("hands a failed listing to the consumer's error channel", async () => {
+			const onError = vi.fn();
+			const failure = new Error("Network error");
+			renderEditor({
+				adapters: listingAdapter(() => Promise.reject(failure)),
+				onError,
+			});
+
+			await screen.findByTestId("fieldset-blueprint-input");
+
+			// Named for the fieldset it leaves unconfigurable, so a consumer can
+			// say which field failed.
+			expect(onError).toHaveBeenCalledWith(failure, "address");
+		});
+
+		it("falls back to the console when no error channel is configured", async () => {
+			const consoleError = vi
+				.spyOn(console, "error")
+				.mockImplementation(() => {});
+			const failure = new Error("Network error");
+			renderEditor({
+				adapters: listingAdapter(() => Promise.reject(failure)),
+			});
+
+			await screen.findByTestId("fieldset-blueprint-input");
+
+			expect(consoleError).toHaveBeenCalledWith(
+				"Blueprint list fetch failed:",
+				failure,
+			);
 		});
 	});
 

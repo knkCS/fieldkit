@@ -29,10 +29,22 @@ interface BlueprintOption {
  */
 export function FieldsetSettingsEditor({
 	settings,
+	field,
 	onChange,
 }: SettingsProps<FieldsetSettings>) {
-	const { adapters } = useFieldKit();
-	const { blueprints, status } = useBlueprintList(adapters.blueprint);
+	const { adapters, onError } = useFieldKit();
+	// The consumer's own error channel, not the console: a listing failure is
+	// theirs to surface. Reported against the Fieldset being configured, which
+	// is the field the failure leaves unconfigurable. Without a configured
+	// `onError` it still reaches the console, so the degrade is never silent.
+	const { blueprints, status } = useBlueprintList(
+		adapters.blueprint,
+		(error) => {
+			const fieldId = field?.config.api_accessor ?? "fieldset";
+			if (onError) onError(error, fieldId);
+			else console.error("Blueprint list fetch failed:", error);
+		},
+	);
 	const blueprintId = settings?.blueprint;
 	const inputId = useId();
 

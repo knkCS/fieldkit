@@ -99,6 +99,7 @@ export { createRegistry } from "./registry";
 // Spec resolution (adapter-backed containers → Resolved Spec)
 export type {
 	BlueprintSchemaAdapter,
+	BlueprintSummary,
 	ResolveSpecAdapters,
 } from "./resolve-spec";
 export { resolveSpec } from "./resolve-spec";
