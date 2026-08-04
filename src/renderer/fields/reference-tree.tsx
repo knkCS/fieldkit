@@ -133,6 +133,37 @@ interface ResolvedDrop {
 	activeIndex: number;
 	overIndex: number;
 	depth: number;
+	/**
+	 * The keys of the rows releasing here would take as descendants —
+	 * `projectDropDepth`'s `adopted`, named rather than re-derived.
+	 *
+	 * Adoption restructures rows the Author never picked up, so the drag has to
+	 * say so before the release (ADR-0012); a mid-drag highlight computed from
+	 * some second reading of the rule is exactly how a label comes to disagree
+	 * with what letting go does.
+	 */
+	adopted: ReadonlySet<string>;
+}
+
+/**
+ * What the drag says out loud while a release would adopt — empty when it
+ * would not, which is the ordinary case and wants no announcement at all.
+ *
+ * It counts exactly the rows it marks, which are rows on screen: a folded
+ * Reference counts once and stands in for everything it hides, the same way
+ * dropping below one lands below its whole branch. So the count and the
+ * outlines always describe the same tree an Author is looking at, and a fold
+ * changes both together rather than making one of them lie.
+ *
+ * The wording is the insertion strip's too — see `describeInsert`, whose
+ * clause reads "…, adopting 2 References" off the same projection under the
+ * same counting rule. Two affordances naming one outcome differently is how an
+ * Author learns to distrust both, so the two strings move together or not at
+ * all.
+ */
+function adoptionNotice(count: number): string {
+	if (count <= 0) return "";
+	return `Adopting ${String(count)} ${count === 1 ? "Reference" : "References"}`;
 }
 
 /**
@@ -175,7 +206,7 @@ function resolveDrop({
 	// The dragged row is always on screen — it is the one carrying the grip.
 	const shownActive = shown.findIndex((row) => row.key === activeKey);
 	const shownOver = shown.findIndex((row) => row.key === overKey);
-	const { depth } = projectDropDepth({
+	const { depth, adopted } = projectDropDepth({
 		items: shown,
 		activeIndex: shownActive,
 		overIndex: shownOver === -1 ? shownActive : shownOver,
@@ -183,7 +214,12 @@ function resolveDrop({
 		indentWidth: INDENT_WIDTH,
 		depthCeiling,
 	});
-	return { activeIndex, overIndex, depth };
+	return {
+		activeIndex,
+		overIndex,
+		depth,
+		adopted: new Set(adopted.map((row) => row.key)),
+	};
 }
 
 /**
@@ -363,7 +399,10 @@ export function ReferenceTree({
 		initialCollapsed(rows),
 	);
 	const [activeKey, setActiveKey] = useState<string | null>(null);
-	const [projectedDepth, setProjectedDepth] = useState<number | null>(null);
+	// The drag as it currently reads — the depth the dragged row indents to and
+	// the rows a release would adopt, held together because they are one answer
+	// and showing half of it is what makes an adoption silent.
+	const [pending, setPending] = useState<ResolvedDrop | null>(null);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -465,25 +504,43 @@ export function ReferenceTree({
 
 	function handleDragStart(event: DragStartEvent) {
 		setActiveKey(draggedKey(event));
-		setProjectedDepth(null);
+		setPending(null);
 	}
 
-	function handleDragMove(event: DragMoveEvent) {
-		setProjectedDepth(resolveFrom(event)?.depth ?? null);
+	/**
+	 * Re-reads the drag — bound to `onDragMove` *and* `onDragOver`, because
+	 * neither event is current on its own.
+	 *
+	 * dnd-kit dispatches `onDragMove` from an effect keyed on the translation
+	 * and `onDragOver` from one keyed on the row underneath, in that order; the
+	 * first therefore carries the row the drag was over *before* this step
+	 * whenever a step changed both. Listening to the move alone leaves the
+	 * feedback one event behind the release, which is the one thing feedback
+	 * for a restructuring drop may not be (ADR-0012). The two fire in the same
+	 * flush, so the fresher answer is the one that lands.
+	 */
+	function handleDragUpdate(event: DragMoveEvent) {
+		setPending(resolveFrom(event));
 	}
 
 	function handleDragCancel() {
 		setActiveKey(null);
-		setProjectedDepth(null);
+		setPending(null);
 	}
 
 	function handleDragEnd(event: DragEndEvent) {
 		setActiveKey(null);
-		setProjectedDepth(null);
+		setPending(null);
 		const resolved = resolveFrom(event);
 		if (!resolved) return;
 
-		const moved = moveReferenceBranch({ items: rows, ...resolved });
+		const { activeIndex, overIndex, depth } = resolved;
+		const moved = moveReferenceBranch({
+			items: rows,
+			activeIndex,
+			overIndex,
+			depth,
+		});
 		// A drag that ended where it started: leave the stored value alone
 		// rather than rewriting it, which would dirty the form for nothing.
 		const settled = moved.every(
@@ -532,7 +589,8 @@ export function ReferenceTree({
 			sensors={sensors}
 			collisionDetection={closestCenter}
 			onDragStart={handleDragStart}
-			onDragMove={handleDragMove}
+			onDragMove={handleDragUpdate}
+			onDragOver={handleDragUpdate}
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
@@ -546,13 +604,13 @@ export function ReferenceTree({
 						<ReferenceTreeRowItem
 							row={row}
 							name={names[row.reference.id] ?? row.reference.id}
-							// The dragged row indents to where releasing would put
-							// it, from the same resolution the release itself uses.
+							// The dragged row indents to where releasing would put it,
+							// and the rows it would take are marked — both from the
+							// same resolution the release itself uses.
 							depth={
-								row.key === activeKey && projectedDepth !== null
-									? projectedDepth
-									: row.depth
+								row.key === activeKey && pending ? pending.depth : row.depth
 							}
+							adopted={pending?.adopted.has(row.key) ?? false}
 							collapsed={collapsed.has(row.key)}
 							readOnly={readOnly ?? false}
 							attributesAsked={askedFor.length}
@@ -570,6 +628,18 @@ export function ReferenceTree({
 				))}
 				{insertionGap(shown.length)}
 			</SortableContext>
+			{/* Always rendered, empty and all: a live region an Author's screen
+			    reader only meets once the drag has already started is one it may
+			    never announce. Marking the rows says it to anyone watching; this
+			    says it to anyone dragging from the keyboard. */}
+			<Text
+				role="status"
+				fontSize="xs"
+				color="accent"
+				data-testid="reference-adoption-notice"
+			>
+				{adoptionNotice(pending?.adopted.size ?? 0)}
+			</Text>
 		</DndContext>
 	);
 }
@@ -580,6 +650,8 @@ interface ReferenceTreeRowItemProps {
 	name: string;
 	/** What to draw at — the row's own depth, or where a drag would land it. */
 	depth: number;
+	/** Whether a drag in flight would take this row as a descendant. */
+	adopted: boolean;
 	collapsed: boolean;
 	readOnly: boolean;
 	/** How many Attributes the Field declares. Zero puts no affordance on the
@@ -596,6 +668,7 @@ function ReferenceTreeRowItem({
 	row,
 	name,
 	depth,
+	adopted,
 	collapsed,
 	readOnly,
 	attributesAsked,
@@ -627,11 +700,19 @@ function ReferenceTreeRowItem({
 			py="2"
 			bg="bg.muted"
 			borderRadius="md"
+			// An outline rather than a border: a marked row must not move, or
+			// the feedback would restructure the very list it is describing.
+			{...(adopted
+				? { outline: "2px solid", outlineColor: "accent", outlineOffset: "1px" }
+				: {})}
 			opacity={isDragging ? 0.5 : 1}
 			data-testid="reference-row"
 			// The row's depth, for a test to read and for a Consumer to style
 			// against without measuring pixels.
 			data-depth={depth}
+			// Whether releasing would take this row — the same fact the outline
+			// draws, for a test to read and a Consumer to style against.
+			data-adopted={adopted ? "true" : undefined}
 		>
 			<Flex align="center" gap="1" minWidth="0">
 				{!readOnly && (
