@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useFieldKit } from "../provider";
 import { useAdapterErrorReporter } from "./use-adapter-error-reporter";
+import { useStableValue } from "./use-stable-value";
 
 /**
  * The current display names of several referenced Contents, keyed by id.
@@ -27,11 +28,9 @@ export function useResolvedContentNames(
 	const [names, setNames] = useState<Record<string, string>>({});
 	const report = useAdapterErrorReporter(fieldId, "Reference adapter failed");
 
-	// Serialized, not the array itself: callers derive this list from form
-	// state and hand down a fresh array on every render, and an effect keyed on
-	// its identity would fetch forever.
-	const idsKey = JSON.stringify(ids);
-	const wanted = useMemo(() => JSON.parse(idsKey) as string[], [idsKey]);
+	// Callers derive this list from form state and hand down a fresh array on
+	// every render; an effect keyed on its identity would fetch forever.
+	const wanted = useStableValue(ids);
 
 	useEffect(() => {
 		if (!adapter || wanted.length === 0) {

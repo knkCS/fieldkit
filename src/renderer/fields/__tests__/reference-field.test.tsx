@@ -221,18 +221,6 @@ describe("ReferenceField", () => {
 				screen.queryByRole("button", { name: "Add reference" }),
 			).not.toBeInTheDocument();
 		});
-
-		it("stops offering to add at max_items", async () => {
-			renderField({
-				field: makeField({
-					settings: { blueprints: ["article"], max_items: 1 },
-				}),
-				value: [{ id: "article-1" }],
-			});
-
-			await screen.findByText("Cats of the world");
-			expect(addButton()).toBeDisabled();
-		});
 	});
 
 	describe("the browse drawer", () => {

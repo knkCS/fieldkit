@@ -9,6 +9,7 @@ import type { Reference } from "../../schema/reference";
 import { asReference } from "../../schema/reference";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
+import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 
@@ -42,24 +43,23 @@ export function ReferenceField({
 	const { config, settings } = field;
 	const accessor = config.api_accessor;
 	const adapter = adapters.reference;
-	const maxItems = settings?.max_items;
 
 	const [picking, setPicking] = useState(false);
 
-	// Serialized, not the array itself: a Consumer's settings object is a fresh
-	// literal on every render, and effect deps must not churn with it.
-	const blueprintsKey = JSON.stringify(settings?.blueprints ?? []);
-	const blueprints = useMemo(
-		() => JSON.parse(blueprintsKey) as string[],
-		[blueprintsKey],
-	);
+	// A Consumer's settings object is a fresh literal on every render, and the
+	// drawer's search effect must not churn with it.
+	const blueprints = useStableValue(settings?.blueprints ?? []);
+
+	// One read of the stored value, used both to render and to mutate: two
+	// reads of the same array is two chances for them to disagree.
+	const value = useWatch({ name: accessor });
+	const entries: unknown[] = Array.isArray(value) ? value : [];
 
 	// Read through `asReference` rather than trusting the cast: form data
 	// arrives from a Consumer and is only as well-formed as whatever produced
 	// it. Each row keeps the position it holds in the *stored* array, not its
 	// position among the rows — otherwise a malformed entry that renders no row
 	// would make every remove below act one place off.
-	const value = useWatch({ name: accessor });
 	const rows: Row[] = useMemo(() => {
 		if (!Array.isArray(value)) return [];
 		return value
@@ -90,8 +90,6 @@ export function ReferenceField({
 		);
 	}
 
-	const atCap = maxItems !== undefined && rows.length >= maxItems;
-
 	return (
 		<FormField
 			name={accessor}
@@ -101,19 +99,17 @@ export function ReferenceField({
 			readOnly={readOnly}
 		>
 			{(formField) => {
-				const stored: Reference[] = Array.isArray(formField.value)
-					? formField.value
-					: [];
-
 				function handleAdd(content: ReferenceItem) {
 					// The id and nothing else. A display name in stored data would
 					// go stale the moment the Content is renamed.
-					formField.onChange([...stored, { id: content.id }]);
+					formField.onChange([...entries, { id: content.id }]);
 					setPicking(false);
 				}
 
+				// By stored position, so an entry that renders no row is neither
+				// removed by mistake nor dropped along the way.
 				function handleRemove(index: number) {
-					formField.onChange(stored.filter((_, i) => i !== index));
+					formField.onChange(entries.filter((_, i) => i !== index));
 				}
 
 				return (
@@ -162,10 +158,6 @@ export function ReferenceField({
 								size="sm"
 								variant="outline"
 								mt="1"
-								// At the cap there is nothing to add, and the Schema
-								// would reject the result anyway — better to stop
-								// offering than to let a submit fail.
-								disabled={atCap}
 								onClick={() => setPicking(true)}
 							>
 								<Plus size={14} />

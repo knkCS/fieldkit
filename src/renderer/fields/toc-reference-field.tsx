@@ -1,13 +1,14 @@
 import { Box, Flex, IconButton, Input, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import type { TocReferenceSettings } from "../../schema/field-types/toc-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { ReferenceItem } from "../adapters";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
+import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 
 /** One menu's worth of matches. This control has no pagination of its own —
@@ -29,13 +30,9 @@ export function TocReferenceField({
 	const [searchResults, setSearchResults] = useState<ReferenceItem[]>([]);
 	const [searching, setSearching] = useState(false);
 
-	// Serialized, not the array itself: a Consumer's settings object is a fresh
-	// literal on every render, and effect deps must not churn with it.
-	const blueprintsKey = JSON.stringify(settings?.blueprints ?? []);
-	const blueprints = useMemo(
-		() => JSON.parse(blueprintsKey) as string[],
-		[blueprintsKey],
-	);
+	// A Consumer's settings object is a fresh literal on every render, and
+	// effect deps must not churn with it.
+	const blueprints = useStableValue(settings?.blueprints ?? []);
 
 	const watchedValue = useWatch({ name: accessor, control });
 	const currentId = typeof watchedValue === "string" ? watchedValue : "";

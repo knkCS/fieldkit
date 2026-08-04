@@ -36,8 +36,8 @@ A display name is **never stored**. Names are resolved through the adapter on ev
 | Setting      | Type       | Default | Description                                                        |
 |--------------|------------|---------|--------------------------------------------------------------------|
 | `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty means the adapter decides |
-| `max_items`  | `number`   | —       | A cap, never a change of shape. The add affordance is disabled at the limit and the Schema rejects an over-cap list |
-| `max_depth`  | `number`   | —       | Reserved for nesting; every Reference is at depth zero while the list is flat |
+| `max_items`  | `number`   | —       | A cap, never a change of shape. Declared but not yet enforced: it counts the *flattened* tree, so enforcement belongs with nesting |
+| `max_depth`  | `number`   | —       | Declared on the same terms; every Reference is at depth zero while the list is flat |
 
 The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints.
 
@@ -80,20 +80,17 @@ Both methods are **optional**. Without them the picker degrades to a search box 
 | Rule        | Description                                              |
 |-------------|----------------------------------------------------------|
 | `required`  | At least one Reference                                    |
-| `max_items` | At most that many References                              |
 | per item    | Each entry must be a Reference — an object with a non-empty `id` |
 
 ```ts
 // Optional
 z.array(referenceValueSchema)
 
-// Required, capped at 5
-z.array(referenceValueSchema)
-  .min(1, "Related articles is required")
-  .max(5, "Related articles allows at most 5 references")
+// Required
+z.array(referenceValueSchema).min(1, "Related articles is required")
 ```
 
-Note the blast radius a cap carries: a Spec whose `max_items` was never enforced can begin blocking submit on data that saved successfully before.
+`max_items` is not in the Schema yet — see Settings above.
 
 ## Table Cell
 
@@ -105,7 +102,8 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 ## Known Limitations
 
-- The list is flat: no nesting, no drag-and-drop reordering, no `max_depth` enforcement.
+- The list is flat: no nesting and no drag-and-drop reordering.
+- `max_items` and `max_depth` are declared but not enforced — both count the flattened tree, so enforcement lands with nesting.
 - No pinning and no per-Reference attributes yet.
 - Read mode shows the count from the cell rather than resolved names.
 - The browse drawer's page size is fixed at 10.
@@ -139,12 +137,6 @@ Browse 42 Contents ten at a time. The pagination reflects the total the adapter 
 Neither `getSearchFilters` nor `getResultColumns`: a search box and a name column.
 
 <Canvas of={Stories.AdapterWithoutSpecs} />
-
-### At The Cap
-
-`max_items: 2`, already holding two — the add affordance is disabled.
-
-<Canvas of={Stories.AtTheCap} />
 
 ### Required
 

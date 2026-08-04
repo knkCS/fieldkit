@@ -17,11 +17,14 @@ export interface ReferenceSettings {
 	 *
 	 * A pure cap, never a change of shape: `max_items: 1` still stores a
 	 * one-element array, because Single Reference is its own Field Type
-	 * (ADR-0005). Once the list nests, the cap counts the flattened tree.
+	 * (ADR-0005). Declared, not yet enforced — the cap counts the *flattened*
+	 * tree, so enforcing it belongs with the ticket that adds nesting rather
+	 * than to a list that is still flat.
 	 */
 	max_items?: number;
-	/** Reserved for the nesting ticket, which is the first to enforce it. The
-	 * list is flat here, so every Reference is at depth zero. */
+	/** Declared on the same terms as `max_items`, and enforced by the same
+	 * later ticket. The list is flat here, so every Reference is at depth
+	 * zero. */
 	max_depth?: number;
 }
 
@@ -45,26 +48,9 @@ export const referencePlugin: FieldTypePlugin<ReferenceSettings> = {
 	cellComponent: ReferenceCell,
 
 	toZodType(field: Field<ReferenceSettings>) {
-		const settings = field.settings ?? {};
-
-		let schema = z.array(referenceValueSchema);
-
-		if (field.config.required) {
-			schema = schema.min(1, `${field.config.name} is required`);
-		}
-
-		// The Schema is the truth about the cap; the control additionally stops
-		// offering to add at the limit. Note the blast radius: a Spec whose cap
-		// was never enforced can begin blocking submit on data that saved
-		// successfully before.
-		if (settings.max_items !== undefined) {
-			schema = schema.max(
-				settings.max_items,
-				`${field.config.name} allows at most ${String(settings.max_items)} references`,
-			);
-		}
-
-		return schema;
+		const schema = z.array(referenceValueSchema);
+		if (!field.config.required) return schema;
+		return schema.min(1, `${field.config.name} is required`);
 	},
 
 	defaultSettings: { blueprints: [] },

@@ -218,24 +218,24 @@ export function createFakeReferenceAdapter(
 			if (content) content.display_name = displayName;
 		},
 
-		async search(query) {
-			searches.push(query);
+		async search(request) {
+			searches.push(request);
 			if (options.failSearch) throw options.failSearch;
 
-			const needle = query.query.trim().toLowerCase();
+			const needle = request.query.trim().toLowerCase();
 			const matched = contents
-				.filter((content) => matchesBlueprints(content, query.blueprintIds))
+				.filter((content) => matchesBlueprints(content, request.blueprintIds))
 				.filter(
 					(content) =>
 						needle === "" ||
 						content.display_name.toLowerCase().includes(needle),
 				)
-				.filter((content) => matchesFilters(content, query.filters));
+				.filter((content) => matchesFilters(content, request.filters));
 
-			const start = (Math.max(1, query.page) - 1) * query.page_size;
+			const start = (Math.max(1, request.page) - 1) * request.page_size;
 			return {
 				items: matched
-					.slice(start, start + query.page_size)
+					.slice(start, start + request.page_size)
 					.map((content) => ({ ...content })),
 				// The count across every page, not this page's length: it is the
 				// only thing the picker's pagination can be built from.

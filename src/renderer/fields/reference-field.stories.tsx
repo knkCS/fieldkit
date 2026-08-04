@@ -111,18 +111,6 @@ export const AdapterWithoutSpecs: Story = {
 	),
 };
 
-/** `max_items` is a cap, never a change of shape — the add affordance stops
- * being offered at the limit. */
-export const AtTheCap: Story = {
-	render: () => (
-		<FieldStoryWrapper
-			fields={[makeField({}, { blueprints: ["article"], max_items: 2 })]}
-			defaultValues={{ related: [{ id: "article-1" }, { id: "article-2" }] }}
-			adapters={{ reference: referenceAdapter }}
-		/>
-	),
-};
-
 export const Required: Story = {
 	render: () => (
 		<FieldStoryWrapper

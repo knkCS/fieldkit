@@ -74,20 +74,6 @@ describe("referencePlugin", () => {
 		);
 	});
 
-	it("blocks a list over max_items, naming the cap", () => {
-		const zodType = referencePlugin.toZodType(
-			makeField({ settings: { max_items: 2 } }),
-		);
-
-		expect(zodType.safeParse([{ id: "a" }, { id: "b" }]).success).toBe(true);
-
-		const over = zodType.safeParse([{ id: "a" }, { id: "b" }, { id: "c" }]);
-		expect(over.success).toBe(false);
-		expect(!over.success && over.error.issues[0].message).toBe(
-			"Related articles allows at most 2 references",
-		);
-	});
-
 	it("rejects a Reference with no id", () => {
 		const zodType = referencePlugin.toZodType(makeField());
 
