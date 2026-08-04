@@ -42,6 +42,16 @@ z.array(z.object({ _type: z.string() }).passthrough())
 z.array(z.object({ _type: z.string() }).passthrough())
 ```
 
+## Adding a Block
+
+Choosing a type seeds the new block from the fields that type declares — each
+field's explicit `config.default_value`, or its plugin's `defaultValue` where it
+has one, exactly as `getDefaultValues` seeds the form itself (#38). A `heading`
+of `title` and `pinned` starts `{ _type: "heading", title: "", pinned: false }`.
+
+`_type` is written last, so a field declaring that accessor cannot overwrite the
+discriminator that decides which fields render.
+
 ## Table Cell
 
 Renders the block count via `BlocksCell`.
@@ -52,7 +62,6 @@ Renders the block count via `BlocksCell`.
 - No drag-to-reorder — uses arrow buttons for moving blocks up/down
 - No min/max block limits
 - No per-block-type limits (e.g., max 1 hero block)
-- New blocks start without child field defaults (`append({ _type: blockType })` only)
 
 ## Examples
 

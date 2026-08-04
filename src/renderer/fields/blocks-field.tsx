@@ -5,10 +5,13 @@ import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { BlocksSettings } from "../../schema/field-types/blocks";
 import type { FieldProps } from "../../schema/plugin";
+import { getDefaultValues } from "../../schema/zod-builder";
+import { useFieldKit } from "../provider";
 import { NestedItemFields } from "./item-fields";
 
 export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 	const { control } = useFormContext();
+	const { getAllPlugins } = useFieldKit();
 	const { config, settings } = field;
 	const accessor = config.api_accessor;
 	const allowedBlocks = settings?.allowed_blocks ?? [];
@@ -25,13 +28,24 @@ export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 
 	const [showTypePicker, setShowTypePicker] = useState(false);
 
-	const addBlock = (blockType: string) => {
-		append({ _type: blockType });
-		setShowTypePicker(false);
-	};
-
 	const getBlockDef = (type: string) =>
 		allowedBlocks.find((b) => b.type === type);
+
+	const addBlock = (blockType: string) => {
+		// Seeded from the chosen type's own fields, the way a group row is
+		// seeded from its children (#38) — a block's fields just live in
+		// `settings.allowed_blocks[].fields` rather than in `children`.
+		//
+		// `_type` is written last on purpose: it identifies the block and
+		// decides which fields render, so a field defaulting to that accessor
+		// must not be able to overwrite it.
+		const defaults = getDefaultValues(
+			getBlockDef(blockType)?.fields ?? [],
+			getAllPlugins(),
+		);
+		append({ ...defaults, _type: blockType });
+		setShowTypePicker(false);
+	};
 
 	return (
 		<FormField

@@ -1,8 +1,9 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm } from "react-hook-form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { builtInFieldTypes } from "../../../schema/field-types";
 import type { BlocksSettings } from "../../../schema/field-types/blocks";
 import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
@@ -154,6 +155,80 @@ describe("BlocksField", () => {
 		expect(
 			screen.getByRole("button", { name: "Paragraph" }),
 		).toBeInTheDocument();
+	});
+
+	it("seeds an added block from the fields its type declares", async () => {
+		// Same rule a group row follows: a new item starts as the record its
+		// fields describe, not as a bare discriminator. A block's fields live
+		// in `settings.allowed_blocks[].fields` rather than `children`, so the
+		// list comes from the chosen type's definition.
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+
+		const blockField: Field = {
+			...field,
+			settings: {
+				allowed_blocks: [
+					{
+						type: "heading",
+						name: "Heading",
+						fields: [
+							{
+								field_type: "text",
+								config: {
+									name: "Title",
+									api_accessor: "title",
+									required: false,
+									instructions: "",
+								},
+								settings: null,
+								children: null,
+								system: false,
+							},
+							{
+								field_type: "boolean",
+								config: {
+									name: "Pinned",
+									api_accessor: "pinned",
+									required: false,
+									instructions: "",
+								},
+								settings: null,
+								children: null,
+								system: false,
+							},
+						],
+					},
+				],
+			},
+		};
+
+		function Harness() {
+			const methods = useForm({ defaultValues: { blocks: [] } });
+			return (
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={builtInFieldTypes}>
+						<FormProvider {...methods}>
+							<form noValidate onSubmit={methods.handleSubmit(onSubmit)}>
+								<BlocksField field={blockField} />
+								<button type="submit">Save</button>
+							</form>
+						</FormProvider>
+					</FieldKitProvider>
+				</ChakraProvider>
+			);
+		}
+
+		render(<Harness />);
+
+		await user.click(screen.getByRole("button", { name: /Add block/ }));
+		await user.click(screen.getByRole("button", { name: "Heading" }));
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+		expect(onSubmit.mock.calls[0][0]).toEqual({
+			blocks: [{ _type: "heading", title: "", pinned: false }],
+		});
 	});
 
 	it("hides controls (remove, move) when readOnly", () => {
