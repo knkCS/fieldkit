@@ -24,6 +24,7 @@ export function SingleReferenceSettingsEditor({
 		<Stack gap="4">
 			<BlueprintPicker
 				fieldId={field?.config.api_accessor ?? "single_reference"}
+				settingsKey="blueprints"
 				label="Blueprints"
 				helperText="The blueprints this field may point at. Leave empty to allow any."
 				multiple
@@ -34,6 +35,7 @@ export function SingleReferenceSettingsEditor({
 				idInputTestId="single-reference-blueprints-input"
 			/>
 			<PinModePicker
+				settingsKey="pin_mode"
 				label="Pin the reference to"
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}

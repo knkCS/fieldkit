@@ -16,6 +16,34 @@ export interface FieldValidation {
 	pattern_message?: string;
 }
 
+/**
+ * One setting a Consumer has frozen on an otherwise editable Field, and the
+ * reason the Author is shown for it (ADR-0011).
+ *
+ * Fieldkit forms no opinion about why: only the Consumer knows whether data
+ * exists that a change would strand. The driving case is `pin_mode`, which
+ * invalidates every stored Pin at once (ADR-0008) — but nothing here names it,
+ * and any setting of any Field type can be frozen on the same terms.
+ */
+export interface LockedSetting {
+	/**
+	 * A key in the Field's **type settings** — `pin_mode`, `blueprints`,
+	 * `max_items`. Not a Field Accessor, and not a `config` key: `config` is
+	 * what `field.system` already governs whole, and `locked_settings` is the
+	 * finer grain beneath it.
+	 */
+	key: string;
+	/**
+	 * Consumer-authored prose, displayed exactly as given.
+	 *
+	 * It deliberately does NOT pass through the editor's `labels` tables. Only
+	 * the Consumer can say "12 contents use this blueprint", so the panel
+	 * displays a string fieldkit never sees among its own translations
+	 * (ADR-0011).
+	 */
+	reason: string;
+}
+
 /** Base configuration shared by all field types. */
 export interface FieldConfig {
 	name: string;
@@ -28,6 +56,15 @@ export interface FieldConfig {
 	hidden?: boolean;
 	read_only?: boolean;
 	condition?: FieldCondition;
+	/**
+	 * Type settings a Consumer has frozen, each with a reason (ADR-0011).
+	 * Absent — the ordinary case — means every setting is editable.
+	 *
+	 * This makes a lock *expressible*, not enforced: a Consumer that never
+	 * populates the list still permits the breaking edit, and whatever guard it
+	 * keeps at its own boundary stays necessary.
+	 */
+	locked_settings?: LockedSetting[];
 }
 
 /** A single field definition in a specification. */

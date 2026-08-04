@@ -4,6 +4,7 @@ import { Button, IconButton } from "@knkcs/anker/atoms";
 import { Tabs } from "@knkcs/anker/primitives";
 import { ChevronLeft, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { lockedSetting } from "../schema/locked-settings";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import { isField } from "../schema/types";
@@ -444,6 +445,17 @@ export function FieldConfigPanel({
 		if (chain.length === 1) {
 			onFieldChange(next);
 			return;
+		}
+		// A Field drilled into out of a FROZEN settings key is frozen with it
+		// (ADR-0011): editing it is a write to that setting by another route,
+		// and `SettingsSection`'s guard never sees it — the rebuild below writes
+		// through `writeHolder`, not through the settings editor. Checked once
+		// here, for every level of the path, rather than in each settings editor
+		// that offers a drill-in.
+		for (let i = 0; i < chain.length - 1; i++) {
+			const holder = drillStack[i].holder;
+			if (holder.kind !== "settings") continue;
+			if (lockedSetting(chain[i].config.locked_settings, holder.key)) return;
 		}
 		// A rename (manual or auto-slug) changes the drilled child's accessor;
 		// the drillStack entry pointing at it must follow in the same update,

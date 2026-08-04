@@ -132,9 +132,9 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 
 ## Pending decisions not yet in code
 
-Verified still absent from the registry on 2026-08-04:
+None outstanding.
 
-- **`locked_settings`** (ADR-0011) — not yet on `FieldConfig`.
+- **`locked_settings`** (ADR-0011) — **landed** on `FieldConfig` on 2026-08-04. The config panel disables each frozen control and shows the Consumer's reason beside it; the write is dropped even when a settings component never checks the list. Core still has to populate it for `pin_mode` to be frozen anywhere real.
 
 **Landed since this was written:** `single_reference` (ADR-0008), which holds `Reference | null` and which core has no counterpart for; and `toc_reference`'s removal (ADR-0010), which put shared at 21 and core-only at 6 exactly as predicted.
 

@@ -72,6 +72,9 @@ export {
 	virtualTablePlugin,
 } from "./field-types";
 export type { SectionSettings } from "./field-types/section";
+// Locked settings (ADR-0011) — reading the list a Consumer freezes settings
+// with, and honouring it on a write
+export { lockedSetting, restoreLockedSettings } from "./locked-settings";
 // Marker convention
 export {
 	type MarkerConvention,
@@ -136,6 +139,7 @@ export type {
 	FieldCondition,
 	FieldConfig,
 	FieldValidation,
+	LockedSetting,
 	Schema,
 } from "./types";
 // Spec validation

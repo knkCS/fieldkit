@@ -3,6 +3,7 @@ import { Box, Input, Text } from "@chakra-ui/react";
 import type { ChangeEvent } from "react";
 import type { ListSettings } from "../../schema/field-types/list";
 import type { SettingsProps } from "../../schema/plugin";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /**
  * Type-settings editor for `list`, mounted by the config panel's Type
@@ -17,6 +18,7 @@ export function ListSettingsEditor({
 	settings,
 	onChange,
 }: SettingsProps<ListSettings>) {
+	const lock = useSettingLock("max_items_per_page");
 	const maxItemsPerPage = settings?.max_items_per_page ?? 0;
 
 	function handleMaxItemsPerPage(e: ChangeEvent<HTMLInputElement>) {
@@ -45,12 +47,14 @@ export function ListSettingsEditor({
 					value={maxItemsPerPage === 0 ? "" : maxItemsPerPage}
 					onChange={handleMaxItemsPerPage}
 					placeholder="All on one page"
+					disabled={lock.locked}
 					data-testid="list-max-items-per-page-input"
 				/>
 			</Box>
 			<Text fontSize="xs" color="fg.muted" mt="1">
 				Leave empty to show every entry on one page.
 			</Text>
+			<SettingLockReason lock={lock} />
 		</Box>
 	);
 }

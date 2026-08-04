@@ -1,8 +1,18 @@
 // src/editor/field-settings/cap-input.tsx
 import { Box, Input, Text } from "@chakra-ui/react";
 import type { ChangeEvent } from "react";
+import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 export interface CapInputProps {
+	/**
+	 * The settings key this box writes.
+	 *
+	 * Declared so the control can honour `locked_settings` itself, rather than
+	 * every settings editor remembering to check a list (ADR-0011). Required,
+	 * because a control that does not say which setting it edits cannot know
+	 * whether that setting is frozen.
+	 */
+	settingsKey: string;
 	label: string;
 	/** The sentence under the box. It must say what an empty box means. */
 	helperText: string;
@@ -39,6 +49,7 @@ export interface CapInputProps {
  * numeric inputs — rather than introducing a second look for one field type.
  */
 export function CapInput({
+	settingsKey,
 	label,
 	helperText,
 	value,
@@ -47,6 +58,8 @@ export function CapInput({
 	onChange,
 	testId,
 }: CapInputProps) {
+	const lock = useSettingLock(settingsKey);
+
 	function handleChange(event: ChangeEvent<HTMLInputElement>) {
 		// A number input reports `""` for anything it cannot parse — a lone "-",
 		// a half-typed "1e" — so an empty box is both "cleared" and "mid-edit
@@ -77,12 +90,14 @@ export function CapInput({
 					value={value ?? ""}
 					onChange={handleChange}
 					placeholder={placeholder}
+					disabled={lock.locked}
 					data-testid={testId}
 				/>
 			</Box>
 			<Text fontSize="xs" color="fg.muted" mt="1">
 				{helperText}
 			</Text>
+			<SettingLockReason lock={lock} />
 		</Box>
 	);
 }

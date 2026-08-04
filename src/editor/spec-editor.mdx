@@ -417,6 +417,50 @@ The editor never *creates* system fields; they arrive via the `schema` prop.
 Hosts are responsible for re-canonicalizing system definitions on read so a
 stored spec can never drift from the application's truth.
 
+## Locked Settings
+
+`field.system` locks a whole field. `config.locked_settings` is the finer
+grain beneath it (**ADR-0011**): a host freezes *one setting* of an
+otherwise fully editable field, with a reason the author reads.
+
+```ts
+config: {
+  name: "Related articles",
+  api_accessor: "related",
+  required: false,
+  instructions: "",
+  locked_settings: [
+    { key: "pin_mode", reason: "12 contents already pin through this field" },
+  ],
+}
+```
+
+- `key` names a key in the field's **type settings** (`pin_mode`,
+  `blueprints`, `max_items`) — not an accessor, and not a `config` key.
+- The Type settings tab disables **exactly** that control and shows the
+  reason beside it. Every other setting, and both other tabs, stay editable
+  — a field with a frozen setting is not a system field.
+- `reason` is **your prose, rendered as given**. It deliberately does *not*
+  pass through `labels`: only you can say "12 contents use this blueprint",
+  so the panel displays a string fieldkit never sees among its own
+  translations. Supply it already localized.
+- Fieldkit forms no opinion about *why*. It cannot know whether content
+  exists that a change would strand, so it never freezes anything itself.
+  Nothing validates the list either — `validateSpec()` has no way to know
+  what you meant to freeze. **A host that never populates the list still
+  permits the breaking edit**, so whatever guard your own boundary keeps
+  stays necessary.
+
+For a **custom field type**: every control fieldkit ships (`BlueprintPicker`,
+`CapInput`, `PinModePicker`, the attribute list) already honours the list —
+each takes the settings key it writes and asks about it, so a
+`settingsComponent` assembled from them needs no code of its own. A settings
+component that renders its own raw inputs instead will render an editable
+control over a frozen setting; what it cannot do is *write* one — the panel
+puts every frozen key back before applying the change. The same guard covers
+the settings drill-in, so a frozen settings-nested spec (a Reference field's
+`attributes`) cannot be edited through the panel's Back/Edit path either.
+
 ## Preview Mode
 
 Selecting **Preview** in the toolbar's mode control (disabled when the
