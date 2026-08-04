@@ -4,6 +4,8 @@ Fieldkit's built-in field types are general form concepts only. When knkCMS core
 
 The boundary is narrower than "no domain coupling". Fieldkit's **adapter surface** already names knkCMS concepts — `adapters.blueprint`, `adapters.textType` — and `FieldContext` is `"blueprint" | "task" | "form"`. That is accepted: the *catalogue* is generic, the *integration surface* is not.
 
+> Core's side of this comparison is tabulated in [knkCMS core parity](../knkcms-core-parity.md).
+
 ## Consequences
 
 Core must author five plugins including editor settings UI and table cells, and `blueprint-review`'s "placeholder" classification for those five becomes permanent unless that tool can import core's plugin definitions.

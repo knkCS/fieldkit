@@ -21,6 +21,10 @@ _Avoid_: expanded spec, flattened spec
 **Blueprint**:
 A stored Spec, addressable by id and resolvable through the blueprint adapter. Fieldkit never owns blueprints — it asks a Consumer for them.
 
+**Content**:
+An instance of a Blueprint — the thing a Reference points at. Fieldkit never owns Contents; it asks a Consumer for them through the reference adapter.
+_Avoid_: item, record, entity
+
 **Field**:
 One entry in a Spec: a field type, plus the config, validation, and settings that specialise it.
 
@@ -77,6 +81,40 @@ _Avoid_: field type (that's the kind of a Field; a Block Type is a shape within 
 
 > The five are distinguished by what they produce: a Card produces no value, a Group produces an array of rows all shaped alike, a Fieldset produces one record, a List produces an array of strings, and Blocks produces an array of records each shaped by its own Block Type.
 
+## References
+
+**Reference**:
+A pointer from the Content being edited to another Content. A Reference is a value, not a Field.
+_Avoid_: link, relation, item
+
+**Reference Field**:
+The field type holding a Reference Tree.
+_Avoid_: references, relation field
+
+**Single Reference**:
+The field type holding exactly one Reference, or none. A separate type rather than a Reference Field capped at one, because the two produce incompatible values (ADR-0005).
+_Avoid_: single ref, one-to-one reference
+
+**Reference Tree**:
+The nested arrangement of References a Reference Field holds — each Reference may carry child References. A Reference Field owns both the order and the nesting; neither is derived from the Contents themselves.
+_Avoid_: hierarchy, outline, structure
+
+**Attribute**:
+A value a Reference carries about the pointing itself, not about either Content — the page a citation appears on, the role a credit names. Attributes are declared once per Reference Field, as a Spec of their own, and filled in per Reference.
+_Avoid_: property, metadata, setting
+
+**Version**:
+One saved state of a Content's data. Versions have no names of their own.
+_Avoid_: revision, snapshot, draft
+
+**Release**:
+A named, published Version of a Content, carrying a tag and a title. Every Release is a Version; most Versions are not Releases.
+_Avoid_: publication, tag, release version
+
+**Pin**:
+The Version or Release one Reference is fixed to. Whether a Reference Field pins at all, and to which of the two, is settled once per Field; which target is settled per Reference. A Reference with no Pin resolves to the Content's newest Version, which is also what a Reference falls back to when its Field stops pinning.
+_Avoid_: lock, freeze, snapshot
+
 ## Authoring
 
 **Author**:
@@ -95,6 +133,10 @@ _Avoid_: committed (commit means git here), original, saved state
 
 **System Field**:
 A Field whose definition is server-canonical — the Author cannot edit it, because any change would revert on the next read.
+
+**Locked Setting**:
+One setting of an otherwise editable Field that the Consumer has frozen, with a reason the Author is shown. What makes a setting lockable is knowledge fieldkit does not have — whether changing it would strand data that already exists.
+_Avoid_: disabled setting, readonly setting, system setting
 
 ## Data
 
