@@ -42,8 +42,9 @@ import {
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
 
-/** Pixels of indentation one level of nesting is drawn at. */
-const INDENT_WIDTH = 24;
+/** Pixels of indentation one level of nesting is drawn at. Exported because
+ * read mode draws the same tree and has to draw a level at the same width. */
+export const INDENT_WIDTH = 24;
 
 /**
  * Above this many References a tree opens with its parents collapsed; at or

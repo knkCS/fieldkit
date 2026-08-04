@@ -1,5 +1,5 @@
 // src/schema/plugin.ts
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import type { Field } from "./types";
 
@@ -88,6 +88,31 @@ export interface CellProps<S = unknown> {
 }
 
 /**
+ * Renders one Field's stored value exactly as read mode renders any value —
+ * the empty-value convention, the plugin's own read component, its cell, the
+ * type-aware fallback, in that order.
+ *
+ * Handed to a read component so it can render what it *holds* without knowing
+ * how any of it should look: a Group's rows are its children's values, a
+ * Reference's Attributes are Fields declared in its settings, and both come
+ * out of the same machinery a top-level Field's value does.
+ */
+export type RenderReadValue = (field: Field, value: unknown) => ReactNode;
+
+/**
+ * Props passed to a field type's read-mode component.
+ *
+ * `renderChild` is the read-mode twin of {@link ComposeChildrenSchema}, and it
+ * is there for the same reason: a container has to render what it holds, and
+ * the shared read machinery must not learn its name to do it.
+ */
+export interface ReadProps<S = unknown> {
+	field: Field<S>;
+	value: unknown;
+	renderChild: RenderReadValue;
+}
+
+/**
  * Composes a list of child Fields into the object schema they would generate
  * as a Spec of their own — the same marker skips, the same hidden skip, the
  * same required/optional shaping.
@@ -132,6 +157,26 @@ export interface FieldTypePlugin<S = unknown> {
 	settingsComponent?: ComponentType<SettingsProps<S>>;
 	fieldComponent: ComponentType<FieldProps<S>>;
 	cellComponent?: ComponentType<CellProps<S>>;
+	/**
+	 * How SpecForm's read mode renders a value of this type, when a table cell
+	 * is the wrong answer for it.
+	 *
+	 * Read mode renders through `cellComponent` by default — one rendering for
+	 * a table and a read-only form is the ordinary case. A type declares this
+	 * instead when the two genuinely differ: read mode sits inside the
+	 * renderer, so it reaches the adapters and can be as tall as it likes,
+	 * while a cell has neither adapter access nor async and one row of height.
+	 * A Group's cell counts items and its read component shows them; a
+	 * Reference's cell counts References and its read component resolves their
+	 * names and nests them (ADR-0008).
+	 *
+	 * It lives on the plugin rather than as a branch in read mode's own code
+	 * for ADR-0007's reason — shared machinery does not learn Field type names
+	 * — and because for reference types it *cannot* be a branch: a Consumer
+	 * mints its own reference-shaped type under its own id (ADR-0010), and no
+	 * list of names in shared code would ever contain it.
+	 */
+	readComponent?: ComponentType<ReadProps<S>>;
 
 	/** `composeChildren` is what a container type needs and its own Field
 	 * cannot give it (#53). It is optional on both sides: every plugin written

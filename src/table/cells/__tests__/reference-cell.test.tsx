@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { FieldKitProvider } from "../../../renderer/provider";
 import type { Field } from "../../../schema/types";
+import { createFakeReferenceAdapter } from "../../../test/fake-reference-adapter";
 import { ReferenceCell } from "../reference-cell";
 
 const makeField = (overrides?: {
@@ -92,5 +94,21 @@ describe("ReferenceCell", () => {
 			/>,
 		);
 		expect(screen.getByText("1 reference")).toBeDefined();
+	});
+
+	it("never asks the Adapter for a name", async () => {
+		const adapter = createFakeReferenceAdapter();
+		render(
+			<FieldKitProvider plugins={[]} adapters={{ reference: adapter }}>
+				<ReferenceCell field={makeField()} value={[{ id: "article-1" }]} />
+			</FieldKitProvider>,
+		);
+
+		// Given every chance to: a resolution would land on a later tick.
+		await waitFor(() => {
+			expect(screen.getByText("1 reference")).toBeInTheDocument();
+		});
+		expect(adapter.fetches).toHaveLength(0);
+		expect(screen.queryByText("Cats of the world")).not.toBeInTheDocument();
 	});
 });

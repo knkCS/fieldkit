@@ -2,6 +2,7 @@ import { Link } from "lucide-react";
 import type { ZodTypeAny } from "zod";
 import { SingleReferenceSettingsEditor } from "../../editor/field-settings/single-reference-settings";
 import { SingleReferenceField } from "../../renderer/fields/single-reference-field";
+import { SingleReferenceReadValue } from "../../renderer/fields/single-reference-read";
 import { SingleReferenceCell } from "../../table/cells/single-reference-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { PinMode } from "../reference";
@@ -40,6 +41,9 @@ export const singleReferencePlugin: FieldTypePlugin<SingleReferenceSettings> = {
 	settingsComponent: SingleReferenceSettingsEditor,
 	fieldComponent: SingleReferenceField,
 	cellComponent: SingleReferenceCell,
+	// The cell counts, because a cell cannot resolve a name; read mode reaches
+	// the adapter and says which Content it is (ADR-0008).
+	readComponent: SingleReferenceReadValue,
 
 	toZodType(field: Field<SingleReferenceSettings>): ZodTypeAny {
 		const schema = referenceValueSchema.nullable();

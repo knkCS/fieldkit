@@ -1,6 +1,7 @@
 import { Layers } from "lucide-react";
 import { z } from "zod";
 import { GroupField } from "../../renderer/fields/group-field";
+import { GroupReadValue } from "../../renderer/fields/group-read";
 import { GroupCell } from "../../table/cells/group-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
@@ -19,6 +20,9 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 
 	fieldComponent: GroupField,
 	cellComponent: GroupCell,
+	// The cell counts items because a table row has no height for more; read
+	// mode has the page, so it shows them.
+	readComponent: GroupReadValue,
 
 	toZodType(field: Field<GroupSettings>, composeChildren) {
 		const settings = field.settings ?? {};

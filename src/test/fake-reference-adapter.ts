@@ -78,6 +78,15 @@ export interface FakeReferenceAdapter
 	 */
 	readonly searches: ReferenceSearchQuery[];
 	/**
+	 * Every id list `fetch` was called with, oldest first.
+	 *
+	 * The one way to prove a surface resolved *no* names — which a table cell
+	 * must not, having neither Adapter access nor async. Nothing rendered can
+	 * show that: a cell showing a count looks the same whether or not it also
+	 * asked.
+	 */
+	readonly fetches: string[][];
+	/**
 	 * Every Pin target lookup, oldest first.
 	 *
 	 * The one way to assert that the *Field's* setting decided which kind of
@@ -220,6 +229,7 @@ export function createFakeReferenceAdapter(
 		...content,
 	}));
 	const searches: ReferenceSearchQuery[] = [];
+	const fetches: string[][] = [];
 	const pinTargetQueries: { contentId: string; mode: PinningMode }[] = [];
 
 	const searchFilters =
@@ -269,6 +279,7 @@ export function createFakeReferenceAdapter(
 	return {
 		contents,
 		searches,
+		fetches,
 		pinTargetQueries,
 
 		rename(id, displayName) {
@@ -302,6 +313,7 @@ export function createFakeReferenceAdapter(
 		},
 
 		async fetch(ids) {
+			fetches.push([...ids]);
 			if (options.failFetch) throw options.failFetch;
 			// Only what exists: an id with no Content is simply absent from the
 			// result, which is how a caller learns it cannot be resolved.
