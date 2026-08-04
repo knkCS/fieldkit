@@ -64,7 +64,7 @@ nested provider is exactly what keeps the two form states apart.
 |---|---|
 | `src/table/edit-drawer.tsx` | A row being edited — a self-contained compound component |
 | `src/renderer/fields/reference-picker-drawer.tsx` | The Reference picker's **filter** form. The adapter describes its filters as a Spec (ADR-0009) and fieldkit renders them with its own renderer; the values go straight back to `search()` as an opaque record and must never reach the form the consumer owns |
-| `src/editor/try-it-view.tsx` | The editor's scratch preview form |
+| `src/editor/try-it-view.tsx`, `src/editor/editor-canvas.tsx` | The editor's scratch forms — nothing an Author fills in here is ever submitted |
 
 Note what the second one is *not*: a field component calling `useForm()` for
 its own value. The Reference field itself takes its value from
@@ -81,8 +81,8 @@ form is separate.
 | `Controller` | `select`, `list`, `toc-reference`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
 | `useWatch` | `reference`, `single-reference`, `toc-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
 | `useFieldArray` | `blocks-field`, `group-field` | Dynamic array management |
-| `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view` | Wrap an internal form |
-| `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view` | Create a form instance (the exceptions above) |
+| `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
+| `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
 | `zodResolver` | `edit-drawer` | Zod validation adapter |
 
 The Reference field components read with `useWatch` and write through anker's
