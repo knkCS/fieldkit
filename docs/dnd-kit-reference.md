@@ -188,6 +188,14 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
   queries key on those prefixes).
 - Keyboard drags position the overlay with a built-in `transform 250ms
   ease` transition (pointer drags: none) — keyboard parity costs no code.
+- **`onDragMove` carries a stale `over`.** dnd-kit dispatches it from an
+  effect keyed on the translation and `onDragOver` from one keyed on
+  `overId`, declared in that order, and `setOver` happens inside the second
+  — so a step that changes both reaches `onDragMove` with the row the drag
+  was over *before* it. **Live feedback must be wired to both handlers**;
+  they fire in the same flush, so the fresher answer lands. The Reference
+  Tree binds one function to the pair for exactly this reason. `onDragEnd`
+  is unaffected.
 - The default drop animation reads `getComputedStyle(node).transform` and
   `parseTransform` only accepts `matrix()`/`matrix3d()` — jsdom never
   produces those, so it early-returns before `node.animate` (which jsdom

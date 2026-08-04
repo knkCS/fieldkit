@@ -129,11 +129,10 @@ function mockRowRects() {
 }
 
 /**
- * Drives a drag from the keyboard, which is the only kind jsdom supports —
- * real pointer drags need a layout engine. `codes` are pressed in order
- * between the lift and the release.
+ * Lifts a row from the keyboard and leaves the drag in flight, so a test can
+ * read what the tree says about the drop before anything is applied.
  */
-async function keyboardDrag(name: string, ...codes: string[]) {
+async function liftWithKeyboard(name: string) {
 	const grip = screen.getByRole("button", { name: `Reorder ${name}` });
 	grip.focus();
 	fireEvent.keyDown(grip, { code: "Space" });
@@ -142,14 +141,42 @@ async function keyboardDrag(name: string, ...codes: string[]) {
 	await act(async () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 	});
-	for (const code of codes) {
-		await act(async () => {
-			fireEvent.keyDown(document.activeElement ?? grip, { code });
-		});
-	}
+}
+
+/** One key press during a drag that is already in flight. */
+async function pressDuringDrag(code: string) {
 	await act(async () => {
-		fireEvent.keyDown(document.activeElement ?? grip, { code: "Space" });
+		fireEvent.keyDown(document.activeElement ?? document.body, { code });
 	});
+}
+
+/** Releases a drag in flight, which is what applies it. */
+async function releaseDrag() {
+	await pressDuringDrag("Space");
+}
+
+/**
+ * Drives a drag from the keyboard, which is the only kind jsdom supports —
+ * real pointer drags need a layout engine. `codes` are pressed in order
+ * between the lift and the release.
+ */
+async function keyboardDrag(name: string, ...codes: string[]) {
+	await liftWithKeyboard(name);
+	for (const code of codes) await pressDuringDrag(code);
+	await releaseDrag();
+}
+
+/** The rows a drag has marked as ones releasing would take as children. */
+function markedRows(): string[] {
+	return screen
+		.queryAllByTestId("reference-row")
+		.filter((row) => row.getAttribute("data-adopted") === "true")
+		.map((row) => row.textContent?.trim() ?? "");
+}
+
+/** What the tree says out loud about the adoption a release would perform. */
+function announcedAdoption(): string {
+	return screen.getByTestId("reference-adoption-notice").textContent ?? "";
 }
 
 describe("the Reference Tree's rows", () => {
@@ -447,6 +474,40 @@ describe("dragging, driven from the keyboard", () => {
 		await screen.findByText("Content 1");
 		expect(screen.queryByRole("button", { name: /^Reorder/ })).toBeNull();
 	});
+
+	it("indents the dragged row to the slot it is over now, not the one before", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+				},
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowUp");
+
+		// Above every other row there is no Reference to nest under, so the
+		// only depth on offer is a root. One row lower it would have been 1 —
+		// which is what the live indent showed while it read the drop from the
+		// move event alone.
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 1],
+			["Content 3", 0],
+		]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-3" },
+			{ id: "article-1", children: [{ id: "article-2" }] },
+		]);
+		rects.mockRestore();
+	});
 });
 
 describe("dragging against the max_depth cap", () => {
@@ -550,6 +611,277 @@ describe("read-only trees", () => {
 		);
 
 		expect(renderedRows()).toEqual([["Content 1", 0]]);
+	});
+});
+
+describe("a drag that would adopt the branch below it", () => {
+	// Content 1 > Content 2, then Content 3 — the shape most of the adoptions
+	// below are read against.
+	const nested: Reference[] = [
+		{ id: "article-1", children: [{ id: "article-2" }] },
+		{ id: "article-3" },
+	];
+
+	it("marks the rows a release would take, and says how many", async () => {
+		const rects = mockRowRects();
+		renderTree({ value: nested });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+
+		// Content 3 is a leaf landing between Content 1 and its child, at
+		// Content 1's own depth: Content 2 follows a Reference shallower than
+		// itself, so releasing makes it a child. Announcing it is the whole
+		// point — the silent version is the defect this rule was modelled on.
+		expect(markedRows()).toEqual(["Content 2"]);
+		expect(announcedAdoption()).toBe("Adopting 1 Reference");
+
+		await releaseDrag();
+		rects.mockRestore();
+	});
+
+	it("stores exactly the arrangement the marking showed", async () => {
+		const rects = mockRowRects();
+		renderTree({ value: nested });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		const marked = markedRows();
+		await releaseDrag();
+
+		// What was marked is what moved, and nothing else did.
+		expect(marked).toEqual(["Content 2"]);
+		expect(stored()).toEqual([
+			{ id: "article-1" },
+			{ id: "article-3", children: [{ id: "article-2" }] },
+		]);
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 3", 0],
+			["Content 2", 1],
+		]);
+		rects.mockRestore();
+	});
+
+	it("takes the adopted Reference's own branch with it", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+				},
+				{ id: "article-4" },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		// Three rows up puts Content 4 between Content 1 and Content 2.
+		await liftWithKeyboard("Content 4");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowUp");
+
+		// Content 3 travels with Content 2 — a branch goes where its Reference
+		// goes — so both are marked and both are counted.
+		expect(markedRows()).toEqual(["Content 2", "Content 3"]);
+		expect(announcedAdoption()).toBe("Adopting 2 References");
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1" },
+			{
+				id: "article-4",
+				children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+			},
+		]);
+		rects.mockRestore();
+	});
+
+	it("marks nothing, and says nothing, when the drop adopts nothing", async () => {
+		const rects = mockRowRects();
+		renderTree({ value: nested });
+		await screen.findByText("Content 1");
+
+		// The same slot one level deeper: Content 3 arrives beside Content 2
+		// rather than above it, and no row the Author did not pick up moves.
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowRight");
+
+		expect(markedRows()).toEqual([]);
+		expect(announcedAdoption()).toBe("");
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1", children: [{ id: "article-3" }, { id: "article-2" }] },
+		]);
+		rects.mockRestore();
+	});
+
+	it("clears the marking once the drag is over", async () => {
+		const rects = mockRowRects();
+		renderTree({ value: nested });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		expect(markedRows()).toEqual(["Content 2"]);
+
+		// Escape cancels the drag, so nothing is pending to announce.
+		await pressDuringDrag("Escape");
+
+		expect(markedRows()).toEqual([]);
+		expect(announcedAdoption()).toBe("");
+		expect(stored()).toEqual(nested);
+		rects.mockRestore();
+	});
+
+	it("reaches adoption from the keyboard, with the arrow keys alone", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					children: [{ id: "article-2" }, { id: "article-3" }],
+				},
+			],
+		});
+		await screen.findByText("Content 1");
+
+		// Content 3 moved up among its siblings adopts nothing: it arrives at
+		// Content 2's own depth.
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		expect(markedRows()).toEqual([]);
+
+		// ← is what reaches the adopting level, the same one press a pointer
+		// would have to travel 24px leftwards for.
+		await pressDuringDrag("ArrowLeft");
+		expect(markedRows()).toEqual(["Content 2"]);
+		expect(announcedAdoption()).toBe("Adopting 1 Reference");
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1" },
+			{ id: "article-3", children: [{ id: "article-2" }] },
+		]);
+		rects.mockRestore();
+	});
+
+	it("refuses a Reference carrying children the level that would adopt", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3", children: [{ id: "article-4" }] },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		// The very drag that adopted above, by a Reference bringing a branch of
+		// its own: ← cannot reach shallower than the row below, so Content 3
+		// lands beside Content 2 instead of taking it.
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowLeft");
+
+		expect(markedRows()).toEqual([]);
+		expect(announcedAdoption()).toBe("");
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [
+					{ id: "article-3", children: [{ id: "article-4" }] },
+					{ id: "article-2" },
+				],
+			},
+		]);
+		rects.mockRestore();
+	});
+
+	it("withdraws the adopting level rather than adopting past max_depth", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+				},
+				{ id: "article-4" },
+			],
+			// Two levels, and the tree already reaches three — the case the
+			// clamp exists for (ADR-0012): adopting Content 2 would rearrange a
+			// branch no placement can make legal, so the level is not offered.
+			settings: { max_depth: 2 },
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 4");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowUp");
+		await pressDuringDrag("ArrowLeft");
+
+		expect(markedRows()).toEqual([]);
+
+		await releaseDrag();
+		// Beside Content 2 rather than above it: the ceiling won.
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [
+					{ id: "article-4" },
+					{ id: "article-2", children: [{ id: "article-3" }] },
+				],
+			},
+		]);
+		rects.mockRestore();
+	});
+
+	it("carries Attributes and Pins across, on every Reference that moved", async () => {
+		const rects = mockRowRects();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					pin: "article-1-v2",
+					attributes: { role: "lead" },
+					children: [
+						{
+							id: "article-2",
+							pin: "article-2-v1",
+							attributes: { role: "support" },
+						},
+					],
+				},
+				{ id: "article-3", pin: "article-3-v3", attributes: { role: "extra" } },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await keyboardDrag("Content 3", "ArrowUp");
+
+		// The moved Reference keeps its own, and so does the adopted one:
+		// adoption changes whose child a Reference is and nothing else.
+		expect(stored()).toEqual([
+			{ id: "article-1", pin: "article-1-v2", attributes: { role: "lead" } },
+			{
+				id: "article-3",
+				pin: "article-3-v3",
+				attributes: { role: "extra" },
+				children: [
+					{
+						id: "article-2",
+						pin: "article-2-v1",
+						attributes: { role: "support" },
+					},
+				],
+			},
+		]);
+		rects.mockRestore();
 	});
 });
 
