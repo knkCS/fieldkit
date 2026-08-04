@@ -201,9 +201,12 @@ Each field's value is resolved in this order:
 1. Empty values (`undefined`, `null`, `""`, or an empty array) render an
    em dash (`—`).
 2. Otherwise, the field type's registered `cellComponent` (the same one used
-   by `SpecDataTable`) renders the value. `group` fields are the exception:
-   they bypass their `cellComponent` entirely and instead render each item
-   as its own indented row of child fields.
+   by `SpecDataTable`) renders the value. Two field types are the exception
+   and bypass their `cellComponent` entirely: `group` renders each item as
+   its own indented row of child fields, and `single_reference` resolves the
+   referenced Content's name through the reference adapter (its cell can only
+   show an id, having neither adapter access nor async), falling back to the
+   id when it cannot be resolved.
 3. If no `cellComponent` is registered for the field type, a type-aware
    fallback formats the value: booleans render as `labels.booleanYes`/
    `labels.booleanNo` (not `String(value)`'s `"true"`/`"false"`), and arrays

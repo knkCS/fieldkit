@@ -2,7 +2,9 @@
 import { Box, Text } from "@chakra-ui/react";
 import { DescriptionList } from "@knkcs/anker/components";
 import type { SpecTab } from "../../schema/partition";
+import { asReference } from "../../schema/reference";
 import type { Field } from "../../schema/types";
+import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useFieldKit } from "../provider";
 
 const EMPTY = "—";
@@ -57,6 +59,31 @@ function formatFallback(
 	return String(value);
 }
 
+/**
+ * A Single Reference in read mode: the referenced Content's *current* name,
+ * resolved through the Adapter, falling back to its id when it cannot be
+ * resolved so the Reference is visible rather than gone.
+ *
+ * This is why the type's cell is bypassed below — a cell has neither Adapter
+ * access nor async and can only show the id.
+ */
+function SingleReferenceReadValue({
+	field,
+	value,
+}: {
+	field: Field;
+	value: unknown;
+}) {
+	const reference = asReference(value);
+	const name = useResolvedContentName(
+		reference?.id ?? null,
+		field.config.api_accessor,
+	);
+	if (!reference) return <Text color="fg.muted">{EMPTY}</Text>;
+	return <Text>{name ?? reference.id}</Text>;
+}
+SingleReferenceReadValue.displayName = "SingleReferenceReadValue";
+
 function ReadValue({
 	field,
 	value,
@@ -107,6 +134,17 @@ function ReadValue({
 				))}
 			</Box>
 		);
+	}
+
+	// Single References bypass their cellComponent for the same reason Groups
+	// do: the cell is table-density (an id, because a cell cannot resolve a
+	// name), read mode shows the Content's actual name. Following the Group
+	// precedent is the design decision #61 took for the Reference types
+	// rather than minting a plugin-level read component — note that this is
+	// now the second name this shared machinery knows, which ADR-0007's "shared
+	// machinery does not learn Field type names" is the argument against.
+	if (field.field_type === "single_reference") {
+		return <SingleReferenceReadValue field={field} value={value} />;
 	}
 
 	const Cell = getPlugin(field.field_type)?.cellComponent;

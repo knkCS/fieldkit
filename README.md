@@ -58,7 +58,7 @@ function ProductForm() {
 }
 ```
 
-## Built-in Field Types (25)
+## Built-in Field Types (28)
 
 | Category | Types |
 |---|---|
@@ -67,8 +67,8 @@ function ProductForm() {
 | Date/Time | `date`, `time` |
 | Selection | `select`, `radio`, `checkboxes` |
 | Boolean | `boolean` |
-| Structural | `section`, `group`, `blocks`, `array` |
-| Reference | `reference`, `toc_reference`, `media`, `virtual_table` |
+| Structural | `section`, `card`, `group`, `fieldset`, `blocks`, `array`, `list` |
+| Reference | `reference`, `single_reference`, `toc_reference`, `media`, `virtual_table` |
 
 ## Custom Field Types
 

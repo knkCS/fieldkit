@@ -25,6 +25,7 @@ const SEEDED: Record<string, unknown> = {
 	virtual_table: [],
 	select: "", // single (settings.multiple falsy); multi pinned separately
 	reference: [], // default settings (max_items undefined); 1 pinned separately
+	single_reference: null, // one Reference or none — never an array
 };
 const UNSEEDED = [
 	"color",
