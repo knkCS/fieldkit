@@ -1,0 +1,89 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./single-reference-field.stories";
+
+<Meta of={Stories} />
+
+# Single Reference
+
+Exactly one Reference, or none. The person filling in the form searches
+Contents in a `BaseSelect` and picks one; the picked Content's **current**
+name is resolved through the reference adapter rather than stored, so a
+Content renamed elsewhere reads correctly here.
+
+## When to Use
+
+Use **Single Reference** when a field points at one content item — "Primary
+article", "Owner", "Parent page". For a Reference Tree — several References,
+nestable — use [Reference](?path=/docs/fields-reference--docs).
+
+They are separate field types rather than one type switching on `max_items`,
+for the reason ADR-0005 gives: incompatible value shapes must not hide behind
+one `field_type`.
+
+## Value
+
+```ts
+Reference = {
+  id: string
+  pin?: string | null                    // not set by this field type yet
+  attributes?: Record<string, unknown>   // not set by this field type yet
+  children?: Reference[]                 // reference (tree) only
+}
+```
+
+The value is one `Reference` or `null` — **never an array**. Only `id` is
+written. A display name is never stored: it is resolved on load, every load.
+
+## Settings
+
+| Setting      | Type       | Default | Description                                              |
+|--------------|------------|---------|----------------------------------------------------------|
+| `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty allows any. |
+
+The config panel offers these as a multi-select of the blueprints
+`adapters.blueprint.list()` returns, degrading to comma-separated id entry
+when the adapter cannot enumerate them.
+
+## Adapter Interface
+
+Requires a `reference` adapter injected via `FieldKitProvider`:
+
+```ts
+reference: {
+  search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+  fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+}
+```
+
+- `search` is called with the field's configured blueprints while the menu is
+  open. Its results are shown as-is — the field does no filtering of its own,
+  because the adapter is the authority on what matches a query (ADR-0002).
+- `fetch` resolves the stored id to a name on load. A Content the adapter
+  cannot return still renders, showing its id rather than disappearing.
+- Adapter failures are reported through the provider's `onError`, against this
+  field's accessor.
+
+Without a `reference` adapter the field renders "Reference adapter not
+configured".
+
+## Validation
+
+| Rule       | Type      | Description                                            |
+|------------|-----------|--------------------------------------------------------|
+| `required` | `boolean` | When true, an empty field blocks submit and reports at its own path |
+
+The generated Schema is the only source of truth for emptiness: the control
+suppresses the browser's native required check so a Consumer sees the field's
+own message rather than a browser bubble.
+
+## Table Cell and Read Mode
+
+The table cell renders the referenced Content's **id** — a cell has neither
+adapter access nor async and cannot resolve a name. Read mode bypasses the
+cell for that reason and renders the resolved name, falling back to the id.
+
+<Canvas of={Stories.Empty} />
+<Canvas of={Stories.WithAStoredReference} />
+<Canvas of={Stories.UnresolvableReference} />
+<Canvas of={Stories.Required} />
+<Canvas of={Stories.ReadOnly} />

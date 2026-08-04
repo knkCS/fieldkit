@@ -19,6 +19,7 @@ import { referencePlugin } from "./reference";
 import { richTextPlugin } from "./rich-text";
 import { sectionPlugin } from "./section";
 import { selectPlugin } from "./select";
+import { singleReferencePlugin } from "./single-reference";
 import { slugPlugin } from "./slug";
 import { textPlugin } from "./text";
 import { textareaPlugin } from "./textarea";
@@ -69,6 +70,7 @@ export const complexTextFieldTypes: FieldTypePlugin<any>[] = [
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const referenceFieldTypes: FieldTypePlugin<any>[] = [
 	referencePlugin,
+	singleReferencePlugin,
 	tocReferencePlugin,
 	mediaPlugin,
 	virtualTablePlugin,
@@ -109,6 +111,7 @@ export {
 	codePlugin,
 	richTextPlugin,
 	referencePlugin,
+	singleReferencePlugin,
 	tocReferencePlugin,
 	mediaPlugin,
 	virtualTablePlugin,
@@ -131,6 +134,7 @@ export type { RadioSettings } from "./radio";
 export type { ReferenceSettings } from "./reference";
 export type { RichTextSettings } from "./rich-text";
 export type { SelectSettings } from "./select";
+export type { SingleReferenceSettings } from "./single-reference";
 export type { SlugSettings } from "./slug";
 // Settings types
 export type { TextSettings } from "./text";

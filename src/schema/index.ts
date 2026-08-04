@@ -23,6 +23,7 @@ export type {
 	ReferenceSettings,
 	RichTextSettings,
 	SelectSettings,
+	SingleReferenceSettings,
 	SlugSettings,
 	TextareaSettings,
 	TextSettings,
@@ -57,6 +58,7 @@ export {
 	selectionFieldTypes,
 	selectPlugin,
 	simpleFieldTypes,
+	singleReferencePlugin,
 	slugPlugin,
 	structuralFieldTypes,
 	textareaPlugin,
@@ -95,6 +97,8 @@ export type {
 	FieldTypePlugin,
 	SettingsProps,
 } from "./plugin";
+// The Reference value shape
+export { asReference, type Reference } from "./reference";
 export type { PluginRegistry } from "./registry";
 // Registry
 export { createRegistry } from "./registry";
