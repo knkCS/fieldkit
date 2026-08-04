@@ -2,6 +2,30 @@
 import { z } from "zod";
 
 /**
+ * Whether a Reference Field fixes its References to a particular target, and
+ * to which kind of target.
+ *
+ * The setting lives on the Field, never on the value: a Reference's Pin is a
+ * bare target id, and this is the only thing that says what that id points at
+ * (ADR-0008). Changing it therefore invalidates every Pin at once — they all
+ * fall back to the newest Version together, rather than some going stale — and
+ * fieldkit cannot itself refuse the change, because only a Consumer knows
+ * whether any Content would be stranded by it.
+ *
+ * `"none"` is the absence of pinning, not a third kind of target: a Field that
+ * does not pin never asks for a target and never stores one.
+ */
+export type PinMode = "none" | "release" | "version";
+
+/**
+ * The modes that actually pin.
+ *
+ * The only ones `listPinTargets` is ever asked for, so an Adapter never has to
+ * answer "what are the targets for not pinning".
+ */
+export type PinningMode = Exclude<PinMode, "none">;
+
+/**
  * The value one Reference Field entry holds.
  *
  * Fieldkit owns this shape; a Consumer maps it to whatever it persists. The
@@ -63,6 +87,29 @@ export const referenceTreeSchema: z.ZodType<Reference> = z.lazy(() =>
 		children: z.array(referenceTreeSchema).optional(),
 	}),
 );
+
+/**
+ * The Reference to store for one Content and one Pin.
+ *
+ * No Pin writes no `pin` key at all, rather than an explicit `null`: an absent
+ * Pin already means the newest Version, and a Field that does not pin has to
+ * store exactly what it stored before pinning existed. Everything else the
+ * Reference carries travels across untouched — it is the same Reference, only
+ * its Pin changed.
+ *
+ * It lives here rather than in either control because it is a rule about the
+ * value's shape, and both the tree Field and the Single Reference write Pins.
+ */
+export function withPin(
+	previous: Reference | null | undefined,
+	id: string,
+	pin: string | null,
+): Reference {
+	const next: Reference = { ...previous, id };
+	delete next.pin;
+	if (pin) next.pin = pin;
+	return next;
+}
 
 /**
  * Reads a form value as one Reference, or `null` when it isn't one.

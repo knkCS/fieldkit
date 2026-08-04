@@ -88,7 +88,11 @@ function renderEditor({
 		</ChakraProvider>,
 	);
 
-	return { onChange, blueprints: () => screen.getByLabelText(/Blueprints/) };
+	return {
+		onChange,
+		blueprints: () => screen.getByLabelText(/Blueprints/),
+		pinMode: () => screen.getByLabelText(/Pin references to/),
+	};
 }
 
 describe("ReferenceSettingsEditor", () => {
@@ -136,6 +140,71 @@ describe("ReferenceSettingsEditor", () => {
 		expect(await screen.findByText("Author")).toBeInTheDocument();
 	});
 
+	it("offers a pin mode of none, release or version", async () => {
+		const user = userEvent.setup();
+		const { pinMode } = renderEditor();
+
+		await user.click(pinMode());
+
+		// Read off the open menu by the words an Author sees: not pinning is
+		// named after what it gets you, the other two after what they pin to.
+		// The options, not `getByText` — the chosen one is also rendered as the
+		// select's own value.
+		expect(
+			(await screen.findAllByRole("option")).map((option) =>
+				option.textContent?.trim(),
+			),
+		).toEqual(["The newest version", "A chosen release", "A chosen version"]);
+	});
+
+	it("starts a Field on the newest version", () => {
+		renderEditor();
+
+		expect(screen.getByText("The newest version")).toBeInTheDocument();
+	});
+
+	it("stores the pin mode the Author chooses", async () => {
+		const user = userEvent.setup();
+		const { onChange, pinMode } = renderEditor();
+
+		await user.click(pinMode());
+		await user.click(await screen.findByText("A chosen release"));
+
+		expect(onChange).toHaveBeenLastCalledWith({ pin_mode: "release" });
+	});
+
+	it("leaves the Field's other settings alone when the pin mode changes", async () => {
+		const user = userEvent.setup();
+		const { onChange, pinMode } = renderEditor({
+			initial: { blueprints: ["article"] },
+		});
+
+		await user.click(pinMode());
+		await user.click(await screen.findByText("A chosen version"));
+
+		expect(onChange).toHaveBeenLastCalledWith({
+			blueprints: ["article"],
+			pin_mode: "version",
+		});
+	});
+
+	it("shows a Spec written before pinning existed as not pinning", () => {
+		renderEditor({ initial: { blueprints: ["article"] } });
+
+		expect(screen.getByText("The newest version")).toBeInTheDocument();
+	});
+
+	it("warns that changing the pin mode strands the pins already saved", () => {
+		renderEditor();
+
+		// Fieldkit cannot refuse the change, and does not rewrite the stranded
+		// Pins either — only a Consumer knows whether any Content would be
+		// stranded, and its own upgrade nulls them (ADR-0008). So it says so.
+		expect(
+			screen.getByText(/strands every pin already saved/i),
+		).toBeInTheDocument();
+	});
+
 	it("falls back to blueprint id entry when the adapter cannot list", async () => {
 		const user = userEvent.setup();
 		const { onChange, blueprints } = renderEditor({
@@ -181,5 +250,6 @@ describe("reference in the type picker", () => {
 		);
 
 		expect(screen.getByLabelText(/Blueprints/)).toBeInTheDocument();
+		expect(screen.getByLabelText(/Pin references to/)).toBeInTheDocument();
 	});
 });

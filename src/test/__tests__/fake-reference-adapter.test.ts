@@ -160,6 +160,88 @@ describe("createFakeReferenceAdapter", () => {
 		await expect(adapter.fetch(["article-1"])).rejects.toThrow("gateway down");
 	});
 
+	it("offers Pin targets of the kind it was asked for", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const releases = await adapter.listPinTargets("article-1", "release");
+		const versions = await adapter.listPinTargets("article-1", "version");
+
+		// Two different kinds of thing, told apart by the words alone: a test
+		// that picks "Spring release" has proved the Field's mode decided what
+		// it was offered.
+		expect(releases.map((target) => target.label)).toEqual([
+			"Spring release",
+			"Launch",
+		]);
+		expect(versions.map((target) => target.label)).toEqual([
+			"Version 3",
+			"Version 2",
+			"Version 1",
+		]);
+	});
+
+	it("scopes Pin targets to the Content they belong to", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		const first = await adapter.listPinTargets("article-1", "release");
+		const second = await adapter.listPinTargets("article-2", "release");
+
+		// A Pin can never point at another Content's Release, so no id may be
+		// shared between two Contents.
+		expect(first.map((target) => target.id)).not.toEqual(
+			second.map((target) => target.id),
+		);
+		expect(first[0].id).toContain("article-1");
+	});
+
+	it("records which Content and which kind it was asked for", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		await adapter.listPinTargets("article-3", "version");
+
+		expect(adapter.pinTargetQueries).toEqual([
+			{ contentId: "article-3", mode: "version" },
+		]);
+	});
+
+	it("answers with the Pin targets a Content declares for itself", async () => {
+		const adapter = createFakeReferenceAdapter({
+			contents: [
+				{
+					id: "only-1",
+					display_name: "Only One",
+					blueprint_id: "thing",
+					pin_targets: {
+						release: [{ id: "r-x", label: "The only release" }],
+					},
+				},
+			],
+		});
+
+		expect(await adapter.listPinTargets("only-1", "release")).toEqual([
+			{ id: "r-x", label: "The only release" },
+		]);
+		// The kind it did not declare still falls back to the generated ones, so
+		// declaring one mode never silently empties the other.
+		expect(await adapter.listPinTargets("only-1", "version")).toHaveLength(3);
+	});
+
+	it("has no Pin targets for a Content that does not exist", async () => {
+		const adapter = createFakeReferenceAdapter();
+
+		expect(await adapter.listPinTargets("deleted-42", "release")).toEqual([]);
+	});
+
+	it("rejects a Pin target lookup on demand, for the degrade paths", async () => {
+		const adapter = createFakeReferenceAdapter({
+			failPinTargets: new Error("pin lookup exploded"),
+		});
+
+		await expect(
+			adapter.listPinTargets("article-1", "release"),
+		).rejects.toThrow("pin lookup exploded");
+	});
+
 	it("starts from the catalogue it was given", async () => {
 		const adapter = createFakeReferenceAdapter({
 			contents: [

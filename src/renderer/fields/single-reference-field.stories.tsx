@@ -77,6 +77,42 @@ export const Required: Story = {
 	),
 };
 
+/** A Field that pins: a second select beside the Content select, so one
+ * Content and its Release are chosen without a drawer. */
+export const PinnedToARelease: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				{
+					...makeField(),
+					settings: { blueprints: ["article"], pin_mode: "release" },
+				},
+			]}
+			defaultValues={{
+				primary_article: { id: "article-1", pin: "article-1-r2" },
+			}}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/** Pinning, with no target chosen: the second select reads "Newest version",
+ * which is not a hint but the state itself — an absent Pin already means it. */
+export const PinningWithNoTargetChosen: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				{
+					...makeField(),
+					settings: { blueprints: ["article"], pin_mode: "version" },
+				},
+			]}
+			defaultValues={{ primary_article: { id: "article-2" } }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
 /** No Blueprints configured: the Adapter decides what may be referenced. */
 export const AnyBlueprint: Story = {
 	render: () => (

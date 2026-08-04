@@ -10,6 +10,7 @@ export type {
 	FieldKitAdapters,
 	MediaFilter,
 	MediaItem,
+	PinTarget,
 	ReferenceItem,
 	ReferenceSearchQuery,
 	ReferenceSearchResult,

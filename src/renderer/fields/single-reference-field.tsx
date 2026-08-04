@@ -1,18 +1,21 @@
-import { Text } from "@chakra-ui/react";
+import { Box, Flex, Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
 import { FormField } from "@knkcs/anker/forms";
 import { useEffect, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
-import type { Reference } from "../../schema/reference";
+import type { PinningMode, Reference } from "../../schema/reference";
+import { withPin } from "../../schema/reference";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
+import { usePinTargets } from "../hooks/use-pin-targets";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
- * `label` is what the person filling in the form reads. */
+ * `label` is what the person filling in the form reads. Serves both selects —
+ * a Content and a Pin target reduce to exactly the same two things here. */
 interface ContentOption {
 	id: string;
 	label: string;
@@ -22,6 +25,18 @@ interface ContentOption {
  * narrowing further is what the search box is for. The Reference Field's
  * drawer is the control for browsing a whole catalogue. */
 const MENU_PAGE_SIZE = 50;
+
+/**
+ * What the second select is called, per kind of target it offers.
+ *
+ * Keyed by `PinningMode` rather than written as a ternary, so a third kind of
+ * target could not be added without this naming it. Fieldkit names the two
+ * kinds — the setting already does — without modelling either of them.
+ */
+const PIN_LABELS: Record<PinningMode, string> = {
+	release: "Release",
+	version: "Version",
+};
 
 /**
  * Exactly one Reference, picked from the Contents the reference Adapter
@@ -35,6 +50,11 @@ const MENU_PAGE_SIZE = 50;
  * - **It never re-filters the Adapter's results** (`filterOption={null}`).
  *   The Adapter decides what matches a query; fieldkit knows nothing about
  *   Content beyond an id and a display name (ADR-0002).
+ *
+ * When the Field pins, a second select sits beside the first, listing what that
+ * one Content may be pinned to. Two selects rather than the tree Field's
+ * drawer, because with exactly one Reference there is nothing to browse: the
+ * Content and its Release are both one click away.
  */
 export function SingleReferenceField({
 	field,
@@ -49,8 +69,13 @@ export function SingleReferenceField({
 	// effect deps must not churn with it.
 	const blueprints = useStableValue(settings?.blueprints ?? []);
 
+	// Absent reads as "does not pin", so a Spec authored before pinning existed
+	// keeps its single select.
+	const pinMode = settings?.pin_mode ?? "none";
+
 	const value = useWatch({ name: accessor }) as Reference | null | undefined;
 	const selectedId = value?.id ?? null;
+	const pinnedId = value?.pin ?? null;
 
 	const [options, setOptions] = useState<ContentOption[]>([]);
 	const [searching, setSearching] = useState(false);
@@ -102,6 +127,15 @@ export function SingleReferenceField({
 		};
 	}, [adapter, blueprints, query, menuOpen, report]);
 
+	// Unlike the Content search, this runs without waiting for a menu to open: a
+	// stored Pin is an id, and the label beside it can only come from here —
+	// there is no `fetch` for a Pin target.
+	const { targets, loading: loadingPins } = usePinTargets(
+		selectedId,
+		pinMode,
+		accessor,
+	);
+
 	const selected: ContentOption | null = selectedId
 		? {
 				id: selectedId,
@@ -111,6 +145,26 @@ export function SingleReferenceField({
 					selectedId,
 			}
 		: null;
+
+	const pinOptions: ContentOption[] = targets.map((target) => ({
+		id: target.id,
+		label: target.label,
+	}));
+
+	// A Pin the Field no longer offers — what a `pin_mode` change leaves behind
+	// — keeps its id on screen rather than vanishing, exactly as an unresolvable
+	// Content does. The stored value is never rewritten: nulling a stranded Pin
+	// is the Consumer's upgrade to do (ADR-0008).
+	const pinned: ContentOption | null = pinnedId
+		? (pinOptions.find((option) => option.id === pinnedId) ?? {
+				id: pinnedId,
+				label: pinnedId,
+			})
+		: null;
+
+	// Null while the Field does not pin, which is also what keeps the lookup
+	// above exhaustive over the kinds that do.
+	const pinLabel = pinMode === "none" ? null : PIN_LABELS[pinMode];
 
 	if (!adapter) {
 		return (
@@ -139,38 +193,82 @@ export function SingleReferenceField({
 			readOnly={readOnly}
 		>
 			{(formField) => (
-				<BaseSelect<ContentOption>
-					// Matches the `htmlFor` anker's FormField puts on the label, so
-					// the label names react-select's input.
-					inputId={accessor}
-					aria-describedby={formField["aria-describedby"]}
-					options={options}
-					value={selected}
-					// CLAUDE.md says to pass `readOnly`, not `disabled`, because
-					// anker styles them differently. anker's `BaseSelect` exposes
-					// only `disabled` (`BaseSelectProps`), so this is the one way
-					// to stop a read-mode control being changed. The surrounding
-					// `FormField` still gets `readOnly`, so the label and helper
-					// text keep read-mode styling.
-					disabled={readOnly}
-					loading={searching}
-					filterOption={null}
-					inputValue={query}
-					onInputChange={(next) => setQuery(next)}
-					onMenuOpen={() => setMenuOpen(true)}
-					onMenuClose={() => setMenuOpen(false)}
-					onBlur={formField.onBlur}
-					onChange={(next) => {
-						const option = Array.isArray(next) ? next[0] : next;
-						// One Reference or none — never an array, and never a name.
-						formField.onChange(option ? { id: option.id } : null);
-						setPicked(option ?? null);
-					}}
-					placeholder="Search content..."
-					noOptionsMessage={({ inputValue }) =>
-						inputValue ? "No content matches" : "No content available"
-					}
-				/>
+				<Flex gap="2" align="start">
+					<Box flex="1" minWidth="0">
+						<BaseSelect<ContentOption>
+							// Matches the `htmlFor` anker's FormField puts on the label,
+							// so the label names react-select's input.
+							inputId={accessor}
+							aria-describedby={formField["aria-describedby"]}
+							options={options}
+							value={selected}
+							// CLAUDE.md says to pass `readOnly`, not `disabled`, because
+							// anker styles them differently. anker's `BaseSelect` exposes
+							// only `disabled` (`BaseSelectProps`), so this is the one way
+							// to stop a read-mode control being changed. The surrounding
+							// `FormField` still gets `readOnly`, so the label and helper
+							// text keep read-mode styling.
+							disabled={readOnly}
+							loading={searching}
+							filterOption={null}
+							inputValue={query}
+							onInputChange={(next) => setQuery(next)}
+							onMenuOpen={() => setMenuOpen(true)}
+							onMenuClose={() => setMenuOpen(false)}
+							onBlur={formField.onBlur}
+							onChange={(next) => {
+								const option = Array.isArray(next) ? next[0] : next;
+								setPicked(option ?? null);
+								if (!option) {
+									formField.onChange(null);
+									return;
+								}
+								// Re-picking the Content already stored changes nothing —
+								// react-select reports it as a change all the same.
+								if (option.id === selectedId) return;
+								// A different Content is a different Reference, so the Pin
+								// goes with it: a Pin can never point at a Release of
+								// another Content. One Reference or none — never an
+								// array, and never a name.
+								formField.onChange({ id: option.id });
+							}}
+							placeholder="Search content..."
+							noOptionsMessage={({ inputValue }) =>
+								inputValue ? "No content matches" : "No content available"
+							}
+						/>
+					</Box>
+
+					{pinLabel && (
+						<Box flex="1" minWidth="0">
+							<BaseSelect<ContentOption>
+								inputId={`${accessor}-pin`}
+								// Its own name: anker's FormField label already names the
+								// Content select, and two controls cannot share one label.
+								aria-label={pinLabel}
+								options={pinOptions}
+								value={pinned}
+								// Nothing to pin to until there is a Content to pin.
+								disabled={readOnly || !selectedId}
+								loading={loadingPins}
+								onBlur={formField.onBlur}
+								onChange={(next) => {
+									const option = Array.isArray(next) ? next[0] : next;
+									if (!selectedId) return;
+									formField.onChange(
+										withPin(value, selectedId, option?.id ?? null),
+									);
+								}}
+								// Not a hint but the state itself: no Pin *is* the newest
+								// Version, so an empty control has already said so.
+								placeholder="Newest version"
+								noOptionsMessage={() =>
+									`No ${pinLabel.toLowerCase()} to pin to`
+								}
+							/>
+						</Box>
+					)}
+				</Flex>
 			)}
 		</FormField>
 	);

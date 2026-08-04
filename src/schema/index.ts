@@ -98,7 +98,13 @@ export type {
 	SettingsProps,
 } from "./plugin";
 // The Reference value shape
-export { asReference, type Reference } from "./reference";
+export {
+	asReference,
+	type PinMode,
+	type PinningMode,
+	type Reference,
+	withPin,
+} from "./reference";
 export type { PluginRegistry } from "./registry";
 // Registry
 export { createRegistry } from "./registry";

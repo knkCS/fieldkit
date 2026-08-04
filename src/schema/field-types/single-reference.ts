@@ -4,6 +4,7 @@ import { SingleReferenceSettingsEditor } from "../../editor/field-settings/singl
 import { SingleReferenceField } from "../../renderer/fields/single-reference-field";
 import { SingleReferenceCell } from "../../table/cells/single-reference-cell";
 import type { FieldTypePlugin } from "../plugin";
+import type { PinMode } from "../reference";
 import { referenceValueSchema } from "../reference";
 import type { Field } from "../types";
 
@@ -12,6 +13,14 @@ export interface SingleReferenceSettings {
 	 * Adapter decides — fieldkit has no notion of a Blueprint kind
 	 * (ADR-0002). */
 	blueprints?: string[];
+	/**
+	 * Whether this Field fixes its Reference to a Release, to a Version, or
+	 * tracks the newest Version.
+	 *
+	 * The same setting the tree Reference type carries, and it means the same
+	 * thing; only the control differs. Absent reads as `"none"`.
+	 */
+	pin_mode?: PinMode;
 }
 
 /**
@@ -46,7 +55,9 @@ export const singleReferencePlugin: FieldTypePlugin<SingleReferenceSettings> = {
 		});
 	},
 
-	defaultSettings: { blueprints: [] },
+	// A new Field tracks the newest Version, on the same terms as `reference`:
+	// pinning is a deliberate choice, and it puts a second control on screen.
+	defaultSettings: { blueprints: [], pin_mode: "none" },
 
 	// `null`, not `undefined`: "no Reference" is a value the control renders
 	// (an empty select), and a required Field must fail on it rather than on

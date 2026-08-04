@@ -173,6 +173,33 @@ export const Required: Story = {
 	),
 };
 
+/**
+ * A Field that pins: adding gains a second step, where the Content's Releases
+ * are offered alongside the newest Version. Open the drawer and pick a Content
+ * to see it.
+ */
+export const PinnedToARelease: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField({}, { blueprints: ["article"], pin_mode: "release" })]}
+			defaultValues={{ related: [{ id: "article-1", pin: "article-1-r2" }] }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/** The same second step, offering Versions instead — the value is identical
+ * either way, since a Pin stores only a target id (ADR-0008). */
+export const PinnedToAVersion: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField({}, { blueprints: ["article"], pin_mode: "version" })]}
+			defaultValues={{ related: [] }}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
 /** No Blueprints configured: the Adapter decides what may be referenced. */
 export const AnyBlueprint: Story = {
 	render: () => (

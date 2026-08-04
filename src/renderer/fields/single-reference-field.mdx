@@ -25,24 +25,50 @@ one `field_type`.
 ```ts
 Reference = {
   id: string
-  pin?: string | null                    // not set by this field type yet
+  pin?: string | null                    // the Pin's target id; absent = newest Version
   attributes?: Record<string, unknown>   // not set by this field type yet
   children?: Reference[]                 // reference (tree) only
 }
 ```
 
-The value is one `Reference` or `null` — **never an array**. Only `id` is
-written. A display name is never stored: it is resolved on load, every load.
+The value is one `Reference` or `null` — **never an array**. A display name is
+never stored: it is resolved on load, every load.
+
+`pin` holds **only the target id**. Which *kind* of target it is comes from the
+field's `pin_mode`, never from the value (ADR-0008) — which is why changing
+`pin_mode` invalidates every stored pin at once rather than leaving some stale.
+No pin at all means the Content's newest Version.
 
 ## Settings
 
-| Setting      | Type       | Default | Description                                              |
-|--------------|------------|---------|----------------------------------------------------------|
-| `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty allows any. |
+| Setting      | Type                                  | Default  | Description                                              |
+|--------------|---------------------------------------|----------|----------------------------------------------------------|
+| `blueprints` | `string[]`                            | `[]`     | The blueprints this field may point at. Empty allows any. |
+| `pin_mode`   | `"none" \| "release" \| "version"`    | `"none"` | Whether the reference is fixed to a release, to a version, or tracks the newest version. Absent reads as `"none"` |
 
-The config panel offers these as a multi-select of the blueprints
+The config panel offers the blueprints as a multi-select of the blueprints
 `adapters.blueprint.list()` returns, degrading to comma-separated id entry
-when the adapter cannot enumerate them.
+when the adapter cannot enumerate them. `pin_mode` is a select, with a warning
+that changing it strands every pin already saved — fieldkit cannot refuse the
+change, because only a Consumer knows whether any Content would be stranded
+(ADR-0008); a Consumer freezes the setting through `config.locked_settings`
+instead.
+
+## Pinning
+
+When `pin_mode` is not `"none"`, a **second `BaseSelect` sits beside the
+Content select**, listing what that one Content may be pinned to. Two selects
+rather than the tree field's drawer, because with exactly one reference there
+is nothing to browse.
+
+- Empty means the newest Version, which is what the placeholder says. Clearing
+  the select removes the `pin` key entirely rather than writing `null`.
+- **Changing the Content clears the pin** — a pin can never point at a release
+  of a different Content. Re-picking the Content already stored is not a change
+  and keeps the pin.
+- A stored pin the field no longer offers — what a `pin_mode` change leaves
+  behind — keeps its id on screen rather than vanishing, and the stored value
+  is never rewritten. Nulling a stranded pin is the Consumer's upgrade to do.
 
 ## Adapter Interface
 
@@ -50,18 +76,34 @@ Requires a `reference` adapter injected via `FieldKitProvider`:
 
 ```ts
 reference: {
-  search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
+  search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+  listPinTargets: (
+    contentId: string,
+    mode: "release" | "version",
+  ) => Promise<PinTarget[]>;
+}
+
+interface PinTarget {
+  id: string;            // what `pin` stores
+  label: string;         // what the person reads
+  description?: string;  // a second line, where one helps
 }
 ```
 
 - `search` is called with the field's configured blueprints while the menu is
-  open. Its results are shown as-is — the field does no filtering of its own,
-  because the adapter is the authority on what matches a query (ADR-0002).
+  open, one page at a time. Its results are shown as-is — the field does no
+  filtering of its own, because the adapter is the authority on what matches a
+  query (ADR-0002).
 - `fetch` resolves the stored id to a name on load. A Content the adapter
   cannot return still renders, showing its id rather than disappearing.
+- `listPinTargets` is called only when the field pins, and only once a Content
+  is chosen. The adapter normalises whichever kind `pin_mode` named into an id,
+  a label and a description, so **fieldkit models neither a Release nor a
+  Version**. A Consumer whose Contents have no such thing answers with an empty
+  list.
 - Adapter failures are reported through the provider's `onError`, against this
-  field's accessor.
+  field's accessor. A failed pin lookup costs the targets, not the control.
 
 Without a `reference` adapter the field renders "Reference adapter not
 configured".

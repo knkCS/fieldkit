@@ -11,7 +11,7 @@ A **Reference Tree**: References to other Contents, ordered and nested. Each row
 
 Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items" — and when the arrangement of those links is itself meaningful. For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
 
-Per-Reference attributes and pinning arrive in later tickets.
+Per-Reference attributes arrive in a later ticket.
 
 ## The Tree
 
@@ -37,7 +37,7 @@ Reference[]
 
 interface Reference {
   id: string                            // the referenced Content
-  pin?: string | null                   // later ticket
+  pin?: string | null                   // the Pin's target id; absent = newest Version
   attributes?: Record<string, unknown>  // later ticket
   children?: Reference[]                // the branch under this Reference
 }
@@ -49,15 +49,24 @@ Form data is only as well-formed as whatever produced it, so a stored entry that
 
 A display name is **never stored**. Names are resolved through the adapter on every load, so a Content renamed elsewhere reads correctly here, and one that no longer resolves keeps its id on screen rather than vanishing.
 
+`pin` holds **only the target id**. Which *kind* of target it is comes from the field's `pin_mode`, never from the value (ADR-0008) — which is why changing `pin_mode` invalidates every stored pin at once rather than leaving some stale. No pin at all means the Content's newest Version.
+
 ## Settings
 
-| Setting      | Type       | Default | Description                                                        |
-|--------------|------------|---------|--------------------------------------------------------------------|
-| `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty means the adapter decides |
-| `max_items`  | `number`   | —       | A cap over the whole tree — a nested child counts as much as a root. Declared, not yet enforced |
-| `max_depth`  | `number`   | —       | The deepest a Reference may sit, roots being zero. Declared, not yet enforced |
+| Setting      | Type                               | Default  | Description                                                        |
+|--------------|------------------------------------|----------|--------------------------------------------------------------------|
+| `blueprints` | `string[]`                         | `[]`     | The blueprints this field may point at. Empty means the adapter decides |
+| `max_items`  | `number`                           | —        | A cap over the whole tree — a nested child counts as much as a root. Declared, not yet enforced |
+| `max_depth`  | `number`                           | —        | The deepest a Reference may sit, roots being zero. Declared, not yet enforced |
+| `pin_mode`   | `"none" \| "release" \| "version"` | `"none"` | Whether References are fixed to a release, to a version, or track the newest version. Absent reads as `"none"` |
 
-The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints.
+The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
+
+## Pinning, and the drawer's second step
+
+When `pin_mode` is `"none"` the add drawer has **exactly one step**: picking a Content stores `{ id }` and closes, and the adapter is never asked about pin targets.
+
+When the field pins, picking a Content opens a **second step** listing what that Content may be pinned to. Choosing a target stores `{ id, pin }`; choosing **Newest version** — always first, and available even while the targets load or after a lookup that failed — stores `{ id }` with no `pin` key at all. **Back** returns to the browse, still narrowed to whatever was searched, having stored nothing.
 
 ## Adapter Interface
 
@@ -65,8 +74,18 @@ The Blueprints control is the shared `BlueprintPicker`, so it falls back to blue
 reference: {
   search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
+  listPinTargets: (
+    contentId: string,
+    mode: "release" | "version",
+  ) => Promise<PinTarget[]>;
   getSearchFilters?: () => Field[];   // optional
   getResultColumns?: () => Field[];   // optional
+}
+
+interface PinTarget {
+  id: string;            // what `pin` stores
+  label: string;         // what the person reads
+  description?: string;  // a second line, where one helps
 }
 
 interface ReferenceSearchQuery {
@@ -92,6 +111,8 @@ Filtering and columns mean domain nouns — a status, an assigned user — that 
 The values the filter form collects travel back through `search` as `filters` — **an opaque record fieldkit never inspects**. A filter no field type can express needs a new field type rather than a bespoke control.
 
 Both methods are **optional**. Without them the picker degrades to a search box and a name column, which is what a Consumer that has not implemented them should get rather than an error.
+
+`listPinTargets` is **not** optional, and is the only adapter method whose absence a pinning field could not survive: only the adapter knows a Content's Releases or Versions, and it is the adapter that normalises whichever kind was asked for into an id, a label and a description — so **fieldkit models neither a Release nor a Version**. A Consumer whose Contents have no such thing answers with an empty list. It is called only when the field pins, and only once a Content is chosen.
 
 ## Validation
 
@@ -125,7 +146,8 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 - `max_items` and `max_depth` are declared but not enforced — neither the Schema nor the drag clamps to them yet.
 - The drawer always adds at the root; a new Reference is nested by dragging it.
-- No pinning and no per-Reference attributes yet.
+- No per-Reference attributes yet.
+- A stored pin is not shown on the row; it is chosen when the Reference is added and changed by removing and re-adding it.
 - Read mode shows the count from the cell rather than a resolved tree.
 - The browse drawer's page size is fixed at 10.
 - Very large trees are not virtualised.

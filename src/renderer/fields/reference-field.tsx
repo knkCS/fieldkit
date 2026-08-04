@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
+import { withPin } from "../../schema/reference";
 import { readReferenceTree } from "../../schema/reference-tree";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
@@ -88,10 +89,14 @@ export function ReferenceField({
 			readOnly={readOnly}
 		>
 			{(formField) => {
-				function handleAdd(content: ReferenceItem) {
-					// The id and nothing else. A display name in stored data would
-					// go stale the moment the Content is renamed.
-					formField.onChange([...entries, { id: content.id }]);
+				function handleAdd(content: ReferenceItem, pin: string | null) {
+					// The id, and the Pin's target id where there is one. Never a
+					// display name — it would go stale the moment the Content is
+					// renamed — and never which *kind* of target the Pin is: the
+					// Field's `pin_mode` is the only thing that says (ADR-0008).
+					// `withPin` is what keeps "no Pin means no key" written down
+					// once, for both Reference Field types.
+					formField.onChange([...entries, withPin(null, content.id, pin)]);
 					setPicking(false);
 				}
 
@@ -130,6 +135,9 @@ export function ReferenceField({
 								onPick={handleAdd}
 								blueprintIds={blueprints}
 								fieldId={accessor}
+								// The one thing that decides whether adding is one
+								// step or two.
+								pinMode={settings?.pin_mode}
 							/>
 						)}
 					</Box>
