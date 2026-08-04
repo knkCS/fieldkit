@@ -90,9 +90,8 @@ export function ReferenceField({
 	// Add control: where the Reference goes, and the write that puts it there
 	// (see `ReferenceInsertRequest`). Both entry points open the same drawer,
 	// and only this says which of them did.
-	const [inserting, setInserting] = useState<ReferenceInsertRequest | null>(
-		null,
-	);
+	const [insertRequest, setInsertRequest] =
+		useState<ReferenceInsertRequest | null>(null);
 	// Which Reference's Attributes are open, by where it sits in the stored
 	// value — never the row object, which is rebuilt on every keystroke inside
 	// the drawer. The name is carried along because it is the drawer's title
@@ -179,7 +178,7 @@ export function ReferenceField({
 				 * of them opened it. */
 				function closePicker() {
 					setPicking(false);
-					setInserting(null);
+					setInsertRequest(null);
 				}
 
 				function handleAdd(content: ReferenceItem, pin: string | null) {
@@ -194,7 +193,7 @@ export function ReferenceField({
 					// so the folding follows it. The Add control appends at the
 					// root, which is what it means — and the only thing an empty
 					// tree, which has no gaps to put a strip in, can do.
-					if (inserting) inserting.commit(reference);
+					if (insertRequest) insertRequest.commit(reference);
 					else formField.onChange([...entries, reference]);
 					closePicker();
 				}
@@ -215,7 +214,7 @@ export function ReferenceField({
 							onChange={formField.onChange}
 							depthCeiling={depthCeiling}
 							attributeSpec={attributeSpec}
-							onInsert={setInserting}
+							onInsert={setInsertRequest}
 							atItemCap={atCap}
 							onOpenAttributes={(row) =>
 								setFilling({
@@ -259,7 +258,7 @@ export function ReferenceField({
 							<ReferencePickerDrawer
 								// One browse, two ways in: the Add control and any of
 								// the insertion strips.
-								open={picking || inserting !== null}
+								open={picking || insertRequest !== null}
 								onClose={closePicker}
 								onPick={handleAdd}
 								blueprintIds={blueprints}

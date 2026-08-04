@@ -508,11 +508,11 @@ export function ReferenceTree({
 
 	// No strips without somewhere to put a Reference *between*: an empty tree
 	// has no gaps, and the Field's Add control is its way in.
-	const inserting = !readOnly && onInsert !== undefined && shown.length > 0;
+	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
 
 	/** The gap at `slot`: a strip, or the inert spacer a drag replaces it with. */
 	function insertionGap(slot: number) {
-		if (!inserting) return null;
+		if (!stripsOffered) return null;
 		if (activeKey !== null) return <ReferenceInsertSpacer />;
 		return (
 			<ReferenceInsertStrip
