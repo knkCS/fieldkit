@@ -45,11 +45,13 @@ The strip **says what it will do** — the sentence it shows is also its accessi
 
 It names **what it actually names**: the sibling in the sibling case, the parent in the child case. Core names the prospective *parent* in both, so its strip can read "+ Add sibling of A" while re-parenting A's whole branch.
 
+That same sentence is repeated as a **header line in the add drawer**, through both of its steps — see [the drawer's chrome](#the-drawers-chrome-steps-and-destination). It is carried across rather than composed a second time (`reference-destination.ts` is the one place it is built), because two wordings of one fact are free to disagree.
+
 The depth on offer is bounded by the row above (nesting may not skip a level), by the row below (the floor), and by `max_depth` — all of them `projectInsertDepth`'s answer, the same model the drag reads with a different pair of neighbours. Inserting **under a folded Reference** lands at the end of its branch and unfolds it, exactly as a drop into a folded branch already does.
 
 At `max_items` the strips are disabled, on the same terms the Add control is — an unset cap is no cap. While a drag is running they are replaced by inert spacers of the same height, so two insertion affordances never compete for one gap and the list does not jump when a row is lifted.
 
-The **Add control stays**, and appends at the root. It is the way into an empty tree, which has no gaps to put a strip in.
+The **Add control stays**, and appends at the root. It is the way into an empty tree, which has no gaps to put a strip in. Its append is put into the same words as a strip's — `Insert as a sibling of <last root>`, or `Insert as a root Reference` on an empty tree — so the drawer it opens says where the Reference is going rather than nothing.
 
 ### Operating a strip from the keyboard
 
@@ -146,6 +148,18 @@ The reference plugin composes the Spec itself, exactly as the Blocks plugin comp
 When `pin_mode` is `"none"` the add drawer has **exactly one step**: picking a Content stores `{ id }` and closes, and the adapter is never asked about pin targets.
 
 When the field pins, picking a Content opens a **second step** listing what that Content may be pinned to. Choosing a target stores `{ id, pin }`; choosing **Newest version** — always first, and available even while the targets load or after a lookup that failed — stores `{ id }` with no `pin` key at all. **Back** returns to the browse, still narrowed to whatever was searched, having stored nothing.
+
+## The drawer's chrome: steps, and destination
+
+Two things the drawer says about itself, above whichever step is showing.
+
+**Its steps**, through anker's `Stepper`. The titles are `Choose content` and — when the field pins — `Choose a release` or `Choose a version`, whichever `pin_mode` named. The active step carries `aria-current="step"`, anker's accessibility rule for the component (its README, *Accessibility*); `StepperStep` sets it itself, and the controlled `step` index is what makes the mark follow the flow instead of resting on step one.
+
+The step **count** follows `pin_mode` alone, exactly as the flow does. Whether the Stepper is *there* does not: it renders in the one-step flow too, so the drawer's chrome does not change shape depending on a field setting.
+
+**Where the Reference will land**, as a header line under the steps and shown through both of them. It is the same sentence the [insertion strip](#adding-a-reference-where-it-belongs) carried — the Reference the new one will sit under or beside, and the rows it will adopt where any would. The strip's own label is off the screen by the time this is read, and the drawer is where the decision is committed, so the sentence is handed across on the `ReferenceInsertRequest` rather than rebuilt from neighbours that have since been re-indexed.
+
+The Add control, which never announced anything, gets the same treatment: `describeAppend` puts its root append into the same words.
 
 ## Adapter Interface
 
@@ -277,7 +291,7 @@ Pass it to `FieldKitProvider` and `TypePicker` beside `builtInFieldTypes` and it
 
 For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, `names` — a record keyed by Content id — and `depthCeiling`, a 0-based depth index that `referenceDepthCeiling(settings)` converts a `max_depth` setting into. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either.
 
-The insertion strips are the same bargain. Pass `onInsert` and the tree renders them; it is called with a `ReferenceInsertRequest` — where the Reference would go, at what depth, and a `commit` that puts one there once your own browse has produced it. The write stays in the tree because folding has to follow it. Without `onInsert` there are no strips. `atItemCap` disables them, and should be read through `referenceItemCap(settings)` — an unset `max_items` is no cap, never a cap of zero. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
+The insertion strips are the same bargain. Pass `onInsert` and the tree renders them; it is called with a `ReferenceInsertRequest` — where the Reference would go, at what depth, the `destination` sentence the strip just announced, and a `commit` that puts one there once your own browse has produced it. Show `destination` in whatever you open: it is what an Author already read, and re-phrasing it is how the two come to disagree. The write stays in the tree because folding has to follow it. Without `onInsert` there are no strips. `atItemCap` disables them, and should be read through `referenceItemCap(settings)` — an unset `max_items` is no cap, never a cap of zero. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
 
 ## Errors
 

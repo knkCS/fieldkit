@@ -308,6 +308,16 @@ export interface ReferenceInsertRequest {
 	/** The depth it would land at — what the strip was offering when it was
 	 * clicked. */
 	depth: number;
+	/**
+	 * What the strip said clicking it would do — the Reference the new one will
+	 * sit under or beside, and the rows it will adopt where any would.
+	 *
+	 * It travels with the position because whatever opens next has to say the
+	 * same thing (ADR-0012: the announcement is part of the decision), and by
+	 * then the strip's label is off the screen. A caller re-deriving it would be
+	 * one phrasing free to disagree with the one an Author already read.
+	 */
+	destination: string;
 	/** Puts a Reference there, and hands the whole next value to `onChange`. */
 	commit: (reference: Reference) => void;
 }
@@ -504,12 +514,17 @@ export function ReferenceTree({
 	 * away. A strip under a folded Reference therefore lands at the end of its
 	 * branch, which is what a drop into one already does.
 	 */
-	function handleInsert(shownSlot: number, depth: number) {
+	function handleInsert(shownSlot: number, depth: number, destination: string) {
 		const below = shown[shownSlot];
 		const slot = below ? rows.indexOf(below) : rows.length;
 		onInsert?.({
 			slot,
 			depth,
+			// Passed along exactly as the strip announced it, never rebuilt: the
+			// slot has just been translated from the rows on screen to every row,
+			// and re-reading the neighbours through that translation would answer
+			// a different question.
+			destination,
 			commit: (reference) => insertReference(slot, depth, reference),
 		});
 	}
