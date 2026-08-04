@@ -685,7 +685,7 @@ describe("a drag that would adopt the branch below it", () => {
 		});
 		await screen.findByText("Content 1");
 
-		// Three rows up puts Content 4 between Content 1 and Content 2.
+		// Two rows up puts Content 4 between Content 1 and Content 2.
 		await liftWithKeyboard("Content 4");
 		await pressDuringDrag("ArrowUp");
 		await pressDuringDrag("ArrowUp");
