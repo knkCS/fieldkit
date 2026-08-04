@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { type ReactNode, useState } from "react";
+import type { FieldKitAdapters } from "../renderer/adapters";
 import { FieldKitProvider } from "../renderer/provider";
 import { boolean, number, section, select, text } from "../schema/builders";
 import { builtInFieldTypes } from "../schema/field-types";
@@ -85,6 +86,54 @@ const cardedSpec: Schema = [
 	]),
 ];
 
+// An authored Fieldset — a blueprint id and no children, exactly what the
+// editor writes. Preview is what resolves it (#54).
+function fieldsetField(
+	accessor: string,
+	name: string,
+	blueprint: string,
+): Field {
+	return {
+		field_type: "fieldset",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: { blueprint },
+		system: false,
+	};
+}
+
+const fieldsetSpec: Schema = [
+	text("title", { name: "Title", required: true }),
+	fieldsetField("address", "Address", "address_bp"),
+];
+
+/** The Blueprint a consumer's adapter would return for `address_bp`, with a
+ * REQUIRED field in it — the one Preview only enforces once resolved. */
+const addressBlueprint: Schema = [
+	text("street", { name: "Street", required: true }),
+	text("city", { name: "City" }),
+];
+
+const blueprintAdapters: FieldKitAdapters = {
+	blueprint: {
+		getSchema: async (id) => {
+			// Latency, so the Preview skeleton is visible rather than theoretical.
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			return id === "address_bp" ? addressBlueprint : [];
+		},
+		getData: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
+		list: async () => [{ id: "address_bp", name: "Address" }],
+	},
+};
+
+const failingBlueprintAdapters: FieldKitAdapters = {
+	blueprint: {
+		getSchema: async () => {
+			throw new Error("blueprint service unavailable");
+		},
+		getData: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
+	},
+};
+
 /* ------------------------------------------------------------------ */
 /*  Wrapper                                                            */
 /* ------------------------------------------------------------------ */
@@ -96,9 +145,13 @@ const cardedSpec: Schema = [
 function StoryWrapper({
 	initialSchema,
 	note,
+	adapters,
 }: {
 	initialSchema: Schema;
 	note?: ReactNode;
+	/** Left off by most stories — the editor needs no adapter until a Fieldset
+	 * has to be resolved for Preview. */
+	adapters?: FieldKitAdapters;
 }) {
 	const [committed, setCommitted] = useState<Schema>(initialSchema);
 	const [dirty, setDirty] = useState(false);
@@ -112,7 +165,7 @@ function StoryWrapper({
 	}
 
 	return (
-		<FieldKitProvider plugins={builtInFieldTypes}>
+		<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
 			<div style={{ maxWidth: 960 }}>
 				{note && (
 					<div
@@ -202,6 +255,52 @@ export const TryIt: Story = {
 					above to render the schema as a live, submittable form; select{" "}
 					<strong>Build</strong> to return. The Preview segment is disabled
 					whenever the draft has validation errors.
+				</>
+			}
+		/>
+	),
+};
+
+export const FieldsetPreview: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={fieldsetSpec}
+			adapters={blueprintAdapters}
+			note={
+				<>
+					<code>Address</code> is a <strong>Fieldset</strong> — it embeds the{" "}
+					<code>address_bp</code> Blueprint rather than storing its fields. On
+					the Build canvas it is a placeholder; select <strong>Preview</strong>{" "}
+					and the editor resolves the draft through <code>resolveSpec()</code>{" "}
+					before building the form, so the embedded <code>Street</code> and{" "}
+					<code>City</code> appear (behind a brief skeleton — the adapter here
+					is deliberately slow). The embedded <code>Street</code> is{" "}
+					<em>required</em>: press <strong>Test submit</strong> with it empty
+					and the submit is blocked by the Blueprint's own rule, which is the
+					whole point of resolving — unresolved, a Fieldset validates as an
+					opaque record and the submit would pass.
+				</>
+			}
+		/>
+	),
+};
+
+export const FieldsetPreviewAdapterFails: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={fieldsetSpec}
+			adapters={failingBlueprintAdapters}
+			note={
+				<>
+					The same spec against a blueprint adapter that always rejects. Select{" "}
+					<strong>Preview</strong>: a warning alert (
+					<code>labels.previewResolveFailed</code>) sits above the form, the
+					rest of the draft still renders and submits, and the Fieldset falls
+					back to its own "Failed to load blueprint fields" state.{" "}
+					<strong>Build</strong> returns to the canvas untouched. With no
+					adapter configured at all, the Fieldset shows "Blueprint adapter not
+					configured" and Preview renders with no skeleton, since there is
+					nothing to fetch.
 				</>
 			}
 		/>

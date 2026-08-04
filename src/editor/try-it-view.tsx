@@ -49,8 +49,8 @@ export interface TryItViewProps {
  * inside it would not block the test submit (#54).
  */
 export function TryItView({ schema, plugins, labels }: TryItViewProps) {
-	const { adapters } = useFieldKit();
-	const resolution = useResolvedDraft(schema, adapters.blueprint);
+	const { adapters, onError } = useFieldKit();
+	const resolution = useResolvedDraft(schema, adapters.blueprint, onError);
 	// `useForm` seeds its defaults once per mount, so the scratch form must be
 	// remounted whenever the Spec beneath it changes — otherwise it validates
 	// against the new draft while still holding the old one's seeded values.
@@ -122,6 +122,7 @@ type Resolution =
 function useResolvedDraft(
 	schema: Schema,
 	blueprint: BlueprintSchemaAdapter | undefined,
+	onError: ((error: Error, fieldId: string) => void) | undefined,
 ): Resolution {
 	const [resolution, setResolution] = useState<Resolution>(() =>
 		specNeedsResolution(schema, { blueprint })
@@ -153,9 +154,16 @@ function useResolvedDraft(
 			})
 			.catch((error) => {
 				if (cancelled) return;
-				// A Blueprint that won't load is the host's problem to see, and
-				// the Alert above only has room to say that it happened.
-				console.error("Preview spec resolution failed:", error);
+				// The Consumer's own error channel, not the console — the same
+				// call the Fieldset's blueprint picker makes for the same class
+				// of failure (#52): a Blueprint that won't load is theirs to
+				// surface, and the Alert only has room to say that it happened.
+				// Reported against `preview` rather than a Field: resolution runs
+				// over the whole draft, and which Fieldset was at fault is not
+				// what `resolveSpec` rejects with. Console when unconfigured, so
+				// the degrade is never silent.
+				if (onError) onError(error, "preview");
+				else console.error("Preview spec resolution failed:", error);
 				setResolution({ status: "failed", schema });
 			});
 
@@ -164,7 +172,7 @@ function useResolvedDraft(
 		return () => {
 			cancelled = true;
 		};
-	}, [schema, blueprint]);
+	}, [schema, blueprint, onError]);
 
 	return resolution;
 }

@@ -152,13 +152,15 @@ const LABELS = {
 function Wrap({
 	children,
 	adapters,
+	onError,
 }: {
 	children: ReactNode;
 	adapters?: FieldKitAdapters;
+	onError?: (error: Error, fieldId: string) => void;
 }) {
 	return (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={plugins} adapters={adapters}>
+			<FieldKitProvider plugins={plugins} adapters={adapters} onError={onError}>
 				{children}
 			</FieldKitProvider>
 		</ChakraProvider>
@@ -382,6 +384,30 @@ describe("Preview resolution failures", () => {
 				type: "success",
 			});
 		});
+	});
+
+	// The Consumer's channel, as the blueprint picker does it (#52) — a
+	// Blueprint that won't load is theirs to log, alert on, or report.
+	it("reports the rejection through the provider's onError", async () => {
+		const blueprint = failingBlueprintAdapter();
+		const onError = vi.fn();
+		const schema: Schema = [fieldsetField("address", "address_bp")];
+
+		render(
+			<Wrap adapters={{ blueprint }} onError={onError}>
+				<TryItView schema={schema} plugins={plugins} labels={LABELS} />
+			</Wrap>,
+		);
+
+		await screen.findByText(LABELS.previewResolveFailed);
+		expect(onError).toHaveBeenCalledWith(expect.any(Error), "preview");
+		// Reported once, not also dumped to the console — a configured Consumer
+		// owns the surfacing. (FieldsetField's own fallback fetch still logs;
+		// that is its documented degrade, not this one.)
+		expect(consoleError).not.toHaveBeenCalledWith(
+			"Preview spec resolution failed:",
+			expect.anything(),
+		);
 	});
 
 	it("leaves the editor usable — Build mode comes back", async () => {
