@@ -140,6 +140,22 @@ describe("FieldsetField", () => {
 		});
 	});
 
+	it("treats resolved-but-empty children as resolved rather than fetching again", async () => {
+		const adapter = blueprintAdapter();
+		render(
+			<Wrapper adapters={{ blueprint: adapter }}>
+				<FieldsetField field={fieldsetField({ blueprint: "address_bp" }, [])} />
+			</Wrapper>,
+		);
+
+		// resolveSpec() attaches [] for a Blueprint with no Fields; going back
+		// to the adapter for it would be the round-trip resolving prevents.
+		expect(
+			await screen.findByText("This blueprint has no fields"),
+		).toBeInTheDocument();
+		expect(adapter.getSchema).not.toHaveBeenCalled();
+	});
+
 	it("prefers children that are already resolved over fetching them", async () => {
 		const adapter = blueprintAdapter();
 		render(

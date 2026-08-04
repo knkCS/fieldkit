@@ -1,5 +1,5 @@
 // src/renderer/adapters.ts
-import type { Field } from "../schema/types";
+import type { BlueprintSchemaAdapter } from "../schema/resolve-spec";
 
 export interface ReferenceItem {
 	id: string;
@@ -58,8 +58,9 @@ export interface FieldKitAdapters {
 		upload: (file: File) => Promise<MediaItem>;
 		browse: (filter: MediaFilter) => Promise<MediaItem[]>;
 	};
-	blueprint?: {
-		getSchema: (blueprintId: string) => Promise<Field[]>;
+	/** `getSchema` is the schema layer's `BlueprintSchemaAdapter`, so the same
+	 * adapters object serves `resolveSpec()` and the provider alike. */
+	blueprint?: BlueprintSchemaAdapter & {
 		getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
 	};
 	textType?: {

@@ -42,6 +42,7 @@ src/
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
 │   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
 │   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule
+│   ├── resolve-spec.ts  # resolveSpec() — expands fieldsets into a Resolved Spec (dedupes fetches, throws on cycles)
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders

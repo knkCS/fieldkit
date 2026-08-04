@@ -96,6 +96,12 @@ export type {
 export type { PluginRegistry } from "./registry";
 // Registry
 export { createRegistry } from "./registry";
+// Spec resolution (adapter-backed containers → Resolved Spec)
+export type {
+	BlueprintSchemaAdapter,
+	ResolveSpecAdapters,
+} from "./resolve-spec";
+export { resolveSpec } from "./resolve-spec";
 // Types
 export type {
 	Field,
