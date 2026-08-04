@@ -5,13 +5,27 @@ import * as Stories from "./reference-field.stories";
 
 # Reference
 
-An ordered list of References to other Contents. Each row shows the referenced Content's *current* name, resolved through the `reference` adapter; adding one opens a drawer that browses the catalogue. Requires a `reference` adapter configured via `FieldKitProvider`.
+A **Reference Tree**: References to other Contents, ordered and nested. Each row shows the referenced Content's *current* name, resolved through the `reference` adapter; adding one opens a drawer that browses the catalogue. Requires a `reference` adapter configured via `FieldKitProvider`.
 
 ## When to Use
 
-Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items". For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
+Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items" — and when the arrangement of those links is itself meaningful. For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
 
-The list is flat. Nesting — a Reference Tree with drag-and-drop, per-Reference attributes and pinning — arrives in later tickets.
+Per-Reference attributes and pinning arrive in later tickets.
+
+## The Tree
+
+Every row carries a drag grip. Dragging a row reorders it among its siblings; dragging it rightwards nests it under the Reference above, one level per `24px` of travel. **A Reference's descendants travel with it** — a branch keeps its shape however far it moves.
+
+A Reference with children carries a chevron that folds its branch away, so one branch can be worked on without the rest in the way. A tree of more than `REFERENCE_TREE_COLLAPSE_THRESHOLD` References **opens with every parent collapsed**; at or below it, expanded. The threshold is a provisional guess and wants tuning against a real Spec. Folding is the control's own state and is never stored.
+
+Folding and dragging agree on two rules. A folded Reference **stands in for its whole branch**: dropping below one lands below everything it hides, and a drop can reach a depth of "child of the folded Reference" but never deeper — a drop may only land somewhere an Author can see. And whatever a Reference lands *inside* is **unfolded on the drop**, so it is visible where it went.
+
+Dragging works from the keyboard as well as the pointer: focus a grip, press <kbd>Space</kbd> to lift, <kbd>↑</kbd>/<kbd>↓</kbd> to move between rows, <kbd>←</kbd>/<kbd>→</kbd> to change how deeply the drop nests, then <kbd>Space</kbd> to drop or <kbd>Esc</kbd> to cancel.
+
+The depth a drop lands at is decided by **pure functions** in `src/schema/reference-tree.ts` — read the stored value, flatten, project a depth, move the branch, re-nest, write back — so none of the drag arithmetic is asserted through a DOM.
+
+There is no pagination, deliberately: it cannot coexist with dragging to a position nobody can see.
 
 ## Value
 
@@ -25,9 +39,13 @@ interface Reference {
   id: string                            // the referenced Content
   pin?: string | null                   // later ticket
   attributes?: Record<string, unknown>  // later ticket
-  children?: Reference[]                // later ticket
+  children?: Reference[]                // the branch under this Reference
 }
 ```
+
+The nesting is genuine rather than a flat list with ancestor ids, which is what makes an orphan unrepresentable. Flat encodings are the Consumer's business.
+
+Form data is only as well-formed as whatever produced it, so a stored entry that is not a Reference renders no row. Removing and dragging both leave such an entry at the top-level position it held; one nested inside a branch does not survive a drop, because every branch is rebuilt from depths — and a value holding one cannot pass the Schema anyway.
 
 A display name is **never stored**. Names are resolved through the adapter on every load, so a Content renamed elsewhere reads correctly here, and one that no longer resolves keeps its id on screen rather than vanishing.
 
@@ -36,8 +54,8 @@ A display name is **never stored**. Names are resolved through the adapter on ev
 | Setting      | Type       | Default | Description                                                        |
 |--------------|------------|---------|--------------------------------------------------------------------|
 | `blueprints` | `string[]` | `[]`    | The blueprints this field may point at. Empty means the adapter decides |
-| `max_items`  | `number`   | —       | A cap, never a change of shape. Declared but not yet enforced: it counts the *flattened* tree, so enforcement belongs with nesting |
-| `max_depth`  | `number`   | —       | Declared on the same terms; every Reference is at depth zero while the list is flat |
+| `max_items`  | `number`   | —       | A cap over the whole tree — a nested child counts as much as a root. Declared, not yet enforced |
+| `max_depth`  | `number`   | —       | The deepest a Reference may sit, roots being zero. Declared, not yet enforced |
 
 The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints.
 
@@ -81,20 +99,23 @@ Both methods are **optional**. Without them the picker degrades to a search box 
 |-------------|----------------------------------------------------------|
 | `required`  | At least one Reference                                    |
 | per item    | Each entry must be a Reference — an object with a non-empty `id` |
+| per branch  | A nested Reference is held to the same rules as a root one |
 
 ```ts
 // Optional
-z.array(referenceValueSchema)
+z.array(referenceTreeSchema)
 
 // Required
-z.array(referenceValueSchema).min(1, "Related articles is required")
+z.array(referenceTreeSchema).min(1, "Related articles is required")
 ```
 
-`max_items` is not in the Schema yet — see Settings above.
+`referenceTreeSchema` is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list.
+
+`max_items` and `max_depth` are not in the Schema yet — see Settings above.
 
 ## Table Cell
 
-`ReferenceCell` renders a count — "3 references" — at table density. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
+`ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, the same way `max_items` will. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids.
 
 ## Errors
 
@@ -102,11 +123,12 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 ## Known Limitations
 
-- The list is flat: no nesting and no drag-and-drop reordering.
-- `max_items` and `max_depth` are declared but not enforced — both count the flattened tree, so enforcement lands with nesting.
+- `max_items` and `max_depth` are declared but not enforced — neither the Schema nor the drag clamps to them yet.
+- The drawer always adds at the root; a new Reference is nested by dragging it.
 - No pinning and no per-Reference attributes yet.
-- Read mode shows the count from the cell rather than resolved names.
+- Read mode shows the count from the cell rather than a resolved tree.
 - The browse drawer's page size is fixed at 10.
+- Very large trees are not virtualised.
 
 ## Examples
 
@@ -119,6 +141,18 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 Names are resolved through the adapter, never read out of the stored value.
 
 <Canvas of={Stories.WithStoredReferences} />
+
+### Nested Tree
+
+Drag a grip to reorder or to nest; fold a branch away with its chevron.
+
+<Canvas of={Stories.NestedTree} />
+
+### Large Tree
+
+Past the node-count threshold, every parent starts collapsed.
+
+<Canvas of={Stories.LargeTree} />
 
 ### Unresolvable Reference
 

@@ -1,8 +1,12 @@
 # dnd-kit Reference for Fieldkit
 
 How fieldkit uses `@dnd-kit/core` (6.3.1) and `@dnd-kit/sortable` (8.0.0)
-for drag-and-drop in the spec editor. Read this before modifying editor
-drag code. Rewritten for the 0.11.0 drag-feedback rework (overlay preview,
+for drag-and-drop — in the spec editor, and in the renderer's Reference Tree.
+Read this before modifying either. Fieldkit stays on `@dnd-kit/core` +
+`@dnd-kit/sortable` throughout, and does **not** take the pre-1.0
+`@dnd-kit/react` that knkCMS core uses: one drag library across the package,
+and no 0.x peer dependency in a shared library.
+Rewritten for the 0.11.0 drag-feedback rework (overlay preview,
 still list, `resolveDropTarget`) — design record:
 `docs/superpowers/specs/2026-07-14-drag-feedback-design.md`. Extended for
 the 0.12.0 spring-loaded sections feature (dwell-triggered tab switching,
@@ -11,7 +15,7 @@ design record: `docs/superpowers/specs/2026-07-14-spring-loaded-sections-design.
 
 ## Scope
 
-dnd-kit is used only by the **editor layer**:
+Two layers drag. The **editor layer** moves fields around a canvas:
 
 | File | Role |
 |---|---|
@@ -22,8 +26,41 @@ dnd-kit is used only by the **editor layer**:
 | `src/editor/resolve-drop-target.ts` | Pure drop resolution shared by `handleDragEnd` and the live indicator/tint/highlight |
 | `src/editor/drag-previews.tsx`, `src/editor/drop-indicator.tsx` | Presentational: overlay clones, insertion line |
 
-No other layer (renderer, table, rich-text-spec, schema) uses dnd-kit.
-`EditorSpecEditor` uses toggle checkboxes, not drag-and-drop.
+The **renderer layer** drags inside one field — the Reference Tree, where an
+Author reorders and nests the References a Field holds:
+
+| File | Role |
+|---|---|
+| `src/renderer/fields/reference-tree.tsx` | `DndContext` + one `SortableContext`, sensors, all drag handlers, `useSortable` per row; `resolveDrop` is its single mid-drag/drop resolution |
+| `src/schema/reference-tree.ts` | The maths, with no dnd-kit import at all: flatten, project a drop depth, move a branch, re-nest |
+
+Nothing else (table, rich-text-spec) uses dnd-kit. `EditorSpecEditor` uses
+toggle checkboxes, not drag-and-drop.
+
+### The Reference Tree's differences from the canvas
+
+A tree is a flat DOM list with padded indentation, and its rows are the same
+height — so it takes the simpler shape rule 3 below allows: no `DragOverlay`,
+`verticalListSortingStrategy` for the reflow preview, and plain
+`closestCenter` (a collapsed row is unmounted, so there are no
+hidden-but-mounted droppables to filter out).
+
+Its resolver reads **two lists**, and that split is load-bearing. Order comes
+from every row, folded ones included, because a branch travels with its
+Reference whether or not it is on screen; depth comes from the *visible* rows
+alone, so a drop can only reach a depth whose neighbours an Author can see —
+projecting against the full list lets a drag nest inside a folded branch,
+which was a real bug. A drop that lands inside a folded Reference unfolds it.
+
+Its other addition is a coordinate getter: `sortableKeyboardCoordinates` reads
+ArrowLeft/ArrowRight as "find a droppable that way", which in a single column
+finds nothing, so the tree intercepts those two codes and offsets `x` by one
+indent instead. That is what puts *nesting* — not just reordering — within
+reach of the keyboard, and it is how the drag tests drive depth changes:
+`x` accumulates into `event.delta.x`, which is the offset the depth
+projection reads. Without a `DragOverlay` there is also no overlay rect for a
+jsdom test to pin (see the keyboard-collision note under Verified engine
+facts); the dragged node's own mocked rect is what dnd-kit measures.
 
 ## The 0.11.0 drag model (read this first)
 
@@ -183,5 +220,5 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
 | `modifiers` | No axis restriction or boundary clamping |
 | `adjustScale` | Off (default) — the clone never scales |
 | `MouseSensor` / `TouchSensor` | `PointerSensor` covers both |
-| `arrayMove` | Drops splice via draft-ops (`moveField`/`moveCard`/`moveFieldToSection`) |
+| `arrayMove` | Drops splice via draft-ops (`moveField`/`moveCard`/`moveFieldToSection`), or, in the tree, via `moveReferenceBranch` — which moves a whole branch, not one item |
 | Multiple nested `SortableContext`s | Cards stay in the tab's ONE flat list |

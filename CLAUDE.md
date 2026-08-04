@@ -206,6 +206,6 @@ Read these before working on the corresponding area:
 - **`src/renderer/spec-form/spec-form.mdx`** — SpecForm behavior contract (section tabs, search, read mode, labels, schema partitioning rules).
 - **`src/editor/spec-editor.mdx`** — SpecEditor contract (draft model, schema-prop stability, labels table, migration notes, known limitations).
 - **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
-- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying editor drag-and-drop.
+- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying drag-and-drop anywhere: the editor canvas, or the renderer's Reference Tree.
 - **`docs/knkeditor-reference.md`** — EditorSpec types, plugin ID alignment, planned integration contract. Read before modifying rich-text-spec or RichTextField.
 - **`docs/anker-reference.md`** — ⚠️ Historical: written against anker 0.0.2. Superseded by CLAUDE-ANKER.md above; do not trust its API details.
