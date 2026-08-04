@@ -27,9 +27,49 @@ visual grouping that produces no value, use a Card marker.
 | `collapsible` | `boolean` | `false` | Lets a form user fold the embedded Fields away.      |
 
 Both keys match knkCMS core's `fieldset` settings, so seeded specs migrate
-without a rewrite. The Author enters the Blueprint by id; a picker over the
-Blueprints available to them needs a list capability the adapter does not have
-yet (#52), and id entry stays as that ticket's degrade path.
+without a rewrite.
+
+The Author picks the Blueprint in the config panel from whatever
+`adapters.blueprint.list()` returns — see
+[Listing the Blueprints an Author may embed](#listing-the-blueprints-an-author-may-embed).
+
+## Listing the Blueprints an Author may embed
+
+The blueprint adapter has an **optional** list capability. Where it exists, the
+Fieldset's config panel offers those Blueprints by name; where it does not, the
+panel falls back to Blueprint id entry:
+
+```ts
+const adapters = {
+  blueprint: {
+    getSchema: (id) => api.blueprintFields(id),
+    getData: (id, query) => api.blueprintRecords(id, query),
+    // Optional. Omit it and nothing breaks — the Author types an id instead.
+    list: async (): Promise<BlueprintSummary[]> =>
+      api.blueprints().map(({ id, name }) => ({ id, name })),
+  },
+};
+```
+
+Fieldkit does no filtering of its own — it has no notion of a Blueprint kind
+(ADR-0002). Return exactly the Blueprints this Author may embed; knkCMS core,
+for instance, narrows to its `fieldset` blueprint type on its side.
+
+What the panel does with the result:
+
+- Picking a Blueprint stores its `id` in `settings.blueprint`; clearing the
+  selection removes the setting, and the Field goes back to
+  "No blueprint selected".
+- A stored Blueprint the list does not offer — one since deleted, or one this
+  Author may no longer embed — stays selected under its raw id rather than
+  being silently dropped.
+- A `list` that rejects is reported to the console and treated as no capability
+  at all: the Author gets id entry and can still finish the job.
+- The list is fetched once per config-panel mount; it is not cached across
+  fields.
+
+`SpecEditor` reads this through the consumer's `FieldKitProvider`, which it must
+already be mounted inside.
 
 ## Where the Children Come From
 

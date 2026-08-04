@@ -2,6 +2,7 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import type { ReactNode } from "react";
 import { z } from "zod";
+import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import type { FieldProps, FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
@@ -73,10 +74,22 @@ export const testPlugins: FieldTypePlugin[] = [
 	},
 ];
 
-export function EditorWrap({ children }: { children: ReactNode }) {
+export function EditorWrap({
+	children,
+	plugins = testPlugins,
+	adapters,
+}: {
+	children: ReactNode;
+	/** Defaults to the stub trio above; pass real plugins when the test needs
+	 * a plugin's own settings editor (e.g. the fieldset blueprint picker). */
+	plugins?: FieldTypePlugin[];
+	adapters?: FieldKitAdapters;
+}) {
 	return (
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={testPlugins}>{children}</FieldKitProvider>
+			<FieldKitProvider plugins={plugins} adapters={adapters}>
+				{children}
+			</FieldKitProvider>
 		</ChakraProvider>
 	);
 }

@@ -49,6 +49,16 @@ export interface EditorSpecGlobalSettings {
 	[key: string]: unknown;
 }
 
+/** One Blueprint as an Author picks it: the id a Fieldset stores, and the
+ * name they recognise it by. Deliberately thinner than a Blueprint — nothing
+ * here needs its Fields, and asking for them would make listing as expensive
+ * as resolving. Extra keys pass through, so a Consumer can carry its own. */
+export interface BlueprintSummary {
+	id: string;
+	name: string;
+	[key: string]: unknown;
+}
+
 export interface FieldKitAdapters {
 	reference?: {
 		search: (blueprintIds: string[], query: string) => Promise<ReferenceItem[]>;
@@ -62,6 +72,21 @@ export interface FieldKitAdapters {
 	 * adapters object serves `resolveSpec()` and the provider alike. */
 	blueprint?: BlueprintSchemaAdapter & {
 		getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
+		/**
+		 * The Blueprints an Author may embed, for the Fieldset config panel's
+		 * picker (#52).
+		 *
+		 * **Optional on purpose.** Fetching one Blueprint and enumerating them
+		 * are different capabilities, and a Consumer built against the former
+		 * must keep working: without this, the panel degrades to Blueprint id
+		 * entry rather than breaking.
+		 *
+		 * Fieldkit does no filtering of its own — it has no notion of a
+		 * Blueprint kind (ADR-0002). Return exactly the Blueprints this Author
+		 * may embed; knkCMS core, for instance, narrows to its `fieldset`
+		 * blueprint type on its side.
+		 */
+		list?: () => Promise<BlueprintSummary[]>;
 	};
 	textType?: {
 		getEditorSpec: (id: string) => Promise<EditorSpecData>;
