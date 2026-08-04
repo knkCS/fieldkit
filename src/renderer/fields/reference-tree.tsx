@@ -1,4 +1,4 @@
-import { Box, Flex, IconButton, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
 import {
 	closestCenter,
 	DndContext,
@@ -18,8 +18,18 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronRight,
+	GripVertical,
+	Tags,
+	Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
+import {
+	countFilledAttributes,
+	declaredAttributes,
+} from "../../schema/reference-attributes";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
 	moveReferenceBranch,
@@ -30,6 +40,7 @@ import {
 	removeReferenceAt,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
+import type { Field } from "../../schema/types";
 
 /** Pixels of indentation one level of nesting is drawn at. */
 const INDENT_WIDTH = 24;
@@ -232,6 +243,15 @@ export interface ReferenceTreeProps {
 	 * that arrived already too deep.
 	 */
 	depthCeiling?: number;
+	/**
+	 * The Attribute Spec the Field declares. Empty — the ordinary case — puts
+	 * no Attributes affordance on any row: there is nothing to fill in, and a
+	 * count of nothing is noise.
+	 */
+	attributeSpec?: Field[];
+	/** Opens the Attributes of one Reference. The drawer belongs to the Field,
+	 * which is the only thing that knows the Accessor its paths hang off. */
+	onOpenAttributes?: (row: ReferenceRow) => void;
 }
 
 /**
@@ -259,6 +279,8 @@ export function ReferenceTree({
 	readOnly,
 	onChange,
 	depthCeiling,
+	attributeSpec,
+	onOpenAttributes,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -275,6 +297,14 @@ export function ReferenceTree({
 	);
 
 	const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
+
+	// The Attributes an Author is actually being asked for — a hidden one is
+	// neither counted nor rendered, so a row cannot say "1 of 2" with only one
+	// control behind it.
+	const askedFor = useMemo(
+		() => declaredAttributes(attributeSpec ?? []),
+		[attributeSpec],
+	);
 
 	function toggle(key: string) {
 		setCollapsed((current) => {
@@ -380,8 +410,16 @@ export function ReferenceTree({
 						}
 						collapsed={collapsed.has(row.key)}
 						readOnly={readOnly ?? false}
+						attributesAsked={askedFor.length}
+						attributesFilled={countFilledAttributes(
+							askedFor,
+							row.reference.attributes,
+						)}
 						onToggle={() => toggle(row.key)}
 						onRemove={() => handleRemove(row)}
+						onOpenAttributes={
+							onOpenAttributes ? () => onOpenAttributes(row) : undefined
+						}
 					/>
 				))}
 			</SortableContext>
@@ -397,8 +435,14 @@ interface ReferenceTreeRowItemProps {
 	depth: number;
 	collapsed: boolean;
 	readOnly: boolean;
+	/** How many Attributes the Field declares. Zero puts no affordance on the
+	 * row at all. */
+	attributesAsked: number;
+	/** How many of them this Reference has answered. */
+	attributesFilled: number;
 	onToggle: () => void;
 	onRemove: () => void;
+	onOpenAttributes?: () => void;
 }
 
 function ReferenceTreeRowItem({
@@ -407,8 +451,11 @@ function ReferenceTreeRowItem({
 	depth,
 	collapsed,
 	readOnly,
+	attributesAsked,
+	attributesFilled,
 	onToggle,
 	onRemove,
+	onOpenAttributes,
 }: ReferenceTreeRowItemProps) {
 	const {
 		attributes,
@@ -466,18 +513,46 @@ function ReferenceTreeRowItem({
 					// carry a branch.
 					<Box width="6" flexShrink={0} />
 				)}
-				<Text fontSize="sm">{name}</Text>
+				<Text fontSize="sm" data-testid="reference-row-name">
+					{name}
+				</Text>
 			</Flex>
-			{!readOnly && (
-				<IconButton
-					aria-label={`Remove ${name}`}
-					size="xs"
-					variant="ghost"
-					onClick={onRemove}
-				>
-					<Trash2 size={14} />
-				</IconButton>
-			)}
+			<Flex align="center" gap="1" flexShrink={0}>
+				{attributesAsked > 0 && onOpenAttributes && (
+					// Available read-only too: reading what a Reference says about
+					// the pointing is reading, and the count is only useful if the
+					// thing it counts can be looked at.
+					<Button
+						size="xs"
+						variant="ghost"
+						onClick={onOpenAttributes}
+						// The count is on screen as well, but a name that reads
+						// "Attributes for Cats of the world: 1 of 2 filled" is the
+						// only version of it a screen reader gets in one go.
+						aria-label={`Attributes for ${name}: ${String(attributesFilled)} of ${String(attributesAsked)} filled`}
+						data-testid="reference-attributes-button"
+					>
+						<Tags size={14} />
+						<Text
+							as="span"
+							fontSize="xs"
+							data-testid="reference-attribute-count"
+						>
+							{attributesFilled}/{attributesAsked}
+						</Text>
+					</Button>
+				)}
+				{!readOnly && (
+					<IconButton
+						aria-label={`Remove ${name}`}
+						size="xs"
+						variant="ghost"
+						onClick={onRemove}
+					>
+						<Trash2 size={14} />
+					</IconButton>
+				)}
+			</Flex>
 		</Flex>
 	);
 }

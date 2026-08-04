@@ -50,5 +50,5 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

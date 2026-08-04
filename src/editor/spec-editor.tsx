@@ -800,6 +800,10 @@ export function SpecEditor({
 							<FieldConfigPanel
 								field={selectedField}
 								plugin={spec.pluginMap.get(selectedField.field_type)}
+								// The registry, for a DRILLED field's own type — a Field a
+								// Spec nested in settings holds needs its real settings
+								// editor, not "No additional settings".
+								plugins={plugins}
 								draft={spec.draft}
 								fieldErrors={translatedFieldErrors}
 								onFieldChange={handlePanelFieldChange}

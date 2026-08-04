@@ -1,5 +1,5 @@
 // src/schema/reference.ts
-import { z } from "zod";
+import { type ZodTypeAny, z } from "zod";
 
 /**
  * Whether a Reference Field fixes its References to a particular target, and
@@ -74,19 +74,39 @@ export const referenceValueSchema = z.object({
 });
 
 /**
- * One Reference of a tree: the flat shape, plus the branch under it.
+ * One Reference of a tree, with `attributes` shaped by the Field's own
+ * Attribute Spec.
  *
  * Lazily recursive, because a Reference's `children` are References. The
  * recursion is what keeps a nested value intact through a parse — an object
  * schema that did not name `children` would *strip* it, so a drag would nest
- * a Reference on screen and submit a flat list. How deep the nesting may go
+ * a Reference on screen and submit a flat list. It is also what puts the
+ * Attribute Spec on every Reference at every level: a nested Reference carries
+ * Attributes on exactly the terms a root one does. How deep the nesting may go
  * is a Field setting, enforced in that Field's own Schema rather than here.
+ *
+ * A factory rather than a constant because the Attribute Spec is a *setting*:
+ * only the plugin holding it can compose it (ADR-0007), so the shape of
+ * `attributes` has to arrive from outside.
  */
-export const referenceTreeSchema: z.ZodType<Reference> = z.lazy(() =>
-	referenceValueSchema.extend({
-		children: z.array(referenceTreeSchema).optional(),
-	}),
-);
+export function referenceTreeSchemaWith(
+	attributes: ZodTypeAny,
+): z.ZodType<Reference> {
+	const node: z.ZodType<Reference> = z.lazy(() =>
+		referenceValueSchema.extend({
+			attributes,
+			children: z.array(node).optional(),
+		}),
+	);
+	return node;
+}
+
+/**
+ * A Reference Tree that says nothing about its Attributes — the opaque record
+ * ADR-0008 declares, which is what a Field with no Attribute Spec holds.
+ */
+export const referenceTreeSchema: z.ZodType<Reference> =
+	referenceTreeSchemaWith(z.record(z.unknown()).optional());
 
 /**
  * The Reference to store for one Content and one Pin.

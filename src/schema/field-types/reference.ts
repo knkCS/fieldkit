@@ -9,7 +9,8 @@ import type {
 	FieldTypePlugin,
 } from "../plugin";
 import type { PinMode } from "../reference";
-import { referenceTreeSchema } from "../reference";
+import { referenceTreeSchemaWith } from "../reference";
+import { attributesZodType } from "../reference-attributes";
 import { countReferences, referencesPastDepth } from "../reference-tree";
 import type { Field } from "../types";
 
@@ -58,6 +59,20 @@ export interface ReferenceSettings {
 	 * some of them stale.
 	 */
 	pin_mode?: PinMode;
+	/**
+	 * The Attribute Spec: the Fields every Reference this Field holds carries
+	 * about the pointing itself — the page a citation appears on, the role a
+	 * credit names.
+	 *
+	 * Ordinary Fields, so "page" can be a number and "role" a select and either
+	 * can be required, and the values are stored keyed by Accessor rather than
+	 * positionally as knkCMS core does it.
+	 *
+	 * It lives here rather than in `children`, following the Blocks precedent —
+	 * and it inherits ADR-0007's boundary verbatim. `src/schema/reference-
+	 * attributes.ts` is where that boundary and what it costs are written down.
+	 */
+	attributes?: Field[];
 }
 
 /**
@@ -197,20 +212,36 @@ export function createReferencePlugin({
 		fieldComponent: ReferenceField,
 		cellComponent: ReferenceCell,
 
-		toZodType(field: Field<ReferenceSettings>) {
+		// The Attribute Spec is composed here rather than by the shared builder,
+		// which is the whole of ADR-0007: a plugin reaches into its own settings
+		// and nothing else does. Composing is not walking, so the boundary is
+		// unmoved — no duplicate-Accessor check, no empty-name check and no
+		// Fieldset resolution reaches an Attribute Field. See
+		// `../reference-attributes.ts`.
+		//
+		// Both caps are checked here too, and for the same reason the Attributes
+		// are: only this plugin knows what its own settings mean. Minted types
+		// get all of it, which is the factory's whole promise — a Consumer's
+		// reference-shaped type cannot drift from `reference` without the drift
+		// being deliberate.
+		toZodType(field: Field<ReferenceSettings>, composeChildren) {
 			const label = field.config.name;
-			const array = z.array(referenceTreeSchema);
+			const array = z.array(
+				referenceTreeSchemaWith(
+					attributesZodType(field.settings?.attributes, composeChildren),
+				),
+			);
 			const tree = field.config.required
 				? array.min(1, `${label} is required`)
 				: array;
 
-			// Both caps are checked here rather than with `.max()`, because
-			// neither is a fact about the array: `max_items` counts the whole
-			// flattened tree, and `max_depth` has to name *which* Reference broke
-			// it. Stored data is held to exactly these rules — a Spec whose caps
-			// were never enforced can therefore start blocking submit on data that
-			// saved fine before, which is the point. Nothing is ever truncated or
-			// re-nested to fit: the value is reported, never repaired.
+			// Neither cap goes through `.max()`, because neither is a fact about
+			// the array: `max_items` counts the whole flattened tree, and
+			// `max_depth` has to name *which* Reference broke it. Stored data is
+			// held to exactly these rules — a Spec whose caps were never enforced
+			// can therefore start blocking submit on data that saved fine before,
+			// which is the point. Nothing is ever truncated or re-nested to fit:
+			// the value is reported, never repaired.
 			return tree.superRefine((references, ctx) => {
 				const items = referenceItemCap(field.settings);
 				if (items !== undefined && countReferences(references) > items) {
@@ -238,10 +269,17 @@ export function createReferencePlugin({
 
 		// A new Field tracks the newest Version: pinning is a deliberate choice
 		// an Author makes, and it costs a second step every time a Reference is
-		// added. Built per mint, so two types minted with no `blueprints` of
-		// their own never share the empty array. (A Consumer that hands the same
-		// array to two mints shares it, as it would with any object it passes.)
-		defaultSettings: { blueprints: [], pin_mode: "none", ...defaultSettings },
+		// added. It declares no Attributes either — a Reference that carries
+		// nothing about the pointing is the ordinary case. Built per mint, so two
+		// types minted with no `blueprints` of their own never share the empty
+		// array. (A Consumer that hands the same array to two mints shares it, as
+		// it would with any object it passes.)
+		defaultSettings: {
+			blueprints: [],
+			pin_mode: "none",
+			attributes: [],
+			...defaultSettings,
+		},
 
 		// A fresh array per call — an empty list is what the control renders, and
 		// a shared one would be mutated across forms.

@@ -48,11 +48,14 @@ export function CapInput({
 	testId,
 }: CapInputProps) {
 	function handleChange(event: ChangeEvent<HTMLInputElement>) {
+		// A number input reports `""` for anything it cannot parse — a lone "-",
+		// a half-typed "1e" — so an empty box is both "cleared" and "mid-edit
+		// nonsense", and either way the Field has no cap. That is also why the
+		// guard below can only fire if this element stops being `type="number"`:
+		// storing `NaN` would read back as unset anyway, but silently.
 		const raw = event.target.value.trim();
 		if (raw === "") return onChange(undefined);
 		const parsed = Number(raw);
-		// A box mid-edit can hold something that is not a number at all ("-",
-		// "1e"). Leaving the stored cap alone is better than guessing at one.
 		if (!Number.isFinite(parsed)) return;
 		onChange(Math.max(min, Math.trunc(parsed)));
 	}

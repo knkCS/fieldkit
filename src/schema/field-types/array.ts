@@ -35,5 +35,5 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

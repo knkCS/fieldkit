@@ -227,3 +227,68 @@ export const ReadOnly: Story = {
 		/>
 	),
 };
+
+/** One Attribute Field, as an Author would declare it in the config panel. */
+function attribute(
+	fieldType: string,
+	accessor: string,
+	name: string,
+	overrides: Partial<Field["config"]> = {},
+	settings: unknown = null,
+): Field {
+	return {
+		field_type: fieldType,
+		config: {
+			name,
+			api_accessor: accessor,
+			required: false,
+			instructions: "",
+			...overrides,
+		},
+		settings,
+		children: null,
+		system: false,
+	};
+}
+
+/**
+ * Attributes: values about the *pointing*, declared once and filled per
+ * Reference. Each row shows how many it has filled; the button opens a drawer
+ * rendering the Attribute Spec through the ordinary renderer.
+ *
+ * `role` is required, so submitting reports at that Reference's own path.
+ */
+export const WithAttributes: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				makeField(
+					{},
+					{
+						blueprints: ["article"],
+						attributes: [
+							attribute("number", "page", "Page"),
+							attribute(
+								"select",
+								"role",
+								"Role",
+								{ required: true },
+								{
+									options: { cited: "Cited", background: "Background" },
+								},
+							),
+						],
+					},
+				),
+			]}
+			defaultValues={{
+				related: [
+					{ id: "article-1", attributes: { page: 12, role: "cited" } },
+					{ id: "article-3", attributes: { page: 4 } },
+					{ id: "article-2" },
+				],
+			}}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};

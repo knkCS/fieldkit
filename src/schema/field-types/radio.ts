@@ -28,5 +28,5 @@ export const radioPlugin: FieldTypePlugin<RadioSettings> = {
 	},
 
 	defaultSettings: { options: {} },
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

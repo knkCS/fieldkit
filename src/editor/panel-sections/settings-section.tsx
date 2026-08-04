@@ -12,6 +12,8 @@ export function SettingsSection({
 	plugin,
 	onFieldChange,
 	labels,
+	onDrillIn,
+	plugins,
 }: PanelSectionProps) {
 	const SettingsComponent = plugin?.settingsComponent;
 
@@ -30,6 +32,11 @@ export function SettingsSection({
 			settings={settings}
 			field={field}
 			onChange={(next) => onFieldChange({ ...field, settings: next })}
+			// A settings editor holding a Spec of its own configures it through
+			// the panel's incumbent drill-in rather than a nested editor of its
+			// own — see SettingsProps.onDrillIn.
+			onDrillIn={onDrillIn}
+			plugins={plugins}
 		/>
 	);
 }

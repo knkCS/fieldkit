@@ -13,7 +13,23 @@ export type FieldTypeCategory =
 	| "reference"
 	| "media";
 
-export type FieldContext = "blueprint" | "task" | "form";
+/**
+ * Where a Field is being authored — which decides the types on offer.
+ *
+ * `"attribute"` is the Attribute Spec of a Reference Field: the Fields an
+ * Author declares once per Field and someone filling in the form fills per
+ * Reference. It offers strictly less than the other three, and deliberately:
+ *
+ * - **No Marker.** Attributes render in a drawer, and there is no Tab or Card
+ *   there for a Section or a Card to open.
+ * - **No container.** The Attribute Spec lives in settings, so shared traversal
+ *   never reaches it (ADR-0007) — a Fieldset would never resolve, and a Group's
+ *   children would never have their Accessors checked.
+ * - **No reference type.** Cycle rejection walks `children`, so a Reference
+ *   Field declared as an Attribute of a Reference Field is a recursion nothing
+ *   would catch.
+ */
+export type FieldContext = "blueprint" | "task" | "form" | "attribute";
 
 /** Props passed to a field type's renderer component. */
 export interface FieldProps<S = unknown> {
@@ -31,6 +47,26 @@ export interface SettingsProps<S = unknown> {
 	 * must name the Field rather than just edit its settings, such as
 	 * reporting an adapter failure through the provider's `onError`. */
 	field?: Field<S>;
+	/**
+	 * Opens the config panel's drill-in on a Field these settings hold under
+	 * `settingsKey`, named by its Accessor — the way a Spec nested in settings
+	 * (a Reference Field's Attributes) is configured without a second nested
+	 * editor existing anywhere.
+	 *
+	 * The plugin passes its own key; the panel never learns which setting of
+	 * which Field type holds Fields. Optional, because a settings editor may be
+	 * mounted somewhere with no drill-in behind it — a Storybook story, a
+	 * Consumer's own panel — and must still render.
+	 */
+	onDrillIn?: (settingsKey: string, accessor: string) => void;
+	/**
+	 * Every registered field type, for a settings editor that lets an Author
+	 * declare Fields of its own and therefore has to offer a type picker.
+	 *
+	 * Optional on the same terms as `onDrillIn`: a settings editor mounted
+	 * outside the config panel gets neither, and must still render.
+	 */
+	plugins?: FieldTypePlugin[];
 }
 
 /** Props passed to a field type's table cell component. */

@@ -25,5 +25,5 @@ export const timePlugin: FieldTypePlugin<null> = {
 		return schema;
 	},
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

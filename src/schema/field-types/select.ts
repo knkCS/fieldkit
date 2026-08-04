@@ -43,5 +43,5 @@ export const selectPlugin: FieldTypePlugin<SelectSettings> = {
 	defaultValue: (field: Field<SelectSettings>) =>
 		field.settings?.multiple ? [] : "",
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };

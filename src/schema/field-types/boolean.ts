@@ -21,5 +21,5 @@ export const booleanPlugin: FieldTypePlugin<null> = {
 
 	defaultValue: () => false,
 
-	availableIn: ["blueprint", "task", "form"],
+	availableIn: ["blueprint", "task", "form", "attribute"],
 };
