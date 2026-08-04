@@ -136,21 +136,23 @@ interface ResolvedDrop {
 	 * some second reading of the rule is exactly how a label comes to disagree
 	 * with what letting go does.
 	 */
-	adopted: string[];
+	adopted: ReadonlySet<string>;
 }
 
 /**
  * What the drag says out loud while a release would adopt — empty when it
  * would not, which is the ordinary case and wants no announcement at all.
  *
- * It counts the rows the projection named, which are the rows on screen: a
- * folded Reference counts once and stands in for everything it hides, the same
- * way the rest of this control treats one.
+ * It counts exactly the rows it marks, which are rows on screen: a folded
+ * Reference counts once and stands in for everything it hides, the same way
+ * dropping below one lands below its whole branch. So the count and the
+ * outlines always describe the same tree an Author is looking at, and a fold
+ * changes both together rather than making one of them lie.
  *
- * The wording is shared vocabulary rather than this control's own: the
- * insertion affordance describes the same fact about the same projection, and
- * two affordances naming one outcome differently is how an Author learns to
- * distrust both.
+ * The wording wants to stay the insertion affordance's too — it describes the
+ * same fact about the same projection, and two affordances naming one outcome
+ * differently is how an Author learns to distrust both. Nothing shares it yet:
+ * the strip is a lane of its own, and this is the string it has to match.
  */
 function adoptionNotice(count: number): string {
 	if (count <= 0) return "";
@@ -209,7 +211,7 @@ function resolveDrop({
 		activeIndex,
 		overIndex,
 		depth,
-		adopted: adopted.map((row) => row.key),
+		adopted: new Set(adopted.map((row) => row.key)),
 	};
 }
 
@@ -394,7 +396,7 @@ export function ReferenceTree({
 	 * for a restructuring drop may not be (ADR-0012). The two fire in the same
 	 * flush, so the fresher answer is the one that lands.
 	 */
-	function handleDragMove(event: DragMoveEvent) {
+	function handleDragUpdate(event: DragMoveEvent) {
 		setPending(resolveFrom(event));
 	}
 
@@ -443,8 +445,8 @@ export function ReferenceTree({
 			sensors={sensors}
 			collisionDetection={closestCenter}
 			onDragStart={handleDragStart}
-			onDragMove={handleDragMove}
-			onDragOver={handleDragMove}
+			onDragMove={handleDragUpdate}
+			onDragOver={handleDragUpdate}
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
@@ -461,7 +463,7 @@ export function ReferenceTree({
 						// and the rows it would take are marked — both from the same
 						// resolution the release itself uses.
 						depth={row.key === activeKey && pending ? pending.depth : row.depth}
-						adopted={pending?.adopted.includes(row.key) ?? false}
+						adopted={pending?.adopted.has(row.key) ?? false}
 						collapsed={collapsed.has(row.key)}
 						readOnly={readOnly ?? false}
 						attributesAsked={askedFor.length}
@@ -487,7 +489,7 @@ export function ReferenceTree({
 				color="accent"
 				data-testid="reference-adoption-notice"
 			>
-				{adoptionNotice(pending?.adopted.length ?? 0)}
+				{adoptionNotice(pending?.adopted.size ?? 0)}
 			</Text>
 		</DndContext>
 	);
@@ -551,9 +553,9 @@ function ReferenceTreeRowItem({
 			borderRadius="md"
 			// An outline rather than a border: a marked row must not move, or
 			// the feedback would restructure the very list it is describing.
-			outline={adopted ? "2px solid" : undefined}
-			outlineColor="accent"
-			outlineOffset="1px"
+			{...(adopted
+				? { outline: "2px solid", outlineColor: "accent", outlineOffset: "1px" }
+				: {})}
 			opacity={isDragging ? 0.5 : 1}
 			data-testid="reference-row"
 			// The row's depth, for a test to read and for a Consumer to style

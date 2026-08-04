@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { ReferenceSettings } from "../../../schema/field-types/reference";
 import type { Reference } from "../../../schema/reference";
@@ -622,8 +622,19 @@ describe("a drag that would adopt the branch below it", () => {
 		{ id: "article-3" },
 	];
 
+	// Every drag below needs a faked column, and several assert partway
+	// through one: a failing assertion must still hand the real
+	// `getBoundingClientRect` back, or it would take the rest of the file
+	// with it.
+	let rects: ReturnType<typeof mockRowRects>;
+	beforeEach(() => {
+		rects = mockRowRects();
+	});
+	afterEach(() => {
+		rects.mockRestore();
+	});
+
 	it("marks the rows a release would take, and says how many", async () => {
-		const rects = mockRowRects();
 		renderTree({ value: nested });
 		await screen.findByText("Content 1");
 
@@ -638,11 +649,9 @@ describe("a drag that would adopt the branch below it", () => {
 		expect(announcedAdoption()).toBe("Adopting 1 Reference");
 
 		await releaseDrag();
-		rects.mockRestore();
 	});
 
 	it("stores exactly the arrangement the marking showed", async () => {
-		const rects = mockRowRects();
 		renderTree({ value: nested });
 		await screen.findByText("Content 1");
 
@@ -662,11 +671,9 @@ describe("a drag that would adopt the branch below it", () => {
 			["Content 3", 0],
 			["Content 2", 1],
 		]);
-		rects.mockRestore();
 	});
 
 	it("takes the adopted Reference's own branch with it", async () => {
-		const rects = mockRowRects();
 		renderTree({
 			value: [
 				{
@@ -696,11 +703,9 @@ describe("a drag that would adopt the branch below it", () => {
 				children: [{ id: "article-2", children: [{ id: "article-3" }] }],
 			},
 		]);
-		rects.mockRestore();
 	});
 
 	it("marks nothing, and says nothing, when the drop adopts nothing", async () => {
-		const rects = mockRowRects();
 		renderTree({ value: nested });
 		await screen.findByText("Content 1");
 
@@ -717,11 +722,9 @@ describe("a drag that would adopt the branch below it", () => {
 		expect(stored()).toEqual([
 			{ id: "article-1", children: [{ id: "article-3" }, { id: "article-2" }] },
 		]);
-		rects.mockRestore();
 	});
 
 	it("clears the marking once the drag is over", async () => {
-		const rects = mockRowRects();
 		renderTree({ value: nested });
 		await screen.findByText("Content 1");
 
@@ -735,11 +738,9 @@ describe("a drag that would adopt the branch below it", () => {
 		expect(markedRows()).toEqual([]);
 		expect(announcedAdoption()).toBe("");
 		expect(stored()).toEqual(nested);
-		rects.mockRestore();
 	});
 
 	it("reaches adoption from the keyboard, with the arrow keys alone", async () => {
-		const rects = mockRowRects();
 		renderTree({
 			value: [
 				{
@@ -767,11 +768,9 @@ describe("a drag that would adopt the branch below it", () => {
 			{ id: "article-1" },
 			{ id: "article-3", children: [{ id: "article-2" }] },
 		]);
-		rects.mockRestore();
 	});
 
 	it("refuses a Reference carrying children the level that would adopt", async () => {
-		const rects = mockRowRects();
 		renderTree({
 			value: [
 				{ id: "article-1", children: [{ id: "article-2" }] },
@@ -800,11 +799,9 @@ describe("a drag that would adopt the branch below it", () => {
 				],
 			},
 		]);
-		rects.mockRestore();
 	});
 
 	it("withdraws the adopting level rather than adopting past max_depth", async () => {
-		const rects = mockRowRects();
 		renderTree({
 			value: [
 				{
@@ -838,11 +835,50 @@ describe("a drag that would adopt the branch below it", () => {
 				],
 			},
 		]);
-		rects.mockRestore();
+	});
+
+	it("counts a folded Reference once, as everything else here does", async () => {
+		const user = userEvent.setup();
+		renderTree({
+			value: [
+				{
+					id: "article-1",
+					children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+				},
+				{ id: "article-4" },
+			],
+		});
+		await user.click(
+			await screen.findByRole("button", { name: "Collapse Content 2" }),
+		);
+
+		await liftWithKeyboard("Content 4");
+		await pressDuringDrag("ArrowUp");
+
+		// Content 3 is folded away, so it is neither marked nor counted: the
+		// announcement describes the tree an Author is looking at, the same
+		// way dropping below a folded Reference lands below its whole branch.
+		expect(markedRows()).toEqual(["Content 2"]);
+		expect(announcedAdoption()).toBe("Adopting 1 Reference");
+
+		await releaseDrag();
+		// And the branch came along, still folded, exactly as it would have on
+		// any other drop that moved Content 2.
+		expect(stored()).toEqual([
+			{ id: "article-1" },
+			{
+				id: "article-4",
+				children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+			},
+		]);
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 4", 0],
+			["Content 2", 1],
+		]);
 	});
 
 	it("carries Attributes and Pins across, on every Reference that moved", async () => {
-		const rects = mockRowRects();
 		renderTree({
 			value: [
 				{
@@ -881,7 +917,6 @@ describe("a drag that would adopt the branch below it", () => {
 				],
 			},
 		]);
-		rects.mockRestore();
 	});
 });
 
