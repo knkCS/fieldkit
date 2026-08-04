@@ -6,6 +6,7 @@ import { Link2 } from "lucide-react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import { builtInFieldTypes } from "../../schema/field-types";
 import { fieldsetPlugin } from "../../schema/field-types/fieldset";
@@ -51,6 +52,7 @@ function renderPanel(
 	initial: Field,
 	plugin: FieldTypePlugin,
 	labels = DEFAULT_EDITOR_LABELS,
+	adapters: FieldKitAdapters = {},
 ) {
 	function Harness() {
 		const [field, setField] = useState<Field>(initial);
@@ -75,7 +77,7 @@ function renderPanel(
 
 	return render(
 		<ChakraProvider value={defaultSystem}>
-			<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
+			<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
 				<Harness />
 			</FieldKitProvider>
 		</ChakraProvider>,
@@ -121,6 +123,31 @@ describe("a frozen setting in the config panel", () => {
 		expect(screen.getByTestId("reference-max-items-input")).not.toBeDisabled();
 		expect(screen.getByTestId("reference-max-depth-input")).not.toBeDisabled();
 		expect(screen.queryByTestId("setting-locked-max_items")).toBeNull();
+	});
+
+	it("stays frozen when the adapter CAN list blueprints", async () => {
+		// The picker has two shapes — a select when the adapter enumerates
+		// Blueprints, an id box when it cannot (#52) — and a frozen setting must
+		// not become editable just because the Consumer's adapter grew a `list`.
+		renderPanel(
+			referenceField(frozen("blueprints", "Contents already reference these")),
+			referencePlugin,
+			DEFAULT_EDITOR_LABELS,
+			{
+				blueprint: {
+					getSchema: vi.fn().mockResolvedValue([]),
+					getData: vi.fn(),
+					list: () => Promise.resolve([{ id: "article", name: "Article" }]),
+				},
+			},
+		);
+		openTypeSettings();
+
+		expect(await screen.findByLabelText(/Blueprints/)).toBeDisabled();
+		expect(screen.queryByTestId("reference-blueprints-input")).toBeNull();
+		expect(screen.getByTestId("setting-locked-blueprints")).toHaveTextContent(
+			"Contents already reference these",
+		);
 	});
 
 	it("leaves a Field with nothing frozen entirely editable", () => {
@@ -320,6 +347,30 @@ describe("a settings editor that ignores the list", () => {
 		// The rest of the same write lands: the lock freezes one setting, not
 		// the whole editor.
 		expect(settings.max_items).toBe(9);
+	});
+
+	it("restores the frozen setting to what the panel was showing", async () => {
+		// A Field with no settings of its own is displayed through the plugin's
+		// `defaultSettings`, so that — not `undefined` — is what the Author sees
+		// frozen, and what the write must be put back to. Restoring to anything
+		// else would make the disabled control disagree with the Spec it
+		// describes.
+		const user = userEvent.setup();
+		const noSettings: Field = {
+			...referenceField(frozen("pin_mode")),
+			settings: null,
+		};
+
+		renderPanel(noSettings, {
+			...roguePlugin,
+			defaultSettings: referencePlugin.defaultSettings,
+		});
+		await openTypeSettingsFully(user);
+
+		await user.click(screen.getByRole("button", { name: "Rewrite settings" }));
+
+		const settings = panelField().settings as Record<string, unknown>;
+		expect(settings.pin_mode).toBe("none");
 	});
 });
 

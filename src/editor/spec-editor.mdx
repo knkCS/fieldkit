@@ -451,15 +451,36 @@ config: {
   permits the breaking edit**, so whatever guard your own boundary keeps
   stays necessary.
 
-For a **custom field type**: every control fieldkit ships (`BlueprintPicker`,
-`CapInput`, `PinModePicker`, the attribute list) already honours the list —
-each takes the settings key it writes and asks about it, so a
-`settingsComponent` assembled from them needs no code of its own. A settings
-component that renders its own raw inputs instead will render an editable
-control over a frozen setting; what it cannot do is *write* one — the panel
-puts every frozen key back before applying the change. The same guard covers
-the settings drill-in, so a frozen settings-nested spec (a Reference field's
-`attributes`) cannot be edited through the panel's Back/Edit path either.
+For a **custom field type**, honouring the list is not something your
+`settingsComponent` has to remember — the lock reaches the *controls*. Every
+control fieldkit mounts internally (`BlueprintPicker`, `CapInput`,
+`PinModePicker`, the attribute list) takes the settings key it writes and
+asks about that key itself. For controls of your own, `@knkcs/fieldkit/editor`
+exports the same hook they use:
+
+```tsx
+import { SettingLockReason, useSettingLock } from "@knkcs/fieldkit/editor";
+
+function MySettings({ settings, onChange }) {
+  const lock = useSettingLock("my_setting");
+  return (
+    <>
+      <input
+        value={settings.my_setting}
+        disabled={lock.locked}
+        onChange={(e) => onChange({ ...settings, my_setting: e.target.value })}
+      />
+      <SettingLockReason lock={lock} />
+    </>
+  );
+}
+```
+
+A settings component that skips the hook will render an editable control over
+a frozen setting; what it cannot do is *write* one — the panel puts every
+frozen key back before applying the change. The same guard covers the settings
+drill-in, so a frozen settings-nested spec (a Reference field's `attributes`)
+cannot be edited through the panel's Back/Edit path either.
 
 ## Preview Mode
 

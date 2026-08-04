@@ -33,7 +33,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * entry is what the Consumer meant, and a typo in the prose must not quietly
  * hand back an editable control over a setting that strands data.
  */
-export function lockedSetting(
+export function findLockedSetting(
 	lockedSettings: LockedSetting[] | undefined,
 	key: string,
 ): LockedSetting | undefined {

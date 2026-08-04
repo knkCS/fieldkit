@@ -2,7 +2,7 @@
 import { Flex, Text } from "@chakra-ui/react";
 import { Lock } from "lucide-react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
-import { lockedSetting } from "../../schema/locked-settings";
+import { findLockedSetting } from "../../schema/locked-settings";
 import type { LockedSetting } from "../../schema/types";
 
 /**
@@ -75,7 +75,7 @@ SettingLockProvider.displayName = "SettingLockProvider";
 export function useSettingLock(settingsKey: string): SettingLock {
 	const locked = useContext(SettingLockContext);
 	return useMemo(() => {
-		const entry = lockedSetting(locked, settingsKey);
+		const entry = findLockedSetting(locked, settingsKey);
 		return {
 			key: settingsKey,
 			locked: entry !== undefined,
@@ -93,6 +93,12 @@ export function useSettingLock(settingsKey: string): SettingLock {
  * the editor's `labels` tables: only the Consumer can say "12 contents use this
  * blueprint", and fieldkit never sees that string among its own translations
  * (ADR-0011).
+ *
+ * `reason` is required on `LockedSetting`, so the no-reason branch below is
+ * only reachable from a hand-authored Spec that omitted it. The lock still
+ * holds — a typo in the prose must not unfreeze a setting — and the Author gets
+ * the padlock without an empty sentence beside it. Whether they are told why is
+ * the Consumer's to get right.
  */
 export function SettingLockReason({ lock }: { lock: SettingLock }) {
 	if (!lock.locked) return null;
@@ -103,12 +109,20 @@ export function SettingLockReason({ lock }: { lock: SettingLock }) {
 			mt="1"
 			data-testid={`setting-locked-${lock.key}`}
 		>
-			{/* Decorative: the disabled control is what says "you cannot change
-			    this", and the sentence beside it says why. */}
-			<Lock size={12} aria-hidden="true" />
-			<Text fontSize="xs" color="fg.muted">
-				{lock.reason}
-			</Text>
+			{/* Decorative where a reason follows it: the disabled control is what
+			    says "you cannot change this", and the sentence beside it says why.
+			    With no reason to read, the padlock is the whole message and needs a
+			    name of its own. */}
+			<Lock
+				size={12}
+				aria-hidden={lock.reason ? "true" : undefined}
+				aria-label={lock.reason ? undefined : "Locked"}
+			/>
+			{lock.reason && (
+				<Text fontSize="xs" color="fg.muted">
+					{lock.reason}
+				</Text>
+			)}
 		</Flex>
 	);
 }

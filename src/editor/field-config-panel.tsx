@@ -4,7 +4,7 @@ import { Button, IconButton } from "@knkcs/anker/atoms";
 import { Tabs } from "@knkcs/anker/primitives";
 import { ChevronLeft, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { lockedSetting } from "../schema/locked-settings";
+import { findLockedSetting } from "../schema/locked-settings";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import { isField } from "../schema/types";
@@ -455,7 +455,8 @@ export function FieldConfigPanel({
 		for (let i = 0; i < chain.length - 1; i++) {
 			const holder = drillStack[i].holder;
 			if (holder.kind !== "settings") continue;
-			if (lockedSetting(chain[i].config.locked_settings, holder.key)) return;
+			if (findLockedSetting(chain[i].config.locked_settings, holder.key))
+				return;
 		}
 		// A rename (manual or auto-slug) changes the drilled child's accessor;
 		// the drillStack entry pointing at it must follow in the same update,

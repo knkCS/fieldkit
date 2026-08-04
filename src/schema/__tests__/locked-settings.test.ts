@@ -1,30 +1,30 @@
 // src/schema/__tests__/locked-settings.test.ts
 import { describe, expect, it } from "vitest";
-import { lockedSetting, restoreLockedSettings } from "../locked-settings";
+import { findLockedSetting, restoreLockedSettings } from "../locked-settings";
 import type { LockedSetting } from "../types";
 
 const FROZEN_PIN: LockedSetting[] = [
 	{ key: "pin_mode", reason: "12 contents already pin through this field" },
 ];
 
-describe("lockedSetting", () => {
+describe("findLockedSetting", () => {
 	it("finds the entry freezing a key", () => {
-		expect(lockedSetting(FROZEN_PIN, "pin_mode")).toEqual(FROZEN_PIN[0]);
+		expect(findLockedSetting(FROZEN_PIN, "pin_mode")).toEqual(FROZEN_PIN[0]);
 	});
 
 	it("finds nothing for a key nobody froze", () => {
-		expect(lockedSetting(FROZEN_PIN, "blueprints")).toBeUndefined();
+		expect(findLockedSetting(FROZEN_PIN, "blueprints")).toBeUndefined();
 	});
 
 	it("reads an absent list as nothing frozen", () => {
-		expect(lockedSetting(undefined, "pin_mode")).toBeUndefined();
+		expect(findLockedSetting(undefined, "pin_mode")).toBeUndefined();
 	});
 
 	it("ignores an entry that is not a locked setting at all", () => {
 		// A Spec arrives as JSON from a Consumer and nothing validates this list
 		// — one stray entry must cost that entry, never the lookup.
 		const list = [null, "pin_mode", { reason: "no key" }, ...FROZEN_PIN];
-		expect(lockedSetting(list as LockedSetting[], "pin_mode")).toEqual(
+		expect(findLockedSetting(list as LockedSetting[], "pin_mode")).toEqual(
 			FROZEN_PIN[0],
 		);
 	});
@@ -32,7 +32,7 @@ describe("lockedSetting", () => {
 	it("freezes a setting whose entry carries no reason", () => {
 		// The reason is what the Author reads; the lock is what the Consumer
 		// meant. A missing reason must not quietly unfreeze the setting.
-		const entry = lockedSetting(
+		const entry = findLockedSetting(
 			[{ key: "pin_mode" }] as unknown as LockedSetting[],
 			"pin_mode",
 		);
