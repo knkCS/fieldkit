@@ -48,6 +48,18 @@ z.array(z.object({ name: z.string().min(1), role: z.string().optional() }).passt
 z.array(row).min(1).max(5)
 ```
 
+## Adding a Row
+
+"Add item" seeds the new row from its children — each child's explicit
+`config.default_value`, or its plugin's `defaultValue` where it has one, exactly
+as `getDefaultValues` seeds the form itself (#38). A row of `note` and `active`
+starts `{ note: "", active: false }`, not `{}`.
+
+This is what makes an added row submittable: zod rejects `undefined` for a
+required boolean but accepts `false`, and nothing a form user can do to an
+untouched switch produces a value — so an unseeded row could never pass the row
+validation above. Each click builds a fresh record, so no two rows share one.
+
 ## Table Cell
 
 Renders the item count via `GroupCell`.
@@ -55,7 +67,6 @@ Renders the item count via `GroupCell`.
 ## Known Limitations
 
 - No drag-to-reorder (the plan specified dnd-kit integration)
-- `append({})` ignores child field defaults — new items start with empty objects. Now that rows validate, an added row is invalid until its required fields are filled, which is the intent; but a child with a plugin default (a boolean's `false`) starts undefined rather than seeded.
 - No collapse/expand per item
 - "Add item" button is above the list instead of below
 

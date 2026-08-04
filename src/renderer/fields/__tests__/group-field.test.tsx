@@ -1,9 +1,12 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { render, screen } from "@testing-library/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm } from "react-hook-form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { builtInFieldTypes } from "../../../schema/field-types";
 import type { Field } from "../../../schema/types";
+import { getDefaultValues, specToZodSchema } from "../../../schema/zod-builder";
 import { FieldKitProvider } from "../../provider";
 import { GroupField } from "../group-field";
 
@@ -196,6 +199,85 @@ describe("GroupField", () => {
 
 	it("has displayName", () => {
 		expect(GroupField.displayName).toBe("GroupField");
+	});
+
+	it("seeds an added row with its children's value defaults", async () => {
+		// #38's reasoning, one level down: zod rejects `undefined` for a
+		// required boolean but accepts `false`, so a row appended as `{}` was
+		// unsubmittable no matter what the form user did — nothing in the UI
+		// turns an untouched switch into a value. Now that rows validate
+		// (ADR-0007), that gap is a dead end rather than a curiosity.
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+
+		const spec: Field[] = [
+			{
+				field_type: "group",
+				config: {
+					name: "Team Members",
+					api_accessor: "items",
+					required: false,
+					instructions: "",
+				},
+				settings: {},
+				children: [
+					{
+						field_type: "text",
+						config: {
+							name: "Note",
+							api_accessor: "note",
+							required: false,
+							instructions: "",
+						},
+						settings: null,
+						children: null,
+						system: false,
+					},
+					{
+						field_type: "boolean",
+						config: {
+							name: "Active",
+							api_accessor: "active",
+							required: true,
+							instructions: "",
+						},
+						settings: null,
+						children: null,
+						system: false,
+					},
+				],
+				system: false,
+			},
+		];
+
+		function Harness() {
+			const methods = useForm({
+				defaultValues: getDefaultValues(spec, builtInFieldTypes),
+				resolver: zodResolver(specToZodSchema(spec, builtInFieldTypes)),
+			});
+			return (
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={builtInFieldTypes}>
+						<FormProvider {...methods}>
+							<form noValidate onSubmit={methods.handleSubmit(onSubmit)}>
+								<GroupField field={spec[0]} />
+								<button type="submit">Save</button>
+							</form>
+						</FormProvider>
+					</FieldKitProvider>
+				</ChakraProvider>
+			);
+		}
+
+		render(<Harness />);
+
+		await user.click(screen.getByRole("button", { name: /Add item/ }));
+		await user.click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+		expect(onSubmit.mock.calls[0][0]).toEqual({
+			items: [{ note: "", active: false }],
+		});
 	});
 
 	it("does not re-render existing items' fields when a new item is added", async () => {
