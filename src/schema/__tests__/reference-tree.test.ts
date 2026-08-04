@@ -94,6 +94,15 @@ describe("the flatten/nest round trip", () => {
 		expect(nestReferences(flattenReferences(pinned))).toEqual(pinned);
 	});
 
+	it("carries an Attribute record across rather than copying it", () => {
+		// Attribute values are the Consumer's, opaque to fieldkit (ADR-0008),
+		// so a drag moves the record it was given instead of cloning values
+		// it cannot know the shape of.
+		const attributes = { page: 12 };
+		const round = nestReferences(flattenReferences([{ id: "a", attributes }]));
+		expect(round[0].attributes).toBe(attributes);
+	});
+
 	it("rebuilds every branch, so mutating the result leaves the input alone", () => {
 		const source: Reference[] = [{ id: "a", children: [{ id: "a1" }] }];
 		const round = nestReferences(flattenReferences(source));
@@ -175,7 +184,7 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 		).toBe(2);
 	});
 
-	it("has no ceiling of its own: unset `maxDepth` leaves the neighbours in charge", () => {
+	it("has no ceiling of its own: an unset one leaves the neighbours in charge", () => {
 		expect(
 			projectDropDepth({
 				items,
@@ -183,7 +192,7 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 				overIndex: 3,
 				offsetX: 1000,
 				indentWidth: INDENT,
-				maxDepth: undefined,
+				depthCeiling: undefined,
 			}).depth,
 		).toBe(3);
 	});
@@ -198,6 +207,50 @@ describe("projectDropDepth — the neighbours' bounds", () => {
 				indentWidth: INDENT,
 			}),
 		).toEqual({ depth: 0, minDepth: 0, maxDepth: 2 });
+	});
+});
+
+describe("projectDropDepth — the dragged branch", () => {
+	// a
+	//   a1        <- a's branch, still rendered
+	// b
+	const withBranch = [row("a", 0, 1), row("a1", 1), row("b", 0)];
+	// The same drag, with a's branch pruned the way the sortable-tree
+	// pattern prunes it — the answers have to agree.
+	const pruned = [row("a", 0, 1), row("b", 0)];
+
+	it("reads the same whether the caller prunes the branch or renders it", () => {
+		expect(
+			projectDropDepth({
+				items: withBranch,
+				activeIndex: 0,
+				overIndex: 2,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual(
+			projectDropDepth({
+				items: pruned,
+				activeIndex: 0,
+				overIndex: 1,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		);
+	});
+
+	it("never offers a Reference a place inside its own branch", () => {
+		// Over its own child: without the branch rule a1 would look like the
+		// Reference above the slot, and a would nest under its own child.
+		expect(
+			projectDropDepth({
+				items: withBranch,
+				activeIndex: 0,
+				overIndex: 1,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			}),
+		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0 });
 	});
 });
 
@@ -242,7 +295,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				overIndex: 3,
 				offsetX: 1000,
 				indentWidth: INDENT,
-				maxDepth: 1,
+				depthCeiling: 1,
 			}),
 		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1 });
 	});
@@ -257,7 +310,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				overIndex: 3,
 				offsetX: 1000,
 				indentWidth: INDENT,
-				maxDepth: 2,
+				depthCeiling: 2,
 			}),
 		).toEqual({ depth: 1, minDepth: 0, maxDepth: 1 });
 	});
@@ -271,7 +324,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				overIndex: 1,
 				offsetX: 1000,
 				indentWidth: INDENT,
-				maxDepth: 1,
+				depthCeiling: 1,
 			}),
 		).toEqual({ depth: 0, minDepth: 0, maxDepth: 0 });
 	});
@@ -287,7 +340,7 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				overIndex: 2,
 				offsetX: 1000,
 				indentWidth: INDENT,
-				maxDepth: 1,
+				depthCeiling: 1,
 			}),
 		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1 });
 	});
