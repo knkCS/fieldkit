@@ -32,6 +32,13 @@ import { ReferenceTree } from "./reference-tree";
  *
  * One message repeated once per offending branch says nothing the first said,
  * so the same text is shown once.
+ *
+ * It collects *every* nested message, not only the depth cap's — a required
+ * Attribute reports at `related.0.attributes.page` and is out of reach for the
+ * same reason. That is deliberate: an Attribute lives inside a drawer, so
+ * without this a submit blocked by one is a submit blocked by nothing visible
+ * at all. Which Reference each message came from is still only in
+ * `formState.errors`; naming it on the row is a row's job, not this one's.
  */
 function nestedErrorMessages(error: unknown): string[] {
 	const found = new Set<string>();

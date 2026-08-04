@@ -180,7 +180,9 @@ The blast radius mirrors ADR-0007's: declaring a required Attribute starts check
 
 Both caps live in the **Schema**, not only in the control, so an import or an API write is checked on the same terms a form is. The UI additionally disables the add affordance at `max_items` and clamps a drop to `max_depth`, but neither is where the rule lives.
 
-That has a blast radius, and it is intended: **a Spec whose caps were never enforced can begin blocking submit on data that saved fine before.** What does not happen is fieldkit quietly fixing it — a value over a cap is reported, never truncated, and a branch past the depth is reported, never re-nested. Only the shallowest Reference in each over-deep branch is reported, since everything under it is too deep because of it. `ReferenceField` renders those nested messages under the tree, because `FormField` shows only the message on the field's own node.
+That has a blast radius, and it is intended: **a Spec whose caps were never enforced can begin blocking submit on data that saved fine before.** What does not happen is fieldkit quietly fixing it — a value over a cap is reported, never truncated, and a branch past the depth is reported, never re-nested. Only the shallowest Reference in each over-deep branch is reported, since everything under it is too deep because of it.
+
+`ReferenceField` renders those messages under the tree, because `FormField` shows only the message on the field's *own* node and `max_depth` deliberately reports deeper. The same collection catches a required Attribute, which reports at `related.0.attributes.page` for the same reason — and which lives inside a drawer, so without it a submit blocked by an Attribute would be a submit blocked by nothing visible at all.
 
 ## Table Cell
 
@@ -218,7 +220,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 ## Known Limitations
 
-- An over-`max_depth` branch is reported under the tree rather than on the row that broke it; the path is in `formState.errors` for a Consumer that wants to point at rows.
+- Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required Attribute — is shown under the tree rather than on the row or the Attribute that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
 - The drawer always adds at the root; a new Reference is nested by dragging it.
 - An Attribute is checked by the Schema but nothing shared validates the Attribute *Spec* — a hand-written duplicate accessor among Attributes goes unreported (ADR-0007, above).
 - `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — an Attribute of one of those types needs its `settings.options` hand-authored. Not specific to Attributes.
