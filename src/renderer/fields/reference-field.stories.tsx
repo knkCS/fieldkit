@@ -22,6 +22,21 @@ const bareAdapter = createFakeReferenceAdapter({
 /** Enough Contents that the browse has to be paged through. */
 const bigAdapter = createFakeReferenceAdapter({ contents: fakeCatalogue(42) });
 
+/** Enough Contents to build a tree past the collapse threshold out of. */
+const treeAdapter = createFakeReferenceAdapter({ contents: fakeCatalogue(30) });
+
+/** `count` References as parent/child pairs, for the two tree stories. */
+function treeOf(count: number) {
+	const roots = [];
+	for (let n = 1; n <= count; n += 2) {
+		roots.push({
+			id: `article-${n}`,
+			children: [{ id: `article-${n + 1}` }],
+		});
+	}
+	return roots;
+}
+
 function makeField(
 	overrides: Partial<Field["config"]> = {},
 	settings: Record<string, unknown> = { blueprints: ["article"] },
@@ -67,6 +82,43 @@ export const WithStoredReferences: Story = {
 			fields={[makeField()]}
 			defaultValues={{ related: [{ id: "article-1" }, { id: "article-3" }] }}
 			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/**
+ * A Reference Tree: drag a row's grip to reorder it among its siblings, or
+ * rightwards to nest it under the Reference above. A Reference with children
+ * folds away with the chevron, and its descendants travel with it.
+ */
+export const NestedTree: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField()]}
+			defaultValues={{
+				related: [
+					{
+						id: "article-1",
+						children: [{ id: "article-3", children: [{ id: "article-2" }] }],
+					},
+					{ id: "author-1" },
+				],
+			}}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/**
+ * Past the node-count threshold a tree opens with every parent collapsed, so
+ * it is navigable from the first render instead of needing to be scrolled.
+ */
+export const LargeTree: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[makeField()]}
+			defaultValues={{ related: treeOf(30) }}
+			adapters={{ reference: treeAdapter }}
 		/>
 	),
 };

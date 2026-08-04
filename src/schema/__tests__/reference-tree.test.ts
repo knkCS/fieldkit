@@ -5,8 +5,10 @@ import type { FlatReference } from "../reference-tree";
 import {
 	countReferences,
 	flattenReferences,
+	moveReferenceBranch,
 	nestReferences,
 	projectDropDepth,
+	referenceBranchEnd,
 } from "../reference-tree";
 
 /** A three-generation tree, used by most of the flatten/nest tests. */
@@ -347,5 +349,265 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 				depthCeiling: 1,
 			}),
 		).toEqual({ depth: 1, minDepth: 1, maxDepth: 1 });
+	});
+});
+
+describe("referenceBranchEnd", () => {
+	// a
+	//   a1
+	//     a1x
+	//   a2
+	// b
+	const items = flattenReferences(tree);
+
+	it("answers a leaf with its own index — a leaf is its whole branch", () => {
+		expect(referenceBranchEnd(items, 2)).toBe(2); // a1x
+		expect(referenceBranchEnd(items, 4)).toBe(4); // b
+	});
+
+	it("reaches the last row of the branch, not just the first child", () => {
+		expect(referenceBranchEnd(items, 0)).toBe(3); // a … a2
+		expect(referenceBranchEnd(items, 1)).toBe(2); // a1 … a1x
+	});
+
+	it("reads depth alone, so a hand-built list answers for itself", () => {
+		expect(referenceBranchEnd([row("p", 0), row("q", 1), row("r", 0)], 0)).toBe(
+			1,
+		);
+	});
+
+	it("answers an index that does not resolve with itself", () => {
+		expect(referenceBranchEnd(items, 99)).toBe(99);
+	});
+});
+
+describe("moveReferenceBranch", () => {
+	/** The moved list, read the way a drop handler reads it. */
+	const shape = (items: { reference: { id: string }; depth: number }[]) =>
+		items.map((item) => [item.reference.id, item.depth]);
+
+	describe("among siblings", () => {
+		const items = [row("a", 0), row("b", 0), row("c", 0)];
+
+		it("moves a Reference down to where the drop landed", () => {
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 0,
+						overIndex: 2,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				["b", 0],
+				["c", 0],
+				["a", 0],
+			]);
+		});
+
+		it("moves a Reference up just as readily", () => {
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 2,
+						overIndex: 0,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				["c", 0],
+				["a", 0],
+				["b", 0],
+			]);
+		});
+
+		it("leaves the order alone when a Reference is dropped on itself", () => {
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 1,
+						overIndex: 1,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				["a", 0],
+				["b", 0],
+				["c", 0],
+			]);
+		});
+	});
+
+	describe("the branch that travels with it", () => {
+		// a
+		//   a1
+		//     a1x
+		//   a2
+		// b
+		const items = flattenReferences(tree);
+
+		it("takes every descendant along, in the order they were in", () => {
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 0,
+						overIndex: 4,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				["b", 0],
+				["a", 0],
+				["a1", 1],
+				["a1x", 2],
+				["a2", 1],
+			]);
+		});
+
+		it("shifts the whole branch by the depth the drop landed at", () => {
+			// a nests under b: everything below a goes one level deeper too, so
+			// the subtree keeps its shape.
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 0,
+						overIndex: 4,
+						depth: 1,
+					}),
+				),
+			).toEqual([
+				["b", 0],
+				["a", 1],
+				["a1", 2],
+				["a1x", 3],
+				["a2", 2],
+			]);
+		});
+
+		it("re-nests into a tree with the subtree intact", () => {
+			expect(
+				nestReferences(
+					moveReferenceBranch({
+						items,
+						activeIndex: 0,
+						overIndex: 4,
+						depth: 1,
+					}),
+				),
+			).toEqual([
+				{
+					id: "b",
+					children: [
+						{
+							id: "a",
+							children: [{ id: "a1", children: [{ id: "a1x" }] }, { id: "a2" }],
+						},
+					],
+				},
+			]);
+		});
+
+		it("moves an inner branch out to a root without disturbing the rest", () => {
+			// a1 (with a1x under it) leaves a and lands at the bottom.
+			expect(
+				nestReferences(
+					moveReferenceBranch({
+						items,
+						activeIndex: 1,
+						overIndex: 4,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				{ id: "a", children: [{ id: "a2" }] },
+				{ id: "b" },
+				{ id: "a1", children: [{ id: "a1x" }] },
+			]);
+		});
+
+		it("promotes a Reference out of its parent when the drop is shallower", () => {
+			expect(
+				nestReferences(
+					moveReferenceBranch({
+						items,
+						activeIndex: 3,
+						overIndex: 3,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+				{ id: "a2" },
+				{ id: "b" },
+			]);
+		});
+	});
+
+	describe("what a caller gets back", () => {
+		it("carries whatever else the caller hung on an entry, in the new order", () => {
+			// The point of the generic: a row keyed for React and for dnd-kit
+			// comes back in the order the drop produced, so the caller can
+			// follow the move without redoing the arithmetic.
+			const keyed = [
+				{ ...row("a", 0), key: "first" },
+				{ ...row("b", 0), key: "second" },
+			];
+			expect(
+				moveReferenceBranch({
+					items: keyed,
+					activeIndex: 0,
+					overIndex: 1,
+					depth: 0,
+				}).map((item) => item.key),
+			).toEqual(["second", "first"]);
+		});
+
+		it("leaves the entries it was given untouched", () => {
+			const items = [row("a", 0), row("a1", 1)];
+			moveReferenceBranch({ items, activeIndex: 1, overIndex: 1, depth: 0 });
+			expect(items.map((item) => item.depth)).toEqual([0, 1]);
+		});
+
+		it("hands the list back unchanged when the dragged index does not resolve", () => {
+			const items = [row("a", 0), row("b", 0)];
+			expect(
+				shape(
+					moveReferenceBranch({
+						items,
+						activeIndex: 5,
+						overIndex: 0,
+						depth: 0,
+					}),
+				),
+			).toEqual([
+				["a", 0],
+				["b", 0],
+			]);
+		});
+	});
+
+	describe("with projectDropDepth, which is how a drop reads it", () => {
+		it("lands exactly where the projection said it would", () => {
+			// p / q(child) / d — dragging d up between p and q, asking for as
+			// much nesting as the slot allows.
+			const items = [row("p", 0), row("q", 1), row("d", 0)];
+			const { depth } = projectDropDepth({
+				items,
+				activeIndex: 2,
+				overIndex: 1,
+				offsetX: 1000,
+				indentWidth: INDENT,
+			});
+			expect(
+				nestReferences(
+					moveReferenceBranch({ items, activeIndex: 2, overIndex: 1, depth }),
+				),
+			).toEqual([{ id: "p", children: [{ id: "d" }, { id: "q" }] }]);
+		});
 	});
 });

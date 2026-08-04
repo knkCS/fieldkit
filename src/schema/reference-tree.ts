@@ -11,10 +11,13 @@
  * ```
  * const items = flattenReferences(value);            // rows, top to bottom
  * const { depth } = projectDropDepth({ items, … });  // where a release lands
- * // on drop: move the dragged entry and its branch to the new slot, shift
- * // that branch's depths by (depth - dragged.depth), then:
+ * const moved = moveReferenceBranch({ items, … , depth });   // on release
  * const next = nestReferences(moved);                // back to a value
  * ```
+ *
+ * `referenceBranchEnd` is the rest of what a tree UI asks of the list: which
+ * rows a Reference's branch occupies, which is what a drag moves and what a
+ * collapsed Reference hides.
  *
  * `countReferences` is the same model's answer to "how big is this tree",
  * which is what `max_items` caps — every Reference at every level, since a
@@ -160,13 +163,41 @@ export interface DepthProjection {
 /**
  * The last index of the branch rooted at `index` — the rows below it that
  * sit deeper, which flattening guarantees are contiguous. Equal to `index`
- * itself for a leaf, and for a caller that pruned the branch already.
+ * itself for a leaf, for a caller that pruned the branch already, and for an
+ * index the list does not reach.
+ *
+ * A branch is therefore always a slice, which is the whole reason the flat
+ * list is worth having: a drag moves that slice, and a collapsed Reference
+ * hides it. Depth is all it reads, so a list a caller built by hand answers
+ * as readily as a flattened one.
  */
-function branchEnd(items: readonly FlatReference[], index: number): number {
-	const { depth } = items[index];
+export function referenceBranchEnd(
+	items: readonly Pick<FlatReference, "depth">[],
+	index: number,
+): number {
+	const entry = items[index];
+	if (!entry) return index;
 	let end = index;
-	while (end + 1 < items.length && items[end + 1].depth > depth) end++;
+	while (end + 1 < items.length && items[end + 1].depth > entry.depth) end++;
 	return end;
+}
+
+/**
+ * Where a lifted branch lands: an index into the list *without* it.
+ *
+ * Below itself, the rows it vacated have already shifted up; at or above
+ * itself — which includes hovering its own branch, an ask for nothing — it
+ * lands where the pointer is. Shared by the projection and the move so the
+ * two can never disagree about which slot they are talking about.
+ */
+function dropSlot(
+	activeIndex: number,
+	branchEnd: number,
+	overIndex: number,
+): number {
+	return overIndex > branchEnd
+		? overIndex - (branchEnd - activeIndex)
+		: Math.min(overIndex, activeIndex);
 }
 
 /**
@@ -204,15 +235,9 @@ export function projectDropDepth({
 	// The list the drop would leave behind: the whole branch travels, so
 	// none of it can be a neighbour of the slot it is looking for — not even
 	// when the caller is still rendering it.
-	const end = branchEnd(items, activeIndex);
+	const end = referenceBranchEnd(items, activeIndex);
 	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
-	// Where the branch lands in `rest`: below itself, the rows it vacated
-	// have already shifted up; at or above itself — which includes hovering
-	// its own branch, an ask for nothing — it lands where the pointer is.
-	const slot =
-		overIndex > end
-			? overIndex - (end - activeIndex)
-			: Math.min(overIndex, activeIndex);
+	const slot = dropSlot(activeIndex, end, overIndex);
 	const above = rest[slot - 1];
 	const below = rest[slot];
 
@@ -233,6 +258,65 @@ export function projectDropDepth({
 		minDepth,
 		maxDepth,
 	};
+}
+
+/** What `moveReferenceBranch` is asked. */
+export interface BranchMoveInput<T extends NestableReference> {
+	/**
+	 * The flattened list, in the same state `projectDropDepth` was given it —
+	 * and carrying whatever else the caller needs back, which is what the
+	 * generic is for.
+	 */
+	items: readonly T[];
+	/** Index in `items` of the Reference being dragged. */
+	activeIndex: number;
+	/** Index in `items` of the row the drop landed on. */
+	overIndex: number;
+	/** The depth the dragged Reference lands at — `projectDropDepth`'s answer. */
+	depth: number;
+}
+
+/**
+ * Moves a dragged Reference and everything under it to where the drop landed,
+ * re-depthing that branch by the difference — the second half of every drag,
+ * and the half `projectDropDepth` deliberately leaves out. Hand the answer to
+ * `nestReferences` and the drag is done.
+ *
+ * The branch travels as one slice, so a Reference's descendants keep their
+ * shape and their order under it however far it moves: only depths change,
+ * and all of them by the same amount. Reordering among siblings is the same
+ * operation with a shift of zero, so a drop never has to decide which kind of
+ * move it was.
+ *
+ * Generic in the entry because a caller usually carries more than the model
+ * needs — a row key, a rendering flag — and getting that back in the new
+ * order is what lets it follow the move without redoing this arithmetic.
+ * Every field is carried across untouched except `depth`; anything the caller
+ * derived from the tree's *shape* is stale in the result, `height` above all,
+ * and is re-read by flattening the tree this list nests into.
+ */
+export function moveReferenceBranch<T extends NestableReference>({
+	items,
+	activeIndex,
+	overIndex,
+	depth,
+}: BranchMoveInput<T>): T[] {
+	// An index that no longer resolves: hand the list back as it stands
+	// rather than reordering around a Reference that isn't there.
+	const active = items[activeIndex];
+	if (!active) return [...items];
+
+	const end = referenceBranchEnd(items, activeIndex);
+	const shift = depth - active.depth;
+	const branch = items
+		.slice(activeIndex, end + 1)
+		.map((item): T => ({ ...item, depth: item.depth + shift }));
+	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
+	const slot = Math.max(
+		0,
+		Math.min(dropSlot(activeIndex, end, overIndex), rest.length),
+	);
+	return [...rest.slice(0, slot), ...branch, ...rest.slice(slot)];
 }
 
 /**

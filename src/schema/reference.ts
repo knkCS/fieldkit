@@ -50,6 +50,21 @@ export const referenceValueSchema = z.object({
 });
 
 /**
+ * One Reference of a tree: the flat shape, plus the branch under it.
+ *
+ * Lazily recursive, because a Reference's `children` are References. The
+ * recursion is what keeps a nested value intact through a parse — an object
+ * schema that did not name `children` would *strip* it, so a drag would nest
+ * a Reference on screen and submit a flat list. How deep the nesting may go
+ * is a Field setting, enforced in that Field's own Schema rather than here.
+ */
+export const referenceTreeSchema: z.ZodType<Reference> = z.lazy(() =>
+	referenceValueSchema.extend({
+		children: z.array(referenceTreeSchema).optional(),
+	}),
+);
+
+/**
  * Reads a form value as one Reference, or `null` when it isn't one.
  *
  * Form data arrives from a Consumer and is only as well-formed as whatever

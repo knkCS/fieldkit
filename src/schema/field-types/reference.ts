@@ -4,7 +4,7 @@ import { ReferenceSettingsEditor } from "../../editor/field-settings/reference-s
 import { ReferenceField } from "../../renderer/fields/reference-field";
 import { ReferenceCell } from "../../table/cells/reference-cell";
 import type { FieldTypePlugin } from "../plugin";
-import { referenceValueSchema } from "../reference";
+import { referenceTreeSchema } from "../reference";
 import type { Field } from "../types";
 
 export interface ReferenceSettings {
@@ -22,19 +22,19 @@ export interface ReferenceSettings {
 	 * than to a list that is still flat.
 	 */
 	max_items?: number;
-	/** Declared on the same terms as `max_items`, and enforced by the same
-	 * later ticket. The list is flat here, so every Reference is at depth
-	 * zero. */
+	/** The deepest a Reference may sit, roots being zero. Declared on the same
+	 * terms as `max_items` and enforced by the same later ticket; the tree
+	 * itself nests as far as an Author drags it. */
 	max_depth?: number;
 }
 
 /**
- * An ordered list of References.
+ * A Reference Tree: an ordered list of References, each of which may hold
+ * References of its own.
  *
- * Flat in this ticket: `children` is part of the Reference shape (ADR-0008)
- * but nothing writes it yet, and the Schema below therefore describes a list
- * rather than a tree. Nesting extends the item schema with a lazily-recursive
- * `children`; nothing else about this plugin changes.
+ * The Schema below is recursive because the value is (ADR-0008) — a nested
+ * branch has to survive a parse, or a drop that nests on screen would submit
+ * a flat list. Neither cap is enforced yet; both count the whole tree.
  */
 export const referencePlugin: FieldTypePlugin<ReferenceSettings> = {
 	id: "reference",
@@ -48,7 +48,7 @@ export const referencePlugin: FieldTypePlugin<ReferenceSettings> = {
 	cellComponent: ReferenceCell,
 
 	toZodType(field: Field<ReferenceSettings>) {
-		const schema = z.array(referenceValueSchema);
+		const schema = z.array(referenceTreeSchema);
 		if (!field.config.required) return schema;
 		return schema.min(1, `${field.config.name} is required`);
 	},

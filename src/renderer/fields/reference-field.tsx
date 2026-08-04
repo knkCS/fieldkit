@@ -1,26 +1,19 @@
-import { Box, Button, Flex, IconButton, Text } from "@chakra-ui/react";
+import { Box, Button, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
-import type { Reference } from "../../schema/reference";
-import { asReference } from "../../schema/reference";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
-
-/** One rendered row: the Reference, and where it sits in the stored array. */
-interface Row {
-	reference: Reference;
-	index: number;
-}
+import { ReferenceTree, readReferenceTree } from "./reference-tree";
 
 /**
- * An ordered list of References, each row naming the Content it points at.
+ * A Reference Tree, each row naming the Content it points at.
  *
  * Two things this control deliberately does not do:
  *
@@ -32,8 +25,9 @@ interface Row {
  *   finding one Content among thousands is a browse — a table with search,
  *   filters, pages and a total — not a dropdown.
  *
- * The list is flat here. `children` is part of the Reference shape (ADR-0008)
- * and nesting, with the drag-and-drop that goes with it, arrives later.
+ * The rows, the dragging and the collapsing all live in {@link ReferenceTree};
+ * what stays here is the Field around them — the label, the Adapter, and the
+ * drawer that adds to the tree.
  */
 export function ReferenceField({
 	field,
@@ -55,17 +49,11 @@ export function ReferenceField({
 	const value = useWatch({ name: accessor });
 	const entries: unknown[] = Array.isArray(value) ? value : [];
 
-	// Read through `asReference` rather than trusting the cast: form data
-	// arrives from a Consumer and is only as well-formed as whatever produced
-	// it. Each row keeps the position it holds in the *stored* array, not its
-	// position among the rows — otherwise a malformed entry that renders no row
-	// would make every remove below act one place off.
-	const rows: Row[] = useMemo(() => {
-		if (!Array.isArray(value)) return [];
-		return value
-			.map((entry, index) => ({ reference: asReference(entry), index }))
-			.filter((row): row is Row => row.reference !== null);
-	}, [value]);
+	// Read rather than cast: form data arrives from a Consumer and is only as
+	// well-formed as whatever produced it. Each row remembers where in the
+	// *stored* value it came from, so a malformed entry that renders no row
+	// cannot make a remove act one place off.
+	const { rows } = useMemo(() => readReferenceTree(value), [value]);
 
 	const names = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
@@ -106,12 +94,6 @@ export function ReferenceField({
 					setPicking(false);
 				}
 
-				// By stored position, so an entry that renders no row is neither
-				// removed by mistake nor dropped along the way.
-				function handleRemove(index: number) {
-					formField.onChange(entries.filter((_, i) => i !== index));
-				}
-
 				return (
 					<Box>
 						{rows.length === 0 && (
@@ -120,38 +102,13 @@ export function ReferenceField({
 							</Text>
 						)}
 
-						{rows.map(({ reference, index }) => {
-							const name = names[reference.id] ?? reference.id;
-							return (
-								<Flex
-									// The stored position, because References are
-									// positional here: the same Content may legitimately be
-									// referenced twice, so an id is not an identity.
-									key={index}
-									align="center"
-									justify="space-between"
-									gap="2"
-									mb="2"
-									px="3"
-									py="2"
-									bg="bg.muted"
-									borderRadius="md"
-									data-testid="reference-row"
-								>
-									<Text fontSize="sm">{name}</Text>
-									{!readOnly && (
-										<IconButton
-											aria-label={`Remove ${name}`}
-											size="xs"
-											variant="ghost"
-											onClick={() => handleRemove(index)}
-										>
-											<Trash2 size={14} />
-										</IconButton>
-									)}
-								</Flex>
-							);
-						})}
+						<ReferenceTree
+							rows={rows}
+							value={entries}
+							names={names}
+							readOnly={readOnly}
+							onChange={formField.onChange}
+						/>
 
 						{!readOnly && (
 							<Button
