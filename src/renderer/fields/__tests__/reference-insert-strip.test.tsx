@@ -122,6 +122,81 @@ function stripDepth(slot: number, levels = 0): number {
 	return Number(pointAt(slot, levels).getAttribute("data-depth"));
 }
 
+type User = ReturnType<typeof userEvent.setup>;
+
+/** Enough Tab presses to cross the whole control, and a bound on the walk
+ * below so a strip Tab cannot reach fails rather than hangs. */
+const MAX_TAB_STOPS = 40;
+
+/**
+ * Reaches an element the way a keyboard does: Tab until it is the active one.
+ *
+ * Never `.focus()`. Whether Tab arrives at a strip at all is half of what these
+ * tests are for, and a programmatic focus would pass just as happily on a strip
+ * nobody could ever get to.
+ */
+async function tabTo(user: User, target: Element) {
+	for (let step = 0; step <= MAX_TAB_STOPS; step++) {
+		if (document.activeElement === target) return;
+		await user.tab();
+	}
+	throw new Error("Tab never reached the element");
+}
+
+/**
+ * What Tab visits, in order, each stop named the way a person would name it —
+ * the strips by their slot, everything else by its accessible name.
+ *
+ * The interleaving is the assertion: a strip stands in the tab order exactly
+ * where it stands on screen, so each one is reachable rather than one of them
+ * standing in for the group.
+ */
+async function tabStops(user: User, count: number): Promise<string[]> {
+	const stops: string[] = [];
+	for (let step = 0; step < count; step++) {
+		await user.tab();
+		const active = document.activeElement;
+		const slot = active ? strips().indexOf(active as HTMLElement) : -1;
+		if (slot !== -1) {
+			stops.push(`strip ${String(slot)}`);
+			continue;
+		}
+		stops.push(
+			active?.getAttribute("aria-label") ?? active?.textContent?.trim() ?? "?",
+		);
+	}
+	return stops;
+}
+
+/** What the tree says out loud about the strip being operated. */
+function announcedInsert(): string {
+	return screen.getByTestId("reference-insert-notice").textContent ?? "";
+}
+
+/**
+ * The picker's row for a Content, chosen with the keyboard and nothing else.
+ *
+ * The row is asserted to be a real tab stop rather than tabbed to. Inside the
+ * drawer, Tab moves nothing under jsdom: anker's dialog traps focus, and with no
+ * layout engine every candidate measures zero and the trap hands focus back to
+ * its own container — the same reason a real pointer drag is undriveable here.
+ * What the drawer owes is that the row is *reachable* and answers a key press,
+ * which is exactly what these two lines check; counting its tab stops would
+ * assert the drawer's layout rather than the strip's behaviour in any case.
+ */
+async function pickWithKeyboard(
+	user: User,
+	picker: HTMLElement,
+	content: string,
+) {
+	const row = within(picker).getByText(content).closest("tr");
+	if (!row) throw new Error(`No picker row for ${content}`);
+	expect(row).toHaveAttribute("tabindex", "0");
+	expect(row).toHaveAttribute("role", "button");
+	(row as HTMLElement).focus();
+	await user.keyboard("{Enter}");
+}
+
 /**
  * Clicks a strip where the pointer already is, and picks a Content from the
  * drawer it opens.
@@ -505,6 +580,280 @@ describe("inserting through a strip", () => {
 		await user.click(await within(picker).findByText("Content 5"));
 
 		expect(stored()).toEqual([...branchedTree, { id: "article-5" }]);
+	});
+});
+
+describe("reaching an insertion strip without a pointer", () => {
+	it("puts every strip in the tab order, in document order among the rows", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// Each strip is its own stop rather than the group sharing one: the
+		// rows' own grips and buttons are individually focusable, and a strip
+		// that behaved differently would be the one control here that did.
+		expect(await tabStops(user, 15)).toEqual([
+			"strip 0",
+			"Reorder Content 1",
+			"Collapse Content 1",
+			"Remove Content 1",
+			"strip 1",
+			"Reorder Content 2",
+			"Remove Content 2",
+			"strip 2",
+			"Reorder Content 3",
+			"Remove Content 3",
+			"strip 3",
+			"Reorder Content 4",
+			"Remove Content 4",
+			"strip 4",
+			"Add reference",
+		]);
+	});
+
+	it("shows a focused strip exactly what a pointed-at one shows", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// What the pointer sees resting at the tree's left edge, then taken
+		// away again so nothing on screen is left over from it.
+		const pointed = stripLabel(1, 0);
+		fireEvent.mouseLeave(strips()[1]);
+		expect(screen.queryByTestId("reference-insert-label")).toBeNull();
+
+		await tabTo(user, strips()[1]);
+
+		expect(strips()[1]).toHaveAccessibleName(pointed);
+		expect(screen.getByTestId("reference-insert-label")).toHaveTextContent(
+			pointed,
+		);
+		expect(screen.getByTestId("reference-insert-line")).toHaveAttribute(
+			"data-depth",
+			"0",
+		);
+	});
+
+	it("skips a strip disabled at max_items, which still says why", async () => {
+		const user = userEvent.setup();
+		renderTree({
+			value: branchedTree,
+			settings: { blueprints: ["article"], max_items: 4 },
+		});
+		await screen.findByText("Content 1");
+
+		// In the accessibility tree with the reason as its name, and out of the
+		// tab order — an inert affordance an Author can land on but not use is
+		// worse than one they walk past.
+		expect(strips()[0]).toHaveAccessibleName(
+			"Maximum number of References reached",
+		);
+		expect(await tabStops(user, 3)).toEqual([
+			"Reorder Content 1",
+			"Collapse Content 1",
+			"Remove Content 1",
+		]);
+	});
+});
+
+describe("choosing the depth from the keyboard", () => {
+	it("deepens by one level per →, and shallows by one per ←", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// The strip between Content 3 (depth 1) and Content 4 (depth 0): the
+		// same slot the pointer walks 0 → 1 → 2 through above.
+		const strip = strips()[3];
+		await tabTo(user, strip);
+		expect(strip).toHaveAttribute("data-depth", "0");
+
+		await user.keyboard("{ArrowRight}");
+		expect(strip).toHaveAttribute("data-depth", "1");
+		await user.keyboard("{ArrowRight}");
+		expect(strip).toHaveAttribute("data-depth", "2");
+		await user.keyboard("{ArrowLeft}");
+		expect(strip).toHaveAttribute("data-depth", "1");
+	});
+
+	it("obeys the bounds the pointer obeys, and does not pile up past them", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// Under Content 1, a root: depth 1 is the deepest on offer however far
+		// the pointer travels, and the same however many times → is pressed.
+		const strip = strips()[1];
+		await tabTo(user, strip);
+		await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}");
+		expect(strip).toHaveAttribute("data-depth", "1");
+
+		// One press back is one level back. A keyboard that moved the offset
+		// rather than the level would have banked two presses against the
+		// ceiling and shown nothing until they were spent.
+		await user.keyboard("{ArrowLeft}");
+		expect(strip).toHaveAttribute("data-depth", "0");
+		await user.keyboard("{ArrowLeft}{ArrowLeft}");
+		expect(strip).toHaveAttribute("data-depth", "0");
+	});
+
+	it("stops where max_depth stops the pointer", async () => {
+		const user = userEvent.setup();
+		renderTree({
+			value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+			settings: { blueprints: ["article"], max_depth: 2 },
+		});
+		await screen.findByText("Content 1");
+
+		// The row above the last strip is Content 2 at depth 1, so its child
+		// would be depth 2 — one past a cap of two levels.
+		const strip = strips()[2];
+		await tabTo(user, strip);
+		await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}");
+		expect(strip).toHaveAttribute("data-depth", "1");
+	});
+
+	it("re-reads the label, adoption clause and all, as the depth changes", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		const strip = strips()[1];
+		await tabTo(user, strip);
+		expect(strip).toHaveAccessibleName(
+			"Insert as a sibling of Content 1, adopting 2 References",
+		);
+
+		await user.keyboard("{ArrowRight}");
+		expect(strip).toHaveAccessibleName("Insert as a child of Content 1");
+		expect(screen.getByTestId("reference-insert-label")).toHaveTextContent(
+			"Insert as a child of Content 1",
+		);
+		expect(screen.getByTestId("reference-insert-line")).toHaveAttribute(
+			"data-depth",
+			"1",
+		);
+
+		// And back: the clause returns because the rows it counts are back
+		// under the arrival, not because anything remembered it.
+		await user.keyboard("{ArrowLeft}");
+		expect(strip).toHaveAccessibleName(
+			"Insert as a sibling of Content 1, adopting 2 References",
+		);
+	});
+
+	it("announces each step it moves to", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		const strip = strips()[1];
+		await tabTo(user, strip);
+		// Arriving says nothing of its own: the sentence is the strip's
+		// accessible name, and a screen reader has just read it out.
+		expect(announcedInsert()).toBe("");
+
+		await user.keyboard("{ArrowRight}");
+		expect(announcedInsert()).toBe("Insert as a child of Content 1");
+
+		await user.keyboard("{ArrowLeft}");
+		expect(announcedInsert()).toBe(
+			"Insert as a sibling of Content 1, adopting 2 References",
+		);
+
+		await user.keyboard("{Escape}");
+		expect(announcedInsert()).toBe("");
+	});
+});
+
+describe("the two ways off an insertion strip", () => {
+	it("opens the add drawer for that position and depth on Enter", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		await tabTo(user, strips()[3]);
+		await user.keyboard("{ArrowRight}{Enter}");
+
+		expect(await screen.findByTestId("reference-picker")).toBeInTheDocument();
+		// Nothing is written by opening it — the position and the depth are
+		// held until a Content is chosen.
+		expect(stored()).toEqual(branchedTree);
+	});
+
+	it("leaves the strip on Escape without inserting", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		const strip = strips()[1];
+		await tabTo(user, strip);
+		await user.keyboard("{ArrowRight}");
+		expect(screen.getByTestId("reference-insert-label")).toBeInTheDocument();
+
+		await user.keyboard("{Escape}");
+
+		expect(strip).not.toHaveFocus();
+		expect(screen.queryByTestId("reference-insert-label")).toBeNull();
+		expect(screen.queryByTestId("reference-picker")).toBeNull();
+		expect(stored()).toEqual(branchedTree);
+	});
+
+	it("keeps that Escape from reaching a drawer above it", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// Stands in for anker's DrawerRoot, which dismisses on an Escape it
+		// reads from `document` in the capture phase. A Reference Field inside
+		// one — `EditDrawer` renders exactly that — must not lose its edits to
+		// the press that backed out of a strip.
+		const dismiss = vi.fn();
+		const layer = (event: KeyboardEvent) => {
+			if (event.key === "Escape") dismiss();
+		};
+		document.addEventListener("keydown", layer, true);
+		try {
+			await tabTo(user, strips()[1]);
+			await user.keyboard("{Escape}");
+			expect(dismiss).not.toHaveBeenCalled();
+
+			// And only that Escape: one aimed anywhere else travels untouched,
+			// or this would swallow the press that cancels a keyboard drag.
+			await user.keyboard("{Escape}");
+			expect(dismiss).toHaveBeenCalledTimes(1);
+		} finally {
+			document.removeEventListener("keydown", layer, true);
+		}
+	});
+
+	it("inserts a Reference end to end with the keyboard alone", async () => {
+		const user = userEvent.setup();
+		renderTree({ value: branchedTree });
+		await screen.findByText("Content 1");
+
+		// Tab to the gap below Content 3, → for one level in, Enter to browse.
+		await tabTo(user, strips()[3]);
+		await user.keyboard("{ArrowRight}");
+		expect(strips()[3]).toHaveAccessibleName(
+			"Insert as a sibling of Content 3",
+		);
+		await user.keyboard("{Enter}");
+
+		const picker = await screen.findByTestId("reference-picker");
+		await pickWithKeyboard(user, picker, "Content 5");
+
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [
+					{ id: "article-2" },
+					{ id: "article-3" },
+					{ id: "article-5" },
+				],
+			},
+			{ id: "article-4" },
+		]);
 	});
 });
 

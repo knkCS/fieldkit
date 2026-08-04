@@ -19,7 +19,7 @@
  * actually names.
  */
 import { Box, chakra, Flex, Text } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import { projectInsertDepth } from "../../schema/reference-tree";
 
@@ -95,6 +95,24 @@ export function describeInsert(
 	return `${opening}, adopting ${String(adopted)} ${plural}`;
 }
 
+/**
+ * What a strip is offering: where a Reference would land, the bounds that
+ * decided it, and the one sentence that says so.
+ *
+ * The projection and the sentence travel together because they are one answer
+ * read at one offset — and because the keyboard has to ask for that answer a
+ * second time, at the offset an arrow key moves to, without re-deriving either
+ * half of it.
+ */
+interface InsertOffer {
+	depth: number;
+	minDepth: number;
+	maxDepth: number;
+	/** How many rows on screen the arrival would take as its children. */
+	adopted: number;
+	label: string;
+}
+
 export interface ReferenceInsertStripProps {
 	/**
 	 * The rows on screen, top to bottom — the list the projection reads, since
@@ -118,17 +136,38 @@ export interface ReferenceInsertStripProps {
 	/** Where a click landed — the slot among the rows on screen, and the depth
 	 * the strip was offering when it happened. */
 	onInsert: (slot: number, depth: number) => void;
+	/**
+	 * The sentence to say out loud when an arrow key moves the depth, and `null`
+	 * when the strip is left. The tree owns the live region it goes to, because
+	 * one control wants one voice and there are as many strips as there are gaps.
+	 *
+	 * Arriving is deliberately silent: the strip's accessible name is this same
+	 * sentence, so a screen reader already reads it on focus, and repeating it
+	 * into a live region is how one interaction comes to speak twice. What a name
+	 * does *not* reliably announce is a name that changes under standing focus,
+	 * which is exactly what an arrow press does.
+	 */
+	onAnnounce?: (message: string | null) => void;
 }
 
 /**
- * One insertion strip: a hairline that grows under the pointer and shows,
- * at the depth it would land, what clicking it would do.
+ * One insertion strip: a hairline that grows under the pointer — or under the
+ * focus ring — and shows, at the depth it would land, what pressing it would do.
  *
  * It is a real `button`, not a div with a click handler, which is what puts it
  * in the tab order and in the accessibility tree with its sentence as its name.
- * Choosing the *depth* from the keyboard is a separate ticket (#100); this
- * leaves the seam for it — the projection already takes an offset, and a key
- * handler only has to move one.
+ * knkCMS core's strip is the plain div, and cannot be operated without a pointer
+ * at all (`docs/core-reference-tree-comparison.md` §5, INS-2).
+ *
+ * **The pointer and the keyboard are one input, not two.** Both write the same
+ * `offsetX`, and every depth on offer is `projectInsertDepth`'s answer over it:
+ * where the pointer reads horizontal travel, an arrow key names the level
+ * outright and the offset is rewritten to it. So a mouse move after an arrow
+ * press is an ordinary mouse move, an arrow press after a mouse move steps from
+ * where the pointer left off, and neither input can reach a depth the other
+ * cannot. That is the same idea the tree's drag already runs on, where
+ * `treeKeyboardCoordinates` maps ←/→ to one indent of the very travel a pointer
+ * would have to make (`reference-tree.tsx`).
  */
 export function ReferenceInsertStrip({
 	rows,
@@ -138,38 +177,112 @@ export function ReferenceInsertStrip({
 	depthCeiling,
 	disabled = false,
 	onInsert,
+	onAnnounce,
 }: ReferenceInsertStripProps) {
-	// How far into the row the pointer sits, or null while nobody is pointing
-	// at this strip: a strip nobody is on announces nothing, and the two facts
-	// are the same fact.
+	// How far into the row the pointer sits, or null while nobody is on this
+	// strip: a strip nobody is on announces nothing, and the two facts are the
+	// same fact.
 	const [offsetX, setOffsetX] = useState<number | null>(null);
 	const pointed = offsetX !== null && !disabled;
+	const nodeRef = useRef<HTMLButtonElement>(null);
 
-	const { depth, adopted } = projectInsertDepth({
-		items: rows,
-		slot,
-		offsetX: offsetX ?? 0,
-		indentWidth,
-		depthCeiling,
-	});
+	/**
+	 * Escape leaves the strip — and stops there.
+	 *
+	 * Answered from a **window-level capture** listener rather than the button's
+	 * own `onKeyDown`, because by the time a bubble-phase handler runs the press
+	 * has already been read by everything above: Ark/zag dismissable layers,
+	 * anker's `DrawerRoot` among them, listen for Escape on `document` in the
+	 * capture phase. A Reference Field inside a drawer — `EditDrawer` renders one
+	 * through `SpecForm` — would otherwise have the drawer close, discarding the
+	 * edits, on the very press that backed out of a strip. `FieldSearch` contains
+	 * its own Escape this way and for this reason; window-capture is the one
+	 * place that runs first, outermost-first and whatever the registration order.
+	 *
+	 * Scoped to this strip's own node, so an Escape aimed anywhere else travels
+	 * untouched — an unscoped intercept would swallow the one that cancels a
+	 * keyboard drag, which is the bug class the same scoping in `FieldSearch`
+	 * exists to avoid.
+	 *
+	 * Blurring is the whole of the work: `onBlur` already collapses the offer and
+	 * hushes the live region, and leaving nothing else here is what stops Escape
+	 * from having two answers that could drift apart.
+	 */
+	useEffect(() => {
+		if (!pointed) return;
+		const leaveOnEscape = (event: KeyboardEvent) => {
+			if (event.key !== "Escape") return;
+			if (!(event.target instanceof Node)) return;
+			const node = nodeRef.current;
+			if (!node?.contains(event.target)) return;
+			event.stopPropagation();
+			node.blur();
+		};
+		window.addEventListener("keydown", leaveOnEscape, true);
+		return () => window.removeEventListener("keydown", leaveOnEscape, true);
+	}, [pointed]);
 
-	const label = disabled
-		? INSERT_AT_CAP_LABEL
-		: describeInsert(
-				insertRelation(rows, slot, depth),
-				adopted.length,
-				(row) => names[row.reference.id] ?? row.reference.id,
-			);
+	/**
+	 * What this strip would do with the pointer that far in. Pure, so the
+	 * keyboard can ask it about an offset nothing has moved to yet.
+	 */
+	function offerAt(x: number): InsertOffer {
+		const { depth, minDepth, maxDepth, adopted } = projectInsertDepth({
+			items: rows,
+			slot,
+			offsetX: x,
+			indentWidth,
+			depthCeiling,
+		});
+		return {
+			depth,
+			minDepth,
+			maxDepth,
+			adopted: adopted.length,
+			label: disabled
+				? INSERT_AT_CAP_LABEL
+				: describeInsert(
+						insertRelation(rows, slot, depth),
+						adopted.length,
+						(row) => names[row.reference.id] ?? row.reference.id,
+					),
+		};
+	}
+
+	const offer = offerAt(offsetX ?? 0);
+	const { depth, label } = offer;
+
+	/**
+	 * One arrow press, one level — the same level a pointer reaches by travelling
+	 * `indentWidth` sideways, and inside the same bounds, because the step is
+	 * taken against the projection's own floor and ceiling.
+	 *
+	 * Stepping the *level* rather than the offset is what keeps a bound from
+	 * banking presses: nudging the offset by a fixed distance would let three →
+	 * against a ceiling of one need three ← before anything on screen moved,
+	 * which is a control that has stopped answering. The offset is then rewritten
+	 * to the level chosen, so the two inputs leave the strip in one state.
+	 */
+	function stepDepth(step: number) {
+		const next = Math.min(
+			Math.max(offer.depth + step, offer.minDepth),
+			offer.maxDepth,
+		);
+		const moved = next * indentWidth;
+		setOffsetX(moved);
+		onAnnounce?.(offerAt(moved).label);
+	}
 
 	return (
 		<chakra.button
+			ref={nodeRef}
 			type="button"
 			aria-label={label}
 			disabled={disabled}
 			data-testid="reference-insert-strip"
 			data-slot={slot}
 			data-depth={depth}
-			data-adopted={adopted.length}
+			data-adopted={offer.adopted}
 			display="block"
 			width="full"
 			textAlign="start"
@@ -190,7 +303,20 @@ export function ReferenceInsertStrip({
 			// Keyboard parity with the hover: focus reveals the same sentence
 			// rather than landing on an invisible control (WCAG 2.4.7).
 			onFocus={() => setOffsetX(0)}
-			onBlur={() => setOffsetX(null)}
+			onBlur={() => {
+				setOffsetX(null);
+				onAnnounce?.(null);
+			}}
+			// ←/→ only. Escape is answered a phase earlier, above — it never
+			// reaches here.
+			onKeyDown={(event) => {
+				if (disabled) return;
+				if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+				// Claimed, or the page scrolls sideways under a control whose whole
+				// purpose is sideways.
+				event.preventDefault();
+				stepDepth(event.key === "ArrowRight" ? 1 : -1);
+			}}
 			onClick={() => {
 				if (!disabled) onInsert(slot, depth);
 			}}
