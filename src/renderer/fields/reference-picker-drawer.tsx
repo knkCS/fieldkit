@@ -1,5 +1,5 @@
 import { Box, Button, Flex, Stack, Text } from "@chakra-ui/react";
-import { DrawerRoot } from "@knkcs/anker/components";
+import { DrawerRoot, Stepper, StepperStep } from "@knkcs/anker/components";
 import { SearchInput } from "@knkcs/anker/forms";
 import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +31,17 @@ const PIN_STEP_TITLES: Record<PinningMode, string> = {
 	release: "Choose a release",
 	version: "Choose a version",
 };
+
+/**
+ * What the first step is called — the same words whether or not a second one
+ * follows.
+ *
+ * The Stepper is shown in the one-step flow too, so the drawer's chrome does
+ * not change shape depending on a Field setting. A step count that appears
+ * and disappears with `pin_mode` would make the browse look like a different
+ * control to an Author whose Fields are configured differently.
+ */
+const BROWSE_STEP_TITLE = "Choose content";
 
 /**
  * What the results table shows when the Adapter does not describe a Content —
@@ -129,6 +140,22 @@ export interface ReferencePickerDrawerProps {
 	 * one-step flow.
 	 */
 	pinMode?: PinMode;
+	/**
+	 * Where the Reference being chosen will land, in the words the affordance
+	 * that opened this drawer used — `describeInsert` for an insertion strip,
+	 * `describeAppend` for a Field's own Add control
+	 * (`reference-destination.ts`).
+	 *
+	 * Shown as a header line through both steps, because this drawer is the only
+	 * thing between the click and the write and the insertion strip's own label
+	 * is off the screen by now. Never composed here: a second phrasing of one
+	 * fact is free to disagree with the first, which is the drift ADR-0012's
+	 * announcement exists to prevent.
+	 *
+	 * Optional, for a Consumer assembling its own control that has nothing to
+	 * say about position — the line is then absent rather than empty.
+	 */
+	destination?: string;
 	title?: string;
 }
 
@@ -154,6 +181,17 @@ export interface ReferencePickerDrawerProps {
  * this step just lists what came back, plus the newest Version, which is the
  * choice that stores no Pin at all. A Field that does not pin never reaches
  * here and never asks the Adapter anything.
+ *
+ * Both of those are named on screen by anker's `Stepper`, which is rendered in
+ * the one-step flow as well: how many steps there are follows `pin_mode`, but
+ * whether the drawer *has* chrome should not, or the same control would look
+ * like two different ones across two Fields.
+ *
+ * Above the body sits {@link ReferencePickerDrawerProps.destination} — where
+ * the Reference being chosen will land. This drawer is the only thing between
+ * the click on an insertion strip and the write, and that strip's own label is
+ * off the screen by the time anyone reads this one, so the sentence it carried
+ * is repeated here rather than composed again (ADR-0012).
  */
 export function ReferencePickerDrawer({
 	open,
@@ -163,6 +201,7 @@ export function ReferencePickerDrawer({
 	excludeIds,
 	fieldId,
 	pinMode = "none",
+	destination,
 	title = "Add reference",
 }: ReferencePickerDrawerProps) {
 	const { adapters, getAllPlugins } = useFieldKit();
@@ -305,6 +344,14 @@ export function ReferencePickerDrawer({
 	// coincidence.
 	const pinStep = picked && pinMode !== "none" ? { picked, pinMode } : null;
 
+	// One step or two, from `pin_mode` and nothing else — the same reading the
+	// flow itself makes, so what the chrome promises and what the drawer does
+	// cannot disagree.
+	const stepTitles =
+		pinMode === "none"
+			? [BROWSE_STEP_TITLE]
+			: [BROWSE_STEP_TITLE, PIN_STEP_TITLES[pinMode]];
+
 	return (
 		<DrawerRoot
 			open={open}
@@ -312,102 +359,131 @@ export function ReferencePickerDrawer({
 			title={pinStep ? PIN_STEP_TITLES[pinStep.pinMode] : title}
 			closeLabel="Cancel"
 		>
-			{pinStep ? (
-				<Stack gap="2" data-testid="reference-picker-pin-step">
-					<Flex align="center" gap="2">
-						{/* Back rather than a step indicator: two steps do not need a
-						    map, and the Content already chosen is the only context the
-						    second one is missing. */}
-						<Button
-							size="xs"
-							variant="ghost"
-							onClick={() => setPicked(null)}
-							aria-label="Back"
-						>
-							<ChevronLeft size={14} />
-							Back
-						</Button>
-						<Text fontSize="sm" fontWeight="medium">
-							{pinStep.picked.display_name}
-						</Text>
-					</Flex>
+			<Stack gap="4">
+				{/* anker marks the active step `aria-current="step"` itself, which
+				    is its documented rule for this component — driving it with a
+				    controlled index is what earns that, and is why the step
+				    nothing has reached yet is not merely styled differently. */}
+				<Stepper step={pinStep ? 1 : 0} data-testid="reference-picker-steps">
+					{stepTitles.map((stepTitle) => (
+						<StepperStep
+							key={stepTitle}
+							title={stepTitle}
+							data-testid="reference-picker-step"
+						/>
+					))}
+				</Stepper>
 
-					{/* First and always available, including while the targets are
-					    still loading and after a lookup that failed: no Pin is a real
-					    answer, not a fallback (ADR-0008). */}
-					<PinTargetOption
-						label="Newest version"
-						description="Follows the content as it changes"
-						onSelect={() => onPick(pinStep.picked, null)}
-					/>
-
-					{loadingTargets ? (
-						<Text fontSize="sm" color="fg.muted">
-							Loading…
-						</Text>
-					) : (
-						targets.map((target) => (
-							<PinTargetOption
-								key={target.id}
-								label={target.label}
-								description={target.description}
-								onSelect={() => onPick(pinStep.picked, target.id)}
-							/>
-						))
-					)}
-				</Stack>
-			) : (
-				<Stack gap="4" data-testid="reference-picker">
-					<SearchInput
-						aria-label="Search content"
-						placeholder="Search content…"
-						// Restored on the way back from step two, which remounts this
-						// box: the search state survives, so what it shows has to as
-						// well or the results would stay narrowed by an invisible query.
-						defaultValue={query}
-						// The default debounce is the point: the incumbent control
-						// searched on every keystroke, which a paginated browse over a
-						// real catalogue cannot afford.
-						onSearch={setQuery}
-					/>
-
-					{filterSpec.length > 0 && (
-						<Box data-testid="reference-picker-filters">
-							<FormProvider {...filterForm}>
-								<FieldRenderer schema={filterSpec} />
-							</FormProvider>
-						</Box>
-					)}
-
+				{/* Through both steps, since it is the destination of the whole add
+				    and not of either half of it. */}
+				{destination && (
 					<Text
 						fontSize="sm"
 						color="fg.muted"
-						data-testid="reference-picker-total"
+						data-testid="reference-picker-destination"
 					>
-						{total === 1 ? "1 content" : `${String(total)} contents`}
+						{destination}
 					</Text>
+				)}
 
-					<SpecDataTable
-						schema={columnSpec}
-						data={items}
-						plugins={plugins}
-						loading={loading}
-						variant="hoverable"
-						// Server-driven: `items` is the page the Adapter returned,
-						// and `total` is the count only it can know. The two can
-						// disagree slightly — an Adapter that ignores `excludeIds`
-						// counts Contents the backstop then dropped — and `total`
-						// is still the one to page by, since it is the only thing
-						// that knows there is a page 2.
-						page={page}
-						total={total}
-						pageSize={PAGE_SIZE}
-						onPageChange={setPage}
-						onRowClick={(_index, row) => handlePick(row)}
-						emptyState="No content matches"
-					/>
-				</Stack>
-			)}
+				{pinStep ? (
+					<Stack gap="2" data-testid="reference-picker-pin-step">
+						<Flex align="center" gap="2">
+							{/* Back beside the Stepper rather than instead of it: the
+						    Stepper says which step this is, and only this says how to
+						    leave it. The Content already chosen is the context the
+						    second step would otherwise be missing. */}
+							<Button
+								size="xs"
+								variant="ghost"
+								onClick={() => setPicked(null)}
+								aria-label="Back"
+							>
+								<ChevronLeft size={14} />
+								Back
+							</Button>
+							<Text fontSize="sm" fontWeight="medium">
+								{pinStep.picked.display_name}
+							</Text>
+						</Flex>
+
+						{/* First and always available, including while the targets are
+					    still loading and after a lookup that failed: no Pin is a real
+					    answer, not a fallback (ADR-0008). */}
+						<PinTargetOption
+							label="Newest version"
+							description="Follows the content as it changes"
+							onSelect={() => onPick(pinStep.picked, null)}
+						/>
+
+						{loadingTargets ? (
+							<Text fontSize="sm" color="fg.muted">
+								Loading…
+							</Text>
+						) : (
+							targets.map((target) => (
+								<PinTargetOption
+									key={target.id}
+									label={target.label}
+									description={target.description}
+									onSelect={() => onPick(pinStep.picked, target.id)}
+								/>
+							))
+						)}
+					</Stack>
+				) : (
+					<Stack gap="4" data-testid="reference-picker">
+						<SearchInput
+							aria-label="Search content"
+							placeholder="Search content…"
+							// Restored on the way back from step two, which remounts this
+							// box: the search state survives, so what it shows has to as
+							// well or the results would stay narrowed by an invisible query.
+							defaultValue={query}
+							// The default debounce is the point: the incumbent control
+							// searched on every keystroke, which a paginated browse over a
+							// real catalogue cannot afford.
+							onSearch={setQuery}
+						/>
+
+						{filterSpec.length > 0 && (
+							<Box data-testid="reference-picker-filters">
+								<FormProvider {...filterForm}>
+									<FieldRenderer schema={filterSpec} />
+								</FormProvider>
+							</Box>
+						)}
+
+						<Text
+							fontSize="sm"
+							color="fg.muted"
+							data-testid="reference-picker-total"
+						>
+							{total === 1 ? "1 content" : `${String(total)} contents`}
+						</Text>
+
+						<SpecDataTable
+							schema={columnSpec}
+							data={items}
+							plugins={plugins}
+							loading={loading}
+							variant="hoverable"
+							// Server-driven: `items` is the page the Adapter returned,
+							// and `total` is the count only it can know. The two can
+							// disagree slightly — an Adapter that ignores `excludeIds`
+							// counts Contents the backstop then dropped — and `total`
+							// is still the one to page by, since it is the only thing
+							// that knows there is a page 2.
+							page={page}
+							total={total}
+							pageSize={PAGE_SIZE}
+							onPageChange={setPage}
+							onRowClick={(_index, row) => handlePick(row)}
+							emptyState="No content matches"
+						/>
+					</Stack>
+				)}
+			</Stack>
 		</DrawerRoot>
 	);
 }

@@ -17,83 +17,19 @@
  * *parent* in both its branches, so a strip that re-parents a whole branch
  * reads "+ Add sibling of A" (§5.7). {@link insertRelation} names what it
  * actually names.
+ *
+ * The sentence itself lives in `reference-destination.ts`, because the add
+ * drawer says it a second time once the strip is off the screen and the two
+ * must be one sentence rather than two phrasings of one fact.
  */
 import { Box, chakra, Flex, Text } from "@chakra-ui/react";
 import { useState } from "react";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import { projectInsertDepth } from "../../schema/reference-tree";
-
-/** What a Reference arriving at a slot would be, and to whom. */
-export type InsertRelation =
-	| { kind: "child"; row: ReferenceRow }
-	| { kind: "sibling"; row: ReferenceRow }
-	| { kind: "root" };
-
-/**
- * The Reference a new one landing at `depth` in `slot` would sit under or
- * beside — and which of the two it would be.
- *
- * Three readings, in the order they settle:
- *
- * - One level deeper than the row above makes it that row's **first child**;
- *   there is no sibling to name, so the parent is what the label names.
- * - Otherwise it joins a rank that already exists, and the Reference it sits
- *   beside is the nearest row **above** at its own depth. Searching upwards
- *   stops at the first row shallower than the arrival: that is the parent it
- *   would hang under, and nothing above it is a sibling.
- * - Before the first row of a rank there is nothing above to name, so the
- *   sibling it would **precede** is named instead — which is what makes the
- *   strip at the very top of the tree say something true.
- *
- * `rows` are the rows on screen. A depth is only offered against neighbours an
- * Author can see, so the Reference the label names is one of them.
- */
-export function insertRelation(
-	rows: readonly ReferenceRow[],
-	slot: number,
-	depth: number,
-): InsertRelation {
-	const above = rows[slot - 1];
-	if (above && depth === above.depth + 1) return { kind: "child", row: above };
-	for (let index = slot - 1; index >= 0; index--) {
-		if (rows[index].depth === depth)
-			return { kind: "sibling", row: rows[index] };
-		if (rows[index].depth < depth) break;
-	}
-	for (let index = slot; index < rows.length; index++) {
-		if (rows[index].depth === depth)
-			return { kind: "sibling", row: rows[index] };
-		if (rows[index].depth < depth) break;
-	}
-	return { kind: "root" };
-}
+import { describeInsert, insertRelation } from "./reference-destination";
 
 /** What the strip says when the Field is already holding `max_items`. */
 export const INSERT_AT_CAP_LABEL = "Maximum number of References reached";
-
-/**
- * The sentence a strip shows, and its accessible name — one string, so what is
- * read out and what is on screen can never drift apart.
- *
- * The adoption clause is appended only when rows would actually move, because a
- * clause that is always there stops being read. It counts the rows the
- * projection reported, which are the rows **on screen**: a folded Reference
- * stands in for its whole branch everywhere else in this control, and counting
- * the branch it hides would name a number an Author cannot see.
- */
-export function describeInsert(
-	relation: InsertRelation,
-	adopted: number,
-	nameOf: (row: ReferenceRow) => string,
-): string {
-	const opening =
-		relation.kind === "root"
-			? "Insert as a root Reference"
-			: `Insert as a ${relation.kind} of ${nameOf(relation.row)}`;
-	if (adopted === 0) return opening;
-	const plural = adopted === 1 ? "Reference" : "References";
-	return `${opening}, adopting ${String(adopted)} ${plural}`;
-}
 
 export interface ReferenceInsertStripProps {
 	/**
@@ -115,9 +51,16 @@ export interface ReferenceInsertStripProps {
 	/** At `max_items`: offered but inert, so the limit is visible rather than
 	 * the affordance silently missing. */
 	disabled?: boolean;
-	/** Where a click landed — the slot among the rows on screen, and the depth
-	 * the strip was offering when it happened. */
-	onInsert: (slot: number, depth: number) => void;
+	/**
+	 * Where a click landed — the slot among the rows on screen, the depth the
+	 * strip was offering when it happened, and the sentence it was showing.
+	 *
+	 * The sentence travels rather than being re-derived because the drawer that
+	 * opens next says it again, and by then the neighbours it was read off are
+	 * no longer the ones on screen. Handing over the string that was actually
+	 * announced is what makes the two agree by construction.
+	 */
+	onInsert: (slot: number, depth: number, destination: string) => void;
 }
 
 /**
@@ -153,13 +96,14 @@ export function ReferenceInsertStrip({
 		depthCeiling,
 	});
 
-	const label = disabled
-		? INSERT_AT_CAP_LABEL
-		: describeInsert(
-				insertRelation(rows, slot, depth),
-				adopted.length,
-				(row) => names[row.reference.id] ?? row.reference.id,
-			);
+	// Where a click would land, said once — shown here, and handed on to the
+	// drawer that opens next so it says the same thing rather than its own.
+	const destination = describeInsert(
+		insertRelation(rows, slot, depth),
+		adopted.length,
+		(row) => names[row.reference.id] ?? row.reference.id,
+	);
+	const label = disabled ? INSERT_AT_CAP_LABEL : destination;
 
 	return (
 		<chakra.button
@@ -192,7 +136,7 @@ export function ReferenceInsertStrip({
 			onFocus={() => setOffsetX(0)}
 			onBlur={() => setOffsetX(null)}
 			onClick={() => {
-				if (!disabled) onInsert(slot, depth);
+				if (!disabled) onInsert(slot, depth, destination);
 			}}
 		>
 			{pointed && (

@@ -17,6 +17,7 @@ import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds } from "./exclude-referenced";
 import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
+import { describeAppend } from "./reference-destination";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import type { ReferenceInsertRequest } from "./reference-tree";
 import { ReferenceTree } from "./reference-tree";
@@ -147,6 +148,18 @@ export function ReferenceField({
 	const { errors } = useFormState({ name: accessor });
 	const deepErrors = nestedErrorMessages(get(errors, accessor));
 
+	// What the drawer says about where this Reference is going. A strip already
+	// announced its own destination and hands it over; the Add control never
+	// said anything, so its append is put into the same words here rather than
+	// left blank — the drawer is the only place between the click and the write
+	// (ADR-0012).
+	const destination = insertRequest
+		? insertRequest.destination
+		: describeAppend(
+				rows,
+				(row) => names[row.reference.id] ?? row.reference.id,
+			);
+
 	if (!adapter) {
 		return (
 			<FormField
@@ -267,6 +280,7 @@ export function ReferenceField({
 								// The one thing that decides whether adding is one
 								// step or two.
 								pinMode={settings?.pin_mode}
+								destination={destination}
 							/>
 						)}
 

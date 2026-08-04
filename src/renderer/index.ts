@@ -35,7 +35,9 @@ export { EmptyReadValue } from "./fields/empty-value";
 // `onInsert` is what puts the insertion strips on the tree: it is asked to find
 // a Content for the gap somebody clicked, and hands back the write that puts
 // one there (ADR-0012). Without it there are no strips, since only a Consumer's
-// own Adapter can produce a Reference.
+// own Adapter can produce a Reference. The request also carries `destination` —
+// the sentence the strip announced, including any rows it will adopt — to be
+// shown by whatever opens next, rather than phrased a second time.
 export {
 	type ReferenceInsertRequest,
 	ReferenceTree,
