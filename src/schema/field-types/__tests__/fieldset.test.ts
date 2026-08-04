@@ -135,18 +135,20 @@ describe("fieldsetPlugin", () => {
 		expect(schema.safeParse({ address: {} }).success).toBe(true);
 	});
 
-	it("keeps only what its children declare", () => {
-		// The record is a z.object, so parsing drops undeclared keys — the
-		// treatment the top level has always given a Spec, now one level
-		// deeper (ADR-0007). Anything a Consumer needs on submit is a Field.
+	it("keeps keys its children don't describe", () => {
+		// A Blueprint says what the record's Fields are, not everything stored
+		// under it. Validating the record must not start pruning the rest
+		// (ADR-0007) — the same rule a Group row follows.
 		const schema = specToZodSchema(
 			[resolvedFieldset([childField()])],
 			builtInFieldTypes,
 		);
 		const parsed = schema.safeParse({
-			address: { street: "12 Bridge Lane", legacy_note: "dropped" },
+			address: { street: "12 Bridge Lane", id: 7 },
 		});
-		expect(parsed.data).toEqual({ address: { street: "12 Bridge Lane" } });
+		expect(parsed.data).toEqual({
+			address: { street: "12 Bridge Lane", id: 7 },
+		});
 	});
 
 	it("lets an optional child through", () => {
@@ -202,11 +204,12 @@ describe("fieldsetPlugin", () => {
 		);
 
 		expect(schema.safeParse({ address: {} }).success).toBe(true);
-		// Skipped means skipped both ways: a hidden child is neither required
-		// nor carried through, exactly as a hidden top-level Field.
-		expect(
-			schema.safeParse({ address: { internal: "not submitted" } }).data,
-		).toEqual({ address: {} });
+		// Skipped, not rejected: a hidden child is nothing the Schema asks for,
+		// and its stored value rides through untouched like any other key the
+		// Fields don't describe.
+		expect(schema.safeParse({ address: { internal: "kept" } }).data).toEqual({
+			address: { internal: "kept" },
+		});
 	});
 
 	it("seeds the record its children describe", () => {

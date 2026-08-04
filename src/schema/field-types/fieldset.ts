@@ -37,10 +37,14 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 	// renderer self-resolves for display but the Schema never saw. Rejecting
 	// their values on that path would fail a form over a Field fieldkit was
 	// never told about.
+	//
+	// `passthrough`, on the same reasoning a Group row gets it: the embedded
+	// record is stored with keys the Blueprint doesn't edit, and validating it
+	// must not start pruning them on submit.
 	toZodType(field: Field<FieldsetSettings>, composeChildren) {
 		const children = field.children;
 		if (!composeChildren || children == null) return z.record(z.unknown());
-		return composeChildren(children);
+		return composeChildren(children).passthrough();
 	},
 
 	defaultSettings: { collapsible: false },

@@ -10,8 +10,10 @@ Special-casing `fieldset` inside `specToZodSchema()`, the way the value-less Mar
 
 `specToZodSchema()`'s `overrides` stay top-level only — they are keyed by Accessor, and a Consumer overriding `street` means their own Field, not one a Blueprint happens to name the same. There is no way to override a child, and no evidence yet that anyone wants one.
 
-A composed record is a `z.object`, so parsing strips keys the children don't declare — the same treatment the top level has always given a Spec, now reaching one level deeper. Anything a Consumer needs on submit has to be a Field.
+Both container types call `.passthrough()` on what they compose, so a nested record keeps keys its Fields don't describe. A Spec says what a form edits, not what a record holds: a Group row carries a backend id, a Fieldset record carries whatever core stores beside the Blueprint's Fields, and neither should vanish because validation arrived. That is also why the plugin, not the shared builder, applies the policy — the builder hands back a plain `ZodObject` and each container decides.
+
+The top level still strips, unchanged, and that asymmetry has a matching consequence in the table: `EditDrawer` submits parsed values, so it merges them back over the row it was given rather than handing a Consumer a record stripped of its id.
 
 Termination is `resolveSpec()`'s job (ADR-0004): it rejects a Blueprint cycle before children reach the builder.
 
-A Group could now validate its rows the same way instead of `z.array(z.record(z.unknown()))`. Deliberately not done here — every stored row of every existing Group would start being checked, which is its own change with its own blast radius.
+Group rows validate through the same mechanism. Every stored row of every existing Group is now checked, which is the point and also the blast radius: a Spec whose rows were never validated can start blocking submit on data that was already saved.

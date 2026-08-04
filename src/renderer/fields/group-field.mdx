@@ -24,16 +24,28 @@ The `children: Field[]` property on the field definition defines the child field
 
 ## Validation
 
-The Zod schema validates the array length via `min_items`/`max_items`. However, individual child fields within each item are **not** validated — the array items use `z.record(z.unknown())`.
+The Zod schema validates the array length via `min_items`/`max_items`, and each
+row against the child fields it holds: a required field left empty in row 2
+blocks submit and reports at `authors.1.name` — the path the renderer registers
+it under, so React Hook Form puts the message on that row's field rather than on
+the Group (ADR-0007). Children obey the same rules their top-level siblings do:
+markers and hidden fields are skipped, optional children accept the empty string.
+
+Rows are `passthrough`: a stored row carries more than the spec edits — a
+backend id, most obviously — and validating rows doesn't prune the rest on
+submit. A Group with no children keeps the opaque row it always had.
 
 ## Zod Output
 
 ```ts
-// No constraints
+// No children
 z.array(z.record(z.unknown()))
 
+// Children `name` (required) and `role` (optional)
+z.array(z.object({ name: z.string().min(1), role: z.string().optional() }).passthrough())
+
 // With min/max
-z.array(z.record(z.unknown())).min(1).max(5)
+z.array(row).min(1).max(5)
 ```
 
 ## Table Cell
@@ -42,9 +54,8 @@ Renders the item count via `GroupCell`.
 
 ## Known Limitations
 
-- Child fields are not validated in Zod — items use `z.record(z.unknown())` instead of composing child field schemas. The plugin contract no longer stands in the way: `toZodType` takes an optional composer for child fields (#53, used by Fieldset), so a row could compose its children. Doing it here is a separate change with its own blast radius — every existing Group's stored rows would start being checked.
 - No drag-to-reorder (the plan specified dnd-kit integration)
-- `append({})` ignores child field defaults — new items start with empty objects
+- `append({})` ignores child field defaults — new items start with empty objects. Now that rows validate, an added row is invalid until its required fields are filled, which is the intent; but a child with a plugin default (a boolean's `false`) starts undefined rather than seeded.
 - No collapse/expand per item
 - "Add item" button is above the list instead of below
 

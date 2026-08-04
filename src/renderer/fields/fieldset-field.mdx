@@ -167,10 +167,11 @@ validates all the way down — and children obey the rules their top-level
 siblings do: Markers and hidden Fields are skipped, optional children accept
 the empty string (#38).
 
-Parsing keeps only what the children declare — the record is a `z.object`, so
-undeclared keys and hidden children's values are dropped on submit, the same
-treatment the top level has always given a Spec (ADR-0007). Anything a Consumer
-needs in the payload has to be a Field.
+The record is `passthrough`, so keys the Blueprint's Fields don't describe — an
+id, a hidden child's stored value — ride through the submit untouched. A
+Blueprint says what the record's Fields are, not everything stored under it, and
+validation arriving shouldn't start pruning the rest (ADR-0007). Group rows
+follow the same rule.
 
 **Unresolved**, it stays `z.record(z.unknown())`: nothing about the children is
 checked, and the self-resolved Fields of path 2 are not rejected either —
