@@ -18,6 +18,7 @@ import {
 	referenceBranchEnd,
 	referenceDropTarget,
 	referencesPastDepth,
+	referenceTreeOpensFolded,
 	removeReferenceAt,
 	spliceReference,
 	visibleReferenceRows,
@@ -1738,6 +1739,54 @@ const big: Reference[] = [
 	...foldable,
 	...treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD),
 ];
+
+describe("referenceTreeOpensFolded", () => {
+	/** `size` rows, as a list — only the count is read. */
+	const rowsOfSize = (size: number) => readReferenceTree(treeOfSize(size));
+
+	it("says no at exactly the threshold", () => {
+		expect(
+			referenceTreeOpensFolded(rowsOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD)),
+		).toBe(false);
+	});
+
+	it("says no one Reference below it", () => {
+		expect(
+			referenceTreeOpensFolded(
+				rowsOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1),
+			),
+		).toBe(false);
+	});
+
+	it("says yes one Reference above it", () => {
+		expect(
+			referenceTreeOpensFolded(
+				rowsOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+			),
+		).toBe(true);
+	});
+
+	it("says no about a tree with nothing in it", () => {
+		expect(referenceTreeOpensFolded([])).toBe(false);
+	});
+
+	it("is the same answer the initial fold set is built from", () => {
+		// One threshold, two behaviours: what decides that a tree opens folded
+		// is what decides that it is worth carrying a Find control. A renderer
+		// asking one question and the model answering the other is exactly the
+		// disagreement this predicate exists to prevent.
+		for (const size of [
+			REFERENCE_TREE_COLLAPSE_THRESHOLD - 1,
+			REFERENCE_TREE_COLLAPSE_THRESHOLD,
+			REFERENCE_TREE_COLLAPSE_THRESHOLD + 1,
+		]) {
+			const rows = rowsOfSize(size);
+			expect(initialReferenceFolds(rows).size > 0).toBe(
+				referenceTreeOpensFolded(rows),
+			);
+		}
+	});
+});
 
 describe("initialReferenceFolds", () => {
 	it("builds trees of the size it was asked for", () => {

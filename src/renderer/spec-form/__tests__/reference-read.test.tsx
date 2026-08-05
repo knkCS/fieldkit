@@ -642,6 +642,31 @@ describe("SpecForm — read mode, Find and Reveal", () => {
 
 		expect(rowNamed("article-20")).not.toBeNull();
 	});
+
+	it("still finds by id with no Adapter configured at all", async () => {
+		// Unlike the editable Field, read mode has no "adapter not configured"
+		// branch: it draws the tree whatever resolves, so the screen here is
+		// the *same* screen a failed lookup leaves behind — every row showing
+		// its id. Offering Find on one and not the other would be a difference
+		// an Author can see and cannot explain.
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		render(
+			<Provider>
+				<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
+					<SpecForm
+						schema={[referenceField() as Field]}
+						mode="read"
+						values={{ related: fakeReferenceTree(size) }}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		expect(await screen.findByText("article-1")).toBeInTheDocument();
+
+		await reveal("article-20");
+
+		expect(rowNamed("article-20")).not.toBeNull();
+	});
 });
 
 describe("SpecForm — read mode, reference tree with Attributes", () => {

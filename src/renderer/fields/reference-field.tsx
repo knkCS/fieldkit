@@ -11,8 +11,8 @@ import {
 import type { FieldProps } from "../../schema/plugin";
 import { withPin } from "../../schema/reference";
 import {
-	REFERENCE_TREE_COLLAPSE_THRESHOLD,
 	readReferenceTree,
+	referenceTreeOpensFolded,
 } from "../../schema/reference-tree";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
@@ -157,8 +157,10 @@ export function ReferenceField({
 
 	// Find appears on exactly the trees that open collapsed. One threshold, two
 	// behaviours: a tree an Author takes in at a glance is one they can reach a
-	// Reference in by looking, and a control they do not need is clutter.
-	const offersFind = rows.length > REFERENCE_TREE_COLLAPSE_THRESHOLD;
+	// Reference in by looking, and a control they do not need is clutter. Read
+	// through the tree model's own predicate, which the read-mode renderer asks
+	// the same question of — the comparison is not spelled out twice.
+	const offersFind = referenceTreeOpensFolded(rows);
 
 	// What the drawer says about where this Reference is going. A strip already
 	// announced its own destination and hands it over; the Add control never

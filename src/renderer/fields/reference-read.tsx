@@ -9,10 +9,10 @@ import type { ReferenceRow } from "../../schema/reference-tree";
 import {
 	foldsToReveal,
 	initialReferenceFolds,
-	REFERENCE_TREE_COLLAPSE_THRESHOLD,
 	readReferenceTree,
 	referenceDisplayName,
 	referenceHasBranch,
+	referenceTreeOpensFolded,
 	visibleReferenceRows,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
@@ -33,7 +33,7 @@ import { INDENT_WIDTH } from "./reference-tree";
  * values that belong to it.
  *
  * It **folds, and it finds** (#153). A tree past
- * {@link REFERENCE_TREE_COLLAPSE_THRESHOLD} opens with its parents collapsed
+ * the tree model's collapse threshold opens with its parents collapsed
  * and carries a Find control, exactly as the editable tree does — an Author
  * opening a record read-only with ten thousand References was previously given
  * ten thousand rows, which is the problem collapsing already solved on the
@@ -95,6 +95,16 @@ export function ReferenceReadValue({
 	);
 	// The Reference the last Reveal landed on, marked until the next one. A
 	// Reveal is an answer to a question, not a preview: nothing folds it back.
+	//
+	// Neither this nor the fold set is carried across a change of *value*, the
+	// way the editable tree carries both across its own writes. It has to,
+	// because a key names a position and its writes rename them; nothing read
+	// mode does writes, so the only way the rows can change under it is a
+	// Consumer handing it another record — and an answer about the last record
+	// is not an answer about this one. Resetting on the rows' identity is what
+	// is deliberately *not* done: a Consumer that builds its value inline hands
+	// a fresh array down on every render, and folds an Author opened would come
+	// undone under them.
 	const [revealed, setRevealed] = useState<string | null>(null);
 	// The Reference a Reveal has asked for but not yet landed on. A ref rather
 	// than state because it is consumed by the landing rather than rendered, and
@@ -200,10 +210,18 @@ export function ReferenceReadValue({
 	if (rows.length === 0) return <EmptyReadValue />;
 
 	// Find appears on exactly the trees that open collapsed — the same
-	// threshold, the same two behaviours it decides in the editable tree. A
-	// tree an Author takes in at a glance is one they can reach a Reference in
-	// by looking.
-	const offersFind = rows.length > REFERENCE_TREE_COLLAPSE_THRESHOLD;
+	// threshold, read through the same function the editable Field reads it
+	// through, so the two renderers cannot come to different answers about the
+	// same tree.
+	//
+	// Size is the whole test, deliberately. The editable Field offers no Find
+	// with no Adapter configured, but only because it replaces itself with a
+	// message and draws no tree at all; read mode draws one whatever resolves,
+	// so its screen in that case is the *same* screen a failed lookup leaves —
+	// every row showing its id — and ADR-0013 already has Find matching those.
+	// A control present on one and absent on the other would be a difference an
+	// Author can see and cannot explain.
+	const offersFind = referenceTreeOpensFolded(rows);
 
 	// What the last Reveal landed on, named — null until one has.
 	const revealedRow =
@@ -215,6 +233,14 @@ export function ReferenceReadValue({
 		// `DescriptionList.Row`, which is a `<p>`, and a `<div>` anywhere under
 		// one is invalid HTML. `DescriptionList` is div-based, so nesting one
 		// here would put divs inside that `<p>`.
+		//
+		// The rows keep that rule; the Find control below cannot. It is the
+		// shared combobox, whose input group is a `<div>` inside anker — and a
+		// second, span-only Find would be exactly the duplicate control this
+		// ticket exists to avoid. `GroupReadValue` already renders `<div>`s in
+		// the same slot, so the honest reading is that read mode's value
+		// container is a `<p>` that has outgrown one, rather than that this
+		// component is the exception.
 		<Box
 			as="span"
 			display="flex"
