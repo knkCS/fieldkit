@@ -12,9 +12,11 @@ import {
 	createFakeReferenceAdapter,
 	type FakeReferenceAdapter,
 	fakeCatalogue,
+	fakeReferenceTree,
 } from "../../../test/fake-reference-adapter";
 import type { FieldKitAdapters } from "../../adapters";
 import { FieldComponent } from "../../field-component";
+import { REFERENCE_NAME_BATCH_SIZE } from "../../hooks/batch-ids";
 import { FieldKitProvider } from "../../provider";
 
 const ACCESSOR = "related";
@@ -220,6 +222,75 @@ describe("ReferenceField", () => {
 			expect(
 				screen.queryByRole("button", { name: "Add reference" }),
 			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("resolving names at size", () => {
+		/** Past the batch size *and* past the collapse threshold, so the tree
+		 * opens with every child hidden and no one call could carry it. */
+		const COUNT = REFERENCE_NAME_BATCH_SIZE * 2 + 10;
+
+		it("resolves every Reference in the tree, in calls no bigger than the batch size", async () => {
+			const adapter = createFakeReferenceAdapter({
+				contents: fakeCatalogue(COUNT),
+			});
+			renderField({ value: fakeReferenceTree(COUNT), adapter });
+
+			await screen.findByText("Content 1");
+
+			// Every level, not the rows on screen: the tree opened collapsed, so
+			// half of these ids belong to References nobody can see yet. Find is
+			// built on their names being resolved anyway (ADR-0013).
+			await waitFor(() => expect(adapter.fetches.flat()).toHaveLength(COUNT));
+			expect(adapter.fetches.flat()).toContain("article-2");
+			expect(adapter.fetches.length).toBeGreaterThan(1);
+			const biggest = Math.max(...adapter.fetches.map((call) => call.length));
+			expect(biggest).toBeLessThanOrEqual(REFERENCE_NAME_BATCH_SIZE);
+		});
+
+		it("shows the names the other batches resolved when one of them fails", async () => {
+			const onError = vi.fn();
+			// A root inside the second batch — only roots are on screen while the
+			// tree is collapsed, and this one's name goes down with its call.
+			const boundary = REFERENCE_NAME_BATCH_SIZE + 1;
+			const lost = boundary % 2 === 1 ? boundary : boundary + 1;
+			const adapter = createFakeReferenceAdapter({
+				contents: fakeCatalogue(COUNT),
+				failFetchIds: [`article-${String(lost)}`],
+				failFetch: new Error("that batch was too much"),
+			});
+			renderField({ value: fakeReferenceTree(COUNT), adapter, onError });
+
+			await waitFor(() =>
+				expect(onError).toHaveBeenCalledWith(expect.any(Error), ACCESSOR),
+			);
+
+			// The rows whose batches answered read normally...
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+			// ...and the one that did not falls back to its id, exactly as a row
+			// whose Content no longer resolves already does. The Field is degraded
+			// where the failure was and nowhere else.
+			expect(screen.getByText(`article-${String(lost)}`)).toBeInTheDocument();
+		});
+
+		it("shows a name for a Reference nested inside a collapsed branch", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter({
+				contents: fakeCatalogue(COUNT),
+			});
+			renderField({ value: fakeReferenceTree(COUNT), adapter });
+
+			await screen.findByText("Content 1");
+			// Nothing under a root is on screen until the fold opens.
+			expect(screen.queryByText("Content 2")).not.toBeInTheDocument();
+
+			await user.click(
+				screen.getByRole("button", { name: "Expand Content 1" }),
+			);
+
+			// Its name was already resolved, so the row arrives named rather than
+			// showing an id until something fetches it.
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
 	});
 

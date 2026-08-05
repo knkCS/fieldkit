@@ -50,6 +50,17 @@ export interface FakeReferenceAdapterOptions {
 	failSearch?: Error;
 	/** Reject every `fetch` with this error, for the degrade paths. */
 	failFetch?: Error;
+	/**
+	 * Narrow {@link FakeReferenceAdapterOptions.failFetch} to the calls carrying
+	 * one of these ids, leaving every other call to answer normally.
+	 *
+	 * Fieldkit cuts a large tree's ids into several `fetch` calls, so a failed
+	 * lookup is no longer all-or-nothing: one batch can reject while its
+	 * neighbours resolve. Named by id rather than by call number because a test
+	 * should say *which Contents* went missing, not how the batching happened to
+	 * fall.
+	 */
+	failFetchIds?: string[];
 	/** Reject every `listPinTargets` with this error, for the degrade paths. */
 	failPinTargets?: Error;
 	/**
@@ -295,6 +306,20 @@ export function createFakeReferenceAdapter(
 	}
 
 	/**
+	 * Whether this `fetch` call is one the options asked to reject.
+	 *
+	 * With no `failFetchIds`, `failFetch` fails every call — the whole-Adapter
+	 * degrade. With them, it fails only the calls carrying one, which is how a
+	 * test drives one batch of many failing while the rest answer.
+	 */
+	function rejectsFetch(ids: string[]): boolean {
+		if (options.failFetchIds) {
+			return ids.some((id) => options.failFetchIds?.includes(id));
+		}
+		return options.failFetch !== undefined;
+	}
+
+	/**
 	 * Equality on whatever key the filter Spec named, skipping the ways a form
 	 * control says "nothing chosen".
 	 *
@@ -355,7 +380,9 @@ export function createFakeReferenceAdapter(
 
 		async fetch(ids) {
 			fetches.push([...ids]);
-			if (options.failFetch) throw options.failFetch;
+			if (rejectsFetch(ids)) {
+				throw options.failFetch ?? new Error("reference fetch failed");
+			}
 			// Only what exists: an id with no Content is simply absent from the
 			// result, which is how a caller learns it cannot be resolved.
 			return ids
