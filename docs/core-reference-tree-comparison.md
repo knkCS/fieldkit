@@ -273,7 +273,9 @@ So core's entire mid-drag feedback is the **source row collapsed in place**: `& 
 
 The cost is that **the Reference in flight becomes anonymous**: its name, its Attributes count and its controls are all at zero height for the duration, and the overlay that would have carried them draws nothing. An Author dragging one of several similarly-named Contents has no confirmation of which one they picked up.
 
-Fieldkit keeps the row visible and dimmed instead, which is why [the 2026-08-05 tree drag-feedback design](./superpowers/specs/2026-08-05-tree-drag-feedback-design.md) takes core's indicator idea without taking its collapse.
+Fieldkit keeps the row visible instead, which is why [the 2026-08-05 tree drag-feedback design](./superpowers/specs/2026-08-05-tree-drag-feedback-design.md) takes core's indicator idea without taking its collapse.
+
+> **Updated 2026-08-05.** This paragraph said "visible and dimmed". The dim is gone: with the list no longer parting (that design's Decision 12), the dragged row passes *over* the rows it travels past, and two translucent rows stacked read as mud — so it is now opaque, raised and shadowed. The contrast with core stands and is in fact sharper: core's dragged Reference is anonymous, fieldkit's is the most legible thing on screen.
 
 ---
 
