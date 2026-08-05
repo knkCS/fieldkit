@@ -1350,6 +1350,9 @@ export function EditorCanvas({
 									placeholder={labels.searchPlaceholder}
 									noResultsLabel={labels.noResults}
 									label={labels.searchLabel ?? "Find field"}
+									// The only search on the screen it owns, so it
+									// claims "/".
+									slashShortcut
 									onJump={(r) => {
 										onActiveTabChange(r.tabIndex);
 										onSelect(r.accessor);

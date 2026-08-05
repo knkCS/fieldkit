@@ -135,14 +135,32 @@ the submit reaches React Hook Form. `EditDrawer` sets it for you.
 
 A search box (`/` keyboard shortcut, unless focus is already in a text
 input/textarea/content-editable element) filters fields by name or accessor
-across every tab. The `/` shortcut has full parity between modes: the
-listener lives in `FieldSearch` itself (not duplicated per mode), so it
-focuses the search box in both edit and read mode alike. If more than one
-`SpecForm`/search box is mounted at once, each mount registers its own
-listener and the **first-mounted** one wins: listeners fire in registration
-order, and the first one to run focuses its own input synchronously — by the
-time later listeners run, focus is already inside a text input, so their own
-skip-while-typing guard makes them early-return.
+across every tab. The `/` shortcut has full parity between modes: both ask
+the shared combobox for it with the same `slashShortcut` prop (rather than
+each mode implementing a listener), so it focuses the search box in edit and
+read mode alike. If more than one `SpecForm`/search box is mounted at once,
+each claimant registers its own listener and the **first-mounted** one wins:
+listeners fire in registration order, and the first one to run focuses its
+own input synchronously — by the time later listeners run, focus is already
+inside a text input, so their own skip-while-typing guard makes them
+early-return.
+
+The dropdown itself is `SearchCombobox` (`src/renderer/search-combobox.tsx`),
+which is agnostic about what it lists: a caller supplies its own result type,
+its own matching, and a `describeResult` saying how one result reads — a
+primary label and an optional secondary line, shown trailing the label
+(`layout="inline"`, the default) or beneath it (`layout="stacked"`).
+`FieldSearch` is the field-shaped caller: it knows an index of fields and
+describes each result as a field name plus the tab it sits on. Everything
+else — the listbox roles, the active-descendant wiring, the keyboard model
+and the Escape containment below — is the combobox's, once, for every caller.
+
+Because that race is first-mounted-wins, the claim is **opt-in**: the
+combobox registers no document- or window-level key listener unless a caller
+asks for the shortcut. `SpecForm`'s field search asks (both modes), and so
+does the editor canvas — each owns the screen it sits on. A search nested
+inside one of those screens must not ask, since it could only ever lose the
+race and would be registering a listener that can never fire.
 
 Use `ArrowUp`/`ArrowDown` to move the highlight, `Enter` to jump to the
 highlighted result, `Esc` to clear the query. Jumping switches to the target
@@ -174,7 +192,7 @@ Ark/zag's dismissable layer (which powers anker's `DrawerRoot`) listens for
 `Escape` on `document` in the **capture** phase — capture runs outermost-first,
 so a bubble-phase `stopPropagation()` on the search input would always lose the
 race and let the same keypress close the host drawer, discarding in-progress
-edits. `FieldSearch` instead registers its own `window`-level, capture-phase
+edits. The combobox instead registers its own `window`-level, capture-phase
 `keydown` listener, but **only while its dropdown is open** (mounted/torn
 down in a **layout** effect keyed on that open state). A capture listener on
 `window` always fires before one on `document` — regardless of registration

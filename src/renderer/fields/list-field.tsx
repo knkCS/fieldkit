@@ -35,7 +35,7 @@ export function ListField({ field, readOnly }: FieldProps<ListSettings>) {
 	const [page, setPage] = useState(1);
 	// anker's SearchInput is uncontrolled, so clearing the filter means
 	// remounting it. Bumping this token is version-proof where the
-	// imperative SearchInputHandle is not (see spec-form/field-search.tsx).
+	// imperative SearchInputHandle is not (see search-combobox.tsx).
 	const [searchToken, setSearchToken] = useState(0);
 
 	return (

@@ -1,5 +1,12 @@
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { Schema } from "../../schema/types";
@@ -137,6 +144,23 @@ describe("EditorCanvas", () => {
 		expect(screen.getByTestId("shell-h")).toBeInTheDocument();
 		expect(screen.getByText(/Hidden field/)).toBeInTheDocument();
 		expect(screen.queryByTestId("field-h")).not.toBeInTheDocument();
+	});
+
+	// The canvas is one of the two callers that claim the global "/" — it is
+	// the only search on the screen it owns, so nothing can lose the race to
+	// it there.
+	it("claims '/' to focus the field search", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					schema={[makeField("a"), makeSection("s1", "SEO"), makeField("meta")]}
+				/>
+			</EditorWrap>,
+		);
+		fireEvent.keyDown(document.body, { key: "/" });
+		await waitFor(() => {
+			expect(screen.getByPlaceholderText("Find field…")).toHaveFocus();
+		});
 	});
 
 	it("field search jumps tabs and selects", async () => {
