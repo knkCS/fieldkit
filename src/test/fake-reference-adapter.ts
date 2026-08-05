@@ -312,7 +312,7 @@ export function createFakeReferenceAdapter(
 	 * degrade. With them, it fails only the calls carrying one, which is how a
 	 * test drives one batch of many failing while the rest answer.
 	 */
-	function fails(ids: string[]): boolean {
+	function rejectsFetch(ids: string[]): boolean {
 		if (options.failFetchIds) {
 			return ids.some((id) => options.failFetchIds?.includes(id));
 		}
@@ -380,7 +380,7 @@ export function createFakeReferenceAdapter(
 
 		async fetch(ids) {
 			fetches.push([...ids]);
-			if (fails(ids)) {
+			if (rejectsFetch(ids)) {
 				throw options.failFetch ?? new Error("reference fetch failed");
 			}
 			// Only what exists: an id with no Content is simply absent from the

@@ -1,4 +1,3 @@
-// src/renderer/hooks/batch-ids.ts
 /**
  * How a list of Content ids is cut up before it is handed to an Adapter.
  *
@@ -42,7 +41,14 @@ export const REFERENCE_NAME_BATCH_SIZE = 100;
  *
  * A pure function, and deliberately not a hook: this is the whole of the
  * batching rule, so it can be asserted directly instead of through a rendered
- * Field and a fake Adapter.
+ * Field and a fake Adapter. `size` is a parameter for the same reason — the
+ * rule is easier to read at three than at a hundred — and every caller in the
+ * Field passes nothing and gets {@link REFERENCE_NAME_BATCH_SIZE}.
+ *
+ * A size below one never terminates, and a fractional one slices at
+ * unpredictable places. Guarded rather than trusted because the batch size is a
+ * number this repo openly expects someone to change once they have measured it,
+ * and a hung browser is a poor way to find out the edit was wrong.
  */
 export function batchIds(
 	ids: readonly string[],

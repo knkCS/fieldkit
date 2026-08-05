@@ -46,6 +46,13 @@ export function useResolvedContentNames(
 		// Settled rather than raced: one batch rejecting must not throw away the
 		// names its neighbours resolved, which are as usable as they would have
 		// been on their own. A row with no name still falls back to its id.
+		//
+		// Every batch is asked for at once, and nothing here limits how many are
+		// in flight — the browser's own per-origin connection limit is what
+		// paces them. Bounding them ourselves would be a second number this repo
+		// has not measured, on top of the batch size; if a Consumer's rate limit
+		// turns out to be what breaks, that is the measurement that should
+		// decide it rather than a guess made here.
 		Promise.allSettled(
 			batchIds(wanted).map((batch) => adapter.fetch(batch)),
 		).then((settled) => {
@@ -57,10 +64,15 @@ export function useResolvedContentNames(
 					resolved[item.id] = item.display_name;
 				}
 			}
-			// One write for the whole set rather than one per batch: a Reference
-			// Field re-reads its tree on every render, and a tree of ten thousand
-			// must not be re-read once per call. It also keeps the names from
-			// flickering back to ids while later batches are still in flight.
+			// One write for the whole set rather than one per batch. The rows on
+			// screen are spread across every batch — a collapsed tree shows its
+			// roots, and they are scattered right through the flattened list — so
+			// writing per batch would name a patchwork of rows and leave their
+			// neighbours reading as ids until the last call landed. It also keeps
+			// a Field that re-reads its whole tree on every render from doing so
+			// once per call. The cost is that one slow batch holds up every name,
+			// which is the same thing one slow call did before there were
+			// batches.
 			setNames(resolved);
 			const failed = settled.find(
 				(outcome): outcome is PromiseRejectedResult =>
