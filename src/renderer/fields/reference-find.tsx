@@ -38,6 +38,32 @@ const RESERVATIONS: Record<ReferenceFindState, string> = {
 };
 
 /**
+ * What Find says when it has nothing to list — the sentence this ticket exists
+ * for.
+ *
+ * Three states, three sentences, and the one an Author must never be shown out
+ * of turn is the plain one: "No matching References" over a set that is still
+ * arriving is a control lying about what the tree contains, which is the one
+ * thing matching in the browser buys (ADR-0013).
+ *
+ * While names are arriving the sentence does not mention matching at all —
+ * there is nothing to report yet, an Author told "no matches yet" reads the
+ * first two words and stops, and what they need to know is that the answer is
+ * coming without them doing anything. It is the one state whose sentence is not
+ * the plain one plus its reservation, which is why this is a table beside
+ * {@link RESERVATIONS} rather than derived from it.
+ *
+ * Keyed by the state rather than switched on it, and exhaustively: a fourth
+ * state would not compile, which is the same guarantee `referenceFindState`
+ * makes from the other end.
+ */
+const NOTHING_MATCHED: Record<ReferenceFindState, string> = {
+	complete: "No matching References",
+	resolving: "Still resolving names…",
+	partial: `No matching References${RESERVATIONS.partial}`,
+};
+
+/**
  * How a Find answer reads as a count.
  *
  * Two sentences, because they answer two different questions. A capped list
@@ -66,29 +92,6 @@ function describeFindCount({
 	return `${counted}${RESERVATIONS[state]}`;
 }
 
-/**
- * What Find says when it has nothing to list — the sentence this ticket exists
- * for.
- *
- * Three states, three sentences, and the one an Author must never be shown out
- * of turn is the plain one: "No matching References" over a set that is still
- * arriving is a control lying about what the tree contains, which is the one
- * thing matching in the browser buys (ADR-0013).
- *
- * While names are arriving the sentence does not mention matching at all. There
- * is nothing to report yet — an Author told "no matches yet" reads the first two
- * words and stops — and what they need to know is that the answer is coming
- * without them doing anything.
- *
- * It takes the state rather than an answer, because it is the one sentence here
- * that does not depend on the query: nothing matched is nothing matched, and
- * what varies is only how far Find is entitled to say so.
- */
-function describeFindNothing(state: ReferenceFindState): string {
-	if (state === "resolving") return "Still resolving names…";
-	return `No matching References${RESERVATIONS[state]}`;
-}
-
 export interface ReferenceFindProps {
 	/** Every row of the tree — folded ones included, since a collapsed branch
 	 * hiding the answer is the whole problem Find exists for. */
@@ -97,9 +100,8 @@ export interface ReferenceFindProps {
 	 * id, exactly as a row falls back. */
 	names: Record<string, string>;
 	/**
-	 * How far those names can be relied on — decided by `referenceFindState`
-	 * from what the Field's own lookup is doing, and passed in rather than
-	 * guessed at here.
+	 * How far those names can be relied on — resolved beside them, by
+	 * `referenceFindState`, and passed in rather than guessed at here.
 	 *
 	 * A record of names cannot carry it: an id with no name reads the same
 	 * whether it has not arrived, has no Adapter to arrive from, or was asked
@@ -107,7 +109,7 @@ export interface ReferenceFindProps {
 	 * whether it is entitled to report an absence, which is the decision this
 	 * takes away from it.
 	 */
-	state: ReferenceFindState;
+	nameState: ReferenceFindState;
 	/** Called with the key of the Reference an Author picked — what a Reveal
 	 * names. */
 	onReveal: (key: string) => void;
@@ -132,7 +134,7 @@ export interface ReferenceFindProps {
 export function ReferenceFind({
 	rows,
 	names,
-	state,
+	nameState,
 	onReveal,
 }: ReferenceFindProps) {
 	// Called during render by the combobox, and pure — the results and the
@@ -149,10 +151,10 @@ export function ReferenceFind({
 	// typed rather than waiting for them to type it again.
 	const search = useCallback(
 		(query: string) => {
-			const answer = findReferences(rows, names, query, state);
+			const answer = findReferences(rows, names, query, nameState);
 			return { results: answer.results, countLabel: describeFindCount(answer) };
 		},
-		[rows, names, state],
+		[rows, names, nameState],
 	);
 
 	return (
@@ -174,10 +176,10 @@ export function ReferenceFind({
 			onSelect={(result) => onReveal(result.key)}
 			placeholder="Find a Reference…"
 			// The empty sentence and the count are the two halves of one
-			// answer, and both are worded from the same `state` — the combobox
+			// answer, and both are worded from the one state — the combobox
 			// shows exactly one of them, whichever way the result count fell, so
 			// there is never a screen carrying two verdicts about one tree.
-			noResultsLabel={describeFindNothing(state)}
+			noResultsLabel={NOTHING_MATCHED[nameState]}
 			label="Find a Reference"
 			testId="reference-find"
 		/>

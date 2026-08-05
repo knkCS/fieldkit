@@ -1637,17 +1637,33 @@ describe("ReferenceField", () => {
 				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();
 			});
 
-			it("never reports a half-named tree where one call carries the whole of it", async () => {
+			it("goes straight from unnamed to named where one call carries the whole tree", async () => {
 				// A tree this side of the batch size is resolved by a single
-				// call, so its names are all absent or all present and there is
-				// no partly-named tree for Find to report. Read off the Adapter
-				// rather than assumed: it is the batching that makes it true.
+				// call, so there is no half-named tree at any point and nothing
+				// partial for Find to report: every row shows an id, then every
+				// row shows a name, and the reservation lasts exactly as long as
+				// that one call. Read off the Adapter rather than assumed — it is
+				// the batching that makes it true — and note that a tree smaller
+				// still, at or below the collapse threshold, carries no Find
+				// control at all (asserted under "when the control appears").
 				const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
-				const { adapter } = renderTree(size);
-				await screen.findByText("Content 1");
+				const adapter = createFakeReferenceAdapter({
+					contents: fakeCatalogue(size),
+					holdFetch: true,
+				});
+				renderTree(size, { adapter });
+				await screen.findByText("article-1");
 
 				expect(adapter.fetches).toHaveLength(1);
 				expect(adapter.fetches.flat()).toHaveLength(size);
+				// Not one name among them while that call is out.
+				expect(screen.queryByText("Content 1")).not.toBeInTheDocument();
+
+				await act(async () => {
+					adapter.releaseFetches();
+				});
+
+				await screen.findByText("Content 1");
 				expect(await findFor("Pyrenees")).toHaveLength(0);
 				expect(screen.getByText("No matching References")).toBeInTheDocument();
 				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();

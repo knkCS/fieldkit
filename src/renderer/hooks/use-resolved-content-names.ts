@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReferenceNameProgress } from "../../schema/reference-find";
+import type { ReferenceFindState } from "../../schema/reference-find";
+import { referenceFindState } from "../../schema/reference-find";
 import type { FieldKitAdapters } from "../adapters";
 import { useFieldKit } from "../provider";
 import { batchIds } from "./batch-ids";
@@ -21,14 +22,20 @@ interface Settled {
 	incomplete: boolean;
 }
 
-/** What {@link useResolvedContentNames} answers with: the names, and how they
- * came to be the names. */
+/** What {@link useResolvedContentNames} answers with: the names, and how far
+ * they can be relied on. */
 export interface ResolvedContentNames {
 	/** The display names that have arrived, keyed by Content id. */
 	names: Record<string, string>;
-	/** What the lookup behind them is doing — see
-	 * {@link ReferenceNameProgress}. */
-	progress: ReferenceNameProgress;
+	/**
+	 * Whether that is all of them — see {@link ReferenceFindState}, whose three
+	 * states this is.
+	 *
+	 * Decided here, once, rather than handed out as the two facts behind it: it
+	 * is one question with one answer, and every caller asking it would be
+	 * every caller free to answer it differently.
+	 */
+	nameState: ReferenceFindState;
 }
 
 /**
@@ -48,7 +55,7 @@ export interface ResolvedContentNames {
  * without knowing it (ADR-0013). Which ids are resolved is unchanged: every
  * Reference at every level, not the rows on screen.
  *
- * **The progress beside the record is not a nicety.** Because the names are
+ * **The state beside the record is not a nicety.** Because the names are
  * written once, when the whole set settles, an empty record means three
  * unrelated things — not yet, no Adapter, or asked and never answered — and a
  * caller that reports an absence to an Author has to tell them apart. A row
@@ -153,11 +160,14 @@ export function useResolvedContentNames(
 		() => ({
 			// Whatever last settled, even while a newer question is outstanding:
 			// a name already on screen must not blink back to an id because the
-			// tree gained a Reference. `progress.pending` is what says it is
-			// provisional; emptying the record would be saying it twice, and
+			// tree gained a Reference. The state is what says the record is
+			// provisional; emptying it would be saying so twice, and
 			// destructively.
 			names: settled?.names ?? {},
-			progress: { pending, incomplete: settled?.incomplete ?? false },
+			nameState: referenceFindState({
+				pending,
+				incomplete: settled?.incomplete ?? false,
+			}),
 		}),
 		[settled, pending],
 	);

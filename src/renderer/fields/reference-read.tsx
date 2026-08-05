@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { ReadProps } from "../../schema/plugin";
 import { declaredAttributes } from "../../schema/reference-attributes";
-import { referenceFindState } from "../../schema/reference-find";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
 	foldsToReveal,
@@ -75,14 +74,13 @@ export function ReferenceReadValue({
 	// yields no row, at any level.
 	const rows = useMemo(() => readReferenceTree(value), [value]);
 
-	// Names, and what the lookup behind them is doing — read mode resolves the
-	// same way the editable Field does, and its Find is entitled to say exactly
-	// as much about an absence (#152).
-	const { names, progress } = useResolvedContentNames(
+	// Names, and how far they can be relied on — read mode resolves the same way
+	// the editable Field does, and its Find is entitled to say exactly as much
+	// about an absence (#152).
+	const { names, nameState } = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		field.config.api_accessor,
 	);
-	const findState = referenceFindState(progress);
 
 	// The Attributes someone filling in the form was actually asked for — the
 	// same skip the drawer and the row count make, so a read-mode row cannot
@@ -266,7 +264,7 @@ export function ReferenceReadValue({
 					<ReferenceFind
 						rows={rows}
 						names={names}
-						state={findState}
+						nameState={nameState}
 						onReveal={handleReveal}
 					/>
 				</Box>

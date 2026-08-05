@@ -177,7 +177,7 @@ describe("useResolvedContentNames", () => {
 	 * does — an id with no name and an id that never had one read the same.
 	 */
 	describe("what it says besides the names", () => {
-		it("reports a lookup as outstanding until every batch has landed", async () => {
+		it("says it is resolving until every batch has landed", async () => {
 			const count = REFERENCE_NAME_BATCH_SIZE * 2;
 			const adapter = createFakeReferenceAdapter({
 				contents: fakeCatalogue(count),
@@ -189,24 +189,18 @@ describe("useResolvedContentNames", () => {
 			// Both calls are out and neither has answered: the window a Find
 			// must not report an absence during.
 			await waitFor(() => expect(adapter.fetches).toHaveLength(2));
-			expect(result.current.progress).toEqual({
-				pending: true,
-				incomplete: false,
-			});
+			expect(result.current.nameState).toBe("resolving");
 			expect(result.current.names).toEqual({});
 
 			await act(async () => {
 				adapter.releaseFetches();
 			});
 
-			expect(result.current.progress).toEqual({
-				pending: false,
-				incomplete: false,
-			});
+			expect(result.current.nameState).toBe("complete");
 			expect(result.current.names["article-1"]).toBe("Content 1");
 		});
 
-		it("reports it as outstanding from the first render, before any effect has run", async () => {
+		it("says so from the first render, before any effect has run", async () => {
 			// Derived from what has settled rather than raised by the effect
 			// that fetches: a flag written in an effect is false for the render
 			// the Field first paints with, and a control asked during it would
@@ -215,14 +209,14 @@ describe("useResolvedContentNames", () => {
 
 			const { result } = renderNames(["article-1"], { adapter });
 
-			expect(result.current.progress.pending).toBe(true);
+			expect(result.current.nameState).toBe("resolving");
 			await act(async () => {
 				adapter.releaseFetches();
 			});
-			expect(result.current.progress.pending).toBe(false);
+			expect(result.current.nameState).toBe("complete");
 		});
 
-		it("reports nothing outstanding where there is no Adapter to ask", async () => {
+		it("says a set nothing will ever be added to is complete, with no Adapter to ask", async () => {
 			// A Field with no Adapter has nothing coming: every row shows its id
 			// and always will, so an answer over those ids is the whole truth
 			// about that tree rather than a provisional one.
@@ -237,23 +231,20 @@ describe("useResolvedContentNames", () => {
 				},
 			);
 
-			expect(result.current.progress).toEqual({
-				pending: false,
-				incomplete: false,
-			});
+			expect(result.current.nameState).toBe("complete");
 			await waitFor(() => expect(result.current.names).toEqual({}));
 		});
 
-		it("reports nothing outstanding when there are no References to resolve", async () => {
+		it("says the same where there are no References to resolve", async () => {
 			const adapter = createFakeReferenceAdapter({ holdFetch: true });
 
 			const { result } = renderNames([], { adapter });
 
-			expect(result.current.progress.pending).toBe(false);
+			expect(result.current.nameState).toBe("complete");
 			await waitFor(() => expect(adapter.fetches).toEqual([]));
 		});
 
-		it("reports the set as short when a batch failed, and not before", async () => {
+		it("calls the set partial when a batch failed, and not before", async () => {
 			const count = REFERENCE_NAME_BATCH_SIZE * 2;
 			const adapter = createFakeReferenceAdapter({
 				contents: fakeCatalogue(count),
@@ -270,22 +261,19 @@ describe("useResolvedContentNames", () => {
 			// While the calls are still out, a batch that has already failed is
 			// not yet a gap: the hook says only that it is waiting.
 			await waitFor(() => expect(adapter.fetches).toHaveLength(2));
-			expect(result.current.progress.incomplete).toBe(false);
+			expect(result.current.nameState).toBe("resolving");
 
 			await act(async () => {
 				adapter.releaseFetches();
 			});
 
-			expect(result.current.progress).toEqual({
-				pending: false,
-				incomplete: true,
-			});
+			expect(result.current.nameState).toBe("partial");
 			// The names its neighbours resolved are still here — the gap is the
 			// point, not the emptiness.
 			expect(result.current.names["article-1"]).toBe("Content 1");
 		});
 
-		it("reports a complete set once every batch has answered", async () => {
+		it("calls the set complete once every batch has answered", async () => {
 			const count = REFERENCE_NAME_BATCH_SIZE + 1;
 			const adapter = createFakeReferenceAdapter({
 				contents: fakeCatalogue(count),
@@ -293,15 +281,10 @@ describe("useResolvedContentNames", () => {
 
 			const { result } = renderNames(catalogueIds(count), { adapter });
 
-			await waitFor(() =>
-				expect(result.current.progress).toEqual({
-					pending: false,
-					incomplete: false,
-				}),
-			);
+			await waitFor(() => expect(result.current.nameState).toBe("complete"));
 		});
 
-		it("is outstanding again the moment the tree it was asked about changes", async () => {
+		it("is resolving again the moment the tree it was asked about changes", async () => {
 			// A Reference added to a large tree is a new question, and the names
 			// on hand answer the old one. Reporting the old answer as complete
 			// while the new one is in flight is the same lie one render later.
@@ -320,11 +303,11 @@ describe("useResolvedContentNames", () => {
 			await act(async () => {
 				adapter.releaseFetches();
 			});
-			expect(result.current.progress.pending).toBe(false);
+			expect(result.current.nameState).toBe("complete");
 
 			rerender({ ids: ["article-1", "article-2"] });
 
-			expect(result.current.progress.pending).toBe(true);
+			expect(result.current.nameState).toBe("resolving");
 			// And the names already on screen stay there while it is asked:
 			// nothing an Author can read blinks out because a second lookup
 			// started.
