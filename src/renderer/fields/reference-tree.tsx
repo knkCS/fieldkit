@@ -367,6 +367,47 @@ interface DragReading {
 	offsetX: number;
 }
 
+/** What a drag event says, in those terms. */
+function readingOf(event: DragMoveEvent | DragEndEvent): DragReading {
+	return {
+		overKey: event.over ? String(event.over.id) : null,
+		offsetX: event.delta.x,
+	};
+}
+
+/**
+ * A drag in flight, as this control has to remember it.
+ *
+ * One record rather than four states, because they are one lifetime: all of
+ * them are born at the lift and all of them die at the release, and a
+ * half-cleared drag — a fold snapshot outliving the row it was taken for — is
+ * exactly the shape of bug the restore rules below could not survive.
+ */
+interface DragSession {
+	/** The row being carried. */
+	activeKey: string;
+	/**
+	 * Whether a pointer is carrying it. Only a pointer dwells: arrowing onto a
+	 * Reference is deliberate already, and a keyboard drop into a folded branch
+	 * lands at its end and unfolds it without needing one (Decision 8).
+	 */
+	pointer: boolean;
+	/**
+	 * The fold as it stood at the lift — what a drop or a cancel restores to
+	 * (Decisions 7 and 9).
+	 *
+	 * A drag changes the fold twice over: the dragged branch closes on lift, and
+	 * every folded Reference the drag rests on springs open. Both are previews.
+	 * Restoring from this snapshot rather than from the live set is what makes
+	 * them one rule instead of two undo paths — a cancel replays it as it
+	 * stands, a drop replays it through `carryCollapsed`, since a move renames
+	 * every key it passes.
+	 */
+	foldsAtLift: ReadonlySet<string>;
+	/** What its own events last said, or null before it has moved. */
+	reading: DragReading | null;
+}
+
 /**
  * The folded Reference a drag is resting on, or null when it is resting on
  * nothing that could spring.
@@ -379,16 +420,60 @@ interface DragReading {
 function springableKey(
 	rows: readonly ReferenceRow[],
 	collapsed: ReadonlySet<string>,
-	activeKey: string | null,
-	overKey: string | null | undefined,
+	drag: DragSession | null,
 ): string | null {
-	if (activeKey === null || overKey == null || overKey === activeKey) {
-		return null;
-	}
+	const overKey = drag?.reading?.overKey;
+	if (!drag || overKey == null || overKey === drag.activeKey) return null;
 	if (!collapsed.has(overKey)) return null;
 	const row = rows.find((candidate) => candidate.key === overKey);
 	return row && hasBranch(row) ? overKey : null;
 }
+
+/** The fold set with `key` folded away — the very same set when it already is,
+ * so a no-op write never re-renders the tree. */
+function foldedWith(
+	current: ReadonlySet<string>,
+	key: string,
+): ReadonlySet<string> {
+	return current.has(key) ? current : new Set([...current, key]);
+}
+
+/** The fold set with `key` open — the very same set when it already is. */
+function foldedWithout(
+	current: ReadonlySet<string>,
+	key: string,
+): ReadonlySet<string> {
+	if (!current.has(key)) return current;
+	const next = new Set(current);
+	next.delete(key);
+	return next;
+}
+
+/**
+ * How the tree measures its droppables, named rather than inherited.
+ *
+ * `WhileDragging` **is** dnd-kit's default, and this says so on purpose: the
+ * tree now changes shape *during* a drag (Decisions 7 and 8), so what was a
+ * default it never thought about is a dependency it has. Checked against the
+ * installed 6.3.1/8.0.0 sources, mounting and unmounting re-measure themselves
+ * — a droppable registering or unregistering replaces the containers map, and a
+ * new map identity makes `useDroppableMeasuring` re-measure *every* container,
+ * so rows that merely moved are covered too; `SortableContext` asks for the
+ * same thing again whenever its `items` change mid-drag. `docs/dnd-kit-reference.md`
+ * carries the detail.
+ *
+ * `Always` was tried and does the same work plus measuring between drags, which
+ * is cost with no answer attached — the sibling spring-loaded-sections spec's
+ * rule, "correctness first, then the cheapest strategy that re-measures on the
+ * swap", picks this one.
+ *
+ * A module constant because an inline literal is a fresh identity every render,
+ * which re-runs dnd-kit's `useMeasuringConfiguration` memo and churns its
+ * public context for nothing.
+ */
+const TREE_MEASURING = {
+	droppable: { strategy: MeasuringStrategy.WhileDragging },
+} as const;
 
 /**
  * The name a row about to exist is carried under while the collapsed set is
@@ -550,30 +635,9 @@ export function ReferenceTree({
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() =>
 		initialCollapsed(rows),
 	);
-	const [activeKey, setActiveKey] = useState<string | null>(null);
-	/**
-	 * The fold as it stood when the drag was lifted — what a drop or a cancel
-	 * restores to (Decisions 7 and 9).
-	 *
-	 * A drag mutates the fold twice over: the dragged branch closes on lift, and
-	 * every folded Reference the drag rests on springs open. Both are previews.
-	 * Restoring from the snapshot rather than from the live set is what makes
-	 * them one rule instead of two undo paths — a cancel replays it as it
-	 * stands, and a drop replays it through `carryCollapsed`, since a move
-	 * renames every key it passes.
-	 */
-	const [foldsAtLift, setFoldsAtLift] = useState<ReadonlySet<string> | null>(
-		null,
-	);
-	// What the drag's own events last said. The resolution is derived from it
-	// below rather than stored beside it, so a spring — which changes what is on
-	// screen without any event firing — re-reads the drop rather than leaving
-	// the feedback describing a list that has since changed shape.
-	const [reading, setReading] = useState<DragReading | null>(null);
-	// Whether the drag is a pointer's. Only a pointer dwells: arrowing onto a
-	// Reference is deliberate already, and a keyboard drop into a folded branch
-	// lands at its end and unfolds it without needing one (Decision 8).
-	const [pointerDrag, setPointerDrag] = useState(false);
+	// The drag in flight, or null when none is — see {@link DragSession}.
+	const [drag, setDrag] = useState<DragSession | null>(null);
+	const activeKey = drag?.activeKey ?? null;
 	// What the strip an Author is on has just moved to, or null when nobody is
 	// operating one. Held here rather than in the strip because there are as
 	// many strips as there are gaps and a control wants one voice — see the
@@ -587,46 +651,46 @@ export function ReferenceTree({
 
 	const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
 
+	/**
+	 * Where a reading of a drag would land, against the tree as it stands *now*.
+	 *
+	 * The one resolution both the live feedback and the release read, so what an
+	 * Author watches is what letting go does — see {@link resolveDrop}.
+	 */
+	function resolveReading(key: string, read: DragReading): ResolvedDrop | null {
+		return resolveDrop({
+			rows,
+			shown,
+			collapsed,
+			activeKey: key,
+			overKey: read.overKey,
+			offsetX: read.offsetX,
+			depthCeiling,
+		});
+	}
+
 	// The drag as it currently reads — the depth the dragged row indents to and
 	// the rows a release would adopt, held together because they are one answer
 	// and showing half of it is what makes an adoption silent.
 	//
-	// Derived rather than stored: `shown` changes under a running drag every
-	// time a branch folds or springs, and a resolution captured at the last
-	// pointer move would go on naming a gap that has moved.
-	const pending = useMemo<ResolvedDrop | null>(
-		() =>
-			activeKey === null || reading === null
-				? null
-				: resolveDrop({
-						rows,
-						shown,
-						collapsed,
-						activeKey,
-						overKey: reading.overKey,
-						offsetX: reading.offsetX,
-						depthCeiling,
-					}),
-		[rows, shown, collapsed, activeKey, reading, depthCeiling],
-	);
-
-	/** Opens one folded branch, leaving the rest of the fold alone. */
-	function unfold(key: string) {
-		setCollapsed((current) => {
-			if (!current.has(key)) return current;
-			const next = new Set(current);
-			next.delete(key);
-			return next;
-		});
-	}
+	// Derived rather than stored, and re-derived on every render rather than
+	// memoised. `shown` changes under a running drag every time a branch folds
+	// or springs, so a resolution held from the last pointer move would go on
+	// naming a gap that has moved — and a memo would have to list every input
+	// the resolution reads to avoid the same staleness by another route. There
+	// is no drag most of the time, which is a null and a return; while there is
+	// one, it is a few linear passes over the rows, which is what the resolution
+	// costs whenever the pointer moves anyway.
+	const pending: ResolvedDrop | null =
+		drag?.reading == null ? null : resolveReading(drag.activeKey, drag.reading);
 
 	// Decision 8: rest a pointer drag on a folded Reference and it opens, so a
 	// slot inside it becomes something an Author can aim at. Nothing is
 	// committed by it — Decision 9 folds it back unless the drop lands inside.
 	useSpringLoadedBranch({
-		pendingKey: springableKey(rows, collapsed, activeKey, reading?.overKey),
-		enabled: pointerDrag,
-		onSpring: unfold,
+		pendingKey: springableKey(rows, collapsed, drag),
+		enabled: drag?.pointer ?? false,
+		onSpring: (key) => setCollapsed((current) => foldedWithout(current, key)),
 	});
 
 	// The Attributes an Author is actually being asked for — a hidden one is
@@ -638,26 +702,16 @@ export function ReferenceTree({
 	);
 
 	function toggle(key: string) {
-		setCollapsed((current) => {
-			const next = new Set(current);
-			if (!next.delete(key)) next.add(key);
-			return next;
-		});
+		setCollapsed((current) =>
+			current.has(key) ? foldedWithout(current, key) : foldedWith(current, key),
+		);
 	}
 
 	/** The one reading of a drag, from whichever event carries it. */
 	function resolveFrom(
 		event: DragMoveEvent | DragEndEvent,
 	): ResolvedDrop | null {
-		return resolveDrop({
-			rows,
-			shown,
-			collapsed,
-			activeKey: draggedKey(event),
-			overKey: event.over ? String(event.over.id) : null,
-			offsetX: event.delta.x,
-			depthCeiling,
-		});
+		return resolveReading(draggedKey(event), readingOf(event));
 	}
 
 	function handleRemove(row: ReferenceRow) {
@@ -743,19 +797,19 @@ export function ReferenceTree({
 	 */
 	function handleDragStart(event: DragStartEvent) {
 		const key = draggedKey(event);
-		setActiveKey(key);
-		setReading(null);
-		// The KeyboardSensor activates on a keydown; every pointer activator is
-		// a *down event. The same test the editor canvas makes.
-		setPointerDrag(event.activatorEvent?.type !== "keydown");
-		// Snapshotted before anything is folded, because this is what the drop
-		// and the cancel both restore to.
-		setFoldsAtLift(collapsed);
+		setDrag({
+			activeKey: key,
+			// The KeyboardSensor activates on a keydown; every pointer activator
+			// is a *down event. The same test the editor canvas makes.
+			pointer: event.activatorEvent?.type !== "keydown",
+			// Snapshotted before anything is folded, because this is what the
+			// drop and the cancel both restore to.
+			foldsAtLift: collapsed,
+			reading: null,
+		});
 		const lifted = rows.find((row) => row.key === key);
 		if (lifted && hasBranch(lifted)) {
-			setCollapsed((current) =>
-				current.has(key) ? current : new Set([...current, key]),
-			);
+			setCollapsed((current) => foldedWith(current, key));
 		}
 		// The strips become spacers for the duration, so whatever one of them
 		// was offering has stopped being true. React fires no blur for an
@@ -776,20 +830,9 @@ export function ReferenceTree({
 	 * flush, so the fresher answer is the one that lands.
 	 */
 	function handleDragUpdate(event: DragMoveEvent) {
-		setReading({
-			overKey: event.over ? String(event.over.id) : null,
-			offsetX: event.delta.x,
-		});
-	}
-
-	/** Everything a drag was holding, put down. The fold it was previewing is
-	 * the caller's to settle: a cancel replays the snapshot, a drop carries it
-	 * across the move first. */
-	function clearDrag() {
-		setActiveKey(null);
-		setReading(null);
-		setPointerDrag(false);
-		setFoldsAtLift(null);
+		setDrag((current) =>
+			current === null ? null : { ...current, reading: readingOf(event) },
+		);
 	}
 
 	/**
@@ -798,17 +841,17 @@ export function ReferenceTree({
 	 * (Decision 9). Nothing moved, so the keys still name the same rows.
 	 */
 	function handleDragCancel() {
-		if (foldsAtLift) setCollapsed(foldsAtLift);
-		clearDrag();
+		if (drag) setCollapsed(drag.foldsAtLift);
+		setDrag(null);
 	}
 
 	function handleDragEnd(event: DragEndEvent) {
 		// The fold a drop restores to, which is the one from before the branch
 		// closed and before anything sprang — never the live set, which is
 		// halfway through a preview.
-		const atLift = foldsAtLift ?? collapsed;
+		const atLift = drag?.foldsAtLift ?? collapsed;
 		const resolved = resolveFrom(event);
-		clearDrag();
+		setDrag(null);
 		if (!resolved) {
 			setCollapsed(atLift);
 			return;
@@ -893,15 +936,10 @@ export function ReferenceTree({
 		<DndContext
 			sensors={sensors}
 			collisionDetection={closestCenter}
-			// The tree changes shape *while* a drag runs: the dragged branch
-			// unmounts on lift and a sprung one mounts mid-drag (Decisions 7 and
-			// 8). dnd-kit's default measures droppables when a drag begins and is
-			// gated on `dragging` — stated explicitly here so the dependency is
-			// visible at the boundary that has it, rather than left to the
-			// re-measure `SortableContext` happens to perform when its `items`
-			// change. `Always` also keeps the rects current between drags, which
-			// is what a lift measures against.
-			measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+			// The tree unmounts rows on lift and mounts them mid-drag
+			// (Decisions 7 and 8), so how it measures is a dependency rather than
+			// a default it never thought about — see {@link TREE_MEASURING}.
+			measuring={TREE_MEASURING}
 			onDragStart={handleDragStart}
 			onDragMove={handleDragUpdate}
 			onDragOver={handleDragUpdate}

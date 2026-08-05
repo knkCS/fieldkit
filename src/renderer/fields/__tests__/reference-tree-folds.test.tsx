@@ -15,10 +15,14 @@
  * and anker's zag-based components branch on it — so it lives here, in the one
  * file that needs it, rather than in `src/test/setup.ts`.
  *
- * The other reason this file matters: `reference-tree.test.tsx` stubs geometry
- * through `mockRowRects()` for every drag it drives, and a stub cannot see a
- * layout change. Decisions 7 and 8 unmount rows at drag start and mount them
- * mid-drag, so the last test here commits a drop with **no rect stub at all**.
+ * The other reason this file matters: Decisions 7 and 8 unmount rows at drag
+ * start and mount them mid-drag, so the geometry a drag collides against has to
+ * follow. Two tests carry that. "Leaves a sprung branch open when the drop lands
+ * inside it" resolves a drop onto a row that **did not exist at the lift**,
+ * which no cached rect could describe; and the last test here commits a drop
+ * with **no rect stub at all**, which proves a drag survives losing rows
+ * mid-flight with nothing propping it up. Each says what it can and cannot see,
+ * in place.
  */
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -501,6 +505,12 @@ describe("resting on a folded Reference springs it open (Decision 8)", () => {
 
 		// Back down onto Content 2 and one indent in: the drop lands inside the
 		// branch that sprang, which is #65's unfold-on-arrival rule.
+		//
+		// **This is the geometry test.** Content 2 did not exist when the drag
+		// began — it mounted when the branch sprang — so a drag that went on
+		// colliding against the rects it measured at the lift could not resolve
+		// onto it at all, and the drop would land somewhere else entirely. That
+		// mid-drag re-measure is the whole risk this amendment carries.
 		await pointerMoveTo(24, 0);
 		await pointerDrop();
 
@@ -589,12 +599,19 @@ describe("a keyboard drag has no dwell, and needs none", () => {
 
 describe("with nothing faking the layout at all", () => {
 	it("commits a drop of a folded-away branch against the real DOM", async () => {
-		// No `mockRowRects` here, and that is the point: the stub answers from
-		// the live DOM but dnd-kit *caches* what it measured, so a drag that
-		// never re-measures after Decision 7 unmounted rows would still read
-		// plausible geometry and pass. Nothing is faked below — the rects are
-		// jsdom's own, and the drop is whatever the engine genuinely resolves
-		// against the rows that are genuinely mounted.
+		// No `mockRowRects` here, and no other fake either: a real pointer lift,
+		// a real unmount of the dragged branch under it, and a real drop, read
+		// against whatever geometry jsdom actually has.
+		//
+		// **Be honest about what that is.** jsdom lays nothing out, so every rect
+		// is 0×0 and `closestCenter` resolves by registration order rather than
+		// by distance — this cannot tell a stale rect from a fresh one, because
+		// there is no geometry for either to describe. What it does prove is that
+		// a drag survives losing rows mid-flight with nothing propping it up:
+		// the branch leaves the DOM between the lift and the drop, and the
+		// release still resolves, commits, and puts the fold back. The test that
+		// pins *geometry* across a shape change is the sprung-drop one above,
+		// where the row the drop lands on did not exist at the lift.
 		renderTree([
 			{ id: "article-1" },
 			{ id: "article-2", children: [{ id: "article-3" }] },

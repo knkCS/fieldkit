@@ -1,10 +1,25 @@
 // src/renderer/fields/__tests__/use-spring-loaded-branch.test.ts
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SPRING_DWELL_MS as EDITOR_SPRING_DWELL_MS } from "../../../editor/use-spring-loaded-tab";
 import {
 	SPRING_DWELL_MS,
 	useSpringLoadedBranch,
 } from "../use-spring-loaded-branch";
+
+describe("the dwell itself", () => {
+	it("is the same number the editor's spring uses", () => {
+		// Resting on a target mid-drag is ONE interaction across the package, and
+		// the two modules say so in prose — "they move together or not at all".
+		// This is the prose with teeth: retune one and this fails.
+		//
+		// The import crosses a layer, which nothing in `src/renderer` may do. A
+		// test may: it is not in any tsup entry, so no Consumer taking
+		// `@knkcs/fieldkit/renderer` pulls the specification editor in behind it.
+		// The rule is about the package graph, and this is not in it.
+		expect(SPRING_DWELL_MS).toBe(EDITOR_SPRING_DWELL_MS);
+	});
+});
 
 describe("useSpringLoadedBranch", () => {
 	beforeEach(() => vi.useFakeTimers());

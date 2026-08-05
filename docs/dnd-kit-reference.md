@@ -175,11 +175,23 @@ mid-drag folding:
   child once the branch opens, which is what the Author sees.
 
 None of that is a reason to leave the strategy implicit. The Reference Tree
-sets `measuring={{droppable: {strategy: MeasuringStrategy.Always}}}` because it
-now changes shape *during* a drag by design (Decisions 7 and 8 below) — the
-dependency belongs at the boundary that has it, rather than resting on
-`SortableContext`'s internal `itemsHaveChanged` heuristic, and `Always` keeps
-the rects current between drags as well, which is what a lift measures against.
+names it — `measuring={{droppable: {strategy: MeasuringStrategy.WhileDragging}}}`,
+hoisted to a module constant so it is not a fresh object identity every render
+— because it now changes shape *during* a drag by design (Decisions 7 and 8
+below). `WhileDragging` **is** the default; writing it down is the point, since
+what was a default nobody thought about is now a dependency. `Always` was tried
+and behaves identically here, differing only in that it measures between drags
+too — cost with no answer attached, so the spring spec's rule applies:
+correctness first, then the cheapest strategy that re-measures on the swap.
+
+**What this does not do is make the tests see a stale rect.** jsdom lays nothing
+out, so `getBoundingClientRect` is 0×0 unless a test fakes it, and removing the
+`measuring` prop breaks nothing — the two mechanisms above already cover the
+tree's case. The tests that would catch a genuine regression are the ones that
+drive a drag *through* a shape change and pin where it lands afterwards (see
+`reference-tree-folds.test.tsx`, "leaves a sprung branch open when the drop
+lands inside it": the row the drop resolves against did not exist when the drag
+began).
 
 Spring-loaded sections (0.12.0) breaks this assumption on purpose: springing
 to a foreign tab mid-drag makes its panel (and every shell/card-frame inside
@@ -308,8 +320,13 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
    `listeners`/`attributes` (grip button). Lucide `GripVertical` for handles.
 5. `CSS.Translate.toString()` for transform styles.
 6. Route the live feedback AND the drop through one pure resolver function.
-7. If drop targets appear/unhide mid-drag, re-measure them explicitly — see
-   [Measuring](#measuring) above; dnd-kit will not do this for you.
+7. If drop targets **appear or unhide** mid-drag without mounting — a panel
+   whose `hidden` attribute flips, say — re-measure them explicitly; dnd-kit
+   will not do this for you (`DragRemeasurer`). If they **mount or unmount**
+   mid-drag, it already does: register/unregister forces a full re-measure, and
+   `SortableContext` asks again when its `items` change. Either way, name the
+   `measuring` strategy rather than inheriting it, so the dependency is visible
+   at the boundary that has it. See [Measuring](#measuring) above for both.
 
 ## What is NOT used
 
