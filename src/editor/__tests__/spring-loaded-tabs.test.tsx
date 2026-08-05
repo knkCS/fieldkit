@@ -1,8 +1,8 @@
 // src/editor/__tests__/spring-loaded-tabs.test.tsx
 /**
  * What resting a drag on a tab trigger does to the CANVAS — the spring-loaded
- * sections spec's Decisions 1, 2, 3, 4 and 6 (2026-07-14), driven through the
- * rendered editor with a real pointer drag.
+ * sections spec's Decisions 1, 2, 3, 4, 5 and 6 (2026-07-14), driven through
+ * the rendered editor with a real pointer drag.
  *
  * `use-spring-loaded-tab.test.ts` covers the dwell timer in isolation — fires,
  * cancels, re-arms, stays quiet while disabled — and it stays: none of it
@@ -32,7 +32,8 @@
  * tab strip. Everything asserted here is therefore INTERACTION — a dwell
  * elapsing switches the section, a quicker crossing does not, a second rest
  * springs again, Escape unwinds the preview, a release before the dwell commits
- * and follows. Nothing here says the tab strip is reachable, that the triggers
+ * and follows, a card block released after a spring lands between the sprung
+ * tab's frames. Nothing here says the tab strip is reachable, that the triggers
  * are where the mock puts them, or that any of this is hittable at real
  * geometry: that is the runtime gate's job (spec §Testing, "Runtime gate
  * (pointer legs)"). Read a failure here as "the interaction broke", never as
@@ -53,6 +54,7 @@ import { SPRING_DWELL_MS } from "../use-spring-loaded-tab";
 import {
 	CANVAS_LABELS,
 	EditorWrap,
+	makeCard,
 	makeField,
 	makeSection,
 	testPlugins,
@@ -121,6 +123,32 @@ const SEO_WITH_TWO: Schema = [
 	makeField("c"),
 ];
 
+/** Two CARDED tabs, for the card-block leg.
+ *
+ * General holds the dragged card `cg` (two fields, so "the whole block" is a
+ * claim about more than one) and a second card `cstay` that keeps the tab
+ * populated — an emptied implicit tab collapses out of the partition and
+ * shifts every later index down, which would let "the canvas stayed on SEO"
+ * pass without any follow wiring (the fixture quirk THREE_TABS documents).
+ *
+ * SEO holds THREE frames so a drop resolved onto the MIDDLE one lands
+ * between frames rather than at the tab's end — which is what tells a
+ * `card-block` drop apart from the `tab` branch's append (Decision 2). */
+const TWO_CARDED_TABS: Schema = [
+	makeCard("cg", "Home"),
+	makeField("g1"),
+	makeField("g2"),
+	makeCard("cstay", "Stay"),
+	makeField("g3"),
+	makeSection("s1", "SEO"),
+	makeCard("cs1", "First"),
+	makeField("b1"),
+	makeCard("cs2", "Second"),
+	makeField("b2"),
+	makeCard("cs3", "Third"),
+	makeField("b3"),
+];
+
 function Harness({ schema }: { schema: Schema }) {
 	const spec = useSpecDraft(schema, testPlugins, vi.fn());
 	const [selected, setSelected] = useState<string | null>(null);
@@ -142,6 +170,11 @@ function Harness({ schema }: { schema: Schema }) {
 			<output data-testid="draft">
 				{spec.draft.map((f) => f.config.api_accessor).join(",")}
 			</output>
+			{/* And the host's selection, for the same reason — plus one the
+			    canvas cannot supply: a selected CARD's only rendered signal is
+			    its frame's accent border, a Chakra token jsdom never resolves.
+			    See `hostSelection()` below. */}
+			<output data-testid="selected">{selected ?? ""}</output>
 		</ConfirmModalProvider>
 	);
 }
@@ -149,8 +182,9 @@ Harness.displayName = "Harness";
 
 /**
  * jsdom lays nothing out, so the canvas has to be told where it is: tab-trigger
- * drop zones in a row along y=0 at a 200px pitch, field shells stacked from
- * y=100 at a 60px pitch. `editorCollision` gives the trigger zones first claim
+ * drop zones in a row along y=0 at a 200px pitch, then card frames and field
+ * shells stacked in ONE column from y=100 at a 60px pitch, in document (i.e.
+ * flat schema) order. `editorCollision` gives the trigger zones first claim
  * via `pointerWithin`, so a pointer inside a zone's box IS a hover of that
  * trigger — which is the only thing the geometry here is asked to express.
  *
@@ -164,10 +198,12 @@ Harness.displayName = "Harness";
  * **What it deliberately does NOT model:** a hidden tab's panel really measures
  * 0x0, which is why `isVisibleDroppable` exists to filter it out of collisions
  * (`visible-collision.ts`, and `visible-collision.test.ts` covers that filter
- * directly). Here every shell gets a rect whether its panel is open or not,
- * matching the sectioned mocks in `dnd.test.tsx` and `drag-feedback.test.tsx`.
- * So a drop resolved here says "this is where the collision landed", never "a
- * hidden tab's shell could not have won it".
+ * directly). Here every shell AND every card frame gets a rect whether its
+ * panel is open or not, matching the sectioned mocks in `dnd.test.tsx` and
+ * `drag-feedback.test.tsx`. So a drop resolved here says "this is where the
+ * collision landed", never "a hidden tab's shell could not have won it" — and
+ * the card-block test below lands on a frame of the tab it just sprang because
+ * the geometry aims there, not because the other tab's frames were unreachable.
  *
  * This is now the THIRD near-identical sectioned-canvas rect mock in
  * `src/editor/__tests__` (`mockSectionedRects` in dnd.test.tsx,
@@ -200,16 +236,25 @@ function springRectMock(shellLeft = 0) {
 			if (testId.startsWith("tabdrop-")) {
 				return rect(0, Number(testId.slice("tabdrop-".length)) * 200, 100, 40);
 			}
-			if (testId.startsWith("shell-") && !testId.startsWith("shell-toolbar-")) {
+			if (
+				testId.startsWith("card-frame-") ||
+				(testId.startsWith("shell-") && !testId.startsWith("shell-toolbar-"))
+			) {
+				// ONE column for card frames AND field shells, in document order —
+				// which is the flat schema order, and matches the ONE flat sortable
+				// list the canvas actually maintains per tab (markers included).
+				// Card-less fixtures are unaffected: with no frames in the DOM this
+				// query returns exactly the shells it always did, in the same order.
+				//
 				// The `:not(...)` matters: a SELECTED shell renders a
 				// `shell-toolbar-*` child sharing the prefix, and counting it would
 				// silently skew every rect below it in the column.
-				const shells = Array.from(
+				const rows = Array.from(
 					document.querySelectorAll(
-						'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
+						'[data-testid^="card-frame-"], [data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
 					),
 				);
-				return rect(100 + shells.indexOf(this) * 60, shellLeft, 200, 50);
+				return rect(100 + rows.indexOf(this) * 60, shellLeft, 200, 50);
 			}
 			return rect(0, 0, 0, 0);
 		});
@@ -225,6 +270,16 @@ const onTrigger = (tabIndex: number) => ({ x: tabIndex * 200 + 50, y: 20 });
  * pointer parked in the gap still resolves onto the nearer trigger and arms a
  * dwell against it. Leaving the strip means leaving its band. */
 const IN_CANVAS = { x: 100, y: 200 };
+
+/** The pointer position that parks the drag dead-centre on row `index` of the
+ * mock's column (frames and shells together, top to bottom).
+ *
+ * Off the tab strip, dnd-kit ranks droppables by the distance between their
+ * centre and the DRAGGED rect's centre — the pointer enters only as the
+ * translation applied to that rect. So "a point on that frame" is a DELTA
+ * from the lift at (10, 110), not the frame's own coordinates: the overlay
+ * clone starts centred on row 0, and one row is 60px down. */
+const onRow = (index: number) => ({ x: 10, y: 110 + index * 60 });
 
 function renderCanvas(schema: Schema = THREE_TABS) {
 	return render(
@@ -242,22 +297,33 @@ function openSection(): string {
 	return selected?.textContent?.trim() ?? "";
 }
 
-/** The field shells inside the panel the canvas has open, in order.
+/** The accessors of everything matching `selector` inside the panel the canvas
+ * has open, in order, with `prefix` stripped off each testid.
+ *
  * `data-state` rather than the `hidden` attribute: zag keeps the OUTGOING
  * panel painted for a beat during a swap and flips `hidden` up to ~47 ms later
  * (the same lag `DragRemeasurer` polls around), so `hidden` lies mid-switch
  * while `data-state` is the component's own statement of which tab is open. */
-function openPanelShells(): string[] {
+function openPanelIds(selector: string, prefix: string): string[] {
 	const panel = document.querySelector('[role="tabpanel"][data-state="open"]');
-	return Array.from(
-		// `:not(...)` excludes the selected shell's `shell-toolbar-*` child, which
-		// shares the prefix and would otherwise appear as a phantom extra field
-		// in exactly the tests where a drop selects what it moved.
-		panel?.querySelectorAll(
-			'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
-		) ?? [],
-	).map((el) => (el.getAttribute("data-testid") ?? "").slice("shell-".length));
+	return Array.from(panel?.querySelectorAll(selector) ?? []).map((el) =>
+		(el.getAttribute("data-testid") ?? "").slice(prefix.length),
+	);
 }
+
+/** The field shells inside the open panel. The `:not(...)` excludes the
+ * selected shell's `shell-toolbar-*` child, which shares the prefix and would
+ * otherwise appear as a phantom extra field in exactly the tests where a drop
+ * selects what it moved. */
+const openPanelShells = () =>
+	openPanelIds(
+		'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
+		"shell-",
+	);
+
+/** The card frames inside the open panel — the card-block sibling. */
+const openPanelCards = () =>
+	openPanelIds('[data-testid^="card-frame-"]', "card-frame-");
 
 /** Which field the canvas has selected, if any. A selected shell — and only a
  * selected shell — grows its `shell-toolbar-*` row, which is how "the moved
@@ -267,6 +333,17 @@ function selectedField(): string | null {
 	return (
 		toolbar?.getAttribute("data-testid")?.slice("shell-toolbar-".length) ?? null
 	);
+}
+
+/** What the HOST holds selected, read off the harness — `selectedField()`'s
+ * claim for the one item that cannot make it through the canvas: a selected
+ * CARD grows no toolbar, only its frame's `borderColor="accent"`, and jsdom
+ * resolves no Chakra token. Selection is the canvas's `onSelect` and the
+ * host's state either way, so this reads it where it is legible.
+ * (`cards-canvas.test.tsx` spies on `onSelect` instead; this file already
+ * mirrors host state into the DOM for `draftOrder`, so it does the same.) */
+function hostSelection(): string | null {
+	return screen.getByTestId("selected").textContent || null;
 }
 
 /** The draft's accessors in flat order — the schema, as the canvas holds it. */
@@ -279,14 +356,14 @@ function dragInFlight(): boolean {
 	return screen.queryByTestId("drag-overlay-preview") !== null;
 }
 
-/** Lifts a field's grip with the pointer and gets the drag past the 8px
- * activation constraint. Two moves, not one: the move that SATISFIES the
- * constraint calls the sensor's `handleStart()` and returns without reporting
- * coordinates, so a drag needs one move to activate and another to travel. */
-async function pointerLift(accessor: string) {
-	const grip = within(screen.getByTestId(`shell-${accessor}`)).getByLabelText(
-		CANVAS_LABELS.dragField,
-	);
+/** Lifts a grip with the pointer and gets the drag past the 8px activation
+ * constraint. Two moves, not one: the move that SATISFIES the constraint
+ * calls the sensor's `handleStart()` and returns without reporting
+ * coordinates, so a drag needs one move to activate and another to travel.
+ *
+ * (10, 110) is the drag's origin for the whole file — `onRow` above is
+ * expressed as a delta from it. */
+async function liftGrip(grip: HTMLElement) {
 	await act(async () => {
 		fireEvent.pointerDown(grip, {
 			isPrimary: true,
@@ -298,6 +375,26 @@ async function pointerLift(accessor: string) {
 	await act(async () => {
 		fireEvent.pointerMove(document, { clientX: 10, clientY: 130 });
 	});
+}
+
+/** Lifts a field's grip — a single-field drag. */
+async function pointerLift(accessor: string) {
+	await liftGrip(
+		within(screen.getByTestId(`shell-${accessor}`)).getByLabelText(
+			CANVAS_LABELS.dragField,
+		),
+	);
+}
+
+/** Lifts a card header's grip — a BLOCK drag: the marker and every field it
+ * contains move as one (`moveCard`), and the overlay clone is the header bar
+ * rather than a shell. */
+async function pointerLiftCard(accessor: string) {
+	await liftGrip(
+		within(screen.getByTestId(`card-header-${accessor}`)).getByLabelText(
+			CANVAS_LABELS.dragCard,
+		),
+	);
 }
 
 /** Moves the pointer. The sensor listens on the owner DOCUMENT, not the grip. */
@@ -379,19 +476,30 @@ async function settleDrag() {
 	}
 }
 
-describe("a pointer drag resting on a tab trigger springs the canvas", () => {
+/**
+ * The per-describe fixture every block in this file shares: the rect mock up
+ * for the block's duration, and — BEFORE RTL unmounts anything — whatever drag
+ * is still in flight put down, because it would otherwise keep the sensor's
+ * click blocker on `document` and break the next test (see `settleDrag`).
+ *
+ * Called at describe scope, so its `beforeEach`/`afterEach` register on the
+ * enclosing block exactly as inline ones would.
+ */
+function springFixture(shellLeft = 0) {
 	let rects: ReturnType<typeof springRectMock>;
 	beforeEach(() => {
-		rects = springRectMock();
+		rects = springRectMock(shellLeft);
 	});
 	afterEach(async () => {
-		// Before RTL unmounts anything: a drag left in flight keeps the sensor's
-		// click blocker on `document` (see `settleDrag`).
 		await settleDrag();
 		vi.useRealTimers();
 		rects.mockRestore();
 		vi.unstubAllGlobals();
 	});
+}
+
+describe("a pointer drag resting on a tab trigger springs the canvas", () => {
+	springFixture();
 
 	it("switches to the rested-on section once the dwell elapses (Decision 1)", async () => {
 		renderCanvas();
@@ -501,11 +609,11 @@ describe("a pointer drag resting on a tab trigger springs the canvas", () => {
 		expect(openSection()).toBe("SEO");
 		expect(openPanelShells()).toEqual(["b1", "b2"]);
 
-		// Back down into the section that just appeared, onto its FIRST field, and
-		// release. Aiming BETWEEN its two fields is what makes this a slot drop
-		// rather than an append — the append (Decisions 2/3, tested below) would
-		// have put `a` last.
-		await pointerTo({ x: 100, y: 240 });
+		// Back down into the section that just appeared, onto its FIRST field
+		// (row 2 of the column: a, x, b1 …), and release. Aiming BETWEEN its two
+		// fields is what makes this a slot drop rather than an append — the
+		// append (Decisions 2/3, tested below) would have put `a` last.
+		await pointerTo(onRow(2));
 		await pointerDrop();
 
 		expect(draftOrder()).toBe("x,s1,b1,a,b2,s2,c");
@@ -519,16 +627,7 @@ describe("a pointer drag resting on a tab trigger springs the canvas", () => {
 });
 
 describe("a quick drop on a trigger, before the dwell", () => {
-	let rects: ReturnType<typeof springRectMock>;
-	beforeEach(() => {
-		rects = springRectMock();
-	});
-	afterEach(async () => {
-		await settleDrag();
-		vi.useRealTimers();
-		rects.mockRestore();
-		vi.unstubAllGlobals();
-	});
+	springFixture();
 
 	it("appends at the end of that section and the canvas follows (Decisions 2 & 3)", async () => {
 		renderCanvas();
@@ -558,19 +657,75 @@ describe("a quick drop on a trigger, before the dwell", () => {
 	});
 });
 
+describe("a card block dropped into a foreign tab after a spring", () => {
+	springFixture();
+
+	// The route Decision 5 opened: cards cross sections only via a tab trigger
+	// (quick drop = block append) or "between-frames slots of the CURRENTLY
+	// VISIBLE tab after a spring". This is that second leg, end to end — the
+	// one the spec's §Testing asked for as "after a spring, a card block drops
+	// between the foreign tab's frames (end-state schema pin)".
+	//
+	// It is the only test in the suite where a card-block drop's target tab
+	// differs from the drag's START tab, which is what makes handleDragEnd's
+	// `follow(activeTabIndex, next)` do anything at all: without a spring the
+	// two are equal and the call is a no-op. Note what that means for the
+	// assertions below — after a spring the canvas is ALREADY on SEO, so
+	// "stayed on the sprung tab" would hold even unwired; `hostSelection()` is
+	// the clause that discriminates.
+	//
+	// What it does NOT re-assert: that a card over a foreign card resolves to
+	// a `card-block` target. That is resolve-drop-target.test.ts's, tested on
+	// the pure function where placement and boundaries can be enumerated.
+	// Here the question is only whether the rendered canvas, driven by a real
+	// pointer, ends up in the state that resolution implies.
+	it("moves the whole block between the sprung tab's frames, and follows it there", async () => {
+		renderCanvas(TWO_CARDED_TABS);
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+		await pointerLiftCard("cg");
+		await pointerTo(onTrigger(1));
+		await dwell();
+
+		// Sprung: SEO's three frames are on screen and reachable, which is the
+		// precondition the whole gesture rests on — before the spring they were
+		// in a hidden panel, where `isVisibleDroppable` filters them out.
+		expect(openSection()).toBe("SEO");
+		expect(openPanelCards()).toEqual(["cs1", "cs2", "cs3"]);
+		expect(dragInFlight()).toBe(true);
+		expect(draftOrder()).toBe(
+			"cg,g1,g2,cstay,g3,s1,cs1,b1,cs2,b2,cs3,b3", // still a preview
+		);
+
+		// Down onto SEO's MIDDLE frame (row 7 of the column: cg, g1, g2, cstay,
+		// g3, cs1, b1, cs2 …) and release. Aiming between frames is what makes
+		// this a block drop rather than the trigger's append — an append would
+		// have put the block after cs3.
+		await pointerTo(onRow(7));
+		await pointerDrop();
+
+		// The whole block relocated: the marker AND both of its fields, in
+		// order, between cs2's block and cs3's. A marker-only move would strand
+		// g1/g2 in General; a reordered one would interleave them.
+		expect(draftOrder()).toBe("cstay,g3,s1,cs1,b1,cs2,b2,cg,g1,g2,cs3,b3");
+		expect(openPanelCards()).toEqual(["cs1", "cs2", "cg", "cs3"]);
+		expect(openPanelShells()).toEqual(["b1", "b2", "g1", "g2", "b3"]);
+		// Decision 4's "a successful drop stays on the sprung tab", and
+		// Decision 3's "the moved item is selected" — for a card, reached by no
+		// other DRAG in the suite (cards-canvas.test.tsx pins it for the ⋯
+		// menu's move, which never goes through handleDragEnd).
+		expect(openSection()).toBe("SEO");
+		expect(hostSelection()).toBe("cg");
+		// And General kept its other card, so SEO is still tab 1 rather than a
+		// tab-0 the partition collapse handed it.
+		expect(screen.getAllByRole("tab")).toHaveLength(2);
+	});
+});
+
 describe("a keyboard drag bypasses the dwell", () => {
-	let rects: ReturnType<typeof springRectMock>;
-	beforeEach(() => {
-		// shellLeft=200 stacks the shell column directly under tabdrop-1, so a
-		// single ArrowUp from shell-a resolves onto the SEO tab's zone.
-		rects = springRectMock(200);
-	});
-	afterEach(async () => {
-		await settleDrag();
-		vi.useRealTimers();
-		rects.mockRestore();
-		vi.unstubAllGlobals();
-	});
+	// shellLeft=200 stacks the shell column directly under tabdrop-1, so a
+	// single ArrowUp from shell-a resolves onto the SEO tab's zone.
+	springFixture(200);
 
 	it("switches the moment the drag lands on the zone, with no dwell elapsed (Decision 6)", async () => {
 		renderCanvas();
