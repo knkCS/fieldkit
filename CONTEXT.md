@@ -112,7 +112,7 @@ A folded thing opening because a drag rested on it, rather than because anyone c
 _Avoid_: auto-expand, hover-expand, unfold
 
 **Find**:
-Locating a Reference the tree already holds, by the name of the Content it points at. Distinct from the catalogue browse the picker opens, which looks outward for a Content to add — that one is the Adapter's `search`, and a Reference Field has both.
+Locating a Reference the tree already holds, by what its row shows for the Content it points at — the Content's name, or the raw id shown in place of one. Matching folds diacritics and ignores case, so what an Author can read off a row they can type back in. Distinct from the catalogue browse the picker opens, which looks outward for a Content to add — that one is the Adapter's `search`, and a Reference Field has both.
 _Avoid_: search (that's the catalogue browse), filter, lookup
 
 **Reveal**:

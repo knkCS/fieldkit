@@ -1,7 +1,8 @@
 // src/schema/reference-find.ts
 /**
  * **Find**: locating a Reference the tree already holds, by the name of the
- * Content it points at (CONTEXT.md).
+ * Content it points at (CONTEXT.md) — or, where that name is not what the row
+ * is showing, by the id it is showing instead.
  *
  * Matching happens here, in the browser, over the names resolved for every
  * Reference at every level — ADR-0013, which also records the four
@@ -29,8 +30,13 @@ export interface ReferenceFindResult {
 	 */
 	key: string;
 	/**
-	 * The name it matched on: the resolved display name, or the id where no
-	 * name resolved — which is exactly what the row shows.
+	 * What the row **shows**: the resolved display name, or the id where no name
+	 * resolved.
+	 *
+	 * Not necessarily the text that matched — a row answers on its id as well as
+	 * its name, so a result reached by a pasted id is still labelled with the
+	 * name beside it in the tree. Labelling it with whichever text answered
+	 * would put a word in the list that is nowhere on the row it names.
 	 */
 	name: string;
 	/**
@@ -101,16 +107,73 @@ const RANK_APPEARS_ANYWHERE = 2;
 const ENDS_MID_WORD = /[\p{L}\p{N}\p{M}]$/u;
 
 /**
- * How `name` answered to an already-lowercased, already-trimmed `needle`, or
- * `null` if it did not answer at all.
+ * Every combining mark, which is what a decomposed accent becomes once its
+ * letter has been separated from it.
+ */
+const COMBINING_MARKS = /\p{M}/gu;
+
+/**
+ * One text reduced to the letters an Author typing quickly would reach for:
+ * lower-cased, `ß` spelled out, and every accent taken off the letter under it.
+ *
+ * An Author on a German keyboard searching for a Content they can see types
+ * ASCII, because typing ASCII is faster than reaching for the umlaut key — so
+ * "muller" has to answer "Müller". Folding both the query and the name is what
+ * makes that true in both directions at once: fold only the name and "müller"
+ * stops finding "Muller", which is the same Author a moment later reading the
+ * same Reference as absent.
+ *
+ * Three steps, in this order and for these reasons:
+ *
+ * 1. **Lower-cased first**, so the capital sharp s "ẞ" arrives at the next step
+ *    as "ß" and is spelled out with it rather than surviving as itself.
+ * 2. **`ß` spelled "ss"** — in its own right, because no Unicode normalisation
+ *    does it. `ß` is not an "s" with something on top; it is its own letter, so
+ *    decomposition leaves it exactly as it found it. German content that is
+ *    typed "Grosse" and stored "Große" is the ordinary case, not the exotic one.
+ * 3. **Decomposed, then stripped of marks** — NFD breaks "ü" into a "u" and the
+ *    diaeresis over it, and taking the marks away leaves the "u". Done this way
+ *    round it needs no table of accented letters to keep up to date.
+ *
+ * German folds its umlauts to bare vowels here, not to "ue"/"oe"/"ae". Both are
+ * defensible spellings of the same intent and this one is the direction an
+ * Author types when reading a name off the screen; the transliteration is the
+ * direction they type when they cannot see it, which Find is not for.
+ *
+ * NFD rather than NFKD: an accent is what is being folded away, not the
+ * difference between a ligature and the letters in it.
+ *
+ * **What it is not**: a general collation. Stripping every combining mark is
+ * the right rule for the Latin scripts fieldkit's Consumers author in, where a
+ * mark is an accent, and the wrong one where a mark is a letter — Japanese
+ * dakuten and Devanagari matras come off too, so "ha" would answer "ba". No
+ * Consumer authoring in those scripts has appeared, and the alternative is the
+ * per-script table this deliberately avoids; ADR-0013 already fixes the
+ * matching rules as fieldkit's, so this is a rule to revisit when such a
+ * Consumer does appear rather than one for them to replace.
+ */
+export function foldReferenceText(text: string): string {
+	return text
+		.toLowerCase()
+		.replace(/ß/g, "ss")
+		.normalize("NFD")
+		.replace(COMBINING_MARKS, "");
+}
+
+/**
+ * How an already-folded `haystack` answered to an already-folded,
+ * already-trimmed `needle`, or `null` if it did not answer at all.
+ *
+ * Both sides arrive folded rather than being folded here, so that a caller
+ * asking one query of a thousand names folds that query once instead of a
+ * thousand times, and so that a name a caller reads twice is folded once.
  *
  * Matching and ranking are one pass because they read the same thing: whether
  * the needle is in there is the question of whether it is in there *anywhere*,
  * which is the weakest rank. Splitting them would walk the name twice and let
  * the two walks disagree about what a match is.
  */
-function referenceMatchRank(name: string, needle: string): number | null {
-	const haystack = name.toLowerCase();
+function referenceMatchRank(haystack: string, needle: string): number | null {
 	const first = haystack.indexOf(needle);
 	if (first < 0) return null;
 	if (first === 0) return RANK_NAME_BEGINS;
@@ -121,6 +184,50 @@ function referenceMatchRank(name: string, needle: string): number | null {
 		if (!ENDS_MID_WORD.test(haystack.slice(0, at))) return RANK_WORD_BEGINS;
 	}
 	return RANK_APPEARS_ANYWHERE;
+}
+
+/**
+ * The texts a row answers on, folded ready to match: the name it shows, and the
+ * id behind it.
+ *
+ * **One** text where those are the same thing. A row whose Content did not
+ * resolve shows its id, so folding it a second time would be reading one text
+ * twice — and it would double the cost of precisely the case that pays it on
+ * every row at once, a Field whose Adapter failed.
+ *
+ * Folded here, once per row per query, so that a keystroke costs one fold per
+ * text in the tree: never one per occurrence of the needle within a name, and
+ * never one fold of the query per row.
+ */
+function referenceMatchTexts(
+	row: ReferenceRow,
+	name: string,
+): readonly string[] {
+	const id = row.reference.id;
+	return name === id
+		? [foldReferenceText(id)]
+		: [foldReferenceText(name), foldReferenceText(id)];
+}
+
+/**
+ * The best rank any of {@link referenceMatchTexts} earned, or `null` where none
+ * of them answered at all.
+ *
+ * Best rather than first, so that which of its texts a row happens to be
+ * *showing* cannot change where it lands: a Field whose Adapter is working
+ * ranks a pasted id exactly as one whose Adapter failed does, which is the
+ * whole point of matching ids at all.
+ */
+function bestReferenceMatchRank(
+	haystacks: readonly string[],
+	needle: string,
+): number | null {
+	let best: number | null = null;
+	for (const haystack of haystacks) {
+		const rank = referenceMatchRank(haystack, needle);
+		if (rank !== null && (best === null || rank < best)) best = rank;
+	}
+	return best;
 }
 
 /** Everything one Find answered: what to list, and how much there was. */
@@ -138,7 +245,7 @@ export interface ReferenceFindAnswer {
 }
 
 /**
- * The References in a tree whose display name contains `query`: the best
+ * The References in a tree that answer to `query`: the best
  * {@link REFERENCE_FIND_RESULT_CAP} of them, ranked, beside a count of how many
  * there were in all.
  *
@@ -153,12 +260,25 @@ export interface ReferenceFindAnswer {
  * a control showing the length of its own list would tell an Author they had
  * seen everything.
  *
- * What it matches is what a row *shows* — `referenceDisplayName`, so an id
- * stands in wherever no name resolved. That is Find degrading exactly as the
- * rows already do (ADR-0013): with no Adapter, or after a failed lookup, an id
- * is the name on screen, and a control that could not find what is on screen
- * would be lying about the tree. It is not the same as matching an id
- * *alongside* a resolved name, which is #151's.
+ * **A row answers on two texts**: the name it shows — `referenceDisplayName`,
+ * so an id stands in wherever none resolved — and the id behind it, whether or
+ * not a name did resolve. Ids match because a row whose Content no longer
+ * resolves *displays* one, and an Author who can read an id off the screen can
+ * paste it back in; Find matching what is in front of them rather than an
+ * idealised tree is the whole of it (ADR-0013).
+ *
+ * It is ranked on the **best** of the two, never on the first to answer, so
+ * that which text a row happens to be showing cannot move it: a Field whose
+ * Adapter is working ranks a pasted id exactly as one whose Adapter failed
+ * does. Two texts still make one result — a Reference cannot be Revealed twice.
+ *
+ * **Case-insensitive, and diacritic-folded on both sides** ({@link
+ * foldReferenceText}), because an Author on a German keyboard reading a name
+ * off the screen types ASCII: "muller" finds "Müller", "müller" finds "Muller",
+ * and "grosse" and "Große" find each other. Folding sits *inside* the ranking
+ * rather than beside it — a name beginning with the unaccented query is a name
+ * that begins with the query — so the order above holds over folded matches
+ * exactly as it holds over literal ones.
  *
  * A blank query answers with nothing rather than with everything — Find is
  * asked a question, and "all of them" is what the tree already says.
@@ -166,20 +286,19 @@ export interface ReferenceFindAnswer {
  * Every row is searched, not the rows a fold set leaves on screen. A collapsed
  * branch hiding the answer is the whole problem Find exists for.
  *
- * **Case-insensitive substring, and nothing else yet.** ADR-0013's matching
- * rules go further — diacritics folded, ids matched as well as names — and
- * this is a slice of them, not a disagreement with the record: #151 carries the
- * folding and the ids. Two more consequences of that ADR are likewise still
- * outstanding: names arrive unbatched (#147), and Find cannot yet tell "no
- * match" from "not resolved yet" (#152), which is the one an Author can be
- * misled by — and the one that makes a count of nought worth reading twice.
+ * Matching being fieldkit's, its rules are fieldkit's: a Consumer cannot
+ * substitute its own collation, stemming or fuzzy index. ADR-0013 records that
+ * as the price of a Find that behaves identically everywhere. One consequence
+ * of that ADR is still outstanding: Find cannot yet tell "no match" from "not
+ * resolved yet" (#152), which is the one an Author can be misled by — and the
+ * one that makes a count of nought worth reading twice.
  */
 export function findReferences(
 	rows: readonly ReferenceRow[],
 	names: Record<string, string>,
 	query: string,
 ): ReferenceFindAnswer {
-	const needle = query.trim().toLowerCase();
+	const needle = foldReferenceText(query.trim());
 	if (needle === "") return { results: [], total: 0 };
 	const matched: {
 		rank: number;
@@ -188,12 +307,14 @@ export function findReferences(
 		name: string;
 	}[] = [];
 	rows.forEach((row, index) => {
-		// Resolved once and carried: the name a result shows is the name it was
-		// ranked on, so no second lookup can hand an Author a row that answers to
-		// a query its own label does not contain.
+		// Resolved once and carried, so the label a result wears is the one the
+		// row wears — no second lookup can put a different name on it.
 		const name = referenceDisplayName(row, names);
-		const rank = referenceMatchRank(name, needle);
+		const rank = bestReferenceMatchRank(referenceMatchTexts(row, name), needle);
 		if (rank === null) return;
+		// The *name*, never whichever text answered: an id that matched is how a
+		// row was reached, and a result labelled with it would read as a
+		// different Reference from the row it names.
 		matched.push({ rank, index, row, name });
 	});
 	// Rank first, then the row's own position. Both are compared explicitly

@@ -1,7 +1,7 @@
 // src/schema/__tests__/reference-find.test.ts
 /**
- * Find: which References in a tree answer to a name an Author typed, and where
- * each of them sits.
+ * Find: which References in a tree answer to what an Author typed — a name, or
+ * the id a row is showing in place of one — and where each of them sits.
  *
  * Plain assertions over data, no React and no DOM — the same shape the tree
  * model's own suite takes, and for the same reason: matching and ancestor-path
@@ -10,7 +10,11 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Reference } from "../reference";
-import { findReferences, REFERENCE_FIND_RESULT_CAP } from "../reference-find";
+import {
+	findReferences,
+	foldReferenceText,
+	REFERENCE_FIND_RESULT_CAP,
+} from "../reference-find";
 import { readReferenceTree } from "../reference-tree";
 
 /**
@@ -84,13 +88,15 @@ describe("findReferences — what matches", () => {
 		expect(keys(findReferences(rows, names, "vanish"))).toEqual(["2"]);
 	});
 
-	it("does not match a resolved Reference by its id", () => {
-		// "cats" is the id behind a Content named something else entirely.
-		// Matching ids alongside names is a later ticket; this says where the
-		// line currently is.
+	it("matches a Reference by its id even where the name resolved", () => {
+		// "cats" is the id behind a Content named something else entirely. An
+		// Author reaches an id by pasting one off a row, and whether that row
+		// happens to be showing a name is not something they can act on: a
+		// Field with a working Adapter has to answer an id exactly as one whose
+		// Adapter failed does.
 		expect(
-			findReferences(rows, { ...names, cats: "Felines" }, "cats").results,
-		).toEqual([]);
+			keys(findReferences(rows, { ...names, cats: "Felines" }, "cats")),
+		).toEqual(["0.0.0"]);
 	});
 
 	it("carries the name it matched, so a result can be shown without a second lookup", () => {
@@ -101,6 +107,226 @@ describe("findReferences — what matches", () => {
 
 	it("finds nothing in a tree with nothing in it", () => {
 		expect(findReferences([], names, "Alps").results).toEqual([]);
+	});
+});
+
+/**
+ * Two Contents from one catalogue, told apart only by their ids — and only the
+ * first of them resolved. Whether a row is showing a name or an id is the
+ * difference this fixture exists to prove Find does *not* make.
+ */
+const acme = readReferenceTree([
+	{ id: "acme-42" },
+	{ id: "acme-43" },
+] satisfies Reference[]);
+
+describe("findReferences — matching the id a row may be showing", () => {
+	it("answers an id the same whether the name resolved or not", () => {
+		// The one criterion an Author can actually check: they read an id off a
+		// broken row, paste it, and the tree either contains that Reference or
+		// it does not. A rule that answered only for the unresolved row would
+		// make Find's behaviour depend on the Adapter's health, which is the
+		// thing it is supposed to survive.
+		expect(
+			keys(findReferences(acme, { "acme-42": "Widget" }, "acme-4")),
+		).toEqual(["0", "1"]);
+	});
+
+	it("answers the same query identically when the Adapter resolved nothing at all", () => {
+		// A total Adapter failure is the degrade ADR-0013 describes, and it must
+		// change the ranking as well as the matching by nothing whatsoever.
+		expect(keys(findReferences(acme, {}, "acme-4"))).toEqual(["0", "1"]);
+	});
+
+	it("ignores case on an id, on both sides", () => {
+		const mixed = readReferenceTree([{ id: "ACME-42" }] satisfies Reference[]);
+
+		expect(
+			keys(findReferences(acme, { "acme-42": "Widget" }, "ACME-42")),
+		).toEqual(["0"]);
+		expect(keys(findReferences(mixed, {}, "acme-42"))).toEqual(["0"]);
+	});
+
+	it("folds an id by the same rule it folds a name", () => {
+		// One rule, so a Consumer whose ids are slugs cut from the display name
+		// does not meet two different Finds in one control.
+		const slugs = readReferenceTree([
+			{ id: "müller-verlag" },
+		] satisfies Reference[]);
+
+		expect(keys(findReferences(slugs, {}, "muller"))).toEqual(["0"]);
+	});
+
+	it("labels a result matched on its id with the name the row shows", () => {
+		// The id is how the row was reached, not what it is called. A result
+		// wearing the id would read as a different Reference from the row it
+		// names — which is the confusion an Author pasting an id is trying to
+		// get out of.
+		const found = findReferences(acme, { "acme-42": "Widget" }, "acme-42");
+
+		expect(found.results[0].name).toBe("Widget");
+	});
+
+	it("ranks a row on its id as highly as a failed Adapter would have", () => {
+		// A row is ranked on the *best* of the two texts it answers on, not on
+		// the first of them to answer. "acme-42" begins with the query, while
+		// the name the Adapter resolved for it merely has a word beginning with
+		// it — so reading the name first would demote a Reference precisely
+		// because its Adapter was working, and an Author pasting an id would
+		// find it ranked differently on a good day and a bad one.
+		const catalogue = readReferenceTree([
+			{ id: "acme-42" },
+			{ id: "zebra" },
+		] satisfies Reference[]);
+
+		// Both are prefix matches — one on its id, one on its name — so nothing
+		// separates them but where they sit.
+		expect(
+			keys(
+				findReferences(
+					catalogue,
+					{ "acme-42": "Widget acme-42", zebra: "Acme catalogue" },
+					"acme",
+				),
+			),
+		).toEqual(["0", "1"]);
+		// Which is the order the same tree comes back in when the Adapter never
+		// resolved that row at all.
+		expect(
+			keys(findReferences(catalogue, { zebra: "Acme catalogue" }, "acme")),
+		).toEqual(["0", "1"]);
+	});
+
+	it("gives one result for a row whose name and id both answer", () => {
+		// Two texts, one row: a Reference cannot be Revealed twice, and a list
+		// naming it twice would be two results an Author has to tell apart with
+		// nothing to tell them apart by.
+		const both = readReferenceTree([{ id: "atlas" }] satisfies Reference[]);
+
+		const found = findReferences(
+			both,
+			{ atlas: "Atlas of the world" },
+			"atlas",
+		);
+
+		expect(keys(found)).toEqual(["0"]);
+		expect(found.total).toBe(1);
+	});
+});
+
+describe("foldReferenceText", () => {
+	it("lower-cases, spells ß out, and takes the accents off", () => {
+		// The three steps, asserted where they can be read rather than only
+		// through a match: what a query and a name are both reduced to before
+		// either is compared to the other.
+		expect(foldReferenceText("Müller")).toBe("muller");
+		expect(foldReferenceText("Große Straße")).toBe("grosse strasse");
+		expect(foldReferenceText("STRAẞE")).toBe("strasse");
+	});
+
+	it("leaves a text that has nothing to fold exactly as it was", () => {
+		expect(foldReferenceText("acme-42")).toBe("acme-42");
+		expect(foldReferenceText("")).toBe("");
+	});
+
+	it("is idempotent, so a folded text folds to itself", () => {
+		// What makes it safe to fold each of a row's texts once and compare them
+		// with a query folded once: neither side can be more folded than the
+		// other.
+		const once = foldReferenceText("Große Müller Straße");
+
+		expect(foldReferenceText(once)).toBe(once);
+	});
+});
+
+describe("findReferences — folding a query against the name", () => {
+	it("matches a name carrying diacritics from a query without them", () => {
+		const german = readReferenceTree([{ id: "m" }] satisfies Reference[]);
+
+		expect(keys(findReferences(german, { m: "Müller" }, "muller"))).toEqual([
+			"0",
+		]);
+	});
+
+	it("matches a name without diacritics from a query carrying them", () => {
+		// The other direction is the same Author a moment later: one that folded
+		// only the name would answer here and not there, which reads as the
+		// Reference coming and going.
+		const german = readReferenceTree([{ id: "m" }] satisfies Reference[]);
+
+		expect(keys(findReferences(german, { m: "Muller" }, "müller"))).toEqual([
+			"0",
+		]);
+	});
+
+	it("matches ß from a query spelling it ss, and ss from a query spelling it ß", () => {
+		// The one fold no normalisation performs: ß is a letter of its own, not
+		// an s wearing something, so decomposition leaves it exactly as it is.
+		const sharp = readReferenceTree([
+			{ id: "sharp" },
+			{ id: "spelled" },
+		] satisfies Reference[]);
+		const sharpNames = { sharp: "Große Straße", spelled: "Grosse Strasse" };
+
+		// Either spelling of the query reaches both spellings of the name.
+		expect(keys(findReferences(sharp, sharpNames, "grosse"))).toEqual([
+			"0",
+			"1",
+		]);
+		expect(keys(findReferences(sharp, sharpNames, "große"))).toEqual([
+			"0",
+			"1",
+		]);
+	});
+
+	it("folds every diacritic German content actually carries, not one of them", () => {
+		// One representative umlaut proves the mechanism and nothing about the
+		// alphabet: a fold written as a table of letters is exactly as good as
+		// the table, and the letters left out are the ones a Consumer's
+		// catalogue turns out to be full of. So the whole set an Author working
+		// in German meets is walked — the umlauts in both cases, the sharp s in
+		// both cases, and the accents that arrive on the loanwords and surnames
+		// a German catalogue is full of.
+		const folds: [typed: string, stored: string][] = [
+			["bäcker", "Backer"],
+			["koln", "Köln"],
+			["muller", "Müller"],
+			["Ärzte", "Arzte"],
+			["osterreich", "Österreich"],
+			["ubersicht", "Übersicht"],
+			["grosse", "Große"],
+			// The capital sharp s, which all-caps German titles really do use and
+			// which lower-casing has to reach before the ss rule can.
+			["strasse", "STRAẞE"],
+			["cafe", "Café"],
+			["creme", "Crème"],
+			["fete", "Fête"],
+			["a la carte", "à la carte"],
+			["facade", "Façade"],
+			["jalapeno", "Jalapeño"],
+			["citroen", "Citroën"],
+			// An Adapter may resolve a name written base-plus-mark rather than
+			// precomposed. The two are the same word, and read identically on
+			// screen, so Find cannot tell them apart either. Written out as an
+			// escape, because a precomposed \u00fc here would only prove the row
+			// above a second time — and nothing in the file may quietly normalise it.
+			["muller", "Mu\u0308ller"],
+			["mu\u0308ller", "M\u00fcller"],
+		];
+
+		// Each pair is tried in both directions — an Author who types the
+		// diacritic and one who does not must reach the same Reference — and the
+		// ones that answered neither way are named, so a failure says which
+		// letter was missed rather than that some letter was.
+		const missed = folds.filter(([typed, stored]) => {
+			const row = readReferenceTree([{ id: "x" }] satisfies Reference[]);
+			return (
+				findReferences(row, { x: stored }, typed).results.length === 0 ||
+				findReferences(row, { x: typed }, stored).results.length === 0
+			);
+		});
+
+		expect(missed).toEqual([]);
 	});
 });
 
@@ -195,6 +421,58 @@ describe("findReferences — how the matches are ranked", () => {
 				),
 			),
 		).toEqual(["2", "0", "1"]);
+	});
+
+	it("ranks a folded match exactly as it ranks an unfolded one", () => {
+		// Folding is inside the ranking, not beside it. A name beginning with
+		// the unaccented query is a name that begins with the query — an answer
+		// that folded only to decide *whether* a name matched would rank all
+		// three of these alike and hand an Author the wrong one first.
+		// Planted weakest-first, so walking the tree cannot pass.
+		const muellers = readReferenceTree([
+			{ id: "gross" },
+			{ id: "alte" },
+			{ id: "verlag" },
+		] satisfies Reference[]);
+
+		const found = findReferences(
+			muellers,
+			{
+				gross: "Großmüller AG", // "muller" only appears inside it
+				alte: "Alte Müller Straße", // a word within it begins with "muller"
+				verlag: "Müller Verlag", // the name begins with "muller"
+			},
+			"muller",
+		);
+
+		expect(keys(found)).toEqual(["2", "1", "0"]);
+		// And what comes back is the name the row shows, diacritics and all —
+		// folding decides the match, never what an Author reads.
+		expect(found.results[0].name).toBe("Müller Verlag");
+	});
+
+	it("reads the word boundary out of the folded text, not the name it was folded from", () => {
+		// Folding changes a name's length — "Straße" spells out one letter
+		// longer than it is written — so an offset found in the folded text
+		// names a different place in the original. Here "muller" begins a word
+		// eight characters into "strasse muller" and lands mid-word eight
+		// characters into "Straße Müller", so a rank read off the unfolded name
+		// demotes a genuine word-beginning to a mere appearance.
+		const strasse = readReferenceTree([
+			{ id: "inside" },
+			{ id: "begins" },
+		] satisfies Reference[]);
+
+		expect(
+			keys(
+				findReferences(
+					strasse,
+					{ inside: "Großmüller AG", begins: "Straße Müller" },
+					"muller",
+				),
+			),
+			// The word-beginning leads, though it sits below in the tree.
+		).toEqual(["1", "0"]);
 	});
 
 	it("leaves the tree it was handed untouched, so the next query answers like the first", () => {
@@ -373,5 +651,115 @@ describe("findReferences — where each match sits", () => {
 		expect(
 			findReferences(orphaned, names, "Cats").results[0].ancestors,
 		).toEqual(["vanished"]);
+	});
+});
+
+/**
+ * How many times `run` folded a text.
+ *
+ * `normalize` is the only thing a fold does that nothing else here does, so
+ * counting the calls counts the folds — without the module having to expose a
+ * counter it would otherwise have no reason to have. Restored before anything
+ * is asserted, so an assertion's own string handling cannot be counted.
+ *
+ * This is a deliberate coupling to *how* {@link foldReferenceText} folds, and
+ * the only one in this file: a fold rewritten to use a lookup table instead
+ * would read nought here and these three tests would need rewriting with it.
+ * That is the price of asserting a cost at all — the alternative is timing,
+ * which answers differently on every machine — and the cost is the criterion,
+ * so it is worth one test knowing one thing it otherwise would not.
+ */
+function foldsDuring(run: () => void): number {
+	const normalize = String.prototype.normalize;
+	let folds = 0;
+	String.prototype.normalize = function (this: string, ...args) {
+		folds += 1;
+		return normalize.apply(this, args);
+	};
+	try {
+		run();
+	} finally {
+		String.prototype.normalize = normalize;
+	}
+	return folds;
+}
+
+/** A tree of `count` rows, each with a resolved name and an id unlike it. */
+function resolvedRows(count: number, name: (index: number) => string) {
+	const tree = Array.from({ length: count }, (_, index) => ({
+		id: `id-${index + 1}`,
+	}));
+	return {
+		rows: readReferenceTree(tree satisfies Reference[]),
+		names: Object.fromEntries(
+			tree.map((reference, index) => [reference.id, name(index)]),
+		),
+	};
+}
+
+describe("findReferences — what a keystroke costs", () => {
+	it("folds the query once and each of a row's texts once", () => {
+		// The whole cost of folding, stated: one fold for the query, and one for
+		// each text a row answers on. Folding the query inside the loop instead
+		// would multiply the query's cost by the size of the tree — which is
+		// exactly the scaling the match itself did not have.
+		const { rows: ten, names: tenNames } = resolvedRows(10, (i) => `Peak ${i}`);
+
+		const folds = foldsDuring(() => findReferences(ten, tenNames, "peak"));
+
+		expect(folds).toBe(1 + 2 * ten.length);
+	});
+
+	it("folds no more often for a query that occurs in a name fifty times", () => {
+		// Ranking looks at every occurrence of the needle to find one that
+		// begins a word. Folding inside that walk would make a keystroke's cost
+		// depend on how repetitive the names are — worse scaling than the
+		// unfolded match ever had, and worst on exactly the trees Find is for.
+		//
+		// Every "ab" here sits behind a "z", so none of them begins a word and
+		// the walk runs to the end of the name rather than stopping at the
+		// first — which is the only shape in which the walk's cost is visible.
+		const repetitive = resolvedRows(10, () => "zab".repeat(50));
+
+		const folds = foldsDuring(() =>
+			findReferences(repetitive.rows, repetitive.names, "ab"),
+		);
+
+		expect(folds).toBe(1 + 2 * repetitive.rows.length);
+	});
+
+	it("folds twice as often for twice as many rows, and no worse", () => {
+		// Linear in the tree, which is what the match already was. The two
+		// counts are read from real calls rather than predicted, so a fold that
+		// grew with the square of the tree would show up here as the answer
+		// disagreeing with the doubling.
+		const { rows: ten, names: tenNames } = resolvedRows(10, (i) => `Peak ${i}`);
+		const { rows: twenty, names: twentyNames } = resolvedRows(
+			20,
+			(i) => `Peak ${i}`,
+		);
+
+		const forTen = foldsDuring(() => findReferences(ten, tenNames, "peak"));
+		const forTwenty = foldsDuring(() =>
+			findReferences(twenty, twentyNames, "peak"),
+		);
+
+		// Minus the query, which is folded once whatever the tree costs.
+		expect(forTwenty - 1).toBe(2 * (forTen - 1));
+	});
+
+	it("folds an unresolved row once, because its name is its id", () => {
+		// A row whose Content did not resolve shows its id, so its two texts are
+		// one text. Folding it twice would double the cost of exactly the case
+		// that pays it across every row at once — a Field whose Adapter failed.
+		const unresolved = readReferenceTree(
+			Array.from({ length: 10 }, (_, index) => ({
+				id: `id-${index + 1}`,
+			})) satisfies Reference[],
+		);
+
+		const folds = foldsDuring(() => findReferences(unresolved, {}, "id"));
+
+		expect(folds).toBe(1 + unresolved.length);
 	});
 });
