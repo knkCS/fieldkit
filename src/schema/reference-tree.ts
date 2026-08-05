@@ -913,8 +913,8 @@ export function visibleReferenceRows<T extends FoldableRow>(
 }
 
 /**
- * The keys of everything the row at `index` sits inside — its ancestors,
- * nearest first, which is the order a caller opening its way down meets them.
+ * Everything the row at `index` sits inside — its ancestors, nearest first,
+ * which is the order a caller opening its way down meets them.
  *
  * Read off depths rather than off the row's path, so a list a caller built by
  * hand mid-drag answers as readily as one the reader produced. Walking up from
@@ -923,20 +923,38 @@ export function visibleReferenceRows<T extends FoldableRow>(
  *
  * Empty for a root, and for an index the list does not reach — an ancestor of
  * a row that is not there is not a question with an answer.
+ *
+ * It answers with the caller's own rows so that whatever they carry — a
+ * resolved name, above all — travels back on them. Folding wants only the
+ * keys and reads them through {@link referenceAncestorKeys}; Find wants the
+ * names, and builds the path an Author reads out of these. One walk for both:
+ * a path that disagreed with the folds a Reveal opens would name a route the
+ * tree does not take.
+ */
+export function referenceAncestorRows<T extends FoldableRow>(
+	rows: readonly T[],
+	index: number,
+): T[] {
+	const ancestors: T[] = [];
+	let depth = rows[index]?.depth ?? 0;
+	for (let above = index - 1; above >= 0 && depth > 0; above--) {
+		if (rows[above].depth < depth) {
+			ancestors.push(rows[above]);
+			depth = rows[above].depth;
+		}
+	}
+	return ancestors;
+}
+
+/**
+ * The keys of everything the row at `index` sits inside, nearest first — the
+ * folding half of {@link referenceAncestorRows}, and what a Reveal opens.
  */
 export function referenceAncestorKeys(
 	rows: readonly FoldableRow[],
 	index: number,
 ): string[] {
-	const keys: string[] = [];
-	let depth = rows[index]?.depth ?? 0;
-	for (let above = index - 1; above >= 0 && depth > 0; above--) {
-		if (rows[above].depth < depth) {
-			keys.push(rows[above].key);
-			depth = rows[above].depth;
-		}
-	}
-	return keys;
+	return referenceAncestorRows(rows, index).map((row) => row.key);
 }
 
 /**
