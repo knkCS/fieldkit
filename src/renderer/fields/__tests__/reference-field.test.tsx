@@ -1,17 +1,26 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { DrawerRoot } from "@knkcs/anker/components";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { ReferenceSettings } from "../../../schema/field-types/reference";
+import { REFERENCE_TREE_COLLAPSE_THRESHOLD } from "../../../schema/reference-tree";
 import type { Field } from "../../../schema/types";
 import { specToZodSchema } from "../../../schema/zod-builder";
 import {
 	createFakeReferenceAdapter,
 	type FakeReferenceAdapter,
 	fakeCatalogue,
+	fakeReferenceTree,
 } from "../../../test/fake-reference-adapter";
 import type { FieldKitAdapters } from "../../adapters";
 import { FieldComponent } from "../../field-component";
@@ -58,6 +67,7 @@ function renderField({
 	adapters,
 	readOnly = false,
 	onError,
+	surround = (node) => node,
 }: {
 	field?: Field<ReferenceSettings>;
 	value?: unknown;
@@ -65,6 +75,9 @@ function renderField({
 	adapters?: FieldKitAdapters;
 	readOnly?: boolean;
 	onError?: (error: Error, fieldId: string) => void;
+	/** Wraps the Field in whatever it is being rendered inside — a real
+	 * drawer, for the containment a Field in one depends on. */
+	surround?: (node: React.ReactNode) => React.ReactNode;
 } = {}) {
 	const submitted = vi.fn();
 	const resolvedAdapter = adapter ?? createFakeReferenceAdapter();
@@ -89,7 +102,7 @@ function renderField({
 							noValidate
 							onSubmit={methods.handleSubmit((data) => submitted(data))}
 						>
-							<FieldComponent field={field} readOnly={readOnly} />
+							{surround(<FieldComponent field={field} readOnly={readOnly} />)}
 							<StoredValue />
 							<button type="submit">Save</button>
 						</form>
@@ -935,6 +948,423 @@ describe("ReferenceField", () => {
 				// Reported, never repaired: nothing was truncated and nothing was
 				// re-nested to satisfy either cap.
 				expect(stored()).toEqual(value);
+			});
+		});
+	});
+
+	/**
+	 * Find and Reveal, as the Field wires them (#148).
+	 *
+	 * The matching and the ancestor paths are asserted in
+	 * `src/schema/__tests__/reference-find.test.ts`, and which folds a Reveal
+	 * opens in the tree model's own suite — plain assertions over data, no DOM.
+	 * What is left for here is only what a component can be wrong about: that
+	 * the control appears when it should, that picking a result opens the way
+	 * down to the row, lands on it and marks it, and that none of it touches
+	 * what is stored.
+	 */
+	describe("Find and Reveal", () => {
+		/** A tree past the collapse threshold, and a catalogue to name it from. */
+		function renderTree(
+			size: number,
+			overrides: Parameters<typeof renderField>[0] = {},
+		) {
+			return renderField({
+				adapter: createFakeReferenceAdapter({ contents: fakeCatalogue(size) }),
+				value: fakeReferenceTree(size),
+				...overrides,
+			});
+		}
+
+		function findControl() {
+			return screen.queryByRole("combobox", { name: "Find a Reference" });
+		}
+
+		/** Types a query into Find and waits out anker's 300ms search debounce. */
+		async function findFor(query: string) {
+			const input = screen.getByRole("combobox", { name: "Find a Reference" });
+			fireEvent.change(input, { target: { value: query } });
+			await screen.findByRole("listbox");
+			return screen.queryAllByRole("option");
+		}
+
+		/** The row on screen showing `name`, or null when it is folded away. */
+		function rowNamed(name: string): HTMLElement | null {
+			return (
+				screen
+					.queryAllByTestId("reference-row")
+					.find((row) => within(row).queryByText(name) !== null) ?? null
+			);
+		}
+
+		/** Finds `name` and picks the only result, which is a Reveal. */
+		async function reveal(name: string) {
+			const options = await findFor(name);
+			expect(options).toHaveLength(1);
+			fireEvent.click(options[0]);
+			await waitFor(() => {
+				expect(rowNamed(name)).not.toBeNull();
+			});
+		}
+
+		describe("when the control appears", () => {
+			it("offers Find on a tree past the collapse threshold", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+
+				expect(await screen.findByText("Content 1")).toBeInTheDocument();
+				expect(findControl()).toBeInTheDocument();
+			});
+
+			it("offers none at exactly the threshold, where the tree opens expanded", async () => {
+				// The same number that decides a tree opens collapsed decides
+				// this: a tree an Author can read at a glance needs no Find.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+
+				expect(await screen.findByText("Content 1")).toBeInTheDocument();
+				expect(findControl()).not.toBeInTheDocument();
+			});
+
+			it("offers none one Reference below the threshold", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
+
+				expect(await screen.findByText("Content 1")).toBeInTheDocument();
+				expect(findControl()).not.toBeInTheDocument();
+			});
+
+			it("offers none on an empty Field", async () => {
+				renderField({ value: [] });
+
+				expect(
+					await screen.findByText("No references yet."),
+				).toBeInTheDocument();
+				expect(findControl()).not.toBeInTheDocument();
+			});
+		});
+
+		describe("what Find lists", () => {
+			it("lists a match under the path of ancestors leading to it", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				const options = await findFor("Content 20");
+
+				expect(options).toHaveLength(1);
+				expect(within(options[0]).getByText("Content 20")).toBeInTheDocument();
+				// The Reference it sits under — which is what tells one result
+				// from another when two Contents are named alike.
+				expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
+			});
+
+			it("finds a Reference nested inside a collapsed branch", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				// The tree opened collapsed, so this row is not on screen at all —
+				// which is the whole problem Find exists for.
+				expect(rowNamed("Content 20")).toBeNull();
+
+				expect(await findFor("Content 20")).toHaveLength(1);
+			});
+
+			it("gives the same Content in two places two results, told apart by their paths", async () => {
+				renderTree(21, {
+					value: [
+						...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
+						// "Content 20" a second time, under a different parent.
+						{ id: "article-21", children: [{ id: "article-20" }] },
+					],
+				});
+				await screen.findByText("Content 1");
+
+				const options = await findFor("Content 20");
+
+				expect(options).toHaveLength(2);
+				expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
+				expect(within(options[1]).getByText("Content 21")).toBeInTheDocument();
+			});
+
+			it("says so when nothing in the tree matches", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				const input = screen.getByRole("combobox", {
+					name: "Find a Reference",
+				});
+				fireEvent.change(input, { target: { value: "Pyrenees" } });
+
+				expect(
+					await screen.findByText("No matching References"),
+				).toBeInTheDocument();
+			});
+		});
+
+		describe("what a Reveal does", () => {
+			it("opens every fold above the Reference that was picked", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				expect(rowNamed("Content 20")).toBeNull();
+
+				await reveal("Content 20");
+
+				expect(rowNamed("Content 20")).not.toBeNull();
+				// Its parent's branch is open, said the way the row says it.
+				expect(
+					screen.getByRole("button", { name: "Collapse Content 19" }),
+				).toHaveAttribute("aria-expanded", "true");
+			});
+
+			it("lands focus on the revealed row", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveFocus();
+				});
+			});
+
+			it("scrolls the revealed row to the centre of the viewport", async () => {
+				const scrollIntoView = vi.fn();
+				// jsdom implements no scrolling at all, so the row's own method is
+				// what a test can read.
+				Element.prototype.scrollIntoView = scrollIntoView;
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
+				await waitFor(() => {
+					expect(scrollIntoView).toHaveBeenCalledWith({
+						block: "center",
+						behavior: "smooth",
+					});
+				});
+			});
+
+			it("announces the Reveal, for an Author who is not watching the tree", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				expect(screen.getByTestId("reference-reveal-notice")).toHaveTextContent(
+					"",
+				);
+
+				await reveal("Content 20");
+
+				await waitFor(() => {
+					expect(
+						screen.getByTestId("reference-reveal-notice"),
+					).toHaveTextContent("Revealed Content 20");
+				});
+			});
+
+			it("marks the revealed row, and marks only it", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
+				});
+				expect(
+					screen
+						.queryAllByTestId("reference-row")
+						.filter((row) => row.getAttribute("data-revealed") === "true"),
+				).toHaveLength(1);
+			});
+
+			it("keeps the mark until the next Reveal, and moves it then", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
+				});
+
+				await reveal("Content 18");
+
+				await waitFor(() => {
+					expect(rowNamed("Content 18")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
+				});
+				// The row an Author asked for a moment ago is still on screen —
+				// Reveals accumulate — but it is no longer the answer.
+				expect(rowNamed("Content 20")).not.toHaveAttribute("data-revealed");
+			});
+
+			it("works the second time the same Reference is asked for", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveFocus();
+				});
+				// An Author scrolls away and looks at something else.
+				addButton().focus();
+				expect(rowNamed("Content 20")).not.toHaveFocus();
+
+				await reveal("Content 20");
+
+				// Nothing about the tree changed on the second ask, so only the
+				// token can have re-run it.
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveFocus();
+				});
+			});
+
+			it("puts the row's grip, its fold control and its buttons one Tab away, in order", async () => {
+				const user = userEvent.setup();
+				// A Reference with a branch, so there is a fold control to reach.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 19");
+				await waitFor(() => {
+					expect(rowNamed("Content 19")).toHaveFocus();
+				});
+
+				await user.tab();
+				expect(
+					screen.getByRole("button", { name: "Reorder Content 19" }),
+				).toHaveFocus();
+				await user.tab();
+				// Its branch is still shut — a Reveal shows the row, and what
+				// hangs under it stays the Author's business.
+				expect(
+					screen.getByRole("button", { name: "Expand Content 19" }),
+				).toHaveFocus();
+				await user.tab();
+				expect(
+					screen.getByRole("button", { name: "Remove Content 19" }),
+				).toHaveFocus();
+			});
+		});
+
+		describe("what a Reveal leaves alone", () => {
+			it("leaves an earlier Reveal's folds open", async () => {
+				// Reveals accumulate: a Reveal is an answer, not a preview, and
+				// undoing the last one would undo work an Author just did.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+				await reveal("Content 4");
+
+				expect(rowNamed("Content 4")).not.toBeNull();
+				expect(rowNamed("Content 20")).not.toBeNull();
+			});
+
+			it("leaves a fold an Author opened by hand alone", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				fireEvent.click(
+					screen.getByRole("button", { name: "Expand Content 5" }),
+				);
+				expect(rowNamed("Content 6")).not.toBeNull();
+
+				await reveal("Content 20");
+
+				// The control never fights a deliberate act: nothing but the
+				// ancestors of what was asked for is touched.
+				expect(rowNamed("Content 6")).not.toBeNull();
+			});
+
+			it("changes nothing that is stored — order, nesting, Pins and Attributes alike", async () => {
+				const value = [
+					...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
+					{
+						id: "article-21",
+						pin: "article-21-v3",
+						attributes: { page: 12 },
+					},
+				];
+				renderTree(21, { value });
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
+				expect(stored()).toEqual(value);
+			});
+
+			it("claims no global keyboard shortcut", async () => {
+				// The form's own field search claims "/" on a first-mounted-wins
+				// basis, so a Find inside one must not register a rival listener.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				fireEvent.keyDown(document.body, { key: "/" });
+
+				expect(findControl()).not.toHaveFocus();
+			});
+
+			it("dismisses its results on Escape without closing the drawer around it", async () => {
+				const onClose = vi.fn();
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1, {
+					surround: (node) => (
+						<DrawerRoot open onClose={onClose} title="Edit">
+							{node}
+						</DrawerRoot>
+					),
+				});
+				await screen.findByText("Content 1");
+				const input = screen.getByRole("combobox", {
+					name: "Find a Reference",
+				});
+				fireEvent.change(input, { target: { value: "Content 20" } });
+				await screen.findByRole("listbox");
+
+				fireEvent.keyDown(input, { key: "Escape" });
+
+				await waitFor(() => {
+					expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+				});
+				// A Reference Field is routinely rendered in a drawer, and losing
+				// an Author's edits to the press that shut a dropdown is the bug
+				// the containment exists for.
+				expect(onClose).not.toHaveBeenCalled();
+			});
+		});
+
+		describe("where there are no names to find by", () => {
+			it("offers no Find at all with no Adapter configured", () => {
+				renderField({
+					adapters: {},
+					value: fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+				});
+
+				expect(
+					screen.getByText("Reference adapter not configured"),
+				).toBeInTheDocument();
+				expect(findControl()).not.toBeInTheDocument();
+			});
+
+			it("matches the ids the rows are left showing after a failed lookup", async () => {
+				// Find degrades exactly as the rows do (ADR-0013): with no names,
+				// an id is what is on screen, and a control that could not find
+				// what is on screen would be lying about the tree.
+				renderField({
+					adapter: createFakeReferenceAdapter({
+						contents: fakeCatalogue(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+						failFetch: new Error("gateway down"),
+					}),
+					value: fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+					onError: vi.fn(),
+				});
+				expect(await screen.findByText("article-1")).toBeInTheDocument();
+
+				await reveal("article-20");
+
+				expect(rowNamed("article-20")).not.toBeNull();
 			});
 		});
 	});

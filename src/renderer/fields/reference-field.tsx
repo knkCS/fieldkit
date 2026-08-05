@@ -1,4 +1,4 @@
-import { Box, Button, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -10,7 +10,10 @@ import {
 } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
 import { withPin } from "../../schema/reference";
-import { readReferenceTree } from "../../schema/reference-tree";
+import {
+	REFERENCE_TREE_COLLAPSE_THRESHOLD,
+	readReferenceTree,
+} from "../../schema/reference-tree";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
@@ -18,6 +21,7 @@ import { useFieldKit } from "../provider";
 import { referencedContentIds } from "./exclude-referenced";
 import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
 import { describeAppend } from "./reference-destination";
+import { ReferenceFind } from "./reference-find";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import type { ReferenceInsertRequest } from "./reference-tree";
 import { ReferenceTree } from "./reference-tree";
@@ -101,6 +105,17 @@ export function ReferenceField({
 		path: number[];
 		name: string;
 	} | null>(null);
+	// The Reference an Author last asked to see, and a token that makes asking
+	// for the same one twice a second ask.
+	//
+	// The key alone would not: revealing what is already revealed changes no
+	// prop, so the tree would have nothing to re-run on — the very case an
+	// Author hits by scrolling away and wanting back. `spec-form.tsx`'s
+	// `jumpToken` is the precedent, and this is one state rather than two so
+	// that a key can never arrive without the token that arms it.
+	const [reveal, setReveal] = useState<{ key: string; token: number } | null>(
+		null,
+	);
 
 	// A Consumer's settings object is a fresh literal on every render, and the
 	// drawer's search effect must not churn with it.
@@ -147,6 +162,11 @@ export function ReferenceField({
 
 	const { errors } = useFormState({ name: accessor });
 	const deepErrors = nestedErrorMessages(get(errors, accessor));
+
+	// Find appears on exactly the trees that open collapsed. One threshold, two
+	// behaviours: a tree an Author takes in at a glance is one they can reach a
+	// Reference in by looking, and a control they do not need is clutter.
+	const offersFind = rows.length > REFERENCE_TREE_COLLAPSE_THRESHOLD;
 
 	// What the drawer says about where this Reference is going. A strip already
 	// announced its own destination and hands it over; the Add control never
@@ -219,6 +239,28 @@ export function ReferenceField({
 							</Text>
 						)}
 
+						{offersFind && (
+							// Above the tree, on the right, where the Add control below
+							// it sits: the two ways into a large tree read as a pair
+							// rather than as chrome belonging to the form.
+							//
+							// It hangs on the Field rather than in the tree because the
+							// Field is what resolves the names — the tree is handed
+							// them, and Find is a question about them.
+							<Flex justify="flex-end" mb="2">
+								<ReferenceFind
+									rows={rows}
+									names={names}
+									onReveal={(key) =>
+										setReveal((last) => ({
+											key,
+											token: (last?.token ?? 0) + 1,
+										}))
+									}
+								/>
+							</Flex>
+						)}
+
 						<ReferenceTree
 							rows={rows}
 							value={entries}
@@ -229,6 +271,8 @@ export function ReferenceField({
 							attributeSpec={attributeSpec}
 							onInsert={setInsertRequest}
 							atItemCap={atCap}
+							revealKey={reveal?.key ?? null}
+							revealToken={reveal?.token ?? 0}
 							onOpenAttributes={(row) =>
 								setFilling({
 									path: row.path,
