@@ -4,6 +4,8 @@ Where a new Reference may be inserted in knkCMS core, which drag-and-drop moves 
 
 A research note, not a maintained doc. The maintained comparison is [knkCMS core parity](./knkcms-core-parity.md), which this deliberately does not edit and does not duplicate: parity tabulates *settings and value shapes* per field type, this reads the *interaction rules* of one of them.
 
+> **Superseded in part, 2026-08-05.** This note was written *before* the work it informed. Tickets #97–#102 have since landed, so several "fieldkit does not have this" readings below are now false — most of §2's closing paragraph, and items 1, 3 and 4 of §7's portability list. Each is marked inline. The note is kept as the record of what core did and what was decided from it, not as a current statement of fieldkit's behaviour; for that, read `src/renderer/fields/reference-field.mdx`. A second reading of core's drag feedback on 2026-08-05 added §5.9.
+
 **Read on 2026-08-04**, from source only, against:
 
 | | |
@@ -89,6 +91,8 @@ Fieldkit **always appends at the root**, recorded as a known limitation at `src/
 
 So of the thirteen rules above, fieldkit has: INS‑5 (as a button rather than a strip), INS‑11 vacuously (nothing is written until a Content is chosen — see §4.3), and part of INS‑10 (the picker does not exclude what is already referenced; core does). It has none of INS‑1 through INS‑4, which is the whole of the "insert between items at a chosen depth" story.
 
+> **No longer true as of 2026-08-05.** #99 and #100 built INS‑1 through INS‑4 — a strip in every gap *including before the first row*, pointer-x depth, a naming label, and keyboard operation core has no equivalent for. #98 built INS‑10, through an optional `excludeIds` on the search query. #102 added the drawer chrome. The paragraph above describes the state this note was written in.
+
 ---
 
 ## 3. (b) Which drag-and-drop moves the tree permits or refuses
@@ -143,10 +147,10 @@ Every one of these is stated in terms of rows, depths and neighbours. Fieldkit a
 
 The four worth porting, in order of what they buy:
 
-1. **INS‑1 + INS‑2 + INS‑3 + INS‑4 as a set** — insert between rows, at a pointer-chosen depth, with a label that names the result. This is the whole of part (a) and the largest single gap. Fieldkit already owns every piece of arithmetic it needs: the bounds INS‑3 wants are `projectDropDepth`'s `minDepth`/`maxDepth` with a different pair of neighbours, and `nestReferences` re-nests a list with one entry spliced in as readily as it re-nests a move. The affordance is the work, not the model.
-2. **DND‑6's collapsed clause** — the one place fieldkit is *more* permissive than core, and the divergence is a real design choice rather than an oversight on either side. Core says a folded branch is closed to drops; fieldkit says it is open and unfolds it on arrival. Both are defensible; they should be decided, not inherited.
-3. **INS‑10's exclusion** — core's picker cannot offer a Content already in the tree. Fieldkit's picker can, and the tree will happily hold the same Content twice. Fieldkit's row keys are paths precisely so that duplicates are representable (`reference-tree.ts:343-349`), so this is a policy question and not a correctness one; it may want to be a setting.
-4. **INS‑6** — hide the add affordance during a drag. Trivial, and only relevant once INS‑1 exists.
+1. ~~**INS‑1 + INS‑2 + INS‑3 + INS‑4 as a set**~~ — **done (#99, #100).** Insert between rows, at a pointer-chosen depth, with a label that names the result. The prediction held: fieldkit already owned every piece of arithmetic, and the affordance was the work, not the model. It went further than core on two counts — a strip before the first row, so position 0 is reachable, and full keyboard operation.
+2. **DND‑6's collapsed clause** — the one place fieldkit is *more* permissive than core, and the divergence is a real design choice rather than an oversight on either side. Core says a folded branch is closed to drops; fieldkit says it is open and unfolds it on arrival. **Decided 2026-08-04: fieldkit's reading stands, for drags and for inserts alike.**
+3. ~~**INS‑10's exclusion**~~ — **done (#98)**, through an optional `excludeIds` on the search query rather than a setting, with a client-side filter as a backstop. Duplicates remain *representable* in the value; the picker simply stops proposing them.
+4. ~~**INS‑6**~~ — **done (#99).** Strips become inert spacers during a drag. As of the [2026-08-05 tree drag-feedback design](./superpowers/specs/2026-08-05-tree-drag-feedback-design.md) that reserved slot earns a second job: the landing one draws the drop indicator.
 
 ### 4.2 Domain-coupled — cannot be ported as-is under ADR-0002 (2)
 
@@ -258,6 +262,18 @@ It is harmless *today* only because nothing mutates `state.items` during a drag 
 ### 5.8 `max_items: 0` read as unset — a third site
 
 Same family as the two already recorded, at a site those two do not cover: `reference-drawer.tsx:221-224` computes `hasMaxItems = max_items !== undefined && max_items !== 0`, so a field capped at zero gets an unlimited drawer. Noted only so a fix for the recorded pair does not miss it.
+
+### 5.9 Core's `DragOverlay` renders nothing, so an Author cannot see what they are dragging
+
+**High confidence. Added 2026-08-05, from a second reading aimed at drag feedback.**
+
+`reference-field.tsx:462-478` mounts a `DragOverlay` and passes it a `RelatedItem` with `isOverlay={true}`. But `RelatedItem` opens with `return (!isOverlay && (<HStack …>))` (`related-item.tsx:192-193`), so with that flag set it renders `false` — nothing. Every `isOverlay ? … : …` branch inside the component (`:196`, `:329`, `:351`) is unreachable, which is good evidence an overlay variant was written and then disabled rather than never attempted.
+
+So core's entire mid-drag feedback is the **source row collapsed in place**: `& .relatedItem` goes to `height: 8px` with `backgroundColor: primary-500` and its contents to `opacity: 0, height: 0`, with a 12px circle at the left end and `paddingLeft: 32 × projectedDepth` (`:196-220`). That reads the landing depth clearly — it is a drop indicator in all but name, and the same shape fieldkit's editor canvas independently arrived at (3px accent line, end-dot).
+
+The cost is that **the Reference in flight becomes anonymous**: its name, its Attributes count and its controls are all at zero height for the duration, and the overlay that would have carried them draws nothing. An Author dragging one of several similarly-named Contents has no confirmation of which one they picked up.
+
+Fieldkit keeps the row visible and dimmed instead, which is why [the 2026-08-05 tree drag-feedback design](./superpowers/specs/2026-08-05-tree-drag-feedback-design.md) takes core's indicator idea without taking its collapse.
 
 ---
 
