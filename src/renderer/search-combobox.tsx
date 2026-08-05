@@ -10,7 +10,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 export interface SearchComboboxResultDisplay {
 	/** Stable identity for the result row (its React key). */
 	key: string;
-	/** Primary line: the name the Author is looking for. */
+	/** Primary line: the name the person searching typed towards. */
 	label: string;
 	/**
 	 * Optional second line placing the primary one — the tab a field sits on,
@@ -40,15 +40,19 @@ export interface SearchComboboxProps<T> {
 	 * `"inline"` (the default) trails the secondary at the end of the row;
 	 * `"stacked"` puts it on its own line under the label, which is what a
 	 * long secondary — an ancestor path — needs.
+	 *
+	 * Two modes rather than one because both are load-bearing: a one-word
+	 * tab name reads as a trailing column, and stacking it would change a
+	 * screen nobody asked to change; a path is too long to trail anything.
 	 */
 	layout?: "inline" | "stacked";
 	/**
-	 * Claim the global "/" shortcut. **Opt-in**, because the claim is
-	 * first-mounted-wins: a combobox that takes it while another search owns
-	 * the screen registers a listener that can never fire, and a shortcut
-	 * that silently does nothing is worse than no shortcut. A caller that
-	 * leaves this off registers no document- or window-level key listener at
-	 * all.
+	 * Claim the global "/" shortcut — see the effect that implements it for
+	 * why the claim is first-mounted-wins and therefore opt-in. Leave it off
+	 * and this combobox puts no key listener on `document` at all; the only
+	 * global listener it ever registers is the Escape containment below,
+	 * which exists solely while its own dropdown is open and only answers
+	 * Escapes aimed at its own node.
 	 */
 	slashShortcut?: boolean;
 	/** `data-testid` for the container, so each caller's search is findable. */
@@ -174,9 +178,10 @@ export function SearchCombobox<T>({
 	// during server rendering; the wrapper is kept for being free and correct
 	// on whatever renderer a Consumer actually has.
 	//
-	// Note this listener exists only while the dropdown is open, so a caller
-	// that has not opted into "/" still registers nothing at all until the
-	// Author has typed into its own input.
+	// Note this listener exists only while the dropdown is open, and answers
+	// only Escapes aimed at this node — it is not a claim on a key the way
+	// the "/" shortcut above is, which is why a caller that opts out of that
+	// one still gets this.
 	useSafeLayoutEffect(() => {
 		if (!open) return;
 		const onEscapeCapture = (e: KeyboardEvent) => {
@@ -259,6 +264,10 @@ export function SearchCombobox<T>({
 									id={optionId(i)}
 									role="option"
 									aria-selected={i === safeHighlighted}
+									// The layout is otherwise carried entirely by
+									// emotion class names, which jsdom cannot resolve
+									// — this is what makes the variant assertable, and
+									// a styling hook besides.
 									data-layout={layout}
 									px="3"
 									py="2"

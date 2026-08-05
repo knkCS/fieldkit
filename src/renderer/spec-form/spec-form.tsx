@@ -275,10 +275,10 @@ interface SpecFormReadTabsProps {
 
 // Mirrors SpecFormTabs minus form hooks: no useTabIndicators (no RHF
 // dirty/error state exists in read mode), no submit-jump effect. The "/"
-// shortcut is claimed the same way as in edit mode — one opt-in on the same
-// shared combobox, so parity costs a prop rather than a second listener —
-// and the search jump scrolls+flashes the target row instead of focusing a
-// form control.
+// shortcut is claimed the same way as in edit mode — parity costs a prop on
+// the shared combobox rather than a listener of read mode's own — and the
+// search jump scrolls+flashes the target row instead of focusing a form
+// control.
 function SpecFormReadTabs({
 	partition,
 	values,
@@ -370,8 +370,8 @@ function SpecFormReadTabs({
 			placeholder={labels.searchPlaceholder}
 			noResultsLabel={labels.noResults}
 			label={labels.searchLabel}
-			// Read mode claims "/" exactly as edit mode does — parity is the
-			// point, and only one of the two is ever mounted at a time.
+			// Claimed exactly as edit mode claims it; only one of the two
+			// modes is ever mounted at a time.
 			slashShortcut
 			onJump={(result: FieldSearchResult) =>
 				jumpTo(result.accessor, result.tabIndex)

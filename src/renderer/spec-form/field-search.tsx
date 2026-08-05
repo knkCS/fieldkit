@@ -11,12 +11,7 @@ export interface FieldSearchProps {
 	/** Accessible name for the search input. */
 	label: string;
 	onJump: (result: FieldSearchResult) => void;
-	/**
-	 * Claim the global "/" shortcut — see `SearchCombobox`. Off unless a
-	 * caller asks: the claim is first-mounted-wins, so the two searches that
-	 * own their screen (SpecForm's tabs, the editor canvas) ask for it, and
-	 * anything mounted inside one of those screens must not.
-	 */
+	/** Claim the global "/" shortcut; off unless asked — see `SearchCombobox`. */
 	slashShortcut?: boolean;
 }
 

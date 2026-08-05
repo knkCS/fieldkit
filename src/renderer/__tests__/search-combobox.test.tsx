@@ -135,21 +135,19 @@ describe("SearchCombobox — two-line results", () => {
 });
 
 describe("SearchCombobox — the '/' shortcut is opt-in", () => {
-	// Direct assertion, not inferred from behaviour: a caller that does not
-	// opt in must not put a key listener on document or window at all, so a
-	// Find combobox inside a form can never race the form's own search.
-	// Asserted at mount, which is the whole of what a closed combobox
-	// registers — the one other global listener, the Escape containment, is
-	// mounted only while this combobox's own dropdown is open and only
-	// contains Escapes aimed at its own node.
-	function keydownRegistrations() {
+	// Direct assertion, not inferred from a keypress that did nothing: a
+	// caller that does not opt in must not put a key listener on document or
+	// window, so a Find combobox inside a form can never race the form's own
+	// search.
+	function keydownSpies() {
 		const onDocument = vi.spyOn(document, "addEventListener");
 		const onWindow = vi.spyOn(window, "addEventListener");
+		const keydowns = (spy: typeof onDocument) =>
+			spy.mock.calls.filter(([type]) => type === "keydown");
 		return {
-			added: () =>
-				[...onDocument.mock.calls, ...onWindow.mock.calls].filter(
-					([type]) => type === "keydown",
-				),
+			onDocument: () => keydowns(onDocument),
+			onWindow: () => keydowns(onWindow),
+			all: () => [...keydowns(onDocument), ...keydowns(onWindow)],
 			restore: () => {
 				onDocument.mockRestore();
 				onWindow.mockRestore();
@@ -158,20 +156,42 @@ describe("SearchCombobox — the '/' shortcut is opt-in", () => {
 	}
 
 	it("registers no document- or window-level key listener when not opted in", () => {
-		const spy = keydownRegistrations();
+		const spies = keydownSpies();
 		try {
 			renderCombobox();
-			expect(spy.added()).toHaveLength(0);
+			expect(spies.all()).toHaveLength(0);
 		} finally {
-			spy.restore();
+			spies.restore();
 		}
 	});
 
+	// The state Find spends its life in: dropdown open, shortcut not claimed.
+	// The Escape containment is a window listener and is meant to be there —
+	// but it is scoped to this node, and nothing lands on `document`, where
+	// the "/" claim would go.
+	it("adds nothing on document once its dropdown opens, and only the Escape containment on window", async () => {
+		const spies = keydownSpies();
+		try {
+			renderCombobox();
+			await typeQuery("alumin");
+			expect(spies.onDocument()).toHaveLength(0);
+			const onWindow = spies.onWindow();
+			expect(onWindow).toHaveLength(1);
+			// Capture phase — the containment, not a shortcut claim.
+			expect(onWindow[0][2]).toBe(true);
+		} finally {
+			spies.restore();
+		}
+		fireEvent.keyDown(document.body, { key: "/" });
+		expect(input()).not.toHaveFocus();
+	});
+
 	it("registers exactly one document-level keydown listener when opted in", () => {
-		const spy = keydownRegistrations();
+		const spies = keydownSpies();
 		try {
 			const { unmount } = renderCombobox({ slashShortcut: true });
-			expect(spy.added()).toHaveLength(1);
+			expect(spies.all()).toHaveLength(1);
+			expect(spies.onDocument()).toHaveLength(1);
 			const removed = vi.spyOn(document, "removeEventListener");
 			unmount();
 			expect(
@@ -179,7 +199,7 @@ describe("SearchCombobox — the '/' shortcut is opt-in", () => {
 			).toHaveLength(1);
 			removed.mockRestore();
 		} finally {
-			spy.restore();
+			spies.restore();
 		}
 	});
 
