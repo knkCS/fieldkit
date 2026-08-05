@@ -3,7 +3,13 @@ import { useEffect, useRef } from "react";
 
 /** Pointer dwell before a hovered tab trigger springs the canvas to that
  * section (spring-loaded sections spec 2026-07-14, Decision 1). ONE tuned
- * constant; keyboard drags bypass the dwell entirely (Decision 6). */
+ * constant; keyboard drags bypass the dwell entirely (Decision 6).
+ *
+ * The Reference Tree's spring restates the same number in `/renderer`
+ * (`use-spring-loaded-branch.ts`) rather than importing it — there is no
+ * `renderer → editor` dependency, and a Consumer taking only the renderer must
+ * not pull the specification editor in. Resting on a target mid-drag is one
+ * interaction across the package, so **the two move together or not at all.** */
 export const SPRING_DWELL_MS = 500;
 
 /**
