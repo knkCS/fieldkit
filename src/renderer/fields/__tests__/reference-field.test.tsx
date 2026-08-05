@@ -13,6 +13,7 @@ import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { ReferenceSettings } from "../../../schema/field-types/reference";
+import { REFERENCE_FIND_RESULT_CAP } from "../../../schema/reference-find";
 import { REFERENCE_TREE_COLLAPSE_THRESHOLD } from "../../../schema/reference-tree";
 import type { Field } from "../../../schema/types";
 import { specToZodSchema } from "../../../schema/zod-builder";
@@ -1150,6 +1151,59 @@ describe("ReferenceField", () => {
 				expect(options).toHaveLength(2);
 				expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
 				expect(within(options[1]).getByText("Content 21")).toBeInTheDocument();
+			});
+
+			/**
+			 * Big enough both to offer Find and to overflow its result cap,
+			 * whichever of the two numbers is larger — so this walks the cap
+			 * this repo currently holds rather than the one it held today.
+			 */
+			const OVER_CAP =
+				Math.max(REFERENCE_TREE_COLLAPSE_THRESHOLD, REFERENCE_FIND_RESULT_CAP) +
+				1;
+
+			it("lists a cap's worth and says how many it found in all", async () => {
+				// Every Reference in this tree is called "Content …", so the query
+				// matches all of them and the cap withholds at least one.
+				renderTree(OVER_CAP);
+				await screen.findByText("Content 1");
+
+				const options = await findFor("Content");
+
+				expect(options).toHaveLength(REFERENCE_FIND_RESULT_CAP);
+				// What is on screen, and what there was — the second is what tells
+				// an Author to keep typing.
+				expect(
+					screen.getByText(
+						`Showing ${REFERENCE_FIND_RESULT_CAP} of ${OVER_CAP} matches`,
+					),
+				).toBeInTheDocument();
+			});
+
+			it("says plainly how many it found when it withheld nothing", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1, {
+					value: [
+						...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
+						// "Content 20" a second time, under a different parent.
+						{ id: "article-21", children: [{ id: "article-20" }] },
+					],
+				});
+				await screen.findByText("Content 1");
+
+				const options = await findFor("Content 20");
+
+				expect(options).toHaveLength(2);
+				// No "of", because nothing was held back for an Author to wonder
+				// about.
+				expect(screen.getByText("2 matches")).toBeInTheDocument();
+			});
+
+			it("counts one match as one", async () => {
+				renderTree(OVER_CAP);
+				await screen.findByText("Content 1");
+
+				expect(await findFor("Content 19")).toHaveLength(1);
+				expect(screen.getByText("1 match")).toBeInTheDocument();
 			});
 
 			it("says so when nothing in the tree matches", async () => {

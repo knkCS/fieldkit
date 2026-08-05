@@ -25,10 +25,15 @@ const ROWS: Row[] = [
 	{ path: "3", name: "Copper", ancestors: "Materials" },
 ];
 
-function search(query: string): Row[] {
+function matches(query: string): Row[] {
 	const q = query.trim().toLowerCase();
 	if (!q) return [];
 	return ROWS.filter((r) => r.name.toLowerCase().includes(q));
+}
+
+/** A caller that lists everything it found, and says nothing about counts. */
+function search(query: string) {
+	return { results: matches(query) };
 }
 
 function renderCombobox(
@@ -91,6 +96,54 @@ describe("SearchCombobox — lists a caller-supplied result shape", () => {
 		fireEvent.keyDown(input(), { key: "ArrowDown" });
 		fireEvent.keyDown(input(), { key: "Enter" });
 		expect(onSelect).toHaveBeenCalledWith(ROWS[1]);
+	});
+});
+
+describe("SearchCombobox — the count beside the list", () => {
+	/** A caller that caps its list at one, and says how many it really found. */
+	function cappedSearch(query: string) {
+		const found = matches(query);
+		return {
+			results: found.slice(0, 1),
+			countLabel: found.length > 1 ? `1 of ${found.length} matches` : "1 match",
+		};
+	}
+
+	it("shows the count its caller's answer carried", async () => {
+		renderCombobox({ search: cappedSearch });
+		await typeQuery("alumin");
+
+		// One option listed, and the label naming the two that were found —
+		// both out of the one answer, so they cannot disagree.
+		expect(screen.getAllByRole("option")).toHaveLength(1);
+		expect(screen.getByText("1 of 2 matches")).toBeInTheDocument();
+	});
+
+	it("announces the count, for a reader that never sees the list", async () => {
+		renderCombobox({ search: cappedSearch });
+		await typeQuery("alumin");
+
+		expect(screen.getByRole("status")).toHaveTextContent("1 of 2 matches");
+	});
+
+	it("shows no count for a caller whose answer carries none", async () => {
+		// The form's own field search lists everything it found; a count line
+		// there would be a screen nobody asked to change.
+		renderCombobox();
+		await typeQuery("alumin");
+
+		expect(screen.getAllByRole("option")).toHaveLength(2);
+		expect(screen.queryByRole("status")).not.toBeInTheDocument();
+	});
+
+	it("leaves the count off when nothing matched, where the no-results line speaks", async () => {
+		renderCombobox({ search: cappedSearch });
+		fireEvent.change(input(), { target: { value: "titanium" } });
+
+		expect(await screen.findByText("No references found")).toBeInTheDocument();
+		// Not "1 match" beside an empty list: two lines answering one question
+		// is how they come to disagree.
+		expect(screen.queryByText("1 match")).not.toBeInTheDocument();
 	});
 });
 

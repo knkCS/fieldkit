@@ -29,8 +29,11 @@ export function FieldSearch({
 	onJump,
 	slashShortcut,
 }: FieldSearchProps) {
+	// No `countLabel`: a Spec's fields are a set an Author already scrolls in
+	// full, so this search lists everything it found and has nothing to say
+	// about a cap it does not apply.
 	const search = useCallback(
-		(query: string) => searchFields(index, query),
+		(query: string) => ({ results: searchFields(index, query) }),
 		[index],
 	);
 
