@@ -247,7 +247,10 @@ Each field's value is resolved in this order:
      reference adapter, falling back to the id;
    - `reference` (and every type minted by `createReferencePlugin`) renders
      the resolved tree — names through the adapter, indented by depth, each
-     Reference's Attribute values against it — where its cell counts.
+     Reference's Attribute values against it — where its cell counts. Past
+     the tree's collapse threshold it opens folded and carries a Find
+     control, over the same functions the editable tree folds and Reveals
+     with; nothing it does writes.
 
    A cell can do none of this: it has neither adapter access nor async
    (ADR-0008). Read mode sits inside the renderer, so it has both.

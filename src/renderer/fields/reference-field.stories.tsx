@@ -335,3 +335,26 @@ export const ReadMode: Story = {
 		</FieldKitProvider>
 	),
 };
+
+/**
+ * Read mode past the node-count threshold: the tree opens with every parent
+ * collapsed and carries the same Find control the editable tree does, so
+ * reaching one Reference never means switching into an editable view.
+ *
+ * Both halves call the tree model's own fold and reveal functions, so the two
+ * renderers cannot disagree about what a fold hides or what a Reveal opens.
+ */
+export const ReadModeLargeTree: Story = {
+	render: () => (
+		<FieldKitProvider
+			plugins={builtInFieldTypes}
+			adapters={{ reference: treeAdapter }}
+		>
+			<SpecForm
+				schema={[makeField()]}
+				mode="read"
+				values={{ related: treeOf(30) }}
+			/>
+		</FieldKitProvider>
+	),
+};

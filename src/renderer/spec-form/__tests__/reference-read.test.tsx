@@ -1,14 +1,30 @@
 import { Provider } from "@knkcs/anker/primitives";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { ReferenceSettings } from "../../../schema/field-types/reference";
 import { createReferencePlugin } from "../../../schema/field-types/reference";
+import {
+	initialReferenceFolds,
+	REFERENCE_TREE_COLLAPSE_THRESHOLD,
+	readReferenceTree,
+	referenceDisplayName,
+	visibleReferenceRows,
+} from "../../../schema/reference-tree";
 import type { Field } from "../../../schema/types";
 import {
 	createFakeReferenceAdapter,
 	type FakeReferenceAdapter,
+	fakeCatalogue,
+	fakeReferenceTree,
 } from "../../../test/fake-reference-adapter";
+import { ReferenceTree } from "../../fields/reference-tree";
 import { FieldKitProvider } from "../../provider";
 import { SpecForm } from "../spec-form";
 
@@ -198,6 +214,433 @@ describe("SpecForm — read mode, reference tree", () => {
 
 		expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
 		expect(screen.queryByText("1 reference")).not.toBeInTheDocument();
+	});
+});
+
+/**
+ * A read-mode Field over a catalogue big enough to name `size` References,
+ * and the tree of `size` References that points at it.
+ */
+function renderReadTree(
+	size: number,
+	value: unknown = fakeReferenceTree(size),
+) {
+	return renderRead(
+		{ related: value },
+		referenceField(),
+		createFakeReferenceAdapter({ contents: fakeCatalogue(size) }),
+	);
+}
+
+/** The names of the rows read mode is drawing, top to bottom. */
+function readNames(container: HTMLElement = document.body): string[] {
+	return within(container)
+		.queryAllByTestId("reference-read-name")
+		.map((node) => node.textContent ?? "");
+}
+
+/** Every id in {@link fakeCatalogue} against its display name — the map the
+ * editable tree is handed, and the one read mode resolves for itself. */
+function catalogueNames(size: number): Record<string, string> {
+	return Object.fromEntries(
+		fakeCatalogue(size).map((content) => [content.id, content.display_name]),
+	);
+}
+
+/**
+ * Folding in read mode (#153).
+ *
+ * Which rows a fold set hides, and which folds a Reveal opens, are asserted
+ * in the tree model's own suite with plain assertions and no DOM. What is
+ * left for here is what a renderer can be wrong about: how big a tree opens,
+ * and that a fold can be worked while reading.
+ */
+describe("SpecForm — read mode, folding the tree", () => {
+	it("opens fully expanded at exactly the collapse threshold", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD;
+		renderReadTree(size);
+
+		await screen.findByText("Content 1");
+		expect(screen.getAllByTestId("reference-read-row")).toHaveLength(size);
+	});
+
+	it("opens fully expanded one Reference below the threshold", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD - 1;
+		renderReadTree(size);
+
+		await screen.findByText("Content 1");
+		expect(screen.getAllByTestId("reference-read-row")).toHaveLength(size);
+	});
+
+	it("opens collapsed above the threshold, showing its roots", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 2;
+		renderReadTree(size);
+
+		await screen.findByText("Content 1");
+		// Only the roots: a record read-only with ten thousand References is no
+		// longer ten thousand rows on the page.
+		expect(screen.getAllByTestId("reference-read-row")).toHaveLength(size / 2);
+		expect(
+			screen.getByRole("button", { name: "Expand Content 1" }),
+		).toHaveAttribute("aria-expanded", "false");
+	});
+
+	it("opens and closes a fold while reading, because reading a folded branch is reading", async () => {
+		renderRead({
+			related: [{ id: "article-1", children: [{ id: "article-2" }] }],
+		});
+		await screen.findByText("Cats of the world");
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Collapse Cats of the world" }),
+		);
+		expect(readNames()).toEqual(["Cats of the world"]);
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Expand Cats of the world" }),
+		);
+		expect(readNames()).toEqual(["Cats of the world", "Dogs of the world"]);
+	});
+
+	it("puts no fold control on a Reference with nothing under it", async () => {
+		renderRead({ related: [{ id: "article-1" }] });
+
+		await screen.findByText("Cats of the world");
+		// A control claiming to collapse a leaf would claim it hides something.
+		expect(
+			screen.queryByRole("button", { name: /Cats of the world/ }),
+		).not.toBeInTheDocument();
+	});
+
+	it("keeps a fold out of the value it was handed", async () => {
+		const value = [{ id: "article-1", children: [{ id: "article-2" }] }];
+		const before = structuredClone(value);
+		renderRead({ related: value });
+		await screen.findByText("Cats of the world");
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Collapse Cats of the world" }),
+		);
+
+		// Folding is control state, never the value's (ADR-0008) — and read
+		// mode writes nothing at all.
+		expect(value).toEqual(before);
+	});
+});
+
+/**
+ * The agreement itself (#153): both renderers are held against the shared
+ * functions rather than against each other, so neither can be right only
+ * because the other is wrong in the same way.
+ */
+describe("read mode and the editable tree agree about what a fold hides", () => {
+	function renderEditable(value: unknown[], size: number) {
+		return render(
+			<Provider>
+				<ReferenceTree
+					rows={readReferenceTree(value)}
+					value={value}
+					names={catalogueNames(size)}
+					onChange={() => {}}
+				/>
+			</Provider>,
+		);
+	}
+
+	/** The names of the rows the editable tree is drawing, top to bottom. */
+	function editableNames(container: HTMLElement): string[] {
+		return within(container)
+			.queryAllByTestId("reference-row-name")
+			.map((node) => node.textContent ?? "");
+	}
+
+	it("draws the rows the shared fold set leaves visible, in both renderers", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 2;
+		const value = fakeReferenceTree(size);
+		const rows = readReferenceTree(value);
+		const names = catalogueNames(size);
+		// The one answer both are held to, read off the shared functions rather
+		// than off either renderer.
+		const expected = visibleReferenceRows(
+			rows,
+			initialReferenceFolds(rows),
+		).map((row) => referenceDisplayName(row, names));
+
+		const reading = renderReadTree(size, value);
+		await screen.findByText("Content 1");
+		const editing = renderEditable(value, size);
+
+		expect(readNames(reading.container)).toEqual(expected);
+		expect(editableNames(editing.container)).toEqual(expected);
+	});
+
+	it("agrees about the branch one fold an Author closed hides", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD - 2;
+		const value = fakeReferenceTree(size);
+		const rows = readReferenceTree(value);
+		const names = catalogueNames(size);
+		// Small enough to open expanded, so the only fold either renderer has
+		// is the one closed below.
+		const closed = rows.find(
+			(row) => referenceDisplayName(row, names) === "Content 3",
+		);
+		if (!closed) throw new Error("no row to fold");
+		const expected = visibleReferenceRows(rows, new Set([closed.key])).map(
+			(row) => referenceDisplayName(row, names),
+		);
+
+		const reading = renderReadTree(size, value);
+		await screen.findByText("Content 1");
+		const editing = renderEditable(value, size);
+		for (const container of [reading.container, editing.container]) {
+			fireEvent.click(
+				within(container).getByRole("button", { name: "Collapse Content 3" }),
+			);
+		}
+
+		expect(readNames(reading.container)).toEqual(expected);
+		expect(editableNames(editing.container)).toEqual(expected);
+	});
+});
+
+/**
+ * Find and Reveal in read mode (#153) — the same control the editable tree
+ * carries, over the same functions.
+ *
+ * What a query matches, and the ancestor path it is shown under, are asserted
+ * in `src/schema/__tests__/reference-find.test.ts`. What is left for here is
+ * the wiring: that the control appears on the trees that open collapsed, that
+ * picking a result opens the way down to the row, lands on it and marks it,
+ * and that none of it writes.
+ */
+describe("SpecForm — read mode, Find and Reveal", () => {
+	function findControl() {
+		return screen.queryByRole("combobox", { name: "Find a Reference" });
+	}
+
+	/** Types a query into Find and waits out anker's search debounce. */
+	async function findFor(query: string) {
+		const input = screen.getByRole("combobox", { name: "Find a Reference" });
+		fireEvent.change(input, { target: { value: query } });
+		await screen.findByRole("listbox");
+		return screen.queryAllByRole("option");
+	}
+
+	/** The row on screen showing `name`, or null while it is folded away. */
+	function rowNamed(name: string): HTMLElement | null {
+		return (
+			screen
+				.queryAllByTestId("reference-read-row")
+				.find(
+					(row) =>
+						within(row).queryByTestId("reference-read-name")?.textContent ===
+						name,
+				) ?? null
+		);
+	}
+
+	/** Finds `name` and picks the only result, which is a Reveal. */
+	async function reveal(name: string) {
+		const options = await findFor(name);
+		expect(options).toHaveLength(1);
+		fireEvent.click(options[0]);
+		await waitFor(() => {
+			expect(rowNamed(name)).not.toBeNull();
+		});
+	}
+
+	describe("when the control appears", () => {
+		it("offers Find on a tree past the collapse threshold", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+
+			expect(await screen.findByText("Content 1")).toBeInTheDocument();
+			expect(findControl()).toBeInTheDocument();
+		});
+
+		it("offers none at exactly the threshold, where the tree opens expanded", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+
+			expect(await screen.findByText("Content 1")).toBeInTheDocument();
+			expect(findControl()).not.toBeInTheDocument();
+		});
+
+		it("offers none one Reference below the threshold", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
+
+			expect(await screen.findByText("Content 1")).toBeInTheDocument();
+			expect(findControl()).not.toBeInTheDocument();
+		});
+
+		it("offers none on an empty value", () => {
+			renderRead({ related: [] });
+
+			expect(findControl()).not.toBeInTheDocument();
+		});
+	});
+
+	it("finds a Reference the tree opened with folded away", async () => {
+		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+		await screen.findByText("Content 1");
+		// Not on screen at all — which is the problem Find exists for, and it
+		// is as real when reading as when editing.
+		expect(rowNamed("Content 20")).toBeNull();
+
+		const options = await findFor("Content 20");
+
+		expect(options).toHaveLength(1);
+		// Under the path leading to it, so two Contents named alike are told
+		// apart before an Author commits to jumping.
+		expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
+	});
+
+	describe("what a Reveal does", () => {
+		it("opens every fold above the Reference that was picked", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+
+			expect(rowNamed("Content 20")).not.toBeNull();
+			expect(
+				screen.getByRole("button", { name: "Collapse Content 19" }),
+			).toHaveAttribute("aria-expanded", "true");
+		});
+
+		it("lands focus on the revealed row", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+
+			await waitFor(() => {
+				expect(rowNamed("Content 20")).toHaveFocus();
+			});
+		});
+
+		it("scrolls the revealed row to the centre of the viewport", async () => {
+			// jsdom implements no scrolling at all, so the row's own method is
+			// what a test can read — and it is put back afterwards, since
+			// defining it changes what every later test in this file sees.
+			const scrollIntoView = vi.fn();
+			const had = Object.hasOwn(Element.prototype, "scrollIntoView");
+			const original = Element.prototype.scrollIntoView;
+			Element.prototype.scrollIntoView = scrollIntoView;
+			try {
+				renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
+				await waitFor(() => {
+					expect(scrollIntoView).toHaveBeenCalledWith({
+						block: "center",
+						behavior: "smooth",
+					});
+				});
+			} finally {
+				if (had) Element.prototype.scrollIntoView = original;
+				else
+					delete (Element.prototype as { scrollIntoView?: unknown })
+						.scrollIntoView;
+			}
+		});
+
+		it("marks the revealed row, and marks only it", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+
+			await waitFor(() => {
+				expect(rowNamed("Content 20")).toHaveAttribute("data-revealed", "true");
+			});
+			expect(
+				screen
+					.queryAllByTestId("reference-read-row")
+					.filter((row) => row.getAttribute("data-revealed") === "true"),
+			).toHaveLength(1);
+		});
+
+		it("announces the Reveal, for an Author who is not watching the tree", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+
+			await waitFor(() => {
+				expect(
+					screen.getByTestId("reference-read-reveal-notice"),
+				).toHaveTextContent("Revealed Content 20");
+			});
+		});
+
+		it("leaves an earlier Reveal's folds open", async () => {
+			// A Reveal is an answer, not a preview: it does not fold back, and
+			// undoing the last one would undo work an Author just did.
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+			await reveal("Content 4");
+
+			expect(rowNamed("Content 4")).not.toBeNull();
+			expect(rowNamed("Content 20")).not.toBeNull();
+		});
+
+		it("works the second time the same Reference is asked for", async () => {
+			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+			await screen.findByText("Content 1");
+
+			await reveal("Content 20");
+			await waitFor(() => {
+				expect(rowNamed("Content 20")).toHaveFocus();
+			});
+			// An Author looks away, then wants back where they were.
+			screen.getByRole("combobox", { name: "Find a Reference" }).focus();
+			expect(rowNamed("Content 20")).not.toHaveFocus();
+
+			await reveal("Content 20");
+
+			await waitFor(() => {
+				expect(rowNamed("Content 20")).toHaveFocus();
+			});
+		});
+	});
+
+	it("writes nothing to the value it was handed", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		const value = fakeReferenceTree(size);
+		const before = structuredClone(value);
+		renderReadTree(size, value);
+		await screen.findByText("Content 1");
+
+		await reveal("Content 20");
+		fireEvent.click(
+			screen.getByRole("button", { name: "Collapse Content 19" }),
+		);
+
+		// Find changes what is folded and where an Author is looking. Nothing
+		// else — and read mode has nowhere to write it even if it wanted to.
+		expect(value).toEqual(before);
+	});
+
+	it("matches the ids the rows are left showing when nothing resolves", async () => {
+		// Find degrades exactly as the rows do (ADR-0013): with no names, an id
+		// is what is on screen.
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		renderRead(
+			{ related: fakeReferenceTree(size) },
+			referenceField(),
+			createFakeReferenceAdapter({
+				contents: fakeCatalogue(size),
+				failFetch: new Error("gateway down"),
+			}),
+		);
+		expect(await screen.findByText("article-1")).toBeInTheDocument();
+
+		await reveal("article-20");
+
+		expect(rowNamed("article-20")).not.toBeNull();
 	});
 });
 
