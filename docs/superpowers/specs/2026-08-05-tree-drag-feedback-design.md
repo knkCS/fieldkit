@@ -13,14 +13,14 @@ Sibling to [the editor canvas's drag-feedback rework](./2026-07-14-drag-feedback
 During a drag the dragged row's horizontal position is the sum of two things:
 
 1. `CSS.Translate.toString(transform)` — for the *active* item, dnd-kit's `useSortable` returns the raw drag delta, **both axes**, and the tree applies it unmodified;
-2. `ml: projectedDepth × INDENT_WIDTH` — the depth the release would actually land at, which is quantised in 32px steps.
+2. `ml: projectedDepth × INDENT_WIDTH` — the depth the release would actually land at, quantised in **24px** steps (`INDENT_WIDTH`; knkCMS core's equivalent is 32, which is a separate number and not this one).
 
-So a continuous pointer travel of any size rides on top of a 32px quantised nudge. The signal that answers "what level will this land at" is present in the DOM on every frame, and is swamped by the signal that answers "where is the mouse". The editor canvas does not have this problem because it kills transforms outright (`noopSortingStrategy`) and lets an overlay carry the movement.
+So a continuous pointer travel of any size rides on top of a 24px quantised nudge. The signal that answers "what level will this land at" is present in the DOM on every frame, and is swamped by the signal that answers "where is the mouse". The editor canvas does not have this problem because it kills transforms outright (`noopSortingStrategy`) and lets an overlay carry the movement.
 
 Two secondary gaps follow from the same place:
 
 - **Nothing marks the landing slot.** The parting list implies it, but the tree has no equivalent of the canvas's indicator line.
-- **In-place re-indent is invisible.** The tree permits changing a Reference's depth without moving it — the one interaction knkCMS core cannot do at all — and today the only evidence is a 32px margin shift on a half-opacity row.
+- **In-place re-indent is invisible.** The tree permits changing a Reference's depth without moving it — the one interaction knkCMS core cannot do at all — and today the only evidence is a one-level margin shift on a half-opacity row.
 
 ## Decisions (locked)
 
