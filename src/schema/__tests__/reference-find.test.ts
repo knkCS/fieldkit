@@ -1,7 +1,7 @@
 // src/schema/__tests__/reference-find.test.ts
 /**
- * Find: which References in a tree answer to a name an Author typed, and where
- * each of them sits.
+ * Find: which References in a tree answer to what an Author typed — a name, or
+ * the id a row is showing in place of one — and where each of them sits.
  *
  * Plain assertions over data, no React and no DOM — the same shape the tree
  * model's own suite takes, and for the same reason: matching and ancestor-path
@@ -657,11 +657,17 @@ describe("findReferences — where each match sits", () => {
 /**
  * How many times `run` folded a text.
  *
- * Folding is the one step in a match that touches Unicode, and `normalize` is
- * the only thing that does — so counting the calls counts the folds, without
- * the module having to expose a counter it would otherwise have no reason to
- * have. Restored before anything is asserted, so an assertion's own string
- * handling cannot be counted as a fold.
+ * `normalize` is the only thing a fold does that nothing else here does, so
+ * counting the calls counts the folds — without the module having to expose a
+ * counter it would otherwise have no reason to have. Restored before anything
+ * is asserted, so an assertion's own string handling cannot be counted.
+ *
+ * This is a deliberate coupling to *how* {@link foldReferenceText} folds, and
+ * the only one in this file: a fold rewritten to use a lookup table instead
+ * would read nought here and these three tests would need rewriting with it.
+ * That is the price of asserting a cost at all — the alternative is timing,
+ * which answers differently on every machine — and the cost is the criterion,
+ * so it is worth one test knowing one thing it otherwise would not.
  */
 function foldsDuring(run: () => void): number {
 	const normalize = String.prototype.normalize;

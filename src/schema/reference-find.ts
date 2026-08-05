@@ -1,7 +1,8 @@
 // src/schema/reference-find.ts
 /**
  * **Find**: locating a Reference the tree already holds, by the name of the
- * Content it points at (CONTEXT.md).
+ * Content it points at (CONTEXT.md) — or, where that name is not what the row
+ * is showing, by the id it is showing instead.
  *
  * Matching happens here, in the browser, over the names resolved for every
  * Reference at every level — ADR-0013, which also records the four
@@ -29,8 +30,13 @@ export interface ReferenceFindResult {
 	 */
 	key: string;
 	/**
-	 * The name it matched on: the resolved display name, or the id where no
-	 * name resolved — which is exactly what the row shows.
+	 * What the row **shows**: the resolved display name, or the id where no name
+	 * resolved.
+	 *
+	 * Not necessarily the text that matched — a row answers on its id as well as
+	 * its name, so a result reached by a pasted id is still labelled with the
+	 * name beside it in the tree. Labelling it with whichever text answered
+	 * would put a word in the list that is nowhere on the row it names.
 	 */
 	name: string;
 	/**
@@ -127,8 +133,7 @@ const COMBINING_MARKS = /\p{M}/gu;
  *    typed "Grosse" and stored "Große" is the ordinary case, not the exotic one.
  * 3. **Decomposed, then stripped of marks** — NFD breaks "ü" into a "u" and the
  *    diaeresis over it, and taking the marks away leaves the "u". Done this way
- *    round it needs no table of letters: whatever the Adapter resolves, in
- *    whatever script, loses its accents by the same rule.
+ *    round it needs no table of accented letters to keep up to date.
  *
  * German folds its umlauts to bare vowels here, not to "ue"/"oe"/"ae". Both are
  * defensible spellings of the same intent and this one is the direction an
@@ -137,6 +142,15 @@ const COMBINING_MARKS = /\p{M}/gu;
  *
  * NFD rather than NFKD: an accent is what is being folded away, not the
  * difference between a ligature and the letters in it.
+ *
+ * **What it is not**: a general collation. Stripping every combining mark is
+ * the right rule for the Latin scripts fieldkit's Consumers author in, where a
+ * mark is an accent, and the wrong one where a mark is a letter — Japanese
+ * dakuten and Devanagari matras come off too, so "ha" would answer "ba". No
+ * Consumer authoring in those scripts has appeared, and the alternative is the
+ * per-script table this deliberately avoids; ADR-0013 already fixes the
+ * matching rules as fieldkit's, so this is a rule to revisit when such a
+ * Consumer does appear rather than one for them to replace.
  */
 export function foldReferenceText(text: string): string {
 	return text
@@ -173,16 +187,38 @@ function referenceMatchRank(haystack: string, needle: string): number | null {
 }
 
 /**
- * The best rank any of the texts a row answers on earned, or `null` where none
+ * The texts a row answers on, folded ready to match: the name it shows, and the
+ * id behind it.
+ *
+ * **One** text where those are the same thing. A row whose Content did not
+ * resolve shows its id, so folding it a second time would be reading one text
+ * twice — and it would double the cost of precisely the case that pays it on
+ * every row at once, a Field whose Adapter failed.
+ *
+ * Folded here, once per row per query, so that a keystroke costs one fold per
+ * text in the tree: never one per occurrence of the needle within a name, and
+ * never one fold of the query per row.
+ */
+function referenceMatchTexts(
+	row: ReferenceRow,
+	name: string,
+): readonly string[] {
+	const id = row.reference.id;
+	return name === id
+		? [foldReferenceText(id)]
+		: [foldReferenceText(name), foldReferenceText(id)];
+}
+
+/**
+ * The best rank any of {@link referenceMatchTexts} earned, or `null` where none
  * of them answered at all.
  *
- * A row answers on **two** texts: the name it shows, and the id behind it. Best
- * rather than first, so that which of the two a row is currently *showing*
- * cannot change where it lands — a Field whose Adapter is working ranks a
- * pasted id exactly as one whose Adapter failed does, which is the whole point
- * of matching ids at all.
+ * Best rather than first, so that which of its texts a row happens to be
+ * *showing* cannot change where it lands: a Field whose Adapter is working
+ * ranks a pasted id exactly as one whose Adapter failed does, which is the
+ * whole point of matching ids at all.
  */
-function bestMatchRank(
+function bestReferenceMatchRank(
 	haystacks: readonly string[],
 	needle: string,
 ): number | null {
@@ -209,7 +245,7 @@ export interface ReferenceFindAnswer {
 }
 
 /**
- * The References in a tree whose display name contains `query`: the best
+ * The References in a tree that answer to `query`: the best
  * {@link REFERENCE_FIND_RESULT_CAP} of them, ranked, beside a count of how many
  * there were in all.
  *
@@ -271,24 +307,10 @@ export function findReferences(
 		name: string;
 	}[] = [];
 	rows.forEach((row, index) => {
-		// Resolved once and carried: the name a result shows is the name it was
-		// ranked on, so no second lookup can hand an Author a row that answers to
-		// a query its own label does not contain.
+		// Resolved once and carried, so the label a result wears is the one the
+		// row wears — no second lookup can put a different name on it.
 		const name = referenceDisplayName(row, names);
-		const id = row.reference.id;
-		// Folded once each, here, so a keystroke costs one fold per text in the
-		// tree — never one per occurrence of the needle within a name, and never
-		// one fold of the query per row.
-		//
-		// A row whose Content did not resolve shows its id, so its two texts are
-		// the same text; folding it twice would double the cost of precisely the
-		// case that pays it on every row at once, a Field whose Adapter failed.
-		const rank = bestMatchRank(
-			name === id
-				? [foldReferenceText(id)]
-				: [foldReferenceText(name), foldReferenceText(id)],
-			needle,
-		);
+		const rank = bestReferenceMatchRank(referenceMatchTexts(row, name), needle);
 		if (rank === null) return;
 		// The *name*, never whichever text answered: an id that matched is how a
 		// row was reached, and a result labelled with it would read as a
