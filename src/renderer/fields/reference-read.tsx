@@ -18,6 +18,7 @@ import {
 import type { Field } from "../../schema/types";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { EmptyReadValue } from "./empty-value";
+import { ReferenceCollapseAll } from "./reference-collapse-all";
 import { ReferenceFind } from "./reference-find";
 import { INDENT_WIDTH } from "./reference-tree";
 
@@ -135,6 +136,20 @@ export function ReferenceReadValue({
 	}, []);
 
 	/**
+	 * Collapse all: back to the fold set this tree opened in, by calling the
+	 * function it opened with rather than restating what that function does.
+	 *
+	 * A read-mode tree sprawls on exactly the terms the editable one does —
+	 * Reveals accumulate, and a fold opened by hand stays open — so it wants the
+	 * same way back, and gets it from the same rule. The Reveal's mark is left
+	 * where it is: it says what was last asked for, and folding its row away
+	 * answers nothing.
+	 */
+	const collapseAll = useCallback(() => {
+		setFolded(initialReferenceFolds(rows));
+	}, [rows]);
+
+	/**
 	 * The landing: focus a revealed row and put it in the middle of the
 	 * viewport — what the editable tree does, for the same reasons.
 	 *
@@ -209,10 +224,12 @@ export function ReferenceReadValue({
 
 	if (rows.length === 0) return <EmptyReadValue />;
 
-	// Find appears on exactly the trees that open collapsed — the same
-	// threshold, read through the same function the editable Field reads it
-	// through, so the two renderers cannot come to different answers about the
-	// same tree.
+	// Find and Collapse all appear on exactly the trees that open collapsed —
+	// the same threshold, read through the same function the editable Field and
+	// tree read it through, so no two of them can come to different answers
+	// about the same tree. One reading rather than two, because they are one
+	// judgement: a tree big enough to be met a level at a time is one worth
+	// carrying a way in and a way back out of.
 	//
 	// Size is the whole test, deliberately. The editable Field offers no Find
 	// with no Adapter configured, but only because it replaces itself with a
@@ -221,7 +238,7 @@ export function ReferenceReadValue({
 	// every row showing its id — and ADR-0013 already has Find matching those.
 	// A control present on one and absent on the other would be a difference an
 	// Author can see and cannot explain.
-	const offersFind = referenceTreeOpensFolded(rows);
+	const opensFolded = referenceTreeOpensFolded(rows);
 
 	// What the last Reveal landed on, named — null until one has.
 	const revealedRow =
@@ -254,11 +271,20 @@ export function ReferenceReadValue({
 			textAlign="start"
 			data-testid="reference-read-tree"
 		>
-			{offersFind && (
+			{opensFolded && (
 				// Above the tree and on the right, where the editable Field puts
 				// it, so the two read as the same control rather than as two.
 				<Box as="span" display="flex" justifyContent="flex-end">
 					<ReferenceFind rows={rows} names={names} onReveal={handleReveal} />
+				</Box>
+			)}
+
+			{opensFolded && (
+				// Under Find and above the rows, which is where the editable tree
+				// draws it too — the way back sits below the way in on both sides
+				// of the Field.
+				<Box as="span" display="flex" justifyContent="flex-end">
+					<ReferenceCollapseAll onCollapse={collapseAll} />
 				</Box>
 			)}
 

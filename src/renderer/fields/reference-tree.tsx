@@ -59,12 +59,14 @@ import {
 	referenceDisplayName,
 	referenceDropTarget,
 	referenceHasBranch,
+	referenceTreeOpensFolded,
 	removeReferenceAt,
 	spliceReference,
 	visibleReferenceRows,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
+import { ReferenceCollapseAll } from "./reference-collapse-all";
 import { ReferenceDropIndicator } from "./reference-drop-indicator";
 import {
 	ReferenceInsertSpacer,
@@ -839,6 +841,30 @@ export function ReferenceTree({
 		);
 	}
 
+	/**
+	 * Collapse all: the tree back in the fold set it opened in.
+	 *
+	 * `initialReferenceFolds` is *called* rather than restated, and over the rows
+	 * as they stand now — so this is the state this tree opens in, not the state
+	 * it opened in once and has since outgrown by a Reference or two. Anything
+	 * else here would be a second rule about how a tree of this size folds, free
+	 * to drift from the one the tree opened with; an empty set in particular
+	 * would be a *different* empty, the fully expanded tree an Author never asked
+	 * for.
+	 *
+	 * It reaches folds opened by a Reveal and folds opened by hand alike, and
+	 * that is the point rather than an oversight: neither is undone by anything
+	 * else here, which is precisely why the way back has to be one deliberate
+	 * act (CONTEXT.md — a Reveal is not a preview, unlike a Spring).
+	 *
+	 * The Reveal's mark is left exactly where it is. It says what an Author last
+	 * asked for, and folding its row away answers no question — the next Reveal
+	 * is what moves it.
+	 */
+	function collapseAll() {
+		setCollapsed(initialReferenceFolds(rows));
+	}
+
 	/** The one reading of a drag, from whichever event carries it. */
 	function resolveFrom(
 		event: DragMoveEvent | DragEndEvent,
@@ -1026,6 +1052,17 @@ export function ReferenceTree({
 	// has no gaps, and the Field's Add control is its way in.
 	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
 
+	// Collapse all is offered on exactly the trees that open folded, read
+	// through the tree model's own predicate rather than compared to the
+	// threshold again here. Below it a tree opens fully expanded, so the set
+	// this returns to is empty — a control named Collapse all that unfolded
+	// everything an Author had folded would be lying about itself, and a tree
+	// they take in at a glance has nothing to find a way back from.
+	//
+	// Offered read-only too, on the terms the chevrons already are: folding is
+	// a way of reading, and so is unfolding it all again.
+	const opensFolded = referenceTreeOpensFolded(rows);
+
 	// What the last Reveal landed on, named — null until one has, and again if
 	// the row it landed on has since left the tree.
 	const revealedRow =
@@ -1091,6 +1128,22 @@ export function ReferenceTree({
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
+			{opensFolded && (
+				// Above the rows and on the right, under whatever the Field puts
+				// there — the Add control and, on a tree this size, Find — so the
+				// ways into a large tree and the way back out of it read as one
+				// column of controls rather than as chrome from three places.
+				//
+				// Rendered here rather than by the Field, unlike Find: Find hangs
+				// on the Field because only the Field has the resolved names to
+				// search, while this needs nothing but the fold set, and the fold
+				// set is the tree's. A control passed down as a token to reach
+				// state one component away would be indirection bought with
+				// nothing.
+				<Flex justify="flex-end" mb="2">
+					<ReferenceCollapseAll onCollapse={collapseAll} />
+				</Flex>
+			)}
 			<SortableContext
 				items={shown.map((row) => row.key)}
 				strategy={stillListStrategy}
