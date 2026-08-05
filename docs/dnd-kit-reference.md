@@ -305,14 +305,6 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
   a sensor keeps a **capture-phase `click` blocker on `document`** until 50ms
   after it detaches, so a test that ends with a drag still in flight will
   silently swallow the *next* test's clicks. End every drag.
-- **The 8px dead zone is a `click`-event contract, not a `pointerdown` one.**
-  A sub-threshold press selects because the browser's `click` bubbles from the
-  grip to the shell's (or card header's) `onClick`; a real drag does not select
-  because the sensor's capture-phase blocker eats that same `click`. A
-  `stopPropagation` on the grip's **pointerdown** therefore changes nothing
-  either way — measured 2026-08-05 against `grip-click-vs-drag.test.tsx`, which
-  is green with one added. Only a `click` `stopPropagation` on the grip breaks
-  selection.
 - The default drop animation reads `getComputedStyle(node).transform` and
   `parseTransform` only accepts `matrix()`/`matrix3d()` — jsdom never
   produces those, so it early-returns before `node.animate` (which jsdom

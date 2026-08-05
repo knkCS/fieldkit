@@ -99,9 +99,9 @@ class MockIntersectionObserver {
 	}
 }
 
-/** The canvas's `PointerSensor` distance constraint, restated so the deltas
- * below visibly bracket it. It is written inline at the `useSensor` call in
- * `editor-canvas.tsx` and is not exported — a mismatch is caught by the tests
+/** The canvas's `PointerSensor` distance constraint. It is written inline at
+ * the `useSensor` call in `editor-canvas.tsx` and is not exported, so this is a
+ * restatement, not an import — a mismatch is caught by the boundary test below
  * failing, not by a type error. */
 const ACTIVATION_DISTANCE_PX = 8;
 /** A shaky click: enough travel to be a real human press, nowhere near the
@@ -175,6 +175,25 @@ function cardGrip(accessor: string): HTMLElement {
 	);
 }
 
+/**
+ * The pointer helpers below (`pressGrip`/`pointerBy`/`release`/`settleDrag`/
+ * `dragInFlight`), and the local `Harness` above, are near-copies of
+ * `spring-loaded-tabs.test.tsx`'s — the THIRD local canvas harness in this
+ * directory, after that file's and `cards-canvas.test.tsx`'s.
+ *
+ * Unlike the `PointerEvent` shim, this duplication is **not** a decision worth
+ * keeping: both files sit in `src/editor/__tests__` beside
+ * `editor-helpers.tsx`, the module that exists precisely for this, and the
+ * cross-layer excuse `spring-loaded-tabs.test.tsx` gives for its own copies
+ * (`/renderer` imports nothing from `/editor`) does not apply between two
+ * `/editor` files. It stands only because folding it in means editing passing
+ * test files this ticket may not touch — `spring-loaded-tabs.test.tsx` is under
+ * concurrent edit — and a fixture hoisted to serve one caller while two keep
+ * their copies would add a fourth home rather than remove three. Recorded as
+ * follow-up; it belongs with the keyboard-drag audit that will open those files
+ * anyway, alongside the rect-mock consolidation that file already flags.
+ */
+
 /** Where every press below starts. Any point does — the constraint is measured
  * as a DELTA from the pointerdown, not against a layout. */
 const PRESS_AT = { x: 100, y: 100 };
@@ -207,9 +226,18 @@ async function release() {
 	});
 }
 
-/** A real DOM click, so the sensor's capture-phase blocker on `document` gets
- * its say before React's root listener ever sees the event. */
-async function click(el: HTMLElement) {
+/**
+ * Stands in for the `click` a real browser synthesizes after a press and
+ * release on the same element. **jsdom synthesizes nothing** — no `click`
+ * follows `fireEvent.pointerUp` on its own — so the tests below fire it
+ * explicitly, in the order and at the moment a browser would.
+ *
+ * A real DOM event, not a React one, so the sensor's capture-phase blocker on
+ * `document` gets its say first: it sits above React's root listener in the
+ * propagation path, and its `stopPropagation` is what keeps the event from
+ * reaching the shell at all.
+ */
+async function clickAfterRelease(el: HTMLElement) {
 	await act(async () => {
 		fireEvent.click(el);
 	});
@@ -276,6 +304,31 @@ afterEach(async () => {
 	vi.unstubAllGlobals();
 });
 
+describe("the activation distance itself", () => {
+	it(`is exactly ${ACTIVATION_DISTANCE_PX}px: that far is still a click, one more is a drag`, async () => {
+		// The 3px/20px gestures below only BRACKET the constant — they hold for
+		// any distance in (3, 20], so on their own they would sit green through a
+		// change from 8 to 5. This walks the boundary instead, and is the only
+		// test here that pins the number: `hasExceededDistance` is a strict `>`,
+		// so a delta of exactly the constraint must still be pending and one more
+		// pixel must activate. Move the constant either way and one of the two
+		// assertions goes red.
+		const onSelect = vi.fn();
+		renderCanvas(TWO_FIELDS, onSelect);
+
+		// Both deltas are measured from the SAME pointerdown, not from each other.
+		await pressGrip(shellGrip("a"));
+		await pointerBy(ACTIVATION_DISTANCE_PX);
+		expect(dragInFlight()).toBe(false);
+
+		await pointerBy(ACTIVATION_DISTANCE_PX + 1);
+		expect(dragInFlight()).toBe(true);
+		// Activation alone never selects — that is the next describe's subject,
+		// asserted here only so this test cannot be read as saying it might.
+		expect(onSelect).not.toHaveBeenCalled();
+	});
+});
+
 describe("a field grip under the activation distance is a click", () => {
 	it(`selects the field and starts no drag (${UNDER_THRESHOLD_PX}px < ${ACTIVATION_DISTANCE_PX}px)`, async () => {
 		const onSelect = vi.fn();
@@ -297,7 +350,7 @@ describe("a field grip under the activation distance is a click", () => {
 		// The browser's own click, which follows the release. Nothing installed a
 		// blocker (only `handleStart` does), and the grip stops nothing of its
 		// own, so it bubbles to the shell's onClick.
-		await click(shellGrip("a"));
+		await clickAfterRelease(shellGrip("a"));
 
 		expect(onSelect).toHaveBeenCalledTimes(1);
 		expect(onSelect).toHaveBeenCalledWith("a");
@@ -338,7 +391,7 @@ describe("a field grip past the activation distance is a drag", () => {
 		// The click the browser fires after the release. The sensor's
 		// capture-phase blocker is still on `document` (it is removed 50 ms after
 		// detach), so it never reaches the shell.
-		await click(shellGrip("a"));
+		await clickAfterRelease(shellGrip("a"));
 
 		expect(onSelect).not.toHaveBeenCalled();
 	});
@@ -358,11 +411,11 @@ describe("a field grip past the activation distance is a drag", () => {
 		await release();
 
 		await advance(CLICK_BLOCKER_MS - 10);
-		await click(shellGrip("a"));
+		await clickAfterRelease(shellGrip("a"));
 		expect(onSelect).not.toHaveBeenCalled();
 
 		await advance(20); // now past the 50 ms teardown
-		await click(shellGrip("a"));
+		await clickAfterRelease(shellGrip("a"));
 
 		expect(onSelect).toHaveBeenCalledTimes(1);
 		expect(onSelect).toHaveBeenCalledWith("a");
@@ -385,7 +438,7 @@ describe("the card header grip discriminates the same way", () => {
 		expect(dragInFlight()).toBe(false);
 
 		await release();
-		await click(cardGrip("c1"));
+		await clickAfterRelease(cardGrip("c1"));
 
 		expect(onSelect).toHaveBeenCalledTimes(1);
 		expect(onSelect).toHaveBeenCalledWith("c1");
@@ -407,7 +460,7 @@ describe("the card header grip discriminates the same way", () => {
 
 		await travel();
 		await release();
-		await click(cardGrip("c1"));
+		await clickAfterRelease(cardGrip("c1"));
 
 		expect(onSelect).not.toHaveBeenCalled();
 	});
