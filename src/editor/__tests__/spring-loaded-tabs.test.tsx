@@ -747,3 +747,107 @@ describe("a keyboard drag bypasses the dwell", () => {
 		expect(dragInFlight()).toBe(true);
 	});
 });
+
+describe("a pointer drag wandering far outside the canvas", () => {
+	springFixture();
+
+	/** The page corner, in the mock's coordinates. `springRectMock`'s visible
+	 * droppables span (0,0)→(500,330) — three trigger zones along the top, four
+	 * shells stacked below — so this sits ~2500px past the nearest edge on both
+	 * axes, far beyond `OUTSIDE_CANVAS_SLACK_PX` (96).
+	 *
+	 * The 96px boundary itself is NOT this block's claim, and no assertion here
+	 * should be read as pinning it: `visible-collision.test.ts` pins it against
+	 * `editorCollision` directly, where a coordinate is a function argument
+	 * rather than a fired event, and where the edge cases (just-outside-but-
+	 * within-slack, hidden zero-rects, the keyboard bypass) can be enumerated
+	 * cheaply. The only question below is whether that function's `[]` survives
+	 * the trip through dnd-kit to `handleDragEnd`. */
+	const FAR_OUTSIDE = { x: 3000, y: 3000 };
+
+	/**
+	 * The #45 leg the 0.12.0 runtime gate failed and the suite could not see —
+	 * `visible-collision.ts` records it as "a post-spring drag to the page
+	 * corner still committed a drop". `closestCenter` has no distance cutoff, so
+	 * it always names SOME nearest droppable however far away the drag has gone;
+	 * `editorCollision` cuts a far-outside POINTER off before that fallback, and
+	 * this is the test that the cut-off reaches `handleDragEnd` as `over == null`
+	 * and takes its restore branch.
+	 *
+	 * Reached by the pointer route, which is the only route that exists: the
+	 * guard reads `args.pointerCoordinates`, and a keyboard drag carries none.
+	 * `dnd.test.tsx`'s "a drop that resolves to nothing restores the drag-start
+	 * tab" arrives at the same branch from the opposite side — `over` non-null, a
+	 * self-drop that `resolveDropTarget` declines, driven by the keyboard — so it
+	 * says nothing about whether a null `over` ever arrives at all.
+	 *
+	 * **Discrimination, checked by mutation rather than by reading**: with
+	 * `pointerOutsideCanvas`'s early return taken out of `editorCollision`,
+	 * FAR_OUTSIDE's nearest droppable by centre distance is `tabdrop-2` — Meta's
+	 * trigger — so the release moves `a` into Meta and drags the canvas after it.
+	 * The draft and the open-section assertions below both go red, in exactly the
+	 * shape the original report describes. The point is chosen for that: it is
+	 * not merely outside everything, it is outside everything while still having
+	 * a plausible nearest candidate to be wrongly handed to.
+	 *
+	 * **What it cannot see.** jsdom lays nothing out, so `springRectMock` decides
+	 * where the union of droppables is and the fired event decides where the
+	 * pointer is — both stipulated, neither measured. Nothing here says a real
+	 * editor's canvas is any particular size, that 3000px is off-screen for a
+	 * real author, or that 96px of slack is the right amount of it. Read a
+	 * failure as "the far-outside no-op broke", never as "the canvas moved".
+	 */
+	it("resolves nothing on the way out, commits nothing on release, and restores the drag-start section", async () => {
+		renderCanvas();
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+		const before = draftOrder();
+		expect(before).toBe("a,x,s1,b,s2,c");
+
+		await pointerLift("a");
+
+		// Spring to SEO first. Without it the drag-start tab IS the open one and
+		// "the drag-start section is restored" would hold with no restore wiring
+		// whatsoever — the spring is what gives the restore something to undo.
+		await pointerTo(onTrigger(1));
+		expect(screen.getByTestId("tabdrop-1")).toHaveAttribute(
+			"data-drop-target",
+			"true",
+		);
+		await dwell();
+		expect(openSection()).toBe("SEO");
+
+		// Down into the section that just appeared, onto its field — a resolved
+		// target with a line drawn for it. This guard is what stops the "no
+		// feedback" assertions below from passing on a drag that had never drawn
+		// any: the line exists, and then it is gone.
+		await pointerTo(onRow(2));
+		expect(screen.queryByTestId("drop-indicator")).not.toBeNull();
+
+		// …and out to the page corner.
+		await pointerTo(FAR_OUTSIDE);
+
+		// No insertion line, and no drop target marked anywhere:
+		// `data-drop-target` is BOTH the tab-trigger highlight and a card frame's
+		// receiving tint, so one query covers both feedback channels.
+		expect(screen.queryByTestId("drop-indicator")).toBeNull();
+		expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
+		// The drag is still live — a pointer off the canvas resolves nothing, it
+		// does not cancel. (A cancel would restore the tab here, and the release
+		// assertion below would then be measuring the wrong mechanism.)
+		expect(dragInFlight()).toBe(true);
+		expect(openSection()).toBe("SEO");
+		// Still nothing written, either — leaving the canvas is not a commit.
+		expect(draftOrder()).toBe(before);
+
+		await pointerDrop();
+
+		// Byte-identical: not one splice ran.
+		expect(draftOrder()).toBe(before);
+		// Decision 4's restore, on the null-target path and after a spring.
+		expect(openSection()).toBe("General");
+		expect(openPanelShells()).toEqual(["a", "x"]);
+		// And nothing was selected: selection is `follow`'s doing, and a drop
+		// that moved nothing has nothing to follow.
+		expect(hostSelection()).toBeNull();
+	});
+});
