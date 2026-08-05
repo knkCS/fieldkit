@@ -211,13 +211,30 @@ function treeSlots(): string[] {
 	).map((node) => node.getAttribute("data-testid") ?? "");
 }
 
-/** The inline transform the row named is currently carrying. */
-function transformOf(name: string): string {
+/** The row named, by the only text it carries. */
+function rowNamed(name: string): HTMLElement {
 	const row = screen
 		.getAllByTestId("reference-row")
 		.find((candidate) => candidate.textContent?.trim() === name);
 	if (!row) throw new Error(`no row named ${name}`);
-	return row.style.transform;
+	return row;
+}
+
+/** The inline transform the row named is currently carrying. */
+function transformOf(name: string): string {
+	return rowNamed(name).style.transform;
+}
+
+/**
+ * The translation the row named is carrying, in pixels, or null when it carries
+ * none at all — which is what a row the still-list strategy was asked about
+ * looks like.
+ */
+function translateOf(name: string): { x: number; y: number } | null {
+	const match = /^translate3d\((-?[\d.]+)px, (-?[\d.]+)px,/.exec(
+		transformOf(name),
+	);
+	return match ? { x: Number(match[1]), y: Number(match[2]) } : null;
 }
 
 describe("the Reference Tree's rows", () => {
@@ -988,6 +1005,14 @@ describe("what a drag shows about where it will land", () => {
 		]);
 		// And the indent is the only place that travel shows. Left in, the
 		// transform would carry a second, unquantised 24px on top of it.
+		//
+		// This still discriminates under the still-list strategy (Decision 10),
+		// which is not a given: a strategy returning null everywhere could have
+		// left the dragged row with no transform to test. It does not — the
+		// strategy is never asked about the active row (see `stillListStrategy`)
+		// — so both ways of breaking this reach the assertion. Suppression
+		// dropped gives `translate3d(24px, …`; the whole translate lost gives
+		// `""`. Neither matches.
 		expect(transformOf("Content 2")).toMatch(/^translate3d\(0px, /);
 	});
 
@@ -1163,6 +1188,145 @@ describe("what a drag shows about where it will land", () => {
 
 		expect(dropIndicator()).toBeNull();
 		expect(stored()).toEqual(flat);
+	});
+});
+
+/**
+ * Decisions 10–12 of the tree drag-feedback spec (2026-08-05), the second
+ * amendment — the one that reverses Decision 2. The list stops parting, the
+ * dragged row goes on following the pointer inside it, and it is lifted rather
+ * than dimmed.
+ *
+ * **What jsdom can and cannot see, once, for the whole block.** jsdom lays
+ * nothing out: there are no positions here, so "the list holds still" is not
+ * observable. What *is* observable is the mechanism that used to move it — the
+ * inline transform `verticalListSortingStrategy` put on every row between the
+ * drag and its landing. Every test below reads transforms and computed styles,
+ * and none of them can tell you what an Author sees.
+ */
+describe("the list holds still while a drag runs", () => {
+	// Three roots: dragging the first past the second is the step that used to
+	// displace the row under the pointer by a whole row's height.
+	const threeFlat: Reference[] = [
+		{ id: "article-1" },
+		{ id: "article-2" },
+		{ id: "article-3" },
+	];
+
+	let rects: ReturnType<typeof mockRowRects>;
+	beforeEach(() => {
+		rects = mockRowRects();
+	});
+	afterEach(() => {
+		rects.mockRestore();
+	});
+
+	it("gives no row but the dragged one a transform of any kind", async () => {
+		renderTree({ value: threeFlat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		await pressDuringDrag("ArrowDown");
+
+		// The pin. Under `verticalListSortingStrategy` this step put
+		// `translate3d(0px, -60px, 0)` on Content 2 — the row being aimed at
+		// sliding a row's height out from under the pointer — and
+		// `translate3d(0px, 0px, 0)` on Content 3. The still-list strategy hands
+		// both a null transform, which reaches the DOM as no transform at all.
+		expect(transformOf("Content 2")).toBe("");
+		expect(transformOf("Content 3")).toBe("");
+
+		// And the "where" is undiminished by their stillness: the indicator is
+		// in the same gap, at the same depth, as it was when the list parted.
+		expect(indicated()).toEqual([2, 0]);
+
+		await pressDuringDrag("Escape");
+	});
+
+	it("keeps the dragged row travelling with the drag, in the list", async () => {
+		renderTree({ value: threeFlat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		await pressDuringDrag("ArrowDown");
+
+		// Decision 11, and the engine fact Decision 10 rests on: with no
+		// `DragOverlay` mounted, `shouldDisplaceDragSource` is true, so
+		// `useSortable` hands the active row dnd-kit's raw drag delta and never
+		// consults the strategy for it (@dnd-kit/sortable 8.0.0). Had that gone
+		// the other way, the still list would have cost the tree its dragged row
+		// and there would have been no way back short of an overlay.
+		//
+		// One row is 60px in `mockRowRects`, so a step down is 60px of travel —
+		// which the strategy is emphatically not rounding to a slot.
+		expect(translateOf("Content 1")).toEqual({ x: 0, y: 60 });
+
+		await pressDuringDrag("ArrowDown");
+		expect(translateOf("Content 1")).toEqual({ x: 0, y: 120 });
+
+		await pressDuringDrag("Escape");
+	});
+
+	it("keeps it travelling after its own branch has folded away", async () => {
+		// The lift folds the dragged branch (Decision 7), which changes
+		// `SortableContext`'s `items` — and `displaceItem` is false while
+		// `disableTransforms` is, so *every* row including this one goes
+		// untransformed for that commit. It has to come back on the next one, or
+		// the drag would stop following the pointer exactly when the tree
+		// reshapes itself. Nothing else pins that: a tree of childless roots
+		// never changes `items` at all.
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		expect(renderedRows().map(([name]) => name)).toEqual([
+			"Content 1",
+			"Content 3",
+		]);
+
+		await pressDuringDrag("ArrowDown");
+		expect(translateOf("Content 1")).toEqual({ x: 0, y: 60 });
+
+		await pressDuringDrag("Escape");
+	});
+
+	it("lifts the dragged row instead of dimming it", async () => {
+		renderTree({ value: threeFlat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+
+		// Decision 12. The 0.5 dim is gone: with nothing parting beneath it the
+		// row overlaps what it passes, and two translucent rows stacked is the
+		// thing to avoid — so it reads as a card carried over the list.
+		const lifted = rowNamed("Content 1");
+		expect(lifted.getAttribute("data-lifted")).toBe("true");
+		const style = getComputedStyle(lifted);
+		// The dim is not turned down, it is *gone*: the row declares no opacity
+		// at all, so it renders at full strength like every other one. Any dim
+		// reintroduced at any value would show up here.
+		expect(style.opacity).toBe("");
+		// Raised and shadowed — the two halves of "carried over the list" rather
+		// than "blended into it". jsdom hands back the token references
+		// unresolved, which is enough to say both were asked for.
+		expect(style.zIndex).toBe("var(--chakra-z-index-docked)");
+		expect(style.boxShadow).toBe("var(--chakra-shadows-lg)");
+
+		// Its neighbours are not lifted, and never were dimmed.
+		expect(rowNamed("Content 2").getAttribute("data-lifted")).toBeNull();
+
+		await pressDuringDrag("Escape");
+
+		// And the lift is only for the duration.
+		const settled = getComputedStyle(rowNamed("Content 1"));
+		expect(rowNamed("Content 1").getAttribute("data-lifted")).toBeNull();
+		expect(settled.zIndex).toBe("");
+		expect(settled.boxShadow).toBe("");
 	});
 });
 
