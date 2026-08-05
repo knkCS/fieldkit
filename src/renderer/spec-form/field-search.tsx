@@ -1,5 +1,5 @@
 // src/renderer/spec-form/field-search.tsx
-import { Box, Text } from "@chakra-ui/react";
+import { Box, Text, useSafeLayoutEffect } from "@chakra-ui/react";
 import { SearchInput, type SearchInputHandle } from "@knkcs/anker/forms";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FieldSearchResult } from "./search-index";
@@ -106,7 +106,26 @@ export function FieldSearch({
 	// keypress that dismisses this dropdown. A window-level capture
 	// listener fires before any document-capture listener (outermost-first),
 	// deterministically, regardless of registration order.
-	useEffect(() => {
+	//
+	// A LAYOUT effect, not a passive one (#82). `open` is derived synchronously
+	// from `query`, so the listbox and `open === true` land in one render — but
+	// that render is reached from anker's DEBOUNCED onSearch, i.e. from a timer
+	// rather than from a discrete user event, and React defers a timer-lane
+	// render's passive effects to a later task instead of flushing them with
+	// the render. A passive listener therefore attaches after the dropdown is
+	// already painted, and an Escape arriving in between closes the surrounding
+	// drawer and discards the Author's edits — the exact thing this listener
+	// exists to prevent. A layout effect runs before paint, so "visible" and
+	// "contained" cannot separate.
+	//
+	// Via Chakra's `useSafeLayoutEffect` (useLayoutEffect in the browser,
+	// useEffect where there is no `document`) rather than the raw hook: it is
+	// the wrapper already in this tree, so this stays one pattern rather than a
+	// new one. Note the once-standard reason is now stale — React 19, the
+	// minimum this package supports, no longer warns about a layout effect
+	// during server rendering; the wrapper is kept for being free and correct
+	// on whatever renderer a Consumer actually has.
+	useSafeLayoutEffect(() => {
 		if (!open) return;
 		const onEscapeCapture = (e: KeyboardEvent) => {
 			if (e.key !== "Escape") return;

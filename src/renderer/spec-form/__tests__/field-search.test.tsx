@@ -14,6 +14,7 @@ import {
 	makeSection,
 	Wrapper,
 } from "./helpers";
+import { asSoonAsRendered } from "./render-timing";
 
 const schema = [
 	makeField("title", "Title"),
@@ -172,19 +173,51 @@ describe("SpecForm — field search", () => {
 
 		fireEvent.keyDown(input, { key: "Escape" });
 
-		// The dropdown teardown can defer past the synchronous dispatch under
-		// load (observed once on a CI runner — fieldkit#39); the point of this
-		// test is CONTAINMENT, which IS provable synchronously: if Escape were
-		// going to bubble, onWrapperKeyDown fired during the dispatch above.
+		// Containment is provable synchronously: if Escape were going to
+		// bubble, onWrapperKeyDown fired during the dispatch above.
 		expect(onWrapperKeyDown).not.toHaveBeenCalled();
 		await waitFor(() => {
 			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		});
-		// Generous TEST timeout (#39 flake class, 4th instance 2026-07-15:
-		// the 53db1d7 waitFor headroom now exceeds vitest's 5s TEST budget
-		// under CI load — the failure just moved up a level). The awaits
-		// pass; they're slow on a loaded runner.
-	}, 15000);
+	});
+
+	// The same claim, pressed at the earliest instant it can be: the test above
+	// waits for the listbox with `findByRole`, which proves the render landed —
+	// not that the containment listener is attached. `asSoonAsRendered` says why
+	// those are different, and `spec-form.mdx` records what the component owes
+	// because of it. An Author racing the debounce that opens the dropdown can
+	// land in the same gap, and lose the drawer's edits to it (#82).
+	it("contains an Escape pressed the instant the dropdown appears", async () => {
+		const onWrapperKeyDown = vi.fn();
+		render(
+			// biome-ignore lint/a11y/noStaticElementInteractions: test-only listener standing in for a real ancestor (e.g. Chakra's drawer) that closes on Escape
+			<div onKeyDown={onWrapperKeyDown}>
+				<Wrapper>
+					<SpecForm schema={schema} />
+				</Wrapper>
+			</div>,
+		);
+		const input = screen.getByPlaceholderText("Find field…");
+		fireEvent.change(input, { target: { value: "meta" } });
+
+		// Dispatched natively rather than through fireEvent, which RTL wraps in
+		// act() — and act()'s exit flushes the pending passive effects, handing
+		// the unfixed component exactly the ordering it was missing.
+		await asSoonAsRendered('[role="listbox"]', () => {
+			input.dispatchEvent(
+				new KeyboardEvent("keydown", {
+					key: "Escape",
+					bubbles: true,
+					cancelable: true,
+				}),
+			);
+		});
+
+		expect(onWrapperKeyDown).not.toHaveBeenCalled();
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+	});
 
 	it("skips disabled controls in the jump focus fallback", async () => {
 		// A picker-style field whose FIRST focusable child is disabled: the
