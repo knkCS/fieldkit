@@ -34,7 +34,13 @@
  *
  * `referenceBranchEnd` is the rest of what a tree UI asks of the list: which
  * rows a Reference's branch occupies, which is what a drag moves and what a
- * collapsed Reference hides.
+ * folded Reference hides.
+ *
+ * Folding reads it. Which rows a fold set hides, which folds stand above a
+ * row, which of those a Reveal must open, and the set a tree opens with — all
+ * of them arithmetic over the same list, and all of them here rather than in
+ * a component because two renderers draw this tree and a rule each of them
+ * owns a copy of is a rule they are free to disagree about (#88).
  *
  * `countReferences` is the same model's answer to "how big is this tree",
  * which is what `max_items` caps — every Reference at every level, since a
@@ -49,9 +55,9 @@
  * not a Reference and remembers where the rest came from, and the writer
  * puts the strays back. Everything above them can then assume a real tree.
  *
- * No DOM, no React, no dnd-kit: the drag and insert maths are asserted with
- * plain assertions, following the precedent `resolve-drop-target.ts` set for
- * the editor canvas.
+ * No DOM, no React, no dnd-kit: the drag, insert and fold maths are asserted
+ * with plain assertions, following the precedent `resolve-drop-target.ts` set
+ * for the editor canvas.
  */
 import type { Reference } from "./reference";
 import { asReference } from "./reference";
@@ -809,4 +815,139 @@ export function referencesPastDepth(
 	};
 	walk(references, 0, []);
 	return found;
+}
+
+/*
+ * Folding.
+ *
+ * A **fold set** is the keys of the References whose branches are shut. It is
+ * a control's own state and never the value's (ADR-0008), but what it *means*
+ * is the tree's: which rows it hides, and which of them stand between a
+ * Reference and being seen. Those rules live here for the same reason the drag
+ * maths above does — two renderers draw this tree, and a rule each of them
+ * owns a copy of is a rule they are free to disagree about.
+ *
+ * Every one of them takes the fold set as it stands, strangers and all. Keys
+ * name positions, so a move or a removal renames them and a set is routinely
+ * a little out of date; a rule that threw, or hid the wrong branch, on a key
+ * that no longer resolves would turn that into a defect an Author could see.
+ */
+
+/** What a fold rule needs of a row: where it sits, and what it is called. */
+export type FoldableRow = Pick<ReferenceRow, "depth" | "key">;
+
+/**
+ * Above this many References a tree opens with its parents folded; at or
+ * below it, expanded.
+ *
+ * PROVISIONAL — a guess, not a measurement, and #61 says as much: the
+ * threshold "wants tuning against a real Spec". Twenty rows is roughly a
+ * screenful at the row height the tree draws, which is the point where an
+ * expanded tree stops being something an Author takes in at a glance and
+ * starts being something they scroll. Below it, folding would only make
+ * someone expand a three-item list before they could read it.
+ *
+ * It is a number about what appears on screen, kept here rather than in a
+ * component because it is inseparable from the fold set it produces, and
+ * because both renderers of this tree have to open the same way.
+ */
+export const REFERENCE_TREE_COLLAPSE_THRESHOLD = 20;
+
+/** Whether a Reference has anything under it to fold away. */
+export function referenceHasBranch(row: Pick<ReferenceRow, "height">): boolean {
+	return row.height > 0;
+}
+
+/**
+ * The fold set a tree opens with: every Reference that has a branch, once the
+ * tree is past {@link REFERENCE_TREE_COLLAPSE_THRESHOLD}, and nothing at all
+ * below it.
+ *
+ * Which leaves the roots on screen — a tree big enough to be worth folding is
+ * one an Author meets a level at a time. A leaf is never named: a fold set
+ * naming one would claim a row is shut with nothing behind it.
+ */
+export function initialReferenceFolds(
+	rows: readonly Pick<ReferenceRow, "key" | "height">[],
+): Set<string> {
+	if (rows.length <= REFERENCE_TREE_COLLAPSE_THRESHOLD) return new Set();
+	return new Set(rows.filter(referenceHasBranch).map((row) => row.key));
+}
+
+/**
+ * The rows an Author can see: everything not inside a folded Reference.
+ *
+ * A folded Reference is on screen itself — it stands in for its branch
+ * everywhere else here, and cannot do that from behind its own fold. What it
+ * hides is the slice below it that `referenceBranchEnd` bounds, however deep,
+ * so a fold nested inside a folded branch costs nothing and says nothing.
+ *
+ * Entries are the caller's own, in the order it holds them, so whatever a row
+ * carries — a key for React, a resolved name — travels back on the row.
+ */
+export function visibleReferenceRows<T extends FoldableRow>(
+	rows: readonly T[],
+	folded: ReadonlySet<string>,
+): T[] {
+	const shown: T[] = [];
+	let hiddenThrough = -1;
+	rows.forEach((row, index) => {
+		if (index <= hiddenThrough) return;
+		shown.push(row);
+		// A key naming a leaf, or naming nothing at all, bounds a branch of one
+		// row — itself — and so hides nothing.
+		if (folded.has(row.key)) hiddenThrough = referenceBranchEnd(rows, index);
+	});
+	return shown;
+}
+
+/**
+ * The keys of everything the row at `index` sits inside — its ancestors,
+ * nearest first, which is the order a caller opening its way down meets them.
+ *
+ * Read off depths rather than off the row's path, so a list a caller built by
+ * hand mid-drag answers as readily as one the reader produced. Walking up from
+ * the row, each row shallower than the shallowest seen so far is the next
+ * ancestor; everything between is a sibling's branch and contains nothing.
+ *
+ * Empty for a root, and for an index the list does not reach — an ancestor of
+ * a row that is not there is not a question with an answer.
+ */
+export function referenceAncestorKeys<T extends FoldableRow>(
+	rows: readonly T[],
+	index: number,
+): string[] {
+	const keys: string[] = [];
+	let depth = rows[index]?.depth ?? 0;
+	for (let above = index - 1; above >= 0 && depth > 0; above--) {
+		if (rows[above].depth < depth) {
+			keys.push(rows[above].key);
+			depth = rows[above].depth;
+		}
+	}
+	return keys;
+}
+
+/**
+ * The folds that have to open before the row at `index` can be seen — its
+ * ancestors, less the ones already open.
+ *
+ * This is the whole of what a Reveal does to the fold set (CONTEXT.md): open
+ * the way down to a Reference and nothing else. Two things it deliberately
+ * leaves alone say why it answers with a subset rather than with every
+ * ancestor. Folds elsewhere in the tree are untouched, so Reveals accumulate
+ * and a fold an Author opened by hand is never fought; and the revealed
+ * Reference's *own* fold stays shut, because a Reveal shows the row and its
+ * branch is a separate question.
+ *
+ * Nearest ancestor first, as `referenceAncestorKeys` answers. Nothing here
+ * cares about the order — a caller opens all of them — but an order that is
+ * defined is one a caller may rely on.
+ */
+export function foldsToReveal<T extends FoldableRow>(
+	rows: readonly T[],
+	index: number,
+	folded: ReadonlySet<string>,
+): string[] {
+	return referenceAncestorKeys(rows, index).filter((key) => folded.has(key));
 }
