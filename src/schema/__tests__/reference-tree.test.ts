@@ -14,6 +14,7 @@ import {
 	REFERENCE_TREE_COLLAPSE_THRESHOLD,
 	readReferenceTree,
 	referenceAncestorKeys,
+	referenceAncestorRows,
 	referenceBranchEnd,
 	referenceDropTarget,
 	referencesPastDepth,
@@ -1660,6 +1661,24 @@ describe("referenceAncestorKeys", () => {
 	it("finds none for an index the list does not reach", () => {
 		expect(referenceAncestorKeys(deepRows, 99)).toEqual([]);
 		expect(referenceAncestorKeys(deepRows, -1)).toEqual([]);
+	});
+});
+
+describe("referenceAncestorRows", () => {
+	it("answers with the caller's own rows, so what a row carries travels back", () => {
+		// The keys are the folding half; Find reads the same walk for the names
+		// its results are placed by, and one walk is what keeps a path from
+		// naming a route the folds do not take.
+		expect(referenceAncestorRows(deepRows, 5)).toEqual([
+			deepRows[4],
+			deepRows[3],
+			deepRows[1],
+		]);
+	});
+
+	it("finds none for a root, or for an index the list does not reach", () => {
+		expect(referenceAncestorRows(deepRows, 0)).toEqual([]);
+		expect(referenceAncestorRows(deepRows, 99)).toEqual([]);
 	});
 });
 

@@ -33,7 +33,14 @@ import {
 	Tags,
 	Trash2,
 } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import {
+	Fragment,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { Reference } from "../../schema/reference";
 import {
 	countFilledAttributes,
@@ -41,6 +48,7 @@ import {
 } from "../../schema/reference-attributes";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
+	foldsToReveal,
 	initialReferenceFolds,
 	moveReferenceBranch,
 	nestReferences,
@@ -48,6 +56,7 @@ import {
 	readReferenceTree,
 	referenceAncestorKeys,
 	referenceBranchEnd,
+	referenceDisplayName,
 	referenceDropTarget,
 	referenceHasBranch,
 	removeReferenceAt,
@@ -86,6 +95,26 @@ function carryCollapsed(
 		if (was && collapsed.has(was.key)) carried.add(row.key);
 	});
 	return carried;
+}
+
+/**
+ * Carries the Reveal's mark across the same change of shape, on the same
+ * pairing — a Reveal is not undone by an edit, and a key names a position, so
+ * without this the mark would silently move to whichever Reference the old key
+ * now names.
+ *
+ * Expressed through `carryCollapsed` rather than beside it: the question is the
+ * same one ("what is this row called now?"), and two answers to it would be two
+ * things free to disagree.
+ */
+function carryRevealed(
+	before: readonly { key: string }[],
+	after: readonly { key: string }[],
+	revealed: string | null,
+): string | null {
+	if (revealed === null) return null;
+	const [carried] = carryCollapsed(before, after, new Set([revealed]));
+	return carried ?? null;
 }
 
 /** What {@link resolveDrop} is asked: a drag, as the two lists see it. */
@@ -527,6 +556,32 @@ export interface ReferenceInsertRequest {
 	commit: (reference: Reference) => void;
 }
 
+/**
+ * An ask to **Reveal** a Reference: every fold above it opens, the row lands
+ * in the middle of the viewport, takes focus, and stays marked until the next
+ * one (CONTEXT.md).
+ *
+ * The two travel together, and that is the point of the type. The `token` is
+ * what makes asking for the same Reference twice running *two* Reveals — a key
+ * on its own changes no prop the second time, which is exactly the case an
+ * Author hits by scrolling away and wanting back. `spec-form.tsx`'s `jumpToken`
+ * is the same device for the same reason. Passing them as one value is what
+ * stops a caller offering a key with no token to arm it.
+ */
+export interface ReferenceReveal {
+	/**
+	 * Which Reference, by row key.
+	 *
+	 * A key rather than an id, because the same Content may sit in one tree
+	 * twice and only a position tells the two apart. A key naming no row is
+	 * ignored — a caller's target can be renamed by any edit, and a Reveal is
+	 * not worth throwing over.
+	 */
+	key: string;
+	/** Bumped by the caller on every ask. */
+	token: number;
+}
+
 export interface ReferenceTreeProps {
 	/** The rows to render — `readReferenceTree` of the stored value. */
 	rows: readonly ReferenceRow[];
@@ -575,6 +630,9 @@ export interface ReferenceTreeProps {
 	 * `referenceItemCap` in `/schema` is what says so.
 	 */
 	atItemCap?: boolean;
+	/** The Reference to **Reveal**, or null for a tree nobody has asked
+	 * anything of — see {@link ReferenceReveal}. */
+	reveal?: ReferenceReveal | null;
 }
 
 /**
@@ -613,6 +671,7 @@ export function ReferenceTree({
 	onOpenAttributes,
 	onInsert,
 	atItemCap,
+	reveal,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -628,6 +687,26 @@ export function ReferenceTree({
 	// many strips as there are gaps and a control wants one voice — see the
 	// live regions at the foot of this component.
 	const [insertPreview, setInsertPreview] = useState<string | null>(null);
+	// The Reference the last Reveal landed on, marked until the next one — a
+	// Reveal is an answer to a question, and an answer that faded would have to
+	// be asked for again. It is deliberately not restored, reset or folded back
+	// by anything: unlike a Spring, a Reveal is not a preview.
+	const [revealed, setRevealed] = useState<string | null>(null);
+	// The Reference a Reveal has asked for but not yet landed on.
+	//
+	// A ref rather than state because it is consumed by the landing rather than
+	// rendered, and writing it must not itself schedule a render — the render
+	// that matters is the one opening the folds, which the landing waits for.
+	const pendingRevealRef = useRef<string | null>(null);
+	// Every row's node, by key. Scoped to this tree rather than found through a
+	// document query: a form may hold several Reference Fields, and a key is an
+	// index path, so the same key names a row in every one of them.
+	const rowNodes = useRef(new Map<string, HTMLElement>());
+
+	const registerRow = useCallback((key: string, node: HTMLElement | null) => {
+		if (node) rowNodes.current.set(key, node);
+		else rowNodes.current.delete(key);
+	}, []);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -681,6 +760,71 @@ export function ReferenceTree({
 		onSpring: (key) => setCollapsed((current) => foldedWithout(current, key)),
 	});
 
+	/**
+	 * A Reveal: open the way down to the Reference somebody named, and mark it.
+	 *
+	 * The fold set is the whole of what this writes, and `foldsToReveal` is the
+	 * whole of what it writes into it — the ancestors that are shut, and
+	 * nothing else. So Reveals **accumulate**: an earlier Reveal's folds stay
+	 * open, a fold an Author opened by hand is never fought, and the revealed
+	 * Reference's own branch stays as it was, because showing a row and opening
+	 * what hangs under it are different questions.
+	 *
+	 * Nothing here writes the value. Find changes what is folded and where an
+	 * Author is looking; order, nesting, Pins and Attributes are untouched, so
+	 * a drag is never standing on ground that moved.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the token is a re-run trigger, not read for its value — it is what makes asking for the same Reference twice two Reveals, which naming `reveal` or `rows` here would not
+	useEffect(() => {
+		if (!reveal) return;
+		const index = rows.findIndex((row) => row.key === reveal.key);
+		// A key naming no row: a caller's target can be renamed by any edit, and
+		// there is nothing to reveal or to say about it.
+		if (index === -1) return;
+		setCollapsed((current) => {
+			const opening = foldsToReveal(rows, index, current);
+			// The same set back when it was already open, so a Reveal of a row on
+			// screen re-renders nothing.
+			if (opening.length === 0) return current;
+			const next = new Set(current);
+			for (const key of opening) next.delete(key);
+			return next;
+		});
+		setRevealed(reveal.key);
+		pendingRevealRef.current = reveal.key;
+	}, [reveal?.token]);
+
+	/**
+	 * The landing: focus the revealed row and put it in the middle of the
+	 * viewport.
+	 *
+	 * Run after **every** commit, deliberately, rather than keyed on the rows
+	 * on screen. The row may not exist yet when the Reveal above runs — it is
+	 * inside the branches that Reveal has only just asked to open — so the
+	 * landing has to be able to happen a render later; and when the row was on
+	 * screen all along, opening nothing changes no state, so an effect waiting
+	 * for the visible rows to change would wait forever. The pending ref is
+	 * what makes running often free: with no Reveal outstanding this is a read
+	 * and a return.
+	 *
+	 * Focus rather than scroll alone, because a Reveal has to be findable by
+	 * someone who is not looking at the screen — and because landing on the row
+	 * puts its grip, its fold control and its buttons one Tab away.
+	 */
+	useEffect(() => {
+		const key = pendingRevealRef.current;
+		if (key == null) return;
+		const node = rowNodes.current.get(key);
+		// Not on screen yet: the folds this Reveal opened are still committing,
+		// and the next commit is when the row exists to land on.
+		if (!node) return;
+		pendingRevealRef.current = null;
+		node.focus();
+		// Optional-called: jsdom implements no scrolling, and neither does a
+		// Consumer's test renderer.
+		node.scrollIntoView?.({ block: "center", behavior: "smooth" });
+	});
+
 	// The Attributes an Author is actually being asked for — a hidden one is
 	// neither counted nor rendered, so a row cannot say "1 of 2" with only one
 	// control behind it.
@@ -709,7 +853,9 @@ export function ReferenceTree({
 		const end = referenceBranchEnd(rows, from);
 		const kept = rows.filter((_, index) => index < from || index > end);
 		const next = removeReferenceAt(value, row.path);
-		setCollapsed(carryCollapsed(kept, readReferenceTree(next), collapsed));
+		const nextRows = readReferenceTree(next);
+		setCollapsed(carryCollapsed(kept, nextRows, collapsed));
+		setRevealed(carryRevealed(kept, nextRows, revealed));
 		onChange(next);
 	}
 
@@ -741,6 +887,7 @@ export function ReferenceTree({
 		for (const key of referenceAncestorKeys(nextRows, at)) carried.delete(key);
 
 		setCollapsed(carried);
+		setRevealed(carryRevealed(before, nextRows, revealed));
 		onChange(next);
 	}
 
@@ -871,12 +1018,21 @@ export function ReferenceTree({
 			carried.delete(key);
 
 		setCollapsed(carried);
+		setRevealed(carryRevealed(moved, nextRows, revealed));
 		onChange(next);
 	}
 
 	// No strips without somewhere to put a Reference *between*: an empty tree
 	// has no gaps, and the Field's Add control is its way in.
 	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
+
+	// What the last Reveal landed on, named — null until one has, and again if
+	// the row it landed on has since left the tree.
+	const revealedRow =
+		revealed === null ? undefined : rows.find((row) => row.key === revealed);
+	const revealedName = revealedRow
+		? referenceDisplayName(revealedRow, names)
+		: null;
 
 	// Where the release would land, for the one gap that draws it.
 	const landing = dropLanding(rows, shown, pending);
@@ -944,7 +1100,9 @@ export function ReferenceTree({
 						{insertionGap(index)}
 						<ReferenceTreeRowItem
 							row={row}
-							name={names[row.reference.id] ?? row.reference.id}
+							name={referenceDisplayName(row, names)}
+							registerNode={registerRow}
+							revealed={row.key === revealed}
 							// The dragged row indents to where releasing would put it,
 							// and the rows it would take are marked — both from the
 							// same resolution the release itself uses.
@@ -994,6 +1152,14 @@ export function ReferenceTree({
 			<VisuallyHidden role="status" data-testid="reference-insert-notice">
 				{insertPreview ?? ""}
 			</VisuallyHidden>
+			{/* A Reveal moves focus onto a row that is a row rather than a
+			    control, so what a screen reader announces on arrival is whatever
+			    the row happens to contain. This says the one thing that matters
+			    outright, and says it only when a Reveal has actually landed —
+			    the mark on the row is what says it to everyone else. */}
+			<VisuallyHidden role="status" data-testid="reference-reveal-notice">
+				{revealedName === null ? "" : `Revealed ${revealedName}`}
+			</VisuallyHidden>
 		</DndContext>
 	);
 }
@@ -1002,10 +1168,15 @@ ReferenceTree.displayName = "ReferenceTree";
 interface ReferenceTreeRowItemProps {
 	row: ReferenceRow;
 	name: string;
+	/** Hands this row's node to the tree, so a Reveal can land on it without
+	 * querying a document that may hold several trees. */
+	registerNode: (key: string, node: HTMLElement | null) => void;
 	/** What to draw at — the row's own depth, or where a drag would land it. */
 	depth: number;
 	/** Whether a drag in flight would take this row as a descendant. */
 	adopted: boolean;
+	/** Whether the last Reveal landed here — marked until the next one. */
+	revealed: boolean;
 	collapsed: boolean;
 	readOnly: boolean;
 	/** How many Attributes the Field declares. Zero puts no affordance on the
@@ -1021,8 +1192,10 @@ interface ReferenceTreeRowItemProps {
 function ReferenceTreeRowItem({
 	row,
 	name,
+	registerNode,
 	depth,
 	adopted,
+	revealed,
 	collapsed,
 	readOnly,
 	attributesAsked,
@@ -1056,9 +1229,30 @@ function ReferenceTreeRowItem({
 	});
 	const hasChildren = referenceHasBranch(row);
 
+	// One stable callback rather than a fresh closure per render: React detaches
+	// and reattaches a ref whose identity changed, and dnd-kit answers that by
+	// unobserving and re-observing the row — churn on exactly the large trees
+	// Find exists for, and mid-drag, where {@link TREE_MEASURING} is already
+	// load-bearing.
+	const setRowRef = useCallback(
+		(node: HTMLElement | null) => {
+			setNodeRef(node);
+			registerNode(row.key, node);
+		},
+		[setNodeRef, registerNode, row.key],
+	);
+
 	return (
 		<Flex
-			ref={setNodeRef}
+			ref={setRowRef}
+			// A row is not a control, and this does not make it one: it is
+			// -1, so it never joins the tab order and nothing changes for
+			// someone tabbing through the tree. It exists so a Reveal can put
+			// focus *on the Reference* rather than on one of its buttons —
+			// which is what lets a screen reader arrive at the row, and what
+			// puts the grip, the fold control and the buttons one Tab away in
+			// the order they are drawn.
+			tabIndex={-1}
 			style={{
 				// The dragged row travels vertically only. Without a
 				// `DragOverlay`, `useSortable` hands the *active* row dnd-kit's raw
@@ -1098,6 +1292,17 @@ function ReferenceTreeRowItem({
 			position="relative"
 			// An outline rather than a border: a marked row must not move, or
 			// the feedback would restructure the very list it is describing.
+			//
+			// A Reveal's mark is dashed where a drag's is solid, and it is
+			// written first so that a drag — which is transient, and about what
+			// letting go will do — wins on a row that is both.
+			{...(revealed
+				? {
+						outline: "2px dashed",
+						outlineColor: "accent",
+						outlineOffset: "1px",
+					}
+				: {})}
 			{...(adopted
 				? { outline: "2px solid", outlineColor: "accent", outlineOffset: "1px" }
 				: {})}
@@ -1122,6 +1327,11 @@ function ReferenceTreeRowItem({
 			// Whether releasing would take this row — the same fact the outline
 			// draws, for a test to read and a Consumer to style against.
 			data-adopted={adopted ? "true" : undefined}
+			// Whether the last Reveal landed here, on the same terms — and said
+			// to a screen reader as well as drawn, because a mark that only
+			// exists as an outline is a mark half the Authors here never get.
+			data-revealed={revealed ? "true" : undefined}
+			aria-current={revealed ? "true" : undefined}
 		>
 			<Flex align="center" gap="1" minWidth="0">
 				{!readOnly && (
