@@ -12,6 +12,9 @@ still list, `resolveDropTarget`) — design record:
 the 0.12.0 spring-loaded sections feature (dwell-triggered tab switching,
 explicit droppable re-measuring — see [Measuring](#measuring) below) —
 design record: `docs/superpowers/specs/2026-07-14-spring-loaded-sections-design.md`.
+Extended again for the Reference Tree's drag feedback and its mid-drag folding
+(a dragged branch folds away; a folded one springs open on a dwell) — design
+record: `docs/superpowers/specs/2026-08-05-tree-drag-feedback-design.md`.
 
 ## Scope
 
@@ -31,7 +34,8 @@ Author reorders and nests the References a Field holds:
 
 | File | Role |
 |---|---|
-| `src/renderer/fields/reference-tree.tsx` | `DndContext` + one `SortableContext`, sensors, all drag handlers, `useSortable` per row; `resolveDrop` is its single mid-drag/drop resolution |
+| `src/renderer/fields/reference-tree.tsx` | `DndContext` + one `SortableContext`, sensors, all drag handlers, `useSortable` per row; `resolveDrop` is its single mid-drag/drop resolution; owns the mid-drag folding |
+| `src/renderer/fields/use-spring-loaded-branch.ts` | Pointer dwell before a hovered folded Reference springs open |
 | `src/schema/reference-tree.ts` | The maths, with no dnd-kit import at all: flatten, project a drop depth, move a branch, re-nest |
 
 Nothing else (table, rich-text-spec) uses dnd-kit. `EditorSpecEditor` uses
@@ -68,6 +72,24 @@ height, so nothing shifts. It is a `/renderer`-local copy of the canvas's
 and the canvas's `variant: "above" | "below" | "flow"` is dialect for
 absolutely-positioned strips. A landing that would rewrite nothing draws
 nothing, off the same predicate `handleDragEnd` uses to skip the write.
+
+**A tree drag changes what is folded, which changes what is mounted.** Lifting
+a Reference folds its own branch away for the duration and restores it on the
+drop or the cancel; resting a *pointer* drag on a folded Reference springs it
+open after `SPRING_DWELL_MS`, and a spring that did not receive the drop folds
+back (tree drag-feedback spec 2026-08-05, Decisions 7–9). So rows unmount at
+drag start and mount mid-drag — see [Measuring](#measuring) for what that does
+to rects, and why the tree names its strategy rather than inheriting it. The
+tree's mid-drag resolution is **derived** from the last drag event rather than
+stored beside it, for the same reason: a spring reshapes the visible list
+without any dnd-kit event firing, and a resolution captured at the last pointer
+move would go on naming a gap that has moved.
+
+The dwell lives in `src/renderer/fields/use-spring-loaded-branch.ts` — the
+editor's `useSpringLoadedTab` in tree terms, copied rather than shared because
+`/renderer` imports nothing from `/editor`. **`SPRING_DWELL_MS` is restated
+with the same value in both, deliberately: one gesture, one feel. They move
+together or not at all.**
 
 Its resolver reads **two lists**, and that split is load-bearing. Order comes
 from every row, folded ones included, because a branch travels with its
@@ -122,12 +144,42 @@ of how the DOM nests fields inside card frames. During a drag:
 
 ## Measuring
 
-**Ground truth: droppables measure their rect at drag start only** (the
-`WhileDragging` default measuring strategy re-measures on scroll/resize, not
-on an arbitrary DOM visibility flip). A droppable that is `hidden` when a
-drag begins keeps whatever zero-size rect it measured while hidden for the
-rest of that drag — dnd-kit has no hook that says "this container just
-became visible, re-measure it."
+**Ground truth: a droppable that stays mounted measures its rect at drag start
+only** (the `WhileDragging` default measuring strategy re-measures on
+scroll/resize, not on an arbitrary DOM visibility flip). A droppable that is
+`hidden` when a drag begins keeps whatever zero-size rect it measured while
+hidden for the rest of that drag — dnd-kit has no hook that says "this
+container just became visible, re-measure it."
+
+**Mounting and unmounting are a different case, and it re-measures itself.**
+Checked against the installed 6.3.1/8.0.0 sources for the Reference Tree's
+mid-drag folding:
+
+- Registering or unregistering a droppable replaces
+  `state.droppable.containers` with a **new `DroppableContainersMap`**
+  (`reducer`, `core.esm.js`), so `enabledDroppableContainers` gets a new
+  identity, so `useDroppableMeasuring`'s `droppableRects` lazy memo recomputes
+  — and since its guard is `containersRef.current !== containers`, it
+  re-measures **every** container, not only the one that changed. Rows that
+  merely *moved* because a sibling unmounted are therefore re-measured too.
+- `SortableContext` asks for the same thing independently: a layout effect
+  fires `measureDroppableContainers(items)` whenever `itemsHaveChanged &&
+  isDragging`, and blanks the strategy (`disableTransforms`) for that render so
+  nothing is displaced against the rects it is replacing.
+- The **active** node keeps up as well. `useRect` observes `document.body` with
+  a `MutationObserver` (`childList`, `subtree`) and re-measures whenever a
+  mutation contains the dragged element; `nodeRectDelta` then subtracts that
+  movement from the translate, so the collision rect stays anchored under the
+  pointer when rows mount *above* the drag. Measured in the tree's spring test:
+  the pointer that had been over a folded parent is over its newly revealed
+  child once the branch opens, which is what the Author sees.
+
+None of that is a reason to leave the strategy implicit. The Reference Tree
+sets `measuring={{droppable: {strategy: MeasuringStrategy.Always}}}` because it
+now changes shape *during* a drag by design (Decisions 7 and 8 below) — the
+dependency belongs at the boundary that has it, rather than resting on
+`SortableContext`'s internal `itemsHaveChanged` heuristic, and `Always` keeps
+the rects current between drags as well, which is what a lift measures against.
 
 Spring-loaded sections (0.12.0) breaks this assumption on purpose: springing
 to a foreign tab mid-drag makes its panel (and every shell/card-frame inside
@@ -220,6 +272,20 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
   they fire in the same flush, so the fresher answer lands. The Reference
   Tree binds one function to the pair for exactly this reason. `onDragEnd`
   is unaffected.
+- **Pointer drags ARE drivable in jsdom, with four lines.** The only thing
+  missing is the `PointerEvent` constructor: `PointerSensor`'s activator reads
+  `isPrimary` and `button` off the native event, and `getEventCoordinates`
+  reads `clientX`/`clientY` — all of which a `class extends MouseEvent` with an
+  `isPrimary` field carries. Define it, and `fireEvent.pointerDown(grip, …)` +
+  `fireEvent.pointerMove(document, …)` drive a real drag (the sensor listens on
+  the owner *document*, not the grip). See
+  `src/renderer/fields/__tests__/reference-tree-folds.test.tsx`, which needs it
+  for the pointer-only dwell. Two gotchas: the move that *satisfies* the 8px
+  distance constraint calls `handleStart()` and returns without reporting
+  coordinates, so a drag needs one move to activate and another to travel; and
+  a sensor keeps a **capture-phase `click` blocker on `document`** until 50ms
+  after it detaches, so a test that ends with a drag still in flight will
+  silently swallow the *next* test's clicks. End every drag.
 - The default drop animation reads `getComputedStyle(node).transform` and
   `parseTransform` only accepts `matrix()`/`matrix3d()` — jsdom never
   produces those, so it early-returns before `node.animate` (which jsdom

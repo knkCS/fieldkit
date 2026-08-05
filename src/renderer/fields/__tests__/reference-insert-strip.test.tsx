@@ -939,7 +939,11 @@ describe("when the strips stand down", () => {
 
 		// Two insertion affordances must never compete for the same gap.
 		expect(strips()).toHaveLength(0);
-		expect(screen.queryAllByTestId("reference-insert-spacer")).toHaveLength(5);
+		// Three, not five: lifting Content 1 folds its own branch away for the
+		// duration (tree drag-feedback spec, Decision 7), leaving two rows on
+		// screen and so three gaps. The gaps follow the rows an Author can see,
+		// which is what keeps a spacer from standing in a place no strip was.
+		expect(screen.queryAllByTestId("reference-insert-spacer")).toHaveLength(3);
 
 		await act(async () => {
 			fireEvent.keyDown(document.activeElement ?? document.body, {
