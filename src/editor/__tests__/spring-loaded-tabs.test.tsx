@@ -751,19 +751,49 @@ describe("a keyboard drag bypasses the dwell", () => {
 describe("a pointer drag wandering far outside the canvas", () => {
 	springFixture();
 
-	/** The page corner, in the mock's coordinates. `springRectMock`'s visible
-	 * droppables span (0,0)→(500,330) — three trigger zones along the top, four
-	 * shells stacked below — so this sits ~2500px past the nearest edge on both
-	 * axes, far beyond `OUTSIDE_CANVAS_SLACK_PX` (96).
+	/** Two points far outside the canvas. `springRectMock`'s visible droppables
+	 * span (0,0)→(500,330) — three trigger zones along the top, four shells
+	 * stacked below — so both sit thousands of px past the nearest edge, far
+	 * beyond `OUTSIDE_CANVAS_SLACK_PX`.
 	 *
-	 * The 96px boundary itself is NOT this block's claim, and no assertion here
-	 * should be read as pinning it: `visible-collision.test.ts` pins it against
+	 * **Two, because one point cannot discriminate both feedback channels.** A
+	 * tab target draws a highlight and never a line; a field target draws a line
+	 * and never a highlight (drag-feedback spec, Decision 3, "highlight, no
+	 * line"). So whichever candidate a far-outside point would WRONGLY resolve
+	 * to decides which of "no line" and "no highlight" that point can pin — the
+	 * other assertion then holds with the guard and without it, proving nothing.
+	 * `closestCenter` ranks by centre distance from the dragged rect and the tab
+	 * strip lies along the top, so travelling out diagonally reaches a trigger
+	 * first and travelling straight DOWN reaches the bottom shell first:
+	 *
+	 * - `FAR_CORNER` — nearest candidate `tabdrop-2`, Meta's trigger. Pins "no
+	 *   drop target marked".
+	 * - `FAR_BELOW` — nearest candidate `shell-c`, past the foot of the column.
+	 *   Pins "no drop indicator".
+	 *
+	 * Both established by mutation, not by reasoning — see the `it` below.
+	 *
+	 * The slack's VALUE is not this block's claim, and no assertion here should
+	 * be read as pinning it: `visible-collision.test.ts` pins it against
 	 * `editorCollision` directly, where a coordinate is a function argument
 	 * rather than a fired event, and where the edge cases (just-outside-but-
 	 * within-slack, hidden zero-rects, the keyboard bypass) can be enumerated
 	 * cheaply. The only question below is whether that function's `[]` survives
 	 * the trip through dnd-kit to `handleDragEnd`. */
-	const FAR_OUTSIDE = { x: 3000, y: 3000 };
+	const FAR_CORNER = { x: 3000, y: 3000 };
+	const FAR_BELOW = { x: 10, y: 3000 };
+
+	/** No insertion line drawn anywhere, and no drop target marked anywhere.
+	 * `data-drop-target` is the attribute behind BOTH the tab-trigger highlight
+	 * and a card frame's receiving tint, so one query covers both channels —
+	 * though THREE_TABS renders no cards, so it is the trigger highlight this
+	 * fixture actually exercises. The line is queried across the whole document,
+	 * hidden panels included: a target resolved into a tab the canvas is not
+	 * showing still draws one, and "nothing resolved" has to mean nowhere. */
+	const expectNoDropFeedback = () => {
+		expect(screen.queryByTestId("drop-indicator")).toBeNull();
+		expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
+	};
 
 	/**
 	 * The #45 leg the 0.12.0 runtime gate failed and the suite could not see —
@@ -781,27 +811,34 @@ describe("a pointer drag wandering far outside the canvas", () => {
 	 * self-drop that `resolveDropTarget` declines, driven by the keyboard — so it
 	 * says nothing about whether a null `over` ever arrives at all.
 	 *
-	 * **Discrimination, checked by mutation rather than by reading**: with
-	 * `pointerOutsideCanvas`'s early return taken out of `editorCollision`,
-	 * FAR_OUTSIDE's nearest droppable by centre distance is `tabdrop-2` — Meta's
-	 * trigger — so the release moves `a` into Meta and drags the canvas after it.
-	 * The draft and the open-section assertions below both go red, in exactly the
-	 * shape the original report describes. The point is chosen for that: it is
-	 * not merely outside everything, it is outside everything while still having
-	 * a plausible nearest candidate to be wrongly handed to.
+	 * **Discrimination, checked by mutation rather than by reading.** With
+	 * `pointerOutsideCanvas`'s early return taken out of `editorCollision`, the
+	 * fallback hands over `tabdrop-2` at FAR_CORNER — the highlight returns — and
+	 * `shell-c` at FAR_BELOW — a line returns, at the end of Meta's list. Released
+	 * there, the draft becomes `x,s1,b,s2,c,a` and the canvas follows `a` out of
+	 * General, which is the original report's shape. Separately, deleting
+	 * `restoreDragStartTab()` from `handleDragEnd`'s null-target branch reddens
+	 * the "General" assertion on its own. Each was run.
 	 *
-	 * What that mutation check does NOT establish is the constant's VALUE, and
-	 * this test should never be read as pinning it: widening the slack to 400
-	 * leaves this green (the corner is still well outside), and only a slack wide
-	 * enough to swallow the corner — ~2670 at this fixture's geometry — reddens
-	 * it. Both measured. Deliberately so: it kills "the guard is gone", which is
-	 * the wiring claim; `visible-collision.test.ts` kills "the guard moved".
+	 * **A first version of this test probed only the corner, and its "no drop
+	 * indicator" assertion could not fail** — a tab target never draws a line, so
+	 * the line was absent with the guard and without it. The `not.toBeNull()`
+	 * guard at `onRow(2)` bracketed that assertion but did not pin it, and
+	 * bracketing is not pinning. FAR_BELOW is the repair, and the reason there
+	 * are two points at all.
+	 *
+	 * What the mutations do NOT establish is the slack constant's VALUE, and this
+	 * test should never be read as pinning it: widening the slack to 400 leaves
+	 * this green (both points are still well outside), and only a slack wide
+	 * enough to swallow them — ~2670 at this fixture's geometry — reddens it.
+	 * Both measured. Deliberately so: this kills "the guard is gone", which is the
+	 * wiring claim; `visible-collision.test.ts` kills "the guard moved".
 	 *
 	 * **What it cannot see.** jsdom lays nothing out, so `springRectMock` decides
 	 * where the union of droppables is and the fired event decides where the
 	 * pointer is — both stipulated, neither measured. Nothing here says a real
 	 * editor's canvas is any particular size, that 3000px is off-screen for a
-	 * real author, or that 96px of slack is the right amount of it. Read a
+	 * real author, or that the shipped slack is the right amount of it. Read a
 	 * failure as "the far-outside no-op broke", never as "the canvas moved".
 	 */
 	it("resolves nothing on the way out, commits nothing on release, and restores the drag-start section", async () => {
@@ -815,6 +852,8 @@ describe("a pointer drag wandering far outside the canvas", () => {
 		// Spring to SEO first. Without it the drag-start tab IS the open one and
 		// "the drag-start section is restored" would hold with no restore wiring
 		// whatsoever — the spring is what gives the restore something to undo.
+		// The highlight it draws on the way is also channel one of two, shown
+		// working before its absence is ever asserted.
 		await pointerTo(onTrigger(1));
 		expect(screen.getByTestId("tabdrop-1")).toHaveAttribute(
 			"data-drop-target",
@@ -823,24 +862,27 @@ describe("a pointer drag wandering far outside the canvas", () => {
 		await dwell();
 		expect(openSection()).toBe("SEO");
 
-		// Down into the section that just appeared, onto its field — a resolved
-		// target with a line drawn for it. This guard is what stops the "no
-		// feedback" assertions below from passing on a drag that had never drawn
-		// any: the line exists, and then it is gone.
+		// Down into the section that just appeared, onto its field: channel two,
+		// the insertion line. Both kinds of feedback are now known to be live in
+		// this drag, so neither absence below can pass on a drag that was drawing
+		// nothing anyway.
 		await pointerTo(onRow(2));
 		expect(screen.queryByTestId("drop-indicator")).not.toBeNull();
 
-		// …and out to the page corner.
-		await pointerTo(FAR_OUTSIDE);
+		// Out past the corner, where the wrong answer would be Meta's trigger…
+		await pointerTo(FAR_CORNER);
+		expectNoDropFeedback();
 
-		// No insertion line, and no drop target marked anywhere:
-		// `data-drop-target` is BOTH the tab-trigger highlight and a card frame's
-		// receiving tint, so one query covers both feedback channels.
-		expect(screen.queryByTestId("drop-indicator")).toBeNull();
-		expect(document.querySelectorAll("[data-drop-target]")).toHaveLength(0);
-		// The drag is still live — a pointer off the canvas resolves nothing, it
-		// does not cancel. (A cancel would restore the tab here, and the release
-		// assertion below would then be measuring the wrong mechanism.)
+		// …and straight down past the foot of the column, where the wrong answer
+		// would be `shell-c` — a line rather than a highlight. One drag, no
+		// release in between: leaving the canvas has to keep resolving nothing,
+		// not merely resolve nothing at the first point it reaches.
+		await pointerTo(FAR_BELOW);
+		expectNoDropFeedback();
+
+		// The drag is still live through both — a pointer off the canvas resolves
+		// nothing, it does not cancel. (A cancel would restore the tab here, and
+		// the release assertions below would be measuring the wrong mechanism.)
 		expect(dragInFlight()).toBe(true);
 		expect(openSection()).toBe("SEO");
 		// Still nothing written, either — leaving the canvas is not a commit.
@@ -853,8 +895,9 @@ describe("a pointer drag wandering far outside the canvas", () => {
 		// Decision 4's restore, on the null-target path and after a spring.
 		expect(openSection()).toBe("General");
 		expect(openPanelShells()).toEqual(["a", "x"]);
-		// And nothing was selected: selection is `follow`'s doing, and a drop
-		// that moved nothing has nothing to follow.
+		// Cheap belt, not load-bearing for the criteria above: selection is
+		// `follow`'s doing and it starts null here, so this can only catch a
+		// null-target branch that wrongly selects something on its way out.
 		expect(hostSelection()).toBeNull();
 	});
 });
