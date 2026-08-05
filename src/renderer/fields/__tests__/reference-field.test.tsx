@@ -1614,6 +1614,34 @@ describe("ReferenceField", () => {
 				expect(await screen.findByText("Content 1")).toBeInTheDocument();
 				expect(collapseControl()).not.toBeInTheDocument();
 			});
+
+			it("arrives when a tree grows past the threshold, folding to what that size opens as", async () => {
+				const user = userEvent.setup();
+				// At the threshold this tree opened expanded and carried no
+				// control at all. One Reference later it is a tree that opens
+				// folded, and the way back is the way back for *that* tree.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD, {
+					adapter: createFakeReferenceAdapter({
+						contents: fakeCatalogue(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+					}),
+				});
+				await screen.findByText("Content 1");
+				expect(collapseControl()).not.toBeInTheDocument();
+
+				await openPicker(user);
+				await user.click(await screen.findByText("Content 21"));
+
+				await waitFor(() => {
+					expect(collapseControl()).toBeInTheDocument();
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+				// The set a tree of this size opens with — the rule read over the
+				// rows as they stand, rather than a state remembered from when
+				// this tree was one Reference smaller and folded nothing.
+				expect(shownNames()).toEqual(
+					opensWith(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+				);
+			});
 		});
 
 		it("returns the tree to exactly the rows it opened with", async () => {

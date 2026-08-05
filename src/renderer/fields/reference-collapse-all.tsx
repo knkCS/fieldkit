@@ -3,8 +3,8 @@ import { Button } from "@chakra-ui/react";
 import { ChevronsDownUp } from "lucide-react";
 
 export interface ReferenceCollapseAllProps {
-	/** Puts the tree back in the fold set it opened in — see
-	 * `initialReferenceFolds`, which is what a caller here calls. */
+	/** Puts the tree back in the fold set it opened in. What that set is, and
+	 * how it is arrived at, belong to whichever renderer holds the folds. */
 	onCollapse: () => void;
 }
 
@@ -33,10 +33,13 @@ export function ReferenceCollapseAll({
 }: ReferenceCollapseAllProps) {
 	return (
 		<Button
-			size="xs"
+			// The size the Find control above it is drawn at, so the way in and
+			// the way back read as a pair rather than as a control and its
+			// footnote. Ghost, because it is subordinate to both Find and the
+			// Add control: it changes nothing that is stored.
+			size="sm"
 			variant="ghost"
 			onClick={onCollapse}
-			data-testid="reference-collapse-all"
 		>
 			<ChevronsDownUp size={14} />
 			Collapse all

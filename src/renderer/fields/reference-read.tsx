@@ -272,20 +272,18 @@ export function ReferenceReadValue({
 			data-testid="reference-read-tree"
 		>
 			{opensFolded && (
-				// Above the tree and on the right, where the editable Field puts
-				// it, so the two read as the same control rather than as two.
-				<Box as="span" display="flex" justifyContent="flex-end">
-					<ReferenceFind rows={rows} names={names} onReveal={handleReveal} />
-				</Box>
-			)}
-
-			{opensFolded && (
-				// Under Find and above the rows, which is where the editable tree
-				// draws it too — the way back sits below the way in on both sides
-				// of the Field.
-				<Box as="span" display="flex" justifyContent="flex-end">
-					<ReferenceCollapseAll onCollapse={collapseAll} />
-				</Box>
+				// Above the tree and on the right, where the editable Field draws
+				// Find and the editable tree draws Collapse all under it — one
+				// condition and one order, so the pair reads the same on both
+				// sides of the Field rather than as four separate controls.
+				<>
+					<Box as="span" display="flex" justifyContent="flex-end">
+						<ReferenceFind rows={rows} names={names} onReveal={handleReveal} />
+					</Box>
+					<Box as="span" display="flex" justifyContent="flex-end">
+						<ReferenceCollapseAll onCollapse={collapseAll} />
+					</Box>
+				</>
 			)}
 
 			{shown.map((row) => (

@@ -1129,10 +1129,10 @@ export function ReferenceTree({
 			onDragCancel={handleDragCancel}
 		>
 			{opensFolded && (
-				// Above the rows and on the right, under whatever the Field puts
-				// there — the Add control and, on a tree this size, Find — so the
-				// ways into a large tree and the way back out of it read as one
-				// column of controls rather than as chrome from three places.
+				// Above the rows and on the right, under whatever the Field draws
+				// there — on a tree this size, Find — so the way into a large
+				// tree and the way back out of it read as one column of controls
+				// rather than as chrome from two places.
 				//
 				// Rendered here rather than by the Field, unlike Find: Find hangs
 				// on the Field because only the Field has the resolved names to
