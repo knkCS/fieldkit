@@ -1,0 +1,210 @@
+// src/renderer/__tests__/search-combobox.test.tsx
+import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { SearchCombobox } from "../search-combobox";
+
+// A result shape with nothing Field-shaped about it — no accessor, no tab —
+// standing in for what Find (#143) will list: a Reference row keyed by its
+// index path, named by the Content it points at, placed by its ancestors.
+interface Row {
+	path: string;
+	name: string;
+	ancestors: string;
+}
+
+const ROWS: Row[] = [
+	{ path: "0", name: "Aluminium", ancestors: "Materials" },
+	{ path: "1.2", name: "Aluminium foil", ancestors: "Materials › Packaging" },
+	{ path: "3", name: "Copper", ancestors: "Materials" },
+];
+
+function search(query: string): Row[] {
+	const q = query.trim().toLowerCase();
+	if (!q) return [];
+	return ROWS.filter((r) => r.name.toLowerCase().includes(q));
+}
+
+function renderCombobox(
+	overrides: Partial<React.ComponentProps<typeof SearchCombobox<Row>>> = {},
+) {
+	return render(
+		<ChakraProvider value={defaultSystem}>
+			<SearchCombobox<Row>
+				search={search}
+				describeResult={(r) => ({
+					key: r.path,
+					label: r.name,
+					secondary: r.ancestors,
+				})}
+				onSelect={() => {}}
+				placeholder="Find reference…"
+				noResultsLabel="No references found"
+				label="Find reference"
+				{...overrides}
+			/>
+		</ChakraProvider>,
+	);
+}
+
+function input() {
+	return screen.getByPlaceholderText("Find reference…");
+}
+
+async function typeQuery(value: string) {
+	fireEvent.change(input(), { target: { value } });
+	// anker's SearchInput debounces onSearch by 300ms.
+	await waitFor(() => {
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+	});
+}
+
+describe("SearchCombobox — lists a caller-supplied result shape", () => {
+	it("renders one option per result the caller's search returned", async () => {
+		renderCombobox();
+		await typeQuery("alumin");
+		const options = screen.getAllByRole("option");
+		expect(options).toHaveLength(2);
+		expect(options[0]).toHaveTextContent("Aluminium");
+		expect(options[1]).toHaveTextContent("Aluminium foil");
+	});
+
+	it("hands the caller back its own result object on select", async () => {
+		const onSelect = vi.fn();
+		renderCombobox({ onSelect });
+		await typeQuery("copper");
+		fireEvent.click(screen.getByRole("option"));
+		// The caller's own object, not a shape the combobox invented.
+		expect(onSelect).toHaveBeenCalledWith(ROWS[2]);
+	});
+
+	it("selects the highlighted result on Enter", async () => {
+		const onSelect = vi.fn();
+		renderCombobox({ onSelect });
+		await typeQuery("alumin");
+		fireEvent.keyDown(input(), { key: "ArrowDown" });
+		fireEvent.keyDown(input(), { key: "Enter" });
+		expect(onSelect).toHaveBeenCalledWith(ROWS[1]);
+	});
+});
+
+describe("SearchCombobox — two-line results", () => {
+	it("renders the secondary line as its own element after the label", async () => {
+		renderCombobox({ layout: "stacked" });
+		await typeQuery("alumin");
+		const option = screen.getAllByRole("option")[1];
+		const label = within(option).getByText("Aluminium foil");
+		const secondary = within(option).getByText("Materials › Packaging");
+		expect(secondary).not.toBe(label);
+		// The secondary line follows the label, so a reader announcing the
+		// option reads the name before the path that places it.
+		expect(
+			label.compareDocumentPosition(secondary) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(option).toHaveAttribute("data-layout", "stacked");
+	});
+
+	it("keeps the secondary on the same line by default", async () => {
+		renderCombobox();
+		await typeQuery("alumin");
+		expect(screen.getAllByRole("option")[0]).toHaveAttribute(
+			"data-layout",
+			"inline",
+		);
+	});
+
+	it("omits the secondary element entirely when the caller supplies none", async () => {
+		renderCombobox({
+			describeResult: (r: Row) => ({ key: r.path, label: r.name }),
+		});
+		await typeQuery("copper");
+		const option = screen.getByRole("option");
+		expect(option).toHaveTextContent("Copper");
+		expect(within(option).queryByText("Materials")).not.toBeInTheDocument();
+		// Not merely empty — absent, so a reader finds nothing to announce
+		// after the label.
+		expect(option.children).toHaveLength(1);
+	});
+});
+
+describe("SearchCombobox — the '/' shortcut is opt-in", () => {
+	// Direct assertion, not inferred from behaviour: a caller that does not
+	// opt in must not put a key listener on document or window at all, so a
+	// Find combobox inside a form can never race the form's own search.
+	// Asserted at mount, which is the whole of what a closed combobox
+	// registers — the one other global listener, the Escape containment, is
+	// mounted only while this combobox's own dropdown is open and only
+	// contains Escapes aimed at its own node.
+	function keydownRegistrations() {
+		const onDocument = vi.spyOn(document, "addEventListener");
+		const onWindow = vi.spyOn(window, "addEventListener");
+		return {
+			added: () =>
+				[...onDocument.mock.calls, ...onWindow.mock.calls].filter(
+					([type]) => type === "keydown",
+				),
+			restore: () => {
+				onDocument.mockRestore();
+				onWindow.mockRestore();
+			},
+		};
+	}
+
+	it("registers no document- or window-level key listener when not opted in", () => {
+		const spy = keydownRegistrations();
+		try {
+			renderCombobox();
+			expect(spy.added()).toHaveLength(0);
+		} finally {
+			spy.restore();
+		}
+	});
+
+	it("registers exactly one document-level keydown listener when opted in", () => {
+		const spy = keydownRegistrations();
+		try {
+			const { unmount } = renderCombobox({ slashShortcut: true });
+			expect(spy.added()).toHaveLength(1);
+			const removed = vi.spyOn(document, "removeEventListener");
+			unmount();
+			expect(
+				removed.mock.calls.filter(([type]) => type === "keydown"),
+			).toHaveLength(1);
+			removed.mockRestore();
+		} finally {
+			spy.restore();
+		}
+	});
+
+	it("leaves '/' alone when not opted in", () => {
+		renderCombobox();
+		fireEvent.keyDown(document.body, { key: "/" });
+		expect(input()).not.toHaveFocus();
+	});
+
+	it("focuses the input on '/' when opted in", async () => {
+		renderCombobox({ slashShortcut: true });
+		fireEvent.keyDown(document.body, { key: "/" });
+		await waitFor(() => {
+			expect(input()).toHaveFocus();
+		});
+	});
+
+	it("ignores '/' typed into another text input, even when opted in", () => {
+		renderCombobox({ slashShortcut: true });
+		const other = document.createElement("input");
+		document.body.appendChild(other);
+		other.focus();
+		fireEvent.keyDown(other, { key: "/" });
+		expect(input()).not.toHaveFocus();
+		expect(other).toHaveFocus();
+		other.remove();
+	});
+});

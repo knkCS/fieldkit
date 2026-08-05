@@ -1350,6 +1350,10 @@ export function EditorCanvas({
 									placeholder={labels.searchPlaceholder}
 									noResultsLabel={labels.noResults}
 									label={labels.searchLabel ?? "Find field"}
+									// The canvas is the only search on its own
+									// screen, so it claims "/" — see SearchCombobox
+									// for why that claim is opt-in.
+									slashShortcut
 									onJump={(r) => {
 										onActiveTabChange(r.tabIndex);
 										onSelect(r.accessor);
