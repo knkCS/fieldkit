@@ -3,6 +3,7 @@
 **Date:** 2026-08-05
 **Status:** Approved (root-caused from a report that the drop level is unreadable; scope and treatment settled in a grilling session)
 **Amended:** 2026-08-05, Decisions 7–9 — what the *tree* shows during a drag, after a second report that a dragged expanded branch is confusing to aim past. Decisions 1–6 shipped as #114.
+**Amended again:** 2026-08-05, Decisions 10–12 — **which reverse Decision 2.** Decisions 7–9 shipped as #119.
 **Ships as:** a Reference Tree feedback change; zero API delta
 
 Sibling to [the editor canvas's drag-feedback rework](./2026-07-14-drag-feedback-design.md), whose Decisions 1–3 this borrows from selectively rather than wholesale. Where the two differ, the difference is deliberate and stated below.
@@ -51,11 +52,39 @@ A second report: dragging an *expanded* parent leaves its descendants on screen 
 
 9. **A spring is a preview until the drop commits.** Nodes that sprang open and did not receive the drop fold back; the node that received it stays open, which is #65's unfold-on-arrival rule already. Escape restores every fold to what it was at lift, including Decision 7's. This is the spring spec's Decision 4 in tree terms — and it is what keeps a drag that merely wandered past three folded parents from leaving all three open.
 
+## Decisions 10–12 (second amendment) — Decision 2 is reversed
+
+A third report, once springs existed: hovering a collapsed branch to spring it open "moves the item down", and the row under the pointer slides away.
+
+**Diagnosed, and the reported cause was not the cause.** The insertion strips were suspected. They are already inert during a drag — `insertionGap()` branches on `activeKey`, so every slot renders the indicator or an inert spacer, never a strip — and all three share `INSERT_SLOT_HEIGHT`, so swapping between them shifts nothing. The drop indicator cannot shift the list either: its container is fixed at that height and its 8px dot deliberately overflows rather than growing the slot.
+
+What moves is `verticalListSortingStrategy`. The rows displace to open a gap where the dragged row would land, so a drag travelling upward pushes the row under the cursor down by about a row's height, at the same instant the indicator appears.
+
+**Which makes Decision 2 wrong.** It reads:
+
+> **Keep the list parting.** `verticalListSortingStrategy` stays… the canvas needed a still list because flat-strategy translations escaped its nested card frames, a problem the tree's flat DOM does not have. The tree's parting list is a feature.
+
+That was right about *why the canvas did it* and wrong about *whether the tree needed it*. The frame-escape artefact genuinely does not apply here — but "the list holds still" earns its place for a second reason the canvas never had to state, because the canvas has no springs: **a list that both parts and springs moves twice for one gesture, and the row you are aiming at is the one that moves.** Decision 2 is superseded by Decision 10; the rest of the original six stand.
+
+10. **Rows stop parting.** No displacement transforms on non-active rows. The indicator alone says where the drop lands; the dragged row alone says at what level. This is the canvas's Decision 2 adopted, three weeks after being declined on reasoning that held only until springs shipped.
+
+11. **The dragged row keeps following the pointer, in the list.** No `DragOverlay` — declined twice, and it would mean rendering the row a second time. The consequence, accepted deliberately: with no gap opening beneath it, the dragged row visibly overlaps the rows it passes.
+
+12. **The dragged row is lifted rather than dimmed** — opaque, raised above its neighbours, shadowed, so it reads as a card being carried over the list rather than a ghost blended into it. The 0.5 dim existed to say "this one is moving"; the indicator now says where it is going, so being able to read *what* is in hand matters more. Two translucent rows stacked is the thing to avoid.
+
 ## Architecture
 
 The indicator derives from `pending`, the resolved drop the tree already holds, which comes from `projectDropDepth` — clamped by the neighbours, by the `max_depth` ceiling, and by the height of the branch being dragged. **The indicator therefore cannot draw an illegal landing**, and no new rule is needed to make that true: it renders the same resolution the release reads, which is the single-source-of-truth pattern the canvas's Decision 3 also relies on.
 
 Adoption marking is untouched. The outline on each adopted row and the `role="status"` count answer "and these come too"; the indicator answers "where, and at what level". The two are complementary and share no state beyond `pending`.
+
+### Decision 10 rests on a dnd-kit detail that must be read, not assumed
+
+The canvas's `noopSortingStrategy` comment says it leaves every real node untransformed — *"and for the active item too **once the overlay is measured** (`shouldDisplaceDragSource` is false)"*. The tree has no overlay, so that clause may not hold here, and the active row may keep its own translate, which is exactly what Decision 11 needs.
+
+**If it does not, Decision 10 collapses into an overlay** — the thing Decisions 11 and the previous round both declined. So this is verified against the installed `@dnd-kit/sortable` sources before anything is built, the way the stale-`onDragMove` finding, the measuring question and the jsdom pointer-drag finding each were. A wrong guess here does not fail loudly; it produces a drag with nothing following the pointer.
+
+Note also that suppressing displacement may change the *shape* of the transform a row carries, and #114's test *"the dragged row carries no horizontal translation"* reads that string. It must keep discriminating — if it can no longer fail, it needs rewriting rather than relaxing.
 
 ### Decisions 7–9 change layout mid-drag, and the tests are blind to it
 
