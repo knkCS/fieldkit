@@ -1064,6 +1064,41 @@ describe("what a drag shows about where it will land", () => {
 		]);
 	});
 
+	it("draws a re-indent in the gap below the row, wherever it sits", async () => {
+		renderTree({
+			value: [{ id: "article-1" }, { id: "article-2" }, { id: "article-3" }],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 2");
+		await pressDuringDrag("ArrowRight");
+
+		// A row that stays put has a gap either side of it, and both mean "here":
+		// the line takes the one below, which is the gap the release's own slot
+		// names — the row that follows the landing is Content 3.
+		expect(treeSlots()).toEqual([
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-drop-indicator",
+			"reference-row",
+			"reference-insert-spacer",
+		]);
+		expect(indicated()).toEqual([2, 1]);
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 1],
+			["Content 3", 0],
+		]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1", children: [{ id: "article-2" }] },
+			{ id: "article-3" },
+		]);
+	});
+
 	it("can only draw a landing the release would accept", async () => {
 		renderTree({
 			value: [

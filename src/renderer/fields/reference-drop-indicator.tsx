@@ -50,9 +50,6 @@ export function ReferenceDropIndicator({
 		<Flex
 			align="center"
 			height={INSERT_SLOT_HEIGHT}
-			// The dot is taller than the gap and overflows it by a couple of
-			// pixels either side, which is what makes a 4px slot readable without
-			// the slot growing and shifting the list.
 			pointerEvents="none"
 			aria-hidden="true"
 			// Drawn where the Reference would land, so the level is read off the
@@ -63,6 +60,9 @@ export function ReferenceDropIndicator({
 			data-slot={slot}
 			data-depth={depth}
 		>
+			{/* Taller than the gap, and overflowing it by a couple of pixels
+			    either side: what makes a 4px slot readable without the slot
+			    growing and shifting the list. */}
 			<Box
 				width="2"
 				height="2"

@@ -229,6 +229,10 @@ function dropLanding(
 		pending.landsBefore === null
 			? shown.length
 			: shown.findIndex((row) => row.key === pending.landsBefore);
+	// A key that no longer names a row on screen: `pending` is state and `shown`
+	// is derived, so a value arriving mid-drag can re-shape one without the
+	// other. Drawing nothing for a frame beats drawing a landing in a gap that
+	// has moved.
 	return slot === -1 ? null : { slot, depth: pending.depth };
 }
 
@@ -690,6 +694,12 @@ export function ReferenceTree({
 	 *
 	 * All three are one geometry — see `INSERT_SLOT_HEIGHT` — so a drag starting,
 	 * and a landing moving from one gap to another, shift nothing.
+	 *
+	 * Which is also why a tree offering no strips draws no landing either: the
+	 * gap it would draw in is the one the strips reserve, and conjuring 4px of
+	 * it the moment a row is lifted would push every row below it down. A
+	 * Consumer assembling its own control without an `onInsert` therefore gets
+	 * the dimmed, re-indenting row as its only drop feedback.
 	 */
 	function insertionGap(slot: number) {
 		if (!stripsOffered) return null;
@@ -838,22 +848,24 @@ function ReferenceTreeRowItem({
 		<Flex
 			ref={setNodeRef}
 			style={{
-				// Vertical travel only. Without a `DragOverlay`, `useSortable`
-				// hands the *active* row dnd-kit's raw drag delta on both axes,
-				// while `ml` below is separately set to the depth a release would
-				// land at — so a continuous sideways travel would ride on top of a
-				// quantised 24px indent, and the quantised part is the answer to
-				// "what level is this". Dropping the horizontal component leaves
-				// the indent the only thing saying it (drag-feedback spec
-				// 2026-08-05, Decision 1).
+				// The dragged row travels vertically only. Without a
+				// `DragOverlay`, `useSortable` hands the *active* row dnd-kit's raw
+				// drag delta on both axes, while `ml` below is separately set to
+				// the depth a release would land at — so a continuous sideways
+				// travel would ride on top of a quantised 24px indent, and the
+				// quantised part is the answer to "what level is this". Dropping
+				// the horizontal component leaves the indent the only thing saying
+				// it (drag-feedback spec 2026-08-05, Decision 1).
 				//
 				// Appearance only: the projection reads the drag *event's*
 				// `delta.x`, which nothing here touches, so ←/→ keep changing the
-				// depth exactly as before. Applied to every row rather than only
-				// the dragged one because `verticalListSortingStrategy` already
-				// returns `x: 0` for the rest — this cannot be the thing that
-				// makes them differ.
-				transform: CSS.Translate.toString(transform && { ...transform, x: 0 }),
+				// depth exactly as before. Scoped to the dragged row rather than
+				// applied to all of them — `verticalListSortingStrategy` gives the
+				// rest `x: 0` already, and a blanket rewrite would silently
+				// swallow a future strategy's horizontal component.
+				transform: CSS.Translate.toString(
+					isDragging && transform ? { ...transform, x: 0 } : transform,
+				),
 				transition,
 			}}
 			align="center"
