@@ -32,6 +32,18 @@ import { describeInsert, insertRelation } from "./reference-destination";
 export const INSERT_AT_CAP_LABEL = "Maximum number of References reached";
 
 /**
+ * The height of the gap between two rows — a collapsed strip's, the spacer that
+ * stands in for it during a drag, and the drop indicator that replaces the
+ * spacer at the landing slot.
+ *
+ * One value across all three because they are one geometry in three states: the
+ * list must not shift when a drag starts, nor when the landing moves from one
+ * gap to another. `ReferenceDropIndicator` reads it from here rather than
+ * restating it.
+ */
+export const INSERT_SLOT_HEIGHT = "1";
+
+/**
  * What a strip is offering: where a Reference would land, the bounds that
  * decided it, and the one sentence that says so.
  *
@@ -245,7 +257,7 @@ export function ReferenceInsertStrip({
 			// A 4px hairline in the gap the rows' own margin already leaves, and
 			// 32px under the pointer: enough to read the sentence in, and small
 			// enough that the rows stay a list.
-			height={offering ? "8" : "1"}
+			height={offering ? "8" : INSERT_SLOT_HEIGHT}
 			transition="height 0.12s"
 			cursor={disabled ? "not-allowed" : "pointer"}
 			onMouseMove={(event) => {
@@ -335,12 +347,20 @@ ReferenceInsertStrip.displayName = "ReferenceInsertStrip";
  * as well — the editor canvas hides its own insertion boundaries mid-drag for
  * exactly that reason. Keeping the height is what stops the list jumping the
  * moment a row is lifted.
+ *
+ * One gap in a drag is not this: the one the release would land in draws
+ * `ReferenceDropIndicator` instead, at the same height, so the line appears
+ * without anything shifting to make room for it.
  */
 export function ReferenceInsertSpacer() {
 	// The collapsed strip's height exactly, so nothing shifts the moment a row
 	// is lifted.
 	return (
-		<Box height="1" aria-hidden="true" data-testid="reference-insert-spacer" />
+		<Box
+			height={INSERT_SLOT_HEIGHT}
+			aria-hidden="true"
+			data-testid="reference-insert-spacer"
+		/>
 	);
 }
 ReferenceInsertSpacer.displayName = "ReferenceInsertSpacer";

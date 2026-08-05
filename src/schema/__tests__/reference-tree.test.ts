@@ -11,6 +11,7 @@ import {
 	projectInsertDepth,
 	readReferenceTree,
 	referenceBranchEnd,
+	referenceDropTarget,
 	referencesPastDepth,
 	removeReferenceAt,
 	spliceReference,
@@ -546,6 +547,75 @@ describe("projectDropDepth — the max-depth ceiling", () => {
 			maxDepth: 1,
 			adopted: [row("r", 2)],
 		});
+	});
+});
+
+describe("referenceDropTarget — the row a drop lands before", () => {
+	// a
+	// b
+	// c
+	const flat = [row("a", 0), row("b", 0), row("c", 0)];
+
+	it("names the row that follows a drop moving down the list", () => {
+		// a over b: a lands between b and c, so c is what follows it.
+		expect(
+			referenceDropTarget({ items: flat, activeIndex: 0, overIndex: 1 }),
+		).toEqual(row("c", 0));
+	});
+
+	it("names the row that follows a drop moving up the list", () => {
+		// c over a: c lands at the top, so a is what follows it.
+		expect(
+			referenceDropTarget({ items: flat, activeIndex: 2, overIndex: 0 }),
+		).toEqual(row("a", 0));
+	});
+
+	it("answers nothing when the drop lands after the last row", () => {
+		expect(
+			referenceDropTarget({ items: flat, activeIndex: 0, overIndex: 2 }),
+		).toBeNull();
+	});
+
+	it("skips the dragged Reference's own branch, which travels with it", () => {
+		// a
+		//   a1        <- a's branch, still in the list
+		// b
+		const withBranch = [row("a", 0, 1), row("a1", 1), row("b", 0)];
+		// Hovering its own child is an ask for nothing: a stays put, and b is
+		// what follows its branch.
+		expect(
+			referenceDropTarget({ items: withBranch, activeIndex: 0, overIndex: 1 }),
+		).toEqual(row("b", 0));
+		// Over b, the branch moves past it and lands at the end.
+		expect(
+			referenceDropTarget({ items: withBranch, activeIndex: 0, overIndex: 2 }),
+		).toBeNull();
+	});
+
+	it("answers the same slot the move puts the branch in", () => {
+		// The pin: what the indicator draws and what the release performs are
+		// one answer. The row named here is the row the moved list puts
+		// immediately after the dragged branch.
+		const withBranch = [row("a", 0, 1), row("a1", 1), row("b", 0)];
+		const moved = moveReferenceBranch({
+			items: withBranch,
+			activeIndex: 0,
+			overIndex: 2,
+			depth: 0,
+		});
+		const target = referenceDropTarget({
+			items: withBranch,
+			activeIndex: 0,
+			overIndex: 2,
+		});
+		const landed = moved.findIndex((item) => item.reference.id === "a");
+		expect(moved[landed + 2] ?? null).toEqual(target);
+	});
+
+	it("answers nothing for an index the list does not reach", () => {
+		expect(
+			referenceDropTarget({ items: [], activeIndex: 0, overIndex: 0 }),
+		).toBeNull();
 	});
 });
 

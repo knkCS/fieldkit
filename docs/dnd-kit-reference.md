@@ -45,6 +45,30 @@ height — so it takes the simpler shape rule 3 below allows: no `DragOverlay`,
 `closestCenter` (a collapsed row is unmounted, so there are no
 hidden-but-mounted droppables to filter out).
 
+**It serialises the transform's vertical component only.** Without a
+`DragOverlay`, `shouldDisplaceDragSource` is true, so `useSortable` hands the
+ACTIVE row dnd-kit's raw drag delta on BOTH axes (`dragSourceDisplacement =
+transform`, sortable 8.0.0) rather than the strategy's `x: 0`. The tree
+separately sets that row's `ml` to the depth a release would land at, so
+applying the transform unmodified put a continuous sideways travel on top of a
+quantised 24px indent — and the quantised part is the answer to "what level
+will this land at". `CSS.Translate.toString(transform && { ...transform, x: 0 })`
+is what leaves the indent saying it alone (tree drag-feedback spec 2026-08-05,
+Decision 1). This is appearance only: the depth projection reads
+`event.delta.x` off the drag event, which is untouched, so ←/→ still change the
+drop depth. Non-active rows are unaffected — the vertical strategy already
+returns `x: 0` for them.
+
+**The landing is drawn in the insertion strip's slot.** `resolveDrop` also
+answers `landsBefore` (from `referenceDropTarget` in `/schema`, which reads the
+same `dropSlot` rule `moveReferenceBranch` splices at), and the gap it names
+renders `ReferenceDropIndicator` instead of `ReferenceInsertSpacer` — same
+height, so nothing shifts. It is a `/renderer`-local copy of the canvas's
+`DropIndicatorLine`, not a share: `/renderer` imports nothing from `/editor`,
+and the canvas's `variant: "above" | "below" | "flow"` is dialect for
+absolutely-positioned strips. A landing that would rewrite nothing draws
+nothing, off the same predicate `handleDragEnd` uses to skip the write.
+
 Its resolver reads **two lists**, and that split is load-bearing. Order comes
 from every row, folded ones included, because a branch travels with its
 Reference whether or not it is on screen; depth comes from the *visible* rows
