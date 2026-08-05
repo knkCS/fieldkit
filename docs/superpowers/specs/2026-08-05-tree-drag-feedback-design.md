@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-05
 **Status:** Approved (root-caused from a report that the drop level is unreadable; scope and treatment settled in a grilling session)
+**Amended:** 2026-08-05, Decisions 7–9 — what the *tree* shows during a drag, after a second report that a dragged expanded branch is confusing to aim past. Decisions 1–6 shipped as #114.
 **Ships as:** a Reference Tree feedback change; zero API delta
 
 Sibling to [the editor canvas's drag-feedback rework](./2026-07-14-drag-feedback-design.md), whose Decisions 1–3 this borrows from selectively rather than wholesale. Where the two differ, the difference is deliberate and stated below.
@@ -36,11 +37,31 @@ Two secondary gaps follow from the same place:
 
 6. **A `/renderer`-local component**, visually matched to the canvas's rather than shared with it. The canvas's `DropIndicatorLine` takes `variant: "above" | "below" | "flow"` — boundary dialect describing absolutely-positioned strips — which does not describe the tree's in-flow 4px slot. More decisively, there are no `renderer → editor` imports today, and a Consumer importing only `/renderer` should not pull the editor in.
 
+## Decisions 7–9 (amendment, same day)
+
+A second report: dragging an *expanded* parent leaves its descendants on screen as rows you cannot aim at, and the tree gives no sign of it.
+
+**The report's premise — that this breaks the tree — is false, and worth recording as false.** A drop inside your own branch has been impossible since #65: `projectDropDepth` excises the dragged branch from the neighbour list before reading it, and `dropSlot` maps any hover inside the branch back to the branch's own slot. `reference-tree.test.ts`'s *"never offers a Reference a place inside its own branch"* pins it — hovering your own child yields `{depth: 0, minDepth: 0, maxDepth: 0}`. The rules are correct and silent, which is the same shape of problem as Decisions 1–6: the tree knew the answer and did not say it.
+
+7. **The dragged Reference's branch collapses on lift, and is restored on drop or cancel.** Only that branch; no other fold state is touched. Its descendants leave the list for the duration, so every remaining row is a legal target. This is what the tree already believes — *a folded Reference stands in for its whole branch* — applied to the one branch that provably cannot be aimed into.
+
+   It is safe against the depth cap for a reason worth stating: `height` is measured by `flattenReferences` from the **tree**, not from what is on screen, so folding cannot loosen `max_depth`. knkCMS core has precisely this bug — its `relativeSubtreeHeight` reads the visible list, and it collapses every parent by default, making the broken case the normal one ([core comparison](../../core-reference-tree-comparison.md) §5.2).
+
+8. **Dwelling on a collapsed Reference for `SPRING_DWELL_MS` expands it**, reusing the existing constant rather than minting a second. The interaction is the same one the editor already has — rest on a target mid-drag to reveal more of the tree — and one constant means one feel across the package. Keyboard drags have no dwell (the [spring-loaded sections spec](./2026-07-14-spring-loaded-sections-design.md), Decision 6), and need none: a keyboard drop into a folded branch already lands at its end and unfolds it.
+
+9. **A spring is a preview until the drop commits.** Nodes that sprang open and did not receive the drop fold back; the node that received it stays open, which is #65's unfold-on-arrival rule already. Escape restores every fold to what it was at lift, including Decision 7's. This is the spring spec's Decision 4 in tree terms — and it is what keeps a drag that merely wandered past three folded parents from leaving all three open.
+
 ## Architecture
 
 The indicator derives from `pending`, the resolved drop the tree already holds, which comes from `projectDropDepth` — clamped by the neighbours, by the `max_depth` ceiling, and by the height of the branch being dragged. **The indicator therefore cannot draw an illegal landing**, and no new rule is needed to make that true: it renders the same resolution the release reads, which is the single-source-of-truth pattern the canvas's Decision 3 also relies on.
 
 Adoption marking is untouched. The outline on each adopted row and the `role="status"` count answer "and these come too"; the indicator answers "where, and at what level". The two are complementary and share no state beyond `pending`.
+
+### Decisions 7–9 change layout mid-drag, and the tests are blind to it
+
+**This is the sharp edge of the amendment.** Neither the tree nor the canvas sets an explicit `measuring` config, so dnd-kit measures droppables when a drag begins. Decision 7 unmounts rows *at* drag start and Decision 8 mounts them *during* one — so unless measurement is ordered after the collapse, or the strategy is made explicit, `overIndex` resolves against rects describing rows that are no longer there.
+
+The reason this needs saying out loud rather than leaving to whoever builds it: `reference-tree.test.tsx`'s drag tests stub geometry through `mockRowRects()`, which answers with fixed rects regardless of what is actually mounted. **A stale-rect bug would very likely pass the suite.** Anything built here needs an explicit measuring strategy *and* at least one assertion that does not stub.
 
 ## Testing
 
@@ -51,6 +72,15 @@ Depth arithmetic is asserted at the pure-function seam, as it already is — not
 - it is present for an in-place re-indent, where nothing else moves;
 - the dragged row carries no horizontal translation;
 - release produces the arrangement the indicator showed — the same single-source pin the canvas uses, deriving both from one resolution.
+
+For Decisions 7–9:
+
+- lifting an expanded parent removes its descendants from the list, and dropping or cancelling puts the fold back exactly as it was;
+- no fold but the dragged branch's changes on lift;
+- dwelling on a folded Reference expands it after the dwell, and crossing it quickly does not;
+- a node sprung open that did not receive the drop is folded again afterwards; the one that received it is open;
+- Escape restores every fold to its state at lift;
+- **at least one drop assertion that does not stub rects**, since the stub cannot see a layout change and the whole risk of this amendment is geometry going stale.
 
 ## Non-goals
 
