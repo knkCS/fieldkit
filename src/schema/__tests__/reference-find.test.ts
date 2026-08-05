@@ -14,6 +14,7 @@ import {
 	findReferences,
 	foldReferenceText,
 	REFERENCE_FIND_RESULT_CAP,
+	referenceFindState,
 } from "../reference-find";
 import { readReferenceTree } from "../reference-tree";
 
@@ -49,43 +50,54 @@ const names: Record<string, string> = {
 const keys = (answer: { results: { key: string }[] }) =>
 	answer.results.map((r) => r.key);
 
+/**
+ * Find over a name set that has finished arriving.
+ *
+ * Which is what every test about *matching* is about: what answers a query is
+ * decided by the names, and by nothing about how they got here. The state an
+ * answer carries is asserted on its own further down, where it is the subject
+ * rather than a constant — and it is spelled out at every call there, because
+ * a test about the difference between two states cannot leave either implied.
+ */
+const find = (
+	tested: Parameters<typeof findReferences>[0],
+	resolved: Record<string, string>,
+	query: string,
+) => findReferences(tested, resolved, query, "complete");
+
 describe("findReferences — what matches", () => {
 	it("finds the References whose display name contains the query", () => {
-		expect(keys(findReferences(rows, names, "Cats"))).toEqual(["0.0.0"]);
+		expect(keys(find(rows, names, "Cats"))).toEqual(["0.0.0"]);
 	});
 
 	it("ignores case on both sides", () => {
-		expect(keys(findReferences(rows, names, "cATS OF"))).toEqual(["0.0.0"]);
+		expect(keys(find(rows, names, "cATS OF"))).toEqual(["0.0.0"]);
 	});
 
 	it("finds References at every level, not only the rows a fold leaves on screen", () => {
 		// A root, its child and its grandchild. A tree past the collapse
 		// threshold opens showing only the first of the three, and Find answers
 		// with all of them: the tree it searches is the whole tree.
-		expect(keys(findReferences(rows, names, "world"))).toEqual([
-			"0",
-			"0.0",
-			"0.0.0",
-		]);
+		expect(keys(find(rows, names, "world"))).toEqual(["0", "0.0", "0.0.0"]);
 	});
 
 	it("answers with nothing for a blank query", () => {
-		expect(findReferences(rows, names, "").results).toEqual([]);
-		expect(findReferences(rows, names, "   ").results).toEqual([]);
+		expect(find(rows, names, "").results).toEqual([]);
+		expect(find(rows, names, "   ").results).toEqual([]);
 	});
 
 	it("ignores the whitespace around a query", () => {
-		expect(keys(findReferences(rows, names, "  Bern "))).toEqual(["0.0"]);
+		expect(keys(find(rows, names, "  Bern "))).toEqual(["0.0"]);
 	});
 
 	it("answers with nothing when the query matches no name in the tree", () => {
-		expect(findReferences(rows, names, "Pyrenees").results).toEqual([]);
+		expect(find(rows, names, "Pyrenees").results).toEqual([]);
 	});
 
 	it("matches the id of a Reference whose Content did not resolve", () => {
 		// A row with no resolved name shows its id, so Find matches what is on
 		// screen — the degrade ADR-0013 describes, not id matching.
-		expect(keys(findReferences(rows, names, "vanish"))).toEqual(["2"]);
+		expect(keys(find(rows, names, "vanish"))).toEqual(["2"]);
 	});
 
 	it("matches a Reference by its id even where the name resolved", () => {
@@ -94,19 +106,17 @@ describe("findReferences — what matches", () => {
 		// happens to be showing a name is not something they can act on: a
 		// Field with a working Adapter has to answer an id exactly as one whose
 		// Adapter failed does.
-		expect(
-			keys(findReferences(rows, { ...names, cats: "Felines" }, "cats")),
-		).toEqual(["0.0.0"]);
+		expect(keys(find(rows, { ...names, cats: "Felines" }, "cats"))).toEqual([
+			"0.0.0",
+		]);
 	});
 
 	it("carries the name it matched, so a result can be shown without a second lookup", () => {
-		expect(findReferences(rows, names, "Bern").results[0].name).toBe(
-			"Bern in the world",
-		);
+		expect(find(rows, names, "Bern").results[0].name).toBe("Bern in the world");
 	});
 
 	it("finds nothing in a tree with nothing in it", () => {
-		expect(findReferences([], names, "Alps").results).toEqual([]);
+		expect(find([], names, "Alps").results).toEqual([]);
 	});
 });
 
@@ -127,24 +137,23 @@ describe("findReferences — matching the id a row may be showing", () => {
 		// it does not. A rule that answered only for the unresolved row would
 		// make Find's behaviour depend on the Adapter's health, which is the
 		// thing it is supposed to survive.
-		expect(
-			keys(findReferences(acme, { "acme-42": "Widget" }, "acme-4")),
-		).toEqual(["0", "1"]);
+		expect(keys(find(acme, { "acme-42": "Widget" }, "acme-4"))).toEqual([
+			"0",
+			"1",
+		]);
 	});
 
 	it("answers the same query identically when the Adapter resolved nothing at all", () => {
 		// A total Adapter failure is the degrade ADR-0013 describes, and it must
 		// change the ranking as well as the matching by nothing whatsoever.
-		expect(keys(findReferences(acme, {}, "acme-4"))).toEqual(["0", "1"]);
+		expect(keys(find(acme, {}, "acme-4"))).toEqual(["0", "1"]);
 	});
 
 	it("ignores case on an id, on both sides", () => {
 		const mixed = readReferenceTree([{ id: "ACME-42" }] satisfies Reference[]);
 
-		expect(
-			keys(findReferences(acme, { "acme-42": "Widget" }, "ACME-42")),
-		).toEqual(["0"]);
-		expect(keys(findReferences(mixed, {}, "acme-42"))).toEqual(["0"]);
+		expect(keys(find(acme, { "acme-42": "Widget" }, "ACME-42"))).toEqual(["0"]);
+		expect(keys(find(mixed, {}, "acme-42"))).toEqual(["0"]);
 	});
 
 	it("folds an id by the same rule it folds a name", () => {
@@ -154,7 +163,7 @@ describe("findReferences — matching the id a row may be showing", () => {
 			{ id: "müller-verlag" },
 		] satisfies Reference[]);
 
-		expect(keys(findReferences(slugs, {}, "muller"))).toEqual(["0"]);
+		expect(keys(find(slugs, {}, "muller"))).toEqual(["0"]);
 	});
 
 	it("labels a result matched on its id with the name the row shows", () => {
@@ -162,7 +171,7 @@ describe("findReferences — matching the id a row may be showing", () => {
 		// wearing the id would read as a different Reference from the row it
 		// names — which is the confusion an Author pasting an id is trying to
 		// get out of.
-		const found = findReferences(acme, { "acme-42": "Widget" }, "acme-42");
+		const found = find(acme, { "acme-42": "Widget" }, "acme-42");
 
 		expect(found.results[0].name).toBe("Widget");
 	});
@@ -183,7 +192,7 @@ describe("findReferences — matching the id a row may be showing", () => {
 		// separates them but where they sit.
 		expect(
 			keys(
-				findReferences(
+				find(
 					catalogue,
 					{ "acme-42": "Widget acme-42", zebra: "Acme catalogue" },
 					"acme",
@@ -192,9 +201,10 @@ describe("findReferences — matching the id a row may be showing", () => {
 		).toEqual(["0", "1"]);
 		// Which is the order the same tree comes back in when the Adapter never
 		// resolved that row at all.
-		expect(
-			keys(findReferences(catalogue, { zebra: "Acme catalogue" }, "acme")),
-		).toEqual(["0", "1"]);
+		expect(keys(find(catalogue, { zebra: "Acme catalogue" }, "acme"))).toEqual([
+			"0",
+			"1",
+		]);
 	});
 
 	it("gives one result for a row whose name and id both answer", () => {
@@ -203,11 +213,7 @@ describe("findReferences — matching the id a row may be showing", () => {
 		// nothing to tell them apart by.
 		const both = readReferenceTree([{ id: "atlas" }] satisfies Reference[]);
 
-		const found = findReferences(
-			both,
-			{ atlas: "Atlas of the world" },
-			"atlas",
-		);
+		const found = find(both, { atlas: "Atlas of the world" }, "atlas");
 
 		expect(keys(found)).toEqual(["0"]);
 		expect(found.total).toBe(1);
@@ -243,9 +249,7 @@ describe("findReferences — folding a query against the name", () => {
 	it("matches a name carrying diacritics from a query without them", () => {
 		const german = readReferenceTree([{ id: "m" }] satisfies Reference[]);
 
-		expect(keys(findReferences(german, { m: "Müller" }, "muller"))).toEqual([
-			"0",
-		]);
+		expect(keys(find(german, { m: "Müller" }, "muller"))).toEqual(["0"]);
 	});
 
 	it("matches a name without diacritics from a query carrying them", () => {
@@ -254,9 +258,7 @@ describe("findReferences — folding a query against the name", () => {
 		// Reference coming and going.
 		const german = readReferenceTree([{ id: "m" }] satisfies Reference[]);
 
-		expect(keys(findReferences(german, { m: "Muller" }, "müller"))).toEqual([
-			"0",
-		]);
+		expect(keys(find(german, { m: "Muller" }, "müller"))).toEqual(["0"]);
 	});
 
 	it("matches ß from a query spelling it ss, and ss from a query spelling it ß", () => {
@@ -269,14 +271,8 @@ describe("findReferences — folding a query against the name", () => {
 		const sharpNames = { sharp: "Große Straße", spelled: "Grosse Strasse" };
 
 		// Either spelling of the query reaches both spellings of the name.
-		expect(keys(findReferences(sharp, sharpNames, "grosse"))).toEqual([
-			"0",
-			"1",
-		]);
-		expect(keys(findReferences(sharp, sharpNames, "große"))).toEqual([
-			"0",
-			"1",
-		]);
+		expect(keys(find(sharp, sharpNames, "grosse"))).toEqual(["0", "1"]);
+		expect(keys(find(sharp, sharpNames, "große"))).toEqual(["0", "1"]);
 	});
 
 	it("folds every diacritic German content actually carries, not one of them", () => {
@@ -321,8 +317,8 @@ describe("findReferences — folding a query against the name", () => {
 		const missed = folds.filter(([typed, stored]) => {
 			const row = readReferenceTree([{ id: "x" }] satisfies Reference[]);
 			return (
-				findReferences(row, { x: stored }, typed).results.length === 0 ||
-				findReferences(row, { x: typed }, stored).results.length === 0
+				find(row, { x: stored }, typed).results.length === 0 ||
+				find(row, { x: typed }, stored).results.length === 0
 			);
 		});
 
@@ -350,7 +346,7 @@ const bergNames: Record<string, string> = {
 
 describe("findReferences — how the matches are ranked", () => {
 	it("ranks a name beginning with the query first, then a word beginning with it, then one merely containing it", () => {
-		expect(keys(findReferences(bergs, bergNames, "berg"))).toEqual([
+		expect(keys(find(bergs, bergNames, "berg"))).toEqual([
 			"2", // "Bergen harbour"  — the name begins with it
 			"1", // "Cold berg valley" — a word within the name begins with it
 			"0", // "Iceberg survey"  — it appears somewhere inside
@@ -363,12 +359,7 @@ describe("findReferences — how the matches are ranked", () => {
 		// leads; the three that merely contain it follow in the order the rows
 		// are drawn — depth-first, so a root in the second branch comes after a
 		// grandchild in the first.
-		expect(keys(findReferences(rows, names, "o"))).toEqual([
-			"0.0.0",
-			"0",
-			"0.0",
-			"1",
-		]);
+		expect(keys(find(rows, names, "o"))).toEqual(["0.0.0", "0", "0.0", "1"]);
 	});
 
 	it("counts a word beginning after punctuation as a word beginning", () => {
@@ -382,7 +373,7 @@ describe("findReferences — how the matches are ranked", () => {
 
 		expect(
 			keys(
-				findReferences(
+				find(
 					punctuated,
 					{
 						ice: "Iceberg survey",
@@ -408,7 +399,7 @@ describe("findReferences — how the matches are ranked", () => {
 
 		expect(
 			keys(
-				findReferences(
+				find(
 					written,
 					{
 						astral: "\u{1D400}berg survey",
@@ -435,7 +426,7 @@ describe("findReferences — how the matches are ranked", () => {
 			{ id: "verlag" },
 		] satisfies Reference[]);
 
-		const found = findReferences(
+		const found = find(
 			muellers,
 			{
 				gross: "Großmüller AG", // "muller" only appears inside it
@@ -465,7 +456,7 @@ describe("findReferences — how the matches are ranked", () => {
 
 		expect(
 			keys(
-				findReferences(
+				find(
 					strasse,
 					{ inside: "Großmüller AG", begins: "Straße Müller" },
 					"muller",
@@ -481,25 +472,17 @@ describe("findReferences — how the matches are ranked", () => {
 		// differently the second time.
 		const before = rows.map((row) => row.key);
 
-		findReferences(rows, names, "o");
+		find(rows, names, "o");
 
 		expect(rows.map((row) => row.key)).toEqual(before);
-		expect(keys(findReferences(rows, names, "o"))).toEqual([
-			"0.0.0",
-			"0",
-			"0.0",
-			"1",
-		]);
+		expect(keys(find(rows, names, "o"))).toEqual(["0.0.0", "0", "0.0", "1"]);
 	});
 
 	it("leaves no two results tied, so the list cannot reshuffle between keystrokes", () => {
 		// "Shared article" sits in this tree twice: one name, so one rank, and
 		// what separates them is where they sit. A tie the ordering did not
 		// break is a pair a later sort would be free to swap.
-		expect(keys(findReferences(rows, names, "Shared article"))).toEqual([
-			"0.1",
-			"1.0",
-		]);
+		expect(keys(find(rows, names, "Shared article"))).toEqual(["0.1", "1.0"]);
 	});
 });
 
@@ -507,15 +490,115 @@ describe("findReferences — one answer", () => {
 	it("answers with the matches and how many were found, together", () => {
 		// One call, one answer: a control cannot show a list from one question
 		// and a count from another, so the two can never disagree.
-		const found = findReferences(rows, names, "world");
+		const found = find(rows, names, "world");
 
 		expect(keys(found)).toEqual(["0", "0.0", "0.0.0"]);
 		expect(found.total).toBe(3);
 	});
 
 	it("counts nothing found for a query that matches nothing", () => {
-		expect(findReferences(rows, names, "Pyrenees").total).toBe(0);
-		expect(findReferences(rows, names, "").total).toBe(0);
+		expect(find(rows, names, "Pyrenees").total).toBe(0);
+		expect(find(rows, names, "").total).toBe(0);
+	});
+});
+
+/**
+ * The three states, and the one function that decides them (#152).
+ *
+ * The whole of the rule, asserted as a table over the two facts it reads:
+ * whether a lookup is still outstanding, and whether one already came back
+ * short. Deciding it here rather than in the control is what stops a dropdown
+ * inventing a fourth answer for a case nobody thought about — and the last test
+ * says so in as many words, by asking for every input there is.
+ */
+describe("referenceFindState — no match, not yet, and not all of it", () => {
+	it("says the names are resolving while a lookup is outstanding", () => {
+		expect(referenceFindState({ pending: true, incomplete: false })).toBe(
+			"resolving",
+		);
+	});
+
+	it("still says resolving when a batch has already come back short", () => {
+		// A failed batch beside batches still in flight is a tree whose names
+		// are *arriving*: the ones that are missing may be in the next answer,
+		// and telling an Author something is permanently missing while it may
+		// still turn up would be the same lie in the other direction.
+		expect(referenceFindState({ pending: true, incomplete: true })).toBe(
+			"resolving",
+		);
+	});
+
+	it("says the set is partial once the lookups stopped and one came back short", () => {
+		expect(referenceFindState({ pending: false, incomplete: true })).toBe(
+			"partial",
+		);
+	});
+
+	it("says the set is complete when everything that will arrive has arrived", () => {
+		expect(referenceFindState({ pending: false, incomplete: false })).toBe(
+			"complete",
+		);
+	});
+
+	it("answers with one of exactly three states, whatever it is asked", () => {
+		// Every input there is — two facts, four combinations — and three
+		// answers between them. A control renders one sentence per state, so a
+		// fourth state would be a screen nobody wrote.
+		const everything = [true, false].flatMap((pending) =>
+			[true, false].map((incomplete) =>
+				referenceFindState({ pending, incomplete }),
+			),
+		);
+
+		expect(new Set(everything)).toEqual(
+			new Set(["resolving", "partial", "complete"]),
+		);
+	});
+});
+
+describe("findReferences — what an answer says about its own names", () => {
+	it("carries the state its names were in, so a count cannot be read as final", () => {
+		// "12 matches" mid-resolution misleads exactly as "no matches" does:
+		// both claim a whole tree was searched. The state travels *in the
+		// answer* for that reason — the list, the total and the standing of both
+		// come out of one call.
+		const found = findReferences(rows, names, "world", "resolving");
+
+		expect(found.total).toBe(3);
+		expect(found.state).toBe("resolving");
+	});
+
+	it("carries a partial set's state beside the matches it did find", () => {
+		expect(findReferences(rows, names, "world", "partial").state).toBe(
+			"partial",
+		);
+	});
+
+	it("does not call an answer complete because an id matched", () => {
+		// #151 made a row answer on its id as well as its name, so a Reference
+		// whose name has not arrived is not unmatchable — an Author pasting an
+		// id reaches it mid-resolution, which is why the match is listed at all.
+		// It is still not a *complete* answer: Find never decides that a query
+		// is an id, because there is no id syntax to decide it by, so a name
+		// still arriving may contain what was typed. An id that answered proves
+		// something is in the tree; it never proves nothing else is.
+		const found = findReferences(rows, {}, "vanished", "resolving");
+
+		expect(keys(found)).toEqual(["2"]);
+		expect(found.state).toBe("resolving");
+	});
+
+	it("carries the state even where there was nothing to say about", () => {
+		// A blank query and a query that matched nothing answer with the same
+		// empty list, and the difference between "nothing is here" and "not yet"
+		// is the whole of what the state is for. An answer that dropped it when
+		// it found nothing would drop it in exactly the case it matters.
+		expect(findReferences(rows, names, "", "resolving").state).toBe(
+			"resolving",
+		);
+		expect(findReferences(rows, names, "Pyrenees", "resolving").state).toBe(
+			"resolving",
+		);
 	});
 });
 
@@ -546,7 +629,7 @@ describe("findReferences — the cap on how many are listed", () => {
 			REFERENCE_FIND_RESULT_CAP - 1,
 		);
 
-		const found = findReferences(peakRows, peakNames, "peak");
+		const found = find(peakRows, peakNames, "peak");
 
 		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP - 1);
 		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP - 1);
@@ -557,7 +640,7 @@ describe("findReferences — the cap on how many are listed", () => {
 			REFERENCE_FIND_RESULT_CAP,
 		);
 
-		const found = findReferences(peakRows, peakNames, "peak");
+		const found = find(peakRows, peakNames, "peak");
 
 		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
 		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP);
@@ -568,7 +651,7 @@ describe("findReferences — the cap on how many are listed", () => {
 			REFERENCE_FIND_RESULT_CAP + 1,
 		);
 
-		const found = findReferences(peakRows, peakNames, "peak");
+		const found = find(peakRows, peakNames, "peak");
 
 		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
 		// What an Author is told to keep typing about: how many there were,
@@ -598,7 +681,7 @@ describe("findReferences — the cap on how many are listed", () => {
 			),
 		};
 
-		const found = findReferences(peakRows, peakNames, "peak");
+		const found = find(peakRows, peakNames, "peak");
 
 		expect(found.results[0].name).toBe("Peak district");
 		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
@@ -616,20 +699,20 @@ const paths = (answer: { results: { ancestors: string[] }[] }) =>
 
 describe("findReferences — where each match sits", () => {
 	it("gives a root no ancestors, because it sits inside nothing", () => {
-		expect(paths(findReferences(rows, names, "atlas"))).toEqual([[]]);
+		expect(paths(find(rows, names, "atlas"))).toEqual([[]]);
 	});
 
 	it("names every Reference a match sits inside, outermost first", () => {
 		// The path an Author reads top-down, the way the tree draws it: the
 		// root first and the Reference's own parent last.
-		expect(paths(findReferences(rows, names, "Cats"))).toEqual([
+		expect(paths(find(rows, names, "Cats"))).toEqual([
 			["World atlas", "Bern in the world"],
 		]);
 	});
 
 	it("names only ancestors, never a sibling or a sibling's branch", () => {
 		// "0.1" sits under the root beside "0.0", whose branch it is not in.
-		expect(findReferences(rows, names, "Shared").results[0].ancestors).toEqual([
+		expect(find(rows, names, "Shared").results[0].ancestors).toEqual([
 			"World atlas",
 		]);
 	});
@@ -637,7 +720,7 @@ describe("findReferences — where each match sits", () => {
 	it("tells the same Content in two places apart by its path", () => {
 		// Two occurrences are two results — which is the whole reason a result
 		// is keyed by where it sits rather than by what it points at.
-		const found = findReferences(rows, names, "Shared");
+		const found = find(rows, names, "Shared");
 		expect(keys(found)).toEqual(["0.1", "1.0"]);
 		expect(paths(found)).toEqual([["World atlas"], ["Dolomite peaks"]]);
 	});
@@ -648,9 +731,9 @@ describe("findReferences — where each match sits", () => {
 		const orphaned = readReferenceTree([
 			{ id: "vanished", children: [{ id: "cats" }] },
 		] satisfies Reference[]);
-		expect(
-			findReferences(orphaned, names, "Cats").results[0].ancestors,
-		).toEqual(["vanished"]);
+		expect(find(orphaned, names, "Cats").results[0].ancestors).toEqual([
+			"vanished",
+		]);
 	});
 });
 
@@ -705,7 +788,7 @@ describe("findReferences — what a keystroke costs", () => {
 		// exactly the scaling the match itself did not have.
 		const { rows: ten, names: tenNames } = resolvedRows(10, (i) => `Peak ${i}`);
 
-		const folds = foldsDuring(() => findReferences(ten, tenNames, "peak"));
+		const folds = foldsDuring(() => find(ten, tenNames, "peak"));
 
 		expect(folds).toBe(1 + 2 * ten.length);
 	});
@@ -722,7 +805,7 @@ describe("findReferences — what a keystroke costs", () => {
 		const repetitive = resolvedRows(10, () => "zab".repeat(50));
 
 		const folds = foldsDuring(() =>
-			findReferences(repetitive.rows, repetitive.names, "ab"),
+			find(repetitive.rows, repetitive.names, "ab"),
 		);
 
 		expect(folds).toBe(1 + 2 * repetitive.rows.length);
@@ -739,10 +822,8 @@ describe("findReferences — what a keystroke costs", () => {
 			(i) => `Peak ${i}`,
 		);
 
-		const forTen = foldsDuring(() => findReferences(ten, tenNames, "peak"));
-		const forTwenty = foldsDuring(() =>
-			findReferences(twenty, twentyNames, "peak"),
-		);
+		const forTen = foldsDuring(() => find(ten, tenNames, "peak"));
+		const forTwenty = foldsDuring(() => find(twenty, twentyNames, "peak"));
 
 		// Minus the query, which is folded once whatever the tree costs.
 		expect(forTwenty - 1).toBe(2 * (forTen - 1));
@@ -758,7 +839,7 @@ describe("findReferences — what a keystroke costs", () => {
 			})) satisfies Reference[],
 		);
 
-		const folds = foldsDuring(() => findReferences(unresolved, {}, "id"));
+		const folds = foldsDuring(() => find(unresolved, {}, "id"));
 
 		expect(folds).toBe(1 + unresolved.length);
 	});
