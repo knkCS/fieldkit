@@ -790,6 +790,13 @@ describe("a pointer drag wandering far outside the canvas", () => {
 	 * not merely outside everything, it is outside everything while still having
 	 * a plausible nearest candidate to be wrongly handed to.
 	 *
+	 * What that mutation check does NOT establish is the constant's VALUE, and
+	 * this test should never be read as pinning it: widening the slack to 400
+	 * leaves this green (the corner is still well outside), and only a slack wide
+	 * enough to swallow the corner — ~2670 at this fixture's geometry — reddens
+	 * it. Both measured. Deliberately so: it kills "the guard is gone", which is
+	 * the wiring claim; `visible-collision.test.ts` kills "the guard moved".
+	 *
 	 * **What it cannot see.** jsdom lays nothing out, so `springRectMock` decides
 	 * where the union of droppables is and the fired event decides where the
 	 * pointer is — both stipulated, neither measured. Nothing here says a real
