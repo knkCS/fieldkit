@@ -1,5 +1,6 @@
 import { Provider } from "@knkcs/anker/primitives";
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -666,6 +667,37 @@ describe("SpecForm — read mode, Find and Reveal", () => {
 		await reveal("article-20");
 
 		expect(rowNamed("article-20")).not.toBeNull();
+	});
+
+	it("says the names are still arriving rather than that nothing matched", async () => {
+		// The third Find state reaches read mode too (#152). Reading a record
+		// is where an Author is most likely to be *checking* whether something
+		// is in the tree, and a control that answered "no" before it knew would
+		// be believed.
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		const adapter = createFakeReferenceAdapter({
+			contents: fakeCatalogue(size),
+			holdFetch: true,
+		});
+		renderRead({ related: fakeReferenceTree(size) }, referenceField(), adapter);
+		await screen.findByText("article-1");
+
+		expect(await findFor("Content 20")).toHaveLength(0);
+
+		expect(screen.getByText("Still resolving names…")).toBeInTheDocument();
+		expect(
+			screen.queryByText("No matching References"),
+		).not.toBeInTheDocument();
+
+		await act(async () => {
+			adapter.releaseFetches();
+		});
+
+		// And the same query answers as soon as they land, unretyped — the two
+		// renderers agree about this as they agree about folds and Reveals.
+		const options = await screen.findAllByRole("option");
+		expect(options).toHaveLength(1);
+		expect(within(options[0]).getByText("Content 20")).toBeInTheDocument();
 	});
 });
 

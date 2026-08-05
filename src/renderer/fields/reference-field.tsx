@@ -128,7 +128,11 @@ export function ReferenceField({
 	// cannot make a remove act one place off.
 	const rows = useMemo(() => readReferenceTree(value), [value]);
 
-	const names = useResolvedContentNames(
+	// The names, and how far they can be relied on. A row needs only the first —
+	// it falls back to its id whatever the reason — while Find needs both,
+	// because "nothing in this tree matches" is a claim about a tree whose names
+	// have all arrived (#152).
+	const { names, nameState } = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		accessor,
 	);
@@ -245,6 +249,7 @@ export function ReferenceField({
 								<ReferenceFind
 									rows={rows}
 									names={names}
+									nameState={nameState}
 									onReveal={(key) =>
 										setReveal((last) => ({
 											key,

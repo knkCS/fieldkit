@@ -75,7 +75,10 @@ export function ReferenceReadValue({
 	// yields no row, at any level.
 	const rows = useMemo(() => readReferenceTree(value), [value]);
 
-	const names = useResolvedContentNames(
+	// Names, and how far they can be relied on — read mode resolves the same way
+	// the editable Field does, and its Find is entitled to say exactly as much
+	// about an absence (#152).
+	const { names, nameState } = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		field.config.api_accessor,
 	);
@@ -278,7 +281,12 @@ export function ReferenceReadValue({
 				// sides of the Field rather than as four separate controls.
 				<>
 					<Box as="span" display="flex" justifyContent="flex-end">
-						<ReferenceFind rows={rows} names={names} onReveal={handleReveal} />
+						<ReferenceFind
+							rows={rows}
+							names={names}
+							nameState={nameState}
+							onReveal={handleReveal}
+						/>
 					</Box>
 					<Box as="span" display="flex" justifyContent="flex-end">
 						<ReferenceCollapseAll onCollapse={collapseAll} />

@@ -230,7 +230,75 @@ function bestReferenceMatchRank(
 	return best;
 }
 
-/** Everything one Find answered: what to list, and how much there was. */
+/**
+ * What the set of names behind an answer is doing — the two facts a record of
+ * names cannot carry.
+ *
+ * Names are written once, when the whole set settles, so an id absent from that
+ * record means three different things at three different moments: not yet, no
+ * Adapter to ask, or asked and never answered. An empty record is the same
+ * empty record in all three, which is why the signal travels beside it rather
+ * than being read out of it.
+ */
+export interface ReferenceNameProgress {
+	/** Whether a lookup is still outstanding. */
+	pending: boolean;
+	/** Whether a lookup already came back short — names that will now never
+	 * arrive unless something asks again. */
+	incomplete: boolean;
+}
+
+/**
+ * Which of three things Find can honestly say about the names behind an answer
+ * — and there are three, not two (ADR-0013).
+ *
+ * - `"complete"` — every name that will ever arrive has arrived, so what Find
+ *   answered is the whole truth about this tree. It is also the honest answer
+ *   where there was nothing to resolve and where there is no Adapter to resolve
+ *   it with: nothing is missing that was ever promised, every row shows its id,
+ *   and Find matches ids — which is precisely what is on screen in that state.
+ * - `"resolving"` — names are still arriving. Whatever Find answered is a floor
+ *   and not a total, so nothing may be reported as absent.
+ * - `"partial"` — the lookups have stopped and some names never came. Nothing
+ *   more will improve on its own, and an answer over the names that did arrive
+ *   is not an answer over the tree.
+ *
+ * **Three states, and a closed set of three.** Every sentence an Author reads
+ * out of Find is chosen by one of these and by how many results there were, so
+ * a fourth would be a screen nobody wrote. They are decided by
+ * {@link referenceFindState} rather than by the control, for that reason.
+ *
+ * What the three are *not* is "matched", "nothing matched" and "loading":
+ * whether anything matched is `results.length`, which the control can already
+ * see. These say whether it is entitled to draw a conclusion from it — which is
+ * the question a control asked to report an absence cannot answer for itself.
+ */
+export type ReferenceFindState = "complete" | "resolving" | "partial";
+
+/**
+ * The three states, from the two facts that decide them.
+ *
+ * **Outstanding outranks short.** A batch that failed while its neighbours are
+ * still in flight is a tree whose names are *arriving*: the rows it left
+ * nameless may be named by the next answer, and reporting a permanent gap
+ * during the window where it may still close is the same lie as reporting an
+ * absence — told about the Adapter rather than about the tree.
+ *
+ * A pure function of two booleans, deliberately: it is the whole of the rule,
+ * so it is asserted as a table rather than through a rendered dropdown, and a
+ * control that renders one sentence per state cannot reach a state this did not
+ * hand it.
+ */
+export function referenceFindState({
+	pending,
+	incomplete,
+}: ReferenceNameProgress): ReferenceFindState {
+	if (pending) return "resolving";
+	return incomplete ? "partial" : "complete";
+}
+
+/** Everything one Find answered: what to list, how much there was, and how far
+ * to trust it. */
 export interface ReferenceFindAnswer {
 	/** The matches to show. */
 	results: ReferenceFindResult[];
@@ -242,6 +310,17 @@ export interface ReferenceFindAnswer {
 	 * walk of the same tree, and can never disagree about it.
 	 */
 	total: number;
+	/**
+	 * What the names this was matched against were doing.
+	 *
+	 * It rides in the answer for the same reason `total` does, and it is the
+	 * same failure it prevents: "12 matches" while the set is still arriving
+	 * misleads exactly as "no matches" does, because both claim a whole tree was
+	 * searched. The list, the count and the standing of both come out of one
+	 * call, so no keystroke can leave a control describing one answer with a
+	 * sentence about another.
+	 */
+	state: ReferenceFindState;
 }
 
 /**
@@ -288,18 +367,31 @@ export interface ReferenceFindAnswer {
  *
  * Matching being fieldkit's, its rules are fieldkit's: a Consumer cannot
  * substitute its own collation, stemming or fuzzy index. ADR-0013 records that
- * as the price of a Find that behaves identically everywhere. One consequence
- * of that ADR is still outstanding: Find cannot yet tell "no match" from "not
- * resolved yet" (#152), which is the one an Author can be misled by — and the
- * one that makes a count of nought worth reading twice.
+ * as the price of a Find that behaves identically everywhere.
+ *
+ * **`state` is not optional, and it is not inferred.** Names arrive in batches,
+ * so an empty result means "nothing here" at one moment and "not yet" at
+ * another, and nothing in `rows` or `names` tells the two apart — a tree whose
+ * Adapter has not answered looks exactly like a tree whose Contents have no
+ * names. An answer that could be built without saying which it was would be a
+ * control free to report an absence it has no grounds for, which is the one
+ * thing ADR-0013 buys. {@link referenceFindState} is what decides it.
+ *
+ * It changes no match and no rank: matching is over what the rows show and the
+ * ids behind them, which is as true half way through a resolution as at the end
+ * of one. A query answered by an id mid-resolution is listed at once, and the
+ * answer still says `"resolving"` — the id proves something is in the tree, and
+ * never that nothing else is, since Find has no id syntax to tell an id query
+ * from a name that has yet to arrive.
  */
 export function findReferences(
 	rows: readonly ReferenceRow[],
 	names: Record<string, string>,
 	query: string,
+	state: ReferenceFindState,
 ): ReferenceFindAnswer {
 	const needle = foldReferenceText(query.trim());
-	if (needle === "") return { results: [], total: 0 };
+	if (needle === "") return { results: [], total: 0, state };
 	const matched: {
 		rank: number;
 		index: number;
@@ -324,6 +416,11 @@ export function findReferences(
 	// back in one order.
 	matched.sort((a, b) => a.rank - b.rank || a.index - b.index);
 	return {
+		// Carried onto the answer rather than left with the caller: what was
+		// found and how far it can be trusted are one fact about one tree at one
+		// moment, and a control reading them from two places is a control that
+		// can pair this keystroke's matches with the last one's standing.
+		state,
 		// Every match, not the ones listed: it is what tells an Author to keep
 		// typing rather than to read the cap as the whole answer.
 		total: matched.length,
