@@ -91,7 +91,13 @@ A Field past `REFERENCE_TREE_COLLAPSE_THRESHOLD` — the same number that decide
 
 The list is **ranked and capped**. A name that begins with the query comes first, then a name a word of which begins with it, then a name merely containing it; ties go to whichever row sits higher in the tree, so no two matches are ever tied and the list does not rearrange itself under the next keystroke. At most `REFERENCE_FIND_RESULT_CAP` are listed, above the list a count of how many were found in all — an Author reading "Showing 20 of 431 matches" knows to keep typing, where a list four hundred long would be the wall the tree already was. A search that withheld nothing says only "12 matches", with nothing left to wonder about. The cap is **provisional**, a guess on the same terms as the collapse threshold, and the count beside the list is what keeps a wrong guess honest.
 
-Matching is **case-insensitive substring** against the resolved display name, over **every** Reference at every level rather than the rows a fold set leaves on screen — a collapsed branch hiding the answer is the problem Find exists for. It happens in the browser, over the names the Field has already resolved (ADR-0013); the Adapter is not asked. A row whose Content did not resolve shows its id, and Find matches that id, so the control can always find what is on screen. The same Content sitting in the tree twice gives **two results**, told apart by their paths.
+Matching is **case-insensitive substring** against the resolved display name, over **every** Reference at every level rather than the rows a fold set leaves on screen — a collapsed branch hiding the answer is the problem Find exists for. It happens in the browser, over the names the Field has already resolved (ADR-0013); the Adapter is not asked. The same Content sitting in the tree twice gives **two results**, told apart by their paths.
+
+Two things make that matching forgiving enough to be worth typing into. **Diacritics fold**, on both sides: "muller" finds "Müller" and "müller" finds "Muller", because an Author reading a name off the screen types ASCII rather than reaching for the umlaut key. `ß` and `ss` find each other too — that one is spelled out in its own right, since `ß` is a letter rather than an accented `s` and no Unicode normalisation touches it. Umlauts fold to bare vowels, not to "ue"/"oe"/"ae".
+
+And **a row answers on its id as well as its name**, whether or not that name resolved. A row whose Content no longer resolves, or whose Adapter failed, shows its raw id — so an Author can paste that id straight into Find and reach the Reference, and Find matches what is actually in front of them. A row is ranked on the better of its two texts, so a Field with a working Adapter answers an id exactly as one whose Adapter failed does; a row whose name *and* id both match is still one result.
+
+Folding sits inside the ranking rather than beside it, so the order above holds over folded matches: a name beginning with the unaccented query is a prefix match. Matching is fieldkit's, which means its rules are fieldkit's — a Consumer cannot substitute its own collation or fuzzy index (ADR-0013).
 
 Picking one **Reveals** it: every fold above it opens, the row scrolls to the centre of the viewport, takes focus, and stays marked until the next Reveal. The row itself takes `tabIndex={-1}` — it never joins the tab order, and landing on it puts its grip, its fold control and its buttons one <kbd>Tab</kbd> away, in the order they are drawn. The Reveal is announced in a live region as well as marked on the row.
 
@@ -334,7 +340,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 - The browse drawer's page size is fixed at 10.
 - When the adapter ignores `excludeIds`, the backstop shortens each page after it was cut, so a page can show fewer than 10 rows — or none at all, if a field already references ten Contents that land on the same page — while the total still promises more. Honouring `excludeIds` removes this entirely.
 - Very large trees are not virtualised.
-- Find reports "No matching References" while the names are still arriving, rather than saying they are still arriving. It also matches neither diacritic-folded text ("muller" does not find "Müller") nor a resolved Reference's id — an id matches only where no name resolved, which is what the row is showing anyway. All three are ADR-0013's rules and are not yet built.
+- Find reports "No matching References" while the names are still arriving, rather than saying they are still arriving. It is the last of ADR-0013's rules still to be built, and the one an Author can actually be misled by.
 
 ## Examples
 
