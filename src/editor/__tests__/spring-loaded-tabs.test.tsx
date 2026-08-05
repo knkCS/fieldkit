@@ -173,7 +173,7 @@ function Harness({ schema }: { schema: Schema }) {
 			{/* And the host's selection, for the same reason — plus one the
 			    canvas cannot supply: a selected CARD's only rendered signal is
 			    its frame's accent border, a Chakra token jsdom never resolves.
-			    See `selection()` below. */}
+			    See `hostSelection()` below. */}
 			<output data-testid="selected">{selected ?? ""}</output>
 		</ConfirmModalProvider>
 	);
@@ -671,8 +671,8 @@ describe("a card block dropped into a foreign tab after a spring", () => {
 	// `follow(activeTabIndex, next)` do anything at all: without a spring the
 	// two are equal and the call is a no-op. Note what that means for the
 	// assertions below — after a spring the canvas is ALREADY on SEO, so
-	// "stayed on the sprung tab" would hold even unwired; `selection()` is the
-	// clause that discriminates.
+	// "stayed on the sprung tab" would hold even unwired; `hostSelection()` is
+	// the clause that discriminates.
 	//
 	// What it does NOT re-assert: that a card over a foreign card resolves to
 	// a `card-block` target. That is resolve-drop-target.test.ts's, tested on
