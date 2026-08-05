@@ -1,5 +1,18 @@
 # @knkcs/fieldkit — Design Specification
 
+> **A dated record, not a current catalogue.** This describes the design as of
+> **2026-03-10** and is kept unrewritten, the way this repo keeps every design
+> record — decision history is corrected by later records, never edited in place.
+>
+> Two things in it are known to be out of date, and are the reason this banner
+> exists (#93): it lists **`toc_reference` as a built-in**, which it no longer is
+> (ADR-0010 moved it to the Consumer, mintable via `createReferencePlugin`), and
+> it documents the **pre-#63 `search(blueprintIds, query)`** adapter signature,
+> which is now a single `ReferenceSearchQuery` object (ADR-0009).
+>
+> For what is true today, read `docs/adr/`, `CONTEXT.md` and the per-component
+> `.mdx` contracts.
+
 ## Overview
 
 `@knkcs/fieldkit` is a single npm package that provides a specification-driven field system for defining, rendering, and tabulating structured data. It extracts and redesigns the SpecificationEditor, FieldRenderer, and DataTable components from the knkCMS Core monolith into a reusable library.

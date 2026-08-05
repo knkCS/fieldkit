@@ -81,7 +81,12 @@ src/
 │   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
 │   ├── provider.tsx     # FieldKitProvider (plugins + adapters)
 │   ├── adapters.ts      # Backend adapter interfaces
+│   ├── hooks/
+│   │   ├── use-resolved-content-names.ts # Names for every Reference in a tree, fetched in batches and merged; answers { names, nameState } so Find can tell "no match" from "not yet resolved" (ADR-0013)
+│   │   └── batch-ids.ts # The batching rule as a pure function, plus the PROVISIONAL batch size — no Adapter is ever handed a whole tree's ids in one call
 │   └── fields/          # Built-in field components
+│       ├── reference-find.tsx        # Find over the shared SearchCombobox: the Field's control, since the Field owns the resolved names. Never claims "/"
+│       └── reference-collapse-all.tsx # Collapse all — shared by both renderers, offered on exactly the trees that open folded
 ├── table/               # Spec-driven data table
 │   ├── spec-data-table.tsx
 │   ├── edit-drawer.tsx  # Renders through SpecForm
@@ -123,7 +128,7 @@ an architectural choice.
    - Set `displayName` on the exported component
    - Add Storybook story (`.stories.tsx`) and MDX documentation (`.mdx`)
 4. Create table cell: `src/table/cells/<name>-cell.tsx`, set it as the plugin's `cellComponent` (SpecForm's read mode renders through it too, unless the plugin declares a `readComponent`), and set `displayName`
-5. Register the cell in `src/table/get-cell-for-type.tsx` (SpecDataTable column mapping)
+5. Nothing to register for the table. `getCellForFieldType()` builds a map from the plugins it is given and resolves `cellComponent` off it at render time, falling back to string rendering where a plugin declares none — so a registered plugin already has its column. (This step used to say "register the cell in `src/table/get-cell-for-type.tsx`"; there has never been anything there to register.)
 6. Only when reading wants more than a cell can give — a cell has neither adapter access nor async and one row of height — add a `readComponent` (`ReadProps`: `field`, `value`, and a `renderChild` that renders a child value the same way). `group`, `reference` and `single_reference` are the built-ins that do.
 
 There is no manual renderer registration: `FieldComponent` resolves `plugin.fieldComponent` through the registry at render time.

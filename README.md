@@ -127,9 +127,39 @@ names is yours to do, because only your adapter can. `readReferenceTree` and
 `countReferences` (every reference at every level, what `max_items` caps) come
 from `@knkcs/fieldkit/schema`.
 
+### Large trees: Find and Reveal
+
+A reference field holding thousands of references opens **folded** — its roots
+only — and carries a **Find** box and a **Collapse all** control. Both appear
+only above the size where a tree stops being readable at a glance.
+
+**Find** locates a reference the tree already holds, by the display name of the
+content it points at. It is deliberately not called search: the reference
+adapter's `search` is the *catalogue browse* the picker opens to add a content
+you do not have yet, and one field having two searches would make both
+ambiguous. Find matches in the browser over every resolved name at every level —
+including inside folded branches — case-insensitively, with diacritics folded
+(`muller` finds `Müller`) and against a reference's id as well as its name.
+Matches are ranked and capped, and the list says how many were found in total.
+
+Picking one **reveals** it: every fold above it opens, the row scrolls to centre,
+takes focus and stays marked. Reveals accumulate — unlike a spring, a reveal is
+not a preview and does not fold back — which is what `Collapse all` is for.
+
+Find never filters or reorders the tree. It changes only what is folded and where
+you are looking, so dragging is never standing on ground that moved.
+
+Names for the whole tree are resolved through your adapter's `fetch`, **in
+batches** — so an adapter written against a twenty-reference field keeps working
+at ten thousand without seeing a call it cannot serve. See
+[ADR-0013](docs/adr/0013-find-matches-in-the-browser.md) for why matching happens
+in the browser and what was rejected to get there.
+
+Read mode folds and carries the same two controls.
+
 ## Tech Stack
 
-- React 18+
+- React 19+
 - Chakra UI v3 (via @knkcs/anker)
 - React Hook Form + Zod
 - TanStack Table v8
