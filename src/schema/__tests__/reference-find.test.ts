@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Reference } from "../reference";
-import { findReferences } from "../reference-find";
+import { findReferences, REFERENCE_FIND_RESULT_CAP } from "../reference-find";
 import { readReferenceTree } from "../reference-tree";
 
 /**
@@ -42,7 +42,8 @@ const names: Record<string, string> = {
 };
 
 /** The keys whatever Find answered with, in the order it answered. */
-const keys = (results: { key: string }[]) => results.map((r) => r.key);
+const keys = (answer: { results: { key: string }[] }) =>
+	answer.results.map((r) => r.key);
 
 describe("findReferences — what matches", () => {
 	it("finds the References whose display name contains the query", () => {
@@ -64,21 +65,9 @@ describe("findReferences — what matches", () => {
 		]);
 	});
 
-	it("answers in the order the tree holds them, across branches", () => {
-		// Depth-first, so a root in the second branch follows a grandchild in
-		// the first — the order the rows are drawn in, which is the order an
-		// Author reads the results against.
-		expect(keys(findReferences(rows, names, "o"))).toEqual([
-			"0",
-			"0.0",
-			"0.0.0",
-			"1",
-		]);
-	});
-
 	it("answers with nothing for a blank query", () => {
-		expect(findReferences(rows, names, "")).toEqual([]);
-		expect(findReferences(rows, names, "   ")).toEqual([]);
+		expect(findReferences(rows, names, "").results).toEqual([]);
+		expect(findReferences(rows, names, "   ").results).toEqual([]);
 	});
 
 	it("ignores the whitespace around a query", () => {
@@ -86,7 +75,7 @@ describe("findReferences — what matches", () => {
 	});
 
 	it("answers with nothing when the query matches no name in the tree", () => {
-		expect(findReferences(rows, names, "Pyrenees")).toEqual([]);
+		expect(findReferences(rows, names, "Pyrenees").results).toEqual([]);
 	});
 
 	it("matches the id of a Reference whose Content did not resolve", () => {
@@ -99,25 +88,253 @@ describe("findReferences — what matches", () => {
 		// "cats" is the id behind a Content named something else entirely.
 		// Matching ids alongside names is a later ticket; this says where the
 		// line currently is.
-		expect(findReferences(rows, { ...names, cats: "Felines" }, "cats")).toEqual(
-			[],
-		);
+		expect(
+			findReferences(rows, { ...names, cats: "Felines" }, "cats").results,
+		).toEqual([]);
 	});
 
 	it("carries the name it matched, so a result can be shown without a second lookup", () => {
-		expect(findReferences(rows, names, "Bern")[0].name).toBe(
+		expect(findReferences(rows, names, "Bern").results[0].name).toBe(
 			"Bern in the world",
 		);
 	});
 
 	it("finds nothing in a tree with nothing in it", () => {
-		expect(findReferences([], names, "Alps")).toEqual([]);
+		expect(findReferences([], names, "Alps").results).toEqual([]);
+	});
+});
+
+/**
+ * Four ways a name can answer to "berg", planted in the tree in exactly the
+ * wrong order: the weakest match at the top and the strongest at the bottom, so
+ * an answer that merely walked the tree cannot pass. Rows: "0", "0.0", "1", "2".
+ */
+const bergs = readReferenceTree([
+	{ id: "ice", children: [{ id: "sand" }] },
+	{ id: "cold" },
+	{ id: "bergen" },
+] satisfies Reference[]);
+
+const bergNames: Record<string, string> = {
+	ice: "Iceberg survey",
+	sand: "Sandberg quarry",
+	cold: "Cold berg valley",
+	bergen: "Bergen harbour",
+};
+
+describe("findReferences — how the matches are ranked", () => {
+	it("ranks a name beginning with the query first, then a word beginning with it, then one merely containing it", () => {
+		expect(keys(findReferences(bergs, bergNames, "berg"))).toEqual([
+			"2", // "Bergen harbour"  — the name begins with it
+			"1", // "Cold berg valley" — a word within the name begins with it
+			"0", // "Iceberg survey"  — it appears somewhere inside
+			"0.0", // "Sandberg quarry" — likewise, and further down the tree
+		]);
+	});
+
+	it("breaks a tie by the row's position in the tree, across branches", () => {
+		// Only "Cats of the world" has a word beginning with the query, so it
+		// leads; the three that merely contain it follow in the order the rows
+		// are drawn — depth-first, so a root in the second branch comes after a
+		// grandchild in the first.
+		expect(keys(findReferences(rows, names, "o"))).toEqual([
+			"0.0.0",
+			"0",
+			"0.0",
+			"1",
+		]);
+	});
+
+	it("counts a word beginning after punctuation as a word beginning", () => {
+		// A hyphen, a bracket or a slash is where an Author sees one word end
+		// and the next start, whatever a letter-only reading would say.
+		const punctuated = readReferenceTree([
+			{ id: "ice" },
+			{ id: "bracketed" },
+			{ id: "hyphenated" },
+		] satisfies Reference[]);
+
+		expect(
+			keys(
+				findReferences(
+					punctuated,
+					{
+						ice: "Iceberg survey",
+						bracketed: "Survey (berg edition)",
+						hyphenated: "Cold-berg valley",
+					},
+					"berg",
+				),
+			),
+		).toEqual(["1", "2", "0"]);
+	});
+
+	it("reads a letter as one letter, however many pieces it is written in", () => {
+		// "𝐀" is a single letter JavaScript stores as two units, and "é" here is
+		// an "e" with its accent written separately. Either way what sits against
+		// the query is the middle of a word, and neither name may be promoted
+		// above one that really does begin a word with it.
+		const written = readReferenceTree([
+			{ id: "astral" },
+			{ id: "combined" },
+			{ id: "cold" },
+		] satisfies Reference[]);
+
+		expect(
+			keys(
+				findReferences(
+					written,
+					{
+						astral: "\u{1D400}berg survey",
+						// "e" plus a combining acute, written out: the precomposed
+						// "é" is a letter all by itself and would prove nothing.
+						combined: "Cafe\u0301berg quarry",
+						cold: "Cold berg valley",
+					},
+					"berg",
+				),
+			),
+		).toEqual(["2", "0", "1"]);
+	});
+
+	it("leaves the tree it was handed untouched, so the next query answers like the first", () => {
+		// The ranking sorts what it collected, never the caller's rows — a
+		// control whose tree came back reordered would answer the same query
+		// differently the second time.
+		const before = rows.map((row) => row.key);
+
+		findReferences(rows, names, "o");
+
+		expect(rows.map((row) => row.key)).toEqual(before);
+		expect(keys(findReferences(rows, names, "o"))).toEqual([
+			"0.0.0",
+			"0",
+			"0.0",
+			"1",
+		]);
+	});
+
+	it("leaves no two results tied, so the list cannot reshuffle between keystrokes", () => {
+		// "Shared article" sits in this tree twice: one name, so one rank, and
+		// what separates them is where they sit. A tie the ordering did not
+		// break is a pair a later sort would be free to swap.
+		expect(keys(findReferences(rows, names, "Shared article"))).toEqual([
+			"0.1",
+			"1.0",
+		]);
+	});
+});
+
+describe("findReferences — one answer", () => {
+	it("answers with the matches and how many were found, together", () => {
+		// One call, one answer: a control cannot show a list from one question
+		// and a count from another, so the two can never disagree.
+		const found = findReferences(rows, names, "world");
+
+		expect(keys(found)).toEqual(["0", "0.0", "0.0.0"]);
+		expect(found.total).toBe(3);
+	});
+
+	it("counts nothing found for a query that matches nothing", () => {
+		expect(findReferences(rows, names, "Pyrenees").total).toBe(0);
+		expect(findReferences(rows, names, "").total).toBe(0);
+	});
+});
+
+/**
+ * A flat tree of `count` References whose names all answer to "peak" the same
+ * way, so the only thing deciding what comes back is the cap.
+ *
+ * Sized from {@link REFERENCE_FIND_RESULT_CAP} at each call site rather than
+ * from a number copied beside it: these assertions walk whatever cap this repo
+ * currently holds, and a cap someone raises tomorrow is still walked at its own
+ * edges rather than at yesterday's.
+ */
+function peaks(count: number) {
+	const tree = Array.from({ length: count }, (_, index) => ({
+		id: `peak-${index + 1}`,
+	}));
+	return {
+		rows: readReferenceTree(tree satisfies Reference[]),
+		names: Object.fromEntries(
+			tree.map((reference, index) => [reference.id, `Peak ${index + 1}`]),
+		),
+	};
+}
+
+describe("findReferences — the cap on how many are listed", () => {
+	it("lists them all, one below the cap", () => {
+		const { rows: peakRows, names: peakNames } = peaks(
+			REFERENCE_FIND_RESULT_CAP - 1,
+		);
+
+		const found = findReferences(peakRows, peakNames, "peak");
+
+		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP - 1);
+		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP - 1);
+	});
+
+	it("lists them all at exactly the cap, withholding none", () => {
+		const { rows: peakRows, names: peakNames } = peaks(
+			REFERENCE_FIND_RESULT_CAP,
+		);
+
+		const found = findReferences(peakRows, peakNames, "peak");
+
+		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
+		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP);
+	});
+
+	it("lists the cap's worth one above it, and still counts them all", () => {
+		const { rows: peakRows, names: peakNames } = peaks(
+			REFERENCE_FIND_RESULT_CAP + 1,
+		);
+
+		const found = findReferences(peakRows, peakNames, "peak");
+
+		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
+		// What an Author is told to keep typing about: how many there were,
+		// never how many are on screen.
+		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP + 1);
+	});
+
+	it("caps what it ranked, not what the tree held", () => {
+		// A cap's worth that merely contain the query, and — last row of all —
+		// one whose name begins with it. Applied before the ranking, the cap
+		// would drop precisely the match an Author was most likely after.
+		const inside = Array.from(
+			{ length: REFERENCE_FIND_RESULT_CAP },
+			(_, index) => ({ id: `ice-${index + 1}` }),
+		);
+		const peakRows = readReferenceTree([
+			...inside,
+			{ id: "district" },
+		] satisfies Reference[]);
+		const peakNames: Record<string, string> = {
+			district: "Peak district",
+			...Object.fromEntries(
+				inside.map((reference, index) => [
+					reference.id,
+					`Icepeak ${index + 1}`,
+				]),
+			),
+		};
+
+		const found = findReferences(peakRows, peakNames, "peak");
+
+		expect(found.results[0].name).toBe("Peak district");
+		expect(found.results).toHaveLength(REFERENCE_FIND_RESULT_CAP);
+		expect(found.total).toBe(REFERENCE_FIND_RESULT_CAP + 1);
+		// What fell off the end is the weakest match, not the last one listed.
+		expect(found.results.map((result) => result.name)).not.toContain(
+			`Icepeak ${REFERENCE_FIND_RESULT_CAP}`,
+		);
 	});
 });
 
 /** The ancestors whatever Find answered with, one list per result. */
-const paths = (results: { ancestors: string[] }[]) =>
-	results.map((r) => r.ancestors);
+const paths = (answer: { results: { ancestors: string[] }[] }) =>
+	answer.results.map((r) => r.ancestors);
 
 describe("findReferences — where each match sits", () => {
 	it("gives a root no ancestors, because it sits inside nothing", () => {
@@ -134,7 +351,7 @@ describe("findReferences — where each match sits", () => {
 
 	it("names only ancestors, never a sibling or a sibling's branch", () => {
 		// "0.1" sits under the root beside "0.0", whose branch it is not in.
-		expect(findReferences(rows, names, "Shared")[0].ancestors).toEqual([
+		expect(findReferences(rows, names, "Shared").results[0].ancestors).toEqual([
 			"World atlas",
 		]);
 	});
@@ -153,8 +370,8 @@ describe("findReferences — where each match sits", () => {
 		const orphaned = readReferenceTree([
 			{ id: "vanished", children: [{ id: "cats" }] },
 		] satisfies Reference[]);
-		expect(findReferences(orphaned, names, "Cats")[0].ancestors).toEqual([
-			"vanished",
-		]);
+		expect(
+			findReferences(orphaned, names, "Cats").results[0].ancestors,
+		).toEqual(["vanished"]);
 	});
 });
