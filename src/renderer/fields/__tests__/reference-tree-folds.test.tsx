@@ -128,6 +128,16 @@ function renderedRows(): [string, number][] {
 		]);
 }
 
+/** The inline transform the row named is currently carrying — empty for a row
+ * the still-list strategy was asked about (Decision 10). */
+function transformOf(name: string): string {
+	const row = screen
+		.getAllByTestId("reference-row")
+		.find((candidate) => candidate.textContent?.trim() === name);
+	if (!row) throw new Error(`no row named ${name}`);
+	return row.style.transform;
+}
+
 /** Whether the named Reference currently shows an expanded branch. */
 function isExpanded(name: string): boolean {
 	return (
@@ -525,6 +535,36 @@ describe("resting on a folded Reference springs it open (Decision 8)", () => {
 			["Content 3", 1],
 			["Content 2", 1],
 		]);
+	});
+
+	it("moves nothing but the branch's own children when it springs", async () => {
+		renderTree(nested);
+		await screen.findByText("Content 1");
+		await liftContent3OverFoldedContent1();
+
+		// The third report this spec answers: springing a branch open "moves the
+		// item down", the row under the pointer sliding away. It was
+		// `verticalListSortingStrategy` doing it, not the spring — and with the
+		// list held still (Decision 10) the only thing the spring adds is the
+		// branch's own children.
+		expect(transformOf("Content 1")).toBe("");
+
+		await dwell();
+
+		expect(renderedRows().map(([name]) => name)).toEqual([
+			"Content 1",
+			"Content 2",
+			"Content 3",
+		]);
+		// Content 1 was under the pointer and is where it was; Content 2 is the
+		// row the spring revealed, and arrives carrying no displacement of its
+		// own.
+		expect(transformOf("Content 1")).toBe("");
+		expect(transformOf("Content 2")).toBe("");
+
+		// What this cannot see: jsdom lays nothing out, so it cannot show that
+		// Content 1 stayed put on screen. It pins the absence of the transform
+		// that used to move it — the mechanism, not the pixels.
 	});
 
 	it("restores a sprung fold when Escape cancels the drag", async () => {

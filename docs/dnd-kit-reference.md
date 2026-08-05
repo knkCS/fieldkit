@@ -12,9 +12,11 @@ still list, `resolveDropTarget`) — design record:
 the 0.12.0 spring-loaded sections feature (dwell-triggered tab switching,
 explicit droppable re-measuring — see [Measuring](#measuring) below) —
 design record: `docs/superpowers/specs/2026-07-14-spring-loaded-sections-design.md`.
-Extended again for the Reference Tree's drag feedback and its mid-drag folding
-(a dragged branch folds away; a folded one springs open on a dwell) — design
-record: `docs/superpowers/specs/2026-08-05-tree-drag-feedback-design.md`.
+Extended again for the Reference Tree's drag feedback, its mid-drag folding
+(a dragged branch folds away; a folded one springs open on a dwell) and its
+still list (no row displaces; the dragged row is lifted and follows the pointer
+with no overlay) — design record:
+`docs/superpowers/specs/2026-08-05-tree-drag-feedback-design.md`.
 
 ## Scope
 
@@ -44,24 +46,55 @@ toggle checkboxes, not drag-and-drop.
 ### The Reference Tree's differences from the canvas
 
 A tree is a flat DOM list with padded indentation, and its rows are the same
-height — so it takes the simpler shape rule 3 below allows: no `DragOverlay`,
-`verticalListSortingStrategy` for the reflow preview, and plain
-`closestCenter` (a collapsed row is unmounted, so there are no
-hidden-but-mounted droppables to filter out).
+height — so it takes a shape the canvas cannot: **a no-op strategy with no
+`DragOverlay`**, plus plain `closestCenter` (a collapsed row is unmounted, so
+there are no hidden-but-mounted droppables to filter out).
 
-**It serialises the transform's vertical component only.** Without a
-`DragOverlay`, `shouldDisplaceDragSource` is true, so `useSortable` hands the
-ACTIVE row dnd-kit's raw drag delta on BOTH axes (`dragSourceDisplacement =
-transform`, sortable 8.0.0) rather than the strategy's `x: 0`. The tree
-separately sets that row's `ml` to the depth a release would land at, so
-applying the transform unmodified put a continuous sideways travel on top of a
-quantised 24px indent — and the quantised part is the answer to "what level
-will this land at". `CSS.Translate.toString(transform && { ...transform, x: 0 })`
-is what leaves the indent saying it alone (tree drag-feedback spec 2026-08-05,
-Decision 1). This is appearance only: the depth projection reads
-`event.delta.x` off the drag event, which is untouched, so ←/→ still change the
-drop depth. Non-active rows are unaffected — the vertical strategy already
-returns `x: 0` for them.
+#### The no-overlay/no-op pair
+
+The canvas's `noopSortingStrategy` and the tree's `stillListStrategy` are the
+same one-liner (`() => null`) leaning on **opposite halves of one expression**,
+and getting that backwards is silent, so it is written down here.
+`useSortable` (sortable 8.0.0) computes:
+
+```js
+const shouldDisplaceDragSource = !useDragOverlay && isDragging;
+const dragSourceDisplacement = shouldDisplaceDragSource && displaceItem ? transform : null;
+const finalTransform = displaceItem ? (dragSourceDisplacement ?? strategy({…})) : null;
+```
+
+`SortableContext` sets `useDragOverlay = Boolean(dragOverlay.rect !== null)`.
+
+- **Canvas** (overlay mounted): `shouldDisplaceDragSource` is false, so the
+  ACTIVE node falls through to `strategy(…) → null` as well. Every real node is
+  untransformed and the portaled clone carries the movement.
+- **Tree** (no overlay): `shouldDisplaceDragSource` is true for the active row,
+  so `dragSourceDisplacement` is dnd-kit's raw drag delta and **short-circuits
+  the strategy entirely for that row**. Non-active rows still go through it and
+  get `null`.
+
+That asymmetry is the whole reason the tree can hold its list still *and* keep
+its dragged row following the pointer, without the `DragOverlay` it has
+declined twice (tree drag-feedback spec 2026-08-05, Decisions 10–11). A wrong
+guess here does not fail loudly — it produces a drag with nothing following the
+pointer, which jsdom cannot see, since jsdom lays nothing out and only the
+*absence* of a transform is assertable there.
+
+Both `useSortable` calls also pass `animateLayoutChanges: () => false`. Without
+it, `useDerivedTransform` re-transforms any row whose index changed from the
+rect it used to occupy — which in the tree fires on the mid-drag fold and every
+spring (Decisions 7–8), putting displacement back on rows by a second route.
+
+**The tree serialises the active row's transform vertically only.** That raw
+delta arrives on BOTH axes, and the tree separately sets that row's `ml` to the
+depth a release would land at — so applying the transform unmodified put a
+continuous sideways travel on top of a quantised 24px indent, and the quantised
+part is the answer to "what level will this land at".
+`CSS.Translate.toString(transform && { ...transform, x: 0 })` is what leaves the
+indent saying it alone (tree drag-feedback spec 2026-08-05, Decision 1). This is
+appearance only: the depth projection reads `event.delta.x` off the drag event,
+which is untouched, so ←/→ still change the drop depth. Non-active rows are
+unaffected — they carry no transform at all.
 
 **The landing is drawn in the insertion strip's slot.** `resolveDrop` also
 answers `landsBefore` (from `referenceDropTarget` in `/schema`, which reads the
@@ -262,7 +295,10 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
 ## Verified engine facts (checked against the installed sources)
 
 - `SortableContext` detects an overlay via `dragOverlay.rect !== null`,
-  set once the overlay node mounts and measures.
+  set once the overlay node mounts and measures. Whether it is set decides
+  whether a no-op strategy reaches the ACTIVE node at all — see [The
+  no-overlay/no-op pair](#the-no-overlayno-op-pair), which is why the canvas and
+  the tree get opposite behaviour out of the same `() => null`.
 - **Keyboard collision rect:** once the overlay measures, dnd-kit derives
   `collisionRect` from `dragOverlay.rect ?? activeNodeRect`, and
   `sortableKeyboardCoordinates` direction-filters candidates against it.
@@ -321,8 +357,13 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
    `pointerWithin` (see `editorCollision`) — center distance alone cannot
    reach them.
 3. For heterogeneous-height lists (or any nested-DOM rendering of a flat
-   list): `DragOverlay` clone + no-op strategy. `verticalListSortingStrategy`
-   only fits homogeneous flat lists where a reflow preview is wanted.
+   list): `DragOverlay` clone + no-op strategy. For a homogeneous flat list:
+   a no-op strategy **without** an overlay, which holds the list still and
+   still lets the dragged node follow the pointer — see [The no-overlay/no-op
+   pair](#the-no-overlayno-op-pair). `verticalListSortingStrategy` is a reflow
+   preview and nothing else: reach for it only when a parting list is wanted,
+   and not at all alongside anything else that reshapes the list mid-drag
+   (a spring, a fold), or one gesture moves the list twice.
 4. Keep state fully controlled; separate `setNodeRef` (container) from
    `listeners`/`attributes` (grip button). Lucide `GripVertical` for handles.
 5. `CSS.Translate.toString()` for transform styles.

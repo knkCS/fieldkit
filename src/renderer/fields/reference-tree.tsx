@@ -21,9 +21,9 @@ import {
 } from "@dnd-kit/core";
 import {
 	SortableContext,
+	type SortingStrategy,
 	sortableKeyboardCoordinates,
 	useSortable,
-	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -476,6 +476,36 @@ const TREE_MEASURING = {
 } as const;
 
 /**
+ * The list holds still: no row displaces to open a gap for the one in flight
+ * (Decision 10, which reverses Decision 2).
+ *
+ * Decision 2 kept `verticalListSortingStrategy` on the reasoning that the
+ * canvas's problem — flat-strategy translations escaping its nested card frames
+ * — is not the tree's, which is true and was never the whole question. What
+ * settles it is springs: a list that both parts *and* springs moves twice for
+ * one gesture, and the row it moves is the one being aimed at.
+ *
+ * **The engine detail this rests on, verified rather than assumed.**
+ * `useSortable` computes
+ * `finalTransform = displaceItem ? (dragSourceDisplacement ?? strategy({…})) : null`,
+ * so returning null leaves every row the strategy is asked about untransformed.
+ * It is never asked about the dragged row: with no `DragOverlay` mounted,
+ * `shouldDisplaceDragSource = !useDragOverlay && isDragging` is true for the
+ * active row, `dragSourceDisplacement` is dnd-kit's raw drag delta, and it
+ * short-circuits the strategy entirely. That is why Decision 10 does not
+ * collapse into the overlay Decision 11 declines: the list can stop parting and
+ * the dragged row can still follow the pointer.
+ *
+ * Read off the installed @dnd-kit/sortable 8.0.0 `useSortable` source, because
+ * a wrong guess here does not fail loudly — it produces a drag with nothing
+ * following the pointer, which jsdom cannot see. The editor canvas's own no-op
+ * strategy leans on the *other* half of the same expression: its overlay makes
+ * `useDragOverlay` true, so its active node falls through to the strategy and
+ * stays put while the clone travels.
+ */
+const stillListStrategy: SortingStrategy = () => null;
+
+/**
  * The name a row about to exist is carried under while the collapsed set is
  * carried across an insert.
  *
@@ -903,7 +933,7 @@ export function ReferenceTree({
 	 * gap it would draw in is the one the strips reserve, and conjuring 4px of
 	 * it the moment a row is lifted would push every row below it down. A
 	 * Consumer assembling its own control without an `onInsert` therefore gets
-	 * the dimmed, re-indenting row as its only drop feedback.
+	 * the lifted, re-indenting row as its only drop feedback.
 	 */
 	function insertionGap(slot: number) {
 		if (!stripsOffered) return null;
@@ -948,7 +978,7 @@ export function ReferenceTree({
 		>
 			<SortableContext
 				items={shown.map((row) => row.key)}
-				strategy={verticalListSortingStrategy}
+				strategy={stillListStrategy}
 			>
 				{shown.map((row, index) => (
 					<Fragment key={row.key}>
@@ -1049,7 +1079,17 @@ function ReferenceTreeRowItem({
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: row.key });
+	} = useSortable({
+		id: row.key,
+		// No settle transforms, for the same reason the editor canvas passes
+		// this: the default answers a row's index changing by re-transforming it
+		// from the rect it used to occupy. The tree changes shape *during* a drag
+		// by design — the dragged branch folds away on lift and a folded one
+		// springs open on a dwell (Decisions 7 and 8) — so leaving it on would
+		// put a displacement transform back on rows the still-list strategy has
+		// just taken it off, by a second route (Decision 10).
+		animateLayoutChanges: () => false,
+	});
 	const hasChildren = row.height > 0;
 
 	return (
@@ -1058,19 +1098,23 @@ function ReferenceTreeRowItem({
 			style={{
 				// The dragged row travels vertically only. Without a
 				// `DragOverlay`, `useSortable` hands the *active* row dnd-kit's raw
-				// drag delta on both axes, while `ml` below is separately set to
-				// the depth a release would land at — so a continuous sideways
-				// travel would ride on top of a quantised 24px indent, and the
-				// quantised part is the answer to "what level is this". Dropping
-				// the horizontal component leaves the indent the only thing saying
-				// it (drag-feedback spec 2026-08-05, Decision 1).
+				// drag delta on both axes — see {@link stillListStrategy}, which is
+				// the same fact read from the other end — while `ml` below is
+				// separately set to the depth a release would land at. So a
+				// continuous sideways travel would ride on top of a quantised 24px
+				// indent, and the quantised part is the answer to "what level is
+				// this". Dropping the horizontal component leaves the indent the
+				// only thing saying it (drag-feedback spec 2026-08-05, Decision 1).
 				//
 				// Appearance only: the projection reads the drag *event's*
 				// `delta.x`, which nothing here touches, so ←/→ keep changing the
-				// depth exactly as before. Scoped to the dragged row rather than
-				// applied to all of them — `verticalListSortingStrategy` gives the
-				// rest `x: 0` already, and a blanket rewrite would silently
-				// swallow a future strategy's horizontal component.
+				// depth exactly as before.
+				//
+				// The `isDragging` guard is what keeps this honest now that the
+				// still list gives every other row a null transform anyway: this
+				// rewrites the one row that has a transform at all, rather than
+				// blanket-flattening an axis for rows whose transform is somebody
+				// else's to produce.
 				transform: CSS.Translate.toString(
 					isDragging && transform ? { ...transform, x: 0 } : transform,
 				),
@@ -1085,13 +1129,29 @@ function ReferenceTreeRowItem({
 			py="2"
 			bg="bg.muted"
 			borderRadius="md"
+			// So the lift below has a stacking context to be raised in. Offsetless,
+			// so it moves nothing.
+			position="relative"
 			// An outline rather than a border: a marked row must not move, or
 			// the feedback would restructure the very list it is describing.
 			{...(adopted
 				? { outline: "2px solid", outlineColor: "accent", outlineOffset: "1px" }
 				: {})}
-			opacity={isDragging ? 0.5 : 1}
+			// Decision 12: the dragged row is *lifted*, not dimmed — opaque, raised
+			// above its neighbours and shadowed, so it reads as a card being
+			// carried over the list rather than a ghost blended into it. The 0.5
+			// dim it replaces existed to say "this one is moving"; the indicator
+			// says where it is going now, so being able to read *what* is in hand
+			// matters more. And with the list no longer parting (Decision 10) the
+			// row overlaps what it passes — two translucent rows stacked is
+			// precisely the thing to avoid.
+			zIndex={isDragging ? "1" : undefined}
+			boxShadow={isDragging ? "lg" : undefined}
 			data-testid="reference-row"
+			// Whether this is the row in flight — the same fact the lift draws,
+			// for a test to read and a Consumer to style against, on the terms
+			// `data-adopted` below is already offered on.
+			data-lifted={isDragging ? "true" : undefined}
 			// The row's depth, for a test to read and for a Consumer to style
 			// against without measuring pixels.
 			data-depth={depth}
