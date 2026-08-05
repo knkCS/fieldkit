@@ -107,6 +107,8 @@ Form data is only as well-formed as whatever produced it, so a stored entry that
 
 A display name is **never stored**. Names are resolved through the adapter on every load, so a Content renamed elsewhere reads correctly here, and one that no longer resolves keeps its id on screen rather than vanishing.
 
+Names are resolved for **every Reference at every level**, including the ones inside collapsed branches (ADR-0013), and the ids go out in **batches**: fieldkit cuts the list into calls of at most `REFERENCE_NAME_BATCH_SIZE` ids and merges the results, so `fetch` may be called several times for one tree and is never handed ten thousand ids at once. The batch size is fieldkit's, not the adapter's — nothing is asked of a Consumer, and an adapter written against a field of twenty References keeps working at ten thousand. A batch that rejects is reported through `onError` and costs only its own names: the rows the other batches resolved still read normally, and the rest fall back to their ids. The size is a **provisional** number, a guess rather than a measurement, and lives beside the function that applies it.
+
 `pin` holds **only the target id**. Which *kind* of target it is comes from the field's `pin_mode`, never from the value (ADR-0008) — which is why changing `pin_mode` invalidates every stored pin at once rather than leaving some stale. No pin at all means the Content's newest Version.
 
 ## Settings

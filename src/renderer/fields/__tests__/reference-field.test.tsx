@@ -12,9 +12,11 @@ import {
 	createFakeReferenceAdapter,
 	type FakeReferenceAdapter,
 	fakeCatalogue,
+	fakeReferenceTree,
 } from "../../../test/fake-reference-adapter";
 import type { FieldKitAdapters } from "../../adapters";
 import { FieldComponent } from "../../field-component";
+import { REFERENCE_NAME_BATCH_SIZE } from "../../hooks/batch-ids";
 import { FieldKitProvider } from "../../provider";
 
 const ACCESSOR = "related";
@@ -220,6 +222,51 @@ describe("ReferenceField", () => {
 			expect(
 				screen.queryByRole("button", { name: "Add reference" }),
 			).not.toBeInTheDocument();
+		});
+	});
+
+	describe("resolving names at size", () => {
+		/** Past the batch size *and* past the collapse threshold, so the tree
+		 * opens with every child hidden and no one call could carry it. */
+		const COUNT = REFERENCE_NAME_BATCH_SIZE * 2 + 10;
+
+		it("resolves every Reference in the tree, in calls no bigger than the batch size", async () => {
+			const adapter = createFakeReferenceAdapter({
+				contents: fakeCatalogue(COUNT),
+			});
+			renderField({ value: fakeReferenceTree(COUNT), adapter });
+
+			await screen.findByText("Content 1");
+
+			// Every level, not the rows on screen: the tree opened collapsed, so
+			// half of these ids belong to References nobody can see yet. Find is
+			// built on their names being resolved anyway (ADR-0013).
+			await waitFor(() => expect(adapter.fetches.flat()).toHaveLength(COUNT));
+			expect(adapter.fetches.flat()).toContain("article-2");
+			expect(adapter.fetches.length).toBeGreaterThan(1);
+			for (const call of adapter.fetches) {
+				expect(call.length).toBeLessThanOrEqual(REFERENCE_NAME_BATCH_SIZE);
+			}
+		});
+
+		it("shows a name for a Reference nested inside a collapsed branch", async () => {
+			const user = userEvent.setup();
+			const adapter = createFakeReferenceAdapter({
+				contents: fakeCatalogue(COUNT),
+			});
+			renderField({ value: fakeReferenceTree(COUNT), adapter });
+
+			await screen.findByText("Content 1");
+			// Nothing under a root is on screen until the fold opens.
+			expect(screen.queryByText("Content 2")).not.toBeInTheDocument();
+
+			await user.click(
+				screen.getByRole("button", { name: "Expand Content 1" }),
+			);
+
+			// Its name was already resolved, so the row arrives named rather than
+			// showing an id until something fetches it.
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
 	});
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFieldKit } from "../provider";
+import { batchIds } from "./batch-ids";
 import { useAdapterErrorReporter } from "./use-adapter-error-reporter";
 import { useStableValue } from "./use-stable-value";
 
@@ -13,8 +14,12 @@ import { useStableValue } from "./use-stable-value";
  * or a failed lookup. Every caller falls back to the id in that case, so an
  * unresolvable Content is visible rather than gone.
  *
- * One `fetch` for the whole list rather than one per row: a Reference Field
- * holding twenty References must not make twenty round trips.
+ * Never one `fetch` per row: a Reference Field holding twenty References must
+ * not make twenty round trips. Never one `fetch` for ten thousand either — the
+ * list is cut into batches by {@link batchIds} and the results merged, so an
+ * Adapter written against a Field of twenty keeps working at ten thousand
+ * without knowing it (ADR-0013). Which ids are resolved is unchanged: every
+ * Reference at every level, not the rows on screen.
  *
  * `fieldId` is only ever used to attribute an Adapter failure to the Field it
  * degrades, through the provider's `onError`.
@@ -38,21 +43,35 @@ export function useResolvedContentNames(
 			return;
 		}
 		let cancelled = false;
-		adapter
-			.fetch(wanted)
-			.then((items) => {
-				if (cancelled) return;
-				setNames(
-					Object.fromEntries(
-						items.map((item) => [item.id, item.display_name] as const),
-					),
-				);
-			})
-			.catch((error: unknown) => {
-				if (cancelled) return;
-				setNames({});
-				report(error);
-			});
+		// Settled rather than raced: one batch rejecting must not throw away the
+		// names its neighbours resolved, which are as usable as they would have
+		// been on their own. A row with no name still falls back to its id.
+		Promise.allSettled(
+			batchIds(wanted).map((batch) => adapter.fetch(batch)),
+		).then((settled) => {
+			if (cancelled) return;
+			const resolved: Record<string, string> = {};
+			for (const outcome of settled) {
+				if (outcome.status !== "fulfilled") continue;
+				for (const item of outcome.value) {
+					resolved[item.id] = item.display_name;
+				}
+			}
+			// One write for the whole set rather than one per batch: a Reference
+			// Field re-reads its tree on every render, and a tree of ten thousand
+			// must not be re-read once per call. It also keeps the names from
+			// flickering back to ids while later batches are still in flight.
+			setNames(resolved);
+			const failed = settled.find(
+				(outcome): outcome is PromiseRejectedResult =>
+					outcome.status === "rejected",
+			);
+			// Once, however many batches failed: how many calls fieldkit chose to
+			// make is fieldkit's business, and a Consumer's error channel should
+			// not learn the batch size from it. What it reports is what it always
+			// reported — this Field's names did not resolve.
+			if (failed) report(failed.reason);
+		});
 		return () => {
 			cancelled = true;
 		};
