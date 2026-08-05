@@ -155,6 +155,14 @@ describes each result as a field name plus the tab it sits on. Everything
 else — the listbox roles, the active-descendant wiring, the keyboard model
 and the Escape containment below — is the combobox's, once, for every caller.
 
+A caller's `search` answers with a `SearchComboboxAnswer<T>`: the `results` to
+list and, optionally, a `countLabel` shown above them. Both travel in one
+answer so a caller that caps its list cannot compute the list and the sentence
+about it from two different questions — that is the Reference Field's Find,
+which lists at most twenty matches and says how many it found. `FieldSearch`
+passes no `countLabel` and shows no count line: a Spec's fields are a set an
+Author already scrolls in full.
+
 Because that race is first-mounted-wins, the claim is **opt-in**: the
 combobox registers no document- or window-level key listener unless a caller
 asks for the shortcut. `SpecForm`'s field search asks (both modes), and so
