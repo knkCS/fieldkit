@@ -179,6 +179,47 @@ function announcedAdoption(): string {
 	return screen.getByTestId("reference-adoption-notice").textContent ?? "";
 }
 
+/** The drop indicator, or null when the drag is drawing none. */
+function dropIndicator(): HTMLElement | null {
+	return screen.queryByTestId("reference-drop-indicator");
+}
+
+/** Where the indicator says a release would land, as `[slot, depth]`. */
+function indicated(): [number, number] {
+	const line = screen.getByTestId("reference-drop-indicator");
+	return [
+		Number(line.getAttribute("data-slot")),
+		Number(line.getAttribute("data-depth")),
+	];
+}
+
+/**
+ * The tree's rows and the gaps between them, in DOM order, by what each one
+ * currently is — how a test reads that the strips, the spacers standing in for
+ * them and the indicator all occupy one geometry.
+ */
+function treeSlots(): string[] {
+	return Array.from(
+		document.querySelectorAll(
+			[
+				'[data-testid="reference-insert-strip"]',
+				'[data-testid="reference-insert-spacer"]',
+				'[data-testid="reference-drop-indicator"]',
+				'[data-testid="reference-row"]',
+			].join(","),
+		),
+	).map((node) => node.getAttribute("data-testid") ?? "");
+}
+
+/** The inline transform the row named is currently carrying. */
+function transformOf(name: string): string {
+	const row = screen
+		.getAllByTestId("reference-row")
+		.find((candidate) => candidate.textContent?.trim() === name);
+	if (!row) throw new Error(`no row named ${name}`);
+	return row.style.transform;
+}
+
 describe("the Reference Tree's rows", () => {
 	it("renders a nested Reference under its parent, at its own depth", async () => {
 		renderTree({
@@ -917,6 +958,211 @@ describe("a drag that would adopt the branch below it", () => {
 				],
 			},
 		]);
+	});
+});
+
+describe("what a drag shows about where it will land", () => {
+	// Two roots — the simplest tree with a gap above, between and below.
+	const flat: Reference[] = [{ id: "article-1" }, { id: "article-2" }];
+
+	let rects: ReturnType<typeof mockRowRects>;
+	beforeEach(() => {
+		rects = mockRowRects();
+	});
+	afterEach(() => {
+		rects.mockRestore();
+	});
+
+	it("moves the dragged row sideways in its indent alone, never in its transform", async () => {
+		renderTree({ value: flat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 2");
+		await pressDuringDrag("ArrowRight");
+
+		// ←/→ still change the drop depth: the projection reads the drag
+		// event's horizontal delta, which this leaves alone.
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 1],
+		]);
+		// And the indent is the only place that travel shows. Left in, the
+		// transform would carry a second, unquantised 24px on top of it.
+		expect(transformOf("Content 2")).toMatch(/^translate3d\(0px, /);
+	});
+
+	it("marks the landing in the slot the insertion strip occupies when idle", async () => {
+		renderTree({ value: flat });
+		await screen.findByText("Content 1");
+
+		expect(treeSlots()).toEqual([
+			"reference-insert-strip",
+			"reference-row",
+			"reference-insert-strip",
+			"reference-row",
+			"reference-insert-strip",
+		]);
+
+		await liftWithKeyboard("Content 1");
+		await pressDuringDrag("ArrowDown");
+
+		// Every gap keeps its place; the one the release would land in is the
+		// one drawing a line.
+		expect(treeSlots()).toEqual([
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-drop-indicator",
+		]);
+		expect(indicated()).toEqual([2, 0]);
+
+		await releaseDrag();
+		// What was drawn is what the release performed.
+		expect(stored()).toEqual([{ id: "article-2" }, { id: "article-1" }]);
+		expect(dropIndicator()).toBeNull();
+	});
+
+	it("draws nothing for a landing that would write nothing", async () => {
+		renderTree({ value: flat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		await pressDuringDrag("ArrowDown");
+		expect(dropIndicator()).not.toBeNull();
+
+		// Back where it started: the same slot and the same depth, which is the
+		// drag the release already refuses to write.
+		await pressDuringDrag("ArrowUp");
+		expect(dropIndicator()).toBeNull();
+
+		await releaseDrag();
+		expect(stored()).toEqual(flat);
+	});
+
+	it("is the only thing that moves for an in-place re-indent", async () => {
+		renderTree({ value: flat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 2");
+		await pressDuringDrag("ArrowRight");
+
+		// Nothing changes slots — the case the indicator is the whole signal
+		// for, and the one knkCMS core cannot perform at all.
+		expect(treeSlots()).toEqual([
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-drop-indicator",
+		]);
+		expect(indicated()).toEqual([2, 1]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1", children: [{ id: "article-2" }] },
+		]);
+	});
+
+	it("draws a re-indent in the gap below the row, wherever it sits", async () => {
+		renderTree({
+			value: [{ id: "article-1" }, { id: "article-2" }, { id: "article-3" }],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 2");
+		await pressDuringDrag("ArrowRight");
+
+		// A row that stays put has a gap either side of it, and both mean "here":
+		// the line takes the one below, which is the gap the release's own slot
+		// names — the row that follows the landing is Content 3.
+		expect(treeSlots()).toEqual([
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-insert-spacer",
+			"reference-row",
+			"reference-drop-indicator",
+			"reference-row",
+			"reference-insert-spacer",
+		]);
+		expect(indicated()).toEqual([2, 1]);
+		expect(renderedRows()).toEqual([
+			["Content 1", 0],
+			["Content 2", 1],
+			["Content 3", 0],
+		]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1", children: [{ id: "article-2" }] },
+			{ id: "article-3" },
+		]);
+	});
+
+	it("can only draw a landing the release would accept", async () => {
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+			settings: { max_depth: 2 },
+		});
+		await screen.findByText("Content 1");
+
+		// Two levels asked for, two allowed in total: the indicator shows the
+		// clamped answer because it renders the resolution the release reads.
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowRight");
+		await pressDuringDrag("ArrowRight");
+		expect(indicated()).toEqual([3, 1]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{
+				id: "article-1",
+				children: [{ id: "article-2" }, { id: "article-3" }],
+			},
+		]);
+	});
+
+	it("reads as a landing beside the marking, not instead of it", async () => {
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 3");
+		await pressDuringDrag("ArrowUp");
+
+		// The outlines and the count say "and these come too"; the line says
+		// "here, at this level". Both off one resolution, neither replacing the
+		// other — the landing is directly above the row it would adopt.
+		expect(markedRows()).toEqual(["Content 2"]);
+		expect(announcedAdoption()).toBe("Adopting 1 Reference");
+		expect(indicated()).toEqual([1, 0]);
+
+		await releaseDrag();
+		expect(stored()).toEqual([
+			{ id: "article-1" },
+			{ id: "article-3", children: [{ id: "article-2" }] },
+		]);
+	});
+
+	it("clears the line when a drag is cancelled", async () => {
+		renderTree({ value: flat });
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		await pressDuringDrag("ArrowDown");
+		expect(dropIndicator()).not.toBeNull();
+
+		await pressDuringDrag("Escape");
+
+		expect(dropIndicator()).toBeNull();
+		expect(stored()).toEqual(flat);
 	});
 });
 

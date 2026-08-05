@@ -45,11 +45,13 @@ import {
 	projectDropDepth,
 	readReferenceTree,
 	referenceBranchEnd,
+	referenceDropTarget,
 	removeReferenceAt,
 	spliceReference,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
+import { ReferenceDropIndicator } from "./reference-drop-indicator";
 import {
 	ReferenceInsertSpacer,
 	ReferenceInsertStrip,
@@ -150,6 +152,88 @@ interface ResolvedDrop {
 	 * with what letting go does.
 	 */
 	adopted: ReadonlySet<string>;
+	/**
+	 * The key of the row *on screen* the branch would land immediately before,
+	 * or null when it would land after the last one — `referenceDropTarget`'s
+	 * answer, which reads the same `dropSlot` rule the release splices at.
+	 *
+	 * A key rather than an index because the gaps are drawn against the list
+	 * that still holds the dragged branch, while the landing is an index into
+	 * the list without it. Naming the row that follows the landing is the one
+	 * expression both lists agree on.
+	 */
+	landsBefore: string | null;
+}
+
+/** The rows a release would produce — the move applied over every row, folded
+ * ones included. */
+function landedRows(
+	rows: readonly ReferenceRow[],
+	{ activeIndex, overIndex, depth }: ResolvedDrop,
+): ReferenceRow[] {
+	return moveReferenceBranch({ items: rows, activeIndex, overIndex, depth });
+}
+
+/**
+ * Whether releasing would rewrite nothing: every row still where it was, at the
+ * depth it was already at.
+ *
+ * One predicate, read twice. The release uses it to leave the stored value
+ * alone rather than dirtying the form for nothing, and the indicator uses it to
+ * stay dark — so the tree can never draw a landing that letting go would
+ * decline to perform.
+ */
+function writesNothing(
+	rows: readonly ReferenceRow[],
+	moved: readonly ReferenceRow[],
+): boolean {
+	return moved.every(
+		(row, index) =>
+			row.key === rows[index].key && row.depth === rows[index].depth,
+	);
+}
+
+/** Which gap a release would land in, and at what level. */
+interface DropLanding {
+	/** The gap among the rows on screen, numbered as the insertion strips are. */
+	slot: number;
+	/** The level it would land at, bounds already applied. */
+	depth: number;
+}
+
+/**
+ * Where the drop indicator draws, or null for a drag drawing none.
+ *
+ * Everything here comes off `pending`, the resolution the release itself reads:
+ * the depth arrives clamped by the neighbours, by the `max_depth` ceiling and
+ * by the dragged branch's own height, and the slot is the one
+ * `moveReferenceBranch` splices at. No bound and no rule is re-derived — an
+ * indicator that answered "where" from a second reading of the rules is exactly
+ * how a line comes to promise something letting go does not do.
+ *
+ * Null for an **exact no-op**, judged by the very predicate the release uses to
+ * decline the write. So the line marks a change or it marks nothing, and an
+ * in-place re-indent — where the slot is unchanged but the depth is not — is
+ * the case it is the only signal for.
+ */
+function dropLanding(
+	rows: readonly ReferenceRow[],
+	shown: readonly ReferenceRow[],
+	pending: ResolvedDrop | null,
+): DropLanding | null {
+	if (pending === null) return null;
+	if (writesNothing(rows, landedRows(rows, pending))) return null;
+	// Landing after the last row on screen is the trailing gap, which is the
+	// slot the strips already number `shown.length`.
+	const slot =
+		pending.landsBefore === null
+			? shown.length
+			: shown.findIndex((row) => row.key === pending.landsBefore);
+	// A key that no longer names a row on screen: `pending` is state and `shown`
+	// is derived, so a value arriving mid-drag can re-shape one without the
+	// other. Drawing nothing for a frame beats drawing a landing in a gap that
+	// has moved.
+	return slot === -1 ? null : { slot, depth: pending.depth };
 }
 
 /**
@@ -213,10 +297,13 @@ function resolveDrop({
 	// The dragged row is always on screen — it is the one carrying the grip.
 	const shownActive = shown.findIndex((row) => row.key === activeKey);
 	const shownOver = shown.findIndex((row) => row.key === overKey);
+	// One over-index for both halves of the answer, so the slot the indicator
+	// draws in and the depth it draws at describe one landing.
+	const shownOverIndex = shownOver === -1 ? shownActive : shownOver;
 	const { depth, adopted } = projectDropDepth({
 		items: shown,
 		activeIndex: shownActive,
-		overIndex: shownOver === -1 ? shownActive : shownOver,
+		overIndex: shownOverIndex,
 		offsetX,
 		indentWidth: INDENT_WIDTH,
 		depthCeiling,
@@ -226,6 +313,14 @@ function resolveDrop({
 		overIndex,
 		depth,
 		adopted: new Set(adopted.map((row) => row.key)),
+		// Against the rows on screen, for the same reason the depth is: a gap an
+		// Author cannot see is not one a landing can be drawn in.
+		landsBefore:
+			referenceDropTarget({
+				items: shown,
+				activeIndex: shownActive,
+				overIndex: shownOverIndex,
+			})?.key ?? null,
 	};
 }
 
@@ -565,20 +660,12 @@ export function ReferenceTree({
 		const resolved = resolveFrom(event);
 		if (!resolved) return;
 
-		const { activeIndex, overIndex, depth } = resolved;
-		const moved = moveReferenceBranch({
-			items: rows,
-			activeIndex,
-			overIndex,
-			depth,
-		});
+		const moved = landedRows(rows, resolved);
 		// A drag that ended where it started: leave the stored value alone
-		// rather than rewriting it, which would dirty the form for nothing.
-		const settled = moved.every(
-			(row, index) =>
-				row.key === rows[index].key && row.depth === rows[index].depth,
-		);
-		if (settled) return;
+		// rather than rewriting it, which would dirty the form for nothing. The
+		// indicator reads the same predicate, so a drag drawing a line always
+		// had something to write.
+		if (writesNothing(rows, moved)) return;
 
 		const next = writeReferenceTree(value, nestReferences(moved));
 		// `moved` and the rows the new value reads back as are both depth-first
@@ -598,10 +685,35 @@ export function ReferenceTree({
 	// has no gaps, and the Field's Add control is its way in.
 	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
 
-	/** The gap at `slot`: a strip, or the inert spacer a drag replaces it with. */
+	// Where the release would land, for the one gap that draws it.
+	const landing = dropLanding(rows, shown, pending);
+
+	/**
+	 * The gap at `slot`: a strip, the line saying a release would land here, or
+	 * the inert spacer a drag replaces a strip with everywhere else.
+	 *
+	 * All three are one geometry — see `INSERT_SLOT_HEIGHT` — so a drag starting,
+	 * and a landing moving from one gap to another, shift nothing.
+	 *
+	 * Which is also why a tree offering no strips draws no landing either: the
+	 * gap it would draw in is the one the strips reserve, and conjuring 4px of
+	 * it the moment a row is lifted would push every row below it down. A
+	 * Consumer assembling its own control without an `onInsert` therefore gets
+	 * the dimmed, re-indenting row as its only drop feedback.
+	 */
 	function insertionGap(slot: number) {
 		if (!stripsOffered) return null;
-		if (activeKey !== null) return <ReferenceInsertSpacer />;
+		if (activeKey !== null) {
+			return landing?.slot === slot ? (
+				<ReferenceDropIndicator
+					slot={slot}
+					depth={landing.depth}
+					indentWidth={INDENT_WIDTH}
+				/>
+			) : (
+				<ReferenceInsertSpacer />
+			);
+		}
 		return (
 			<ReferenceInsertStrip
 				rows={shown}
@@ -735,7 +847,27 @@ function ReferenceTreeRowItem({
 	return (
 		<Flex
 			ref={setNodeRef}
-			style={{ transform: CSS.Translate.toString(transform), transition }}
+			style={{
+				// The dragged row travels vertically only. Without a
+				// `DragOverlay`, `useSortable` hands the *active* row dnd-kit's raw
+				// drag delta on both axes, while `ml` below is separately set to
+				// the depth a release would land at — so a continuous sideways
+				// travel would ride on top of a quantised 24px indent, and the
+				// quantised part is the answer to "what level is this". Dropping
+				// the horizontal component leaves the indent the only thing saying
+				// it (drag-feedback spec 2026-08-05, Decision 1).
+				//
+				// Appearance only: the projection reads the drag *event's*
+				// `delta.x`, which nothing here touches, so ←/→ keep changing the
+				// depth exactly as before. Scoped to the dragged row rather than
+				// applied to all of them — `verticalListSortingStrategy` gives the
+				// rest `x: 0` already, and a blanket rewrite would silently
+				// swallow a future strategy's horizontal component.
+				transform: CSS.Translate.toString(
+					isDragging && transform ? { ...transform, x: 0 } : transform,
+				),
+				transition,
+			}}
 			align="center"
 			justify="space-between"
 			gap="2"

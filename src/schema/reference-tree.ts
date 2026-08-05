@@ -411,6 +411,44 @@ export function projectDropDepth<T extends FlatReference = FlatReference>({
 	return { depth, minDepth, maxDepth, adopted: adoptedRows(rest, slot, depth) };
 }
 
+/** What {@link referenceDropTarget} is asked — a drag, minus the pointer. */
+export interface DropTargetInput<T extends FlatReference = FlatReference> {
+	/** The flattened list, in the same state `projectDropDepth` was given it. */
+	items: readonly T[];
+	/** Index in `items` of the Reference being dragged. */
+	activeIndex: number;
+	/** Index in `items` of the row the pointer is currently over. */
+	overIndex: number;
+}
+
+/**
+ * The row a dragged branch would land immediately before, or `null` when it
+ * would land after the last one — the *position* half of a drop, where
+ * `projectDropDepth` answers the *depth* half.
+ *
+ * It exists so that feedback drawn in a gap and the move performed on release
+ * cannot disagree about which gap: both read `dropSlot`, the same rule
+ * `moveReferenceBranch` splices at. A caller re-deriving "which gap" from an
+ * over-index would be that rule written twice, and the branch skip is exactly
+ * the part such a rewrite gets wrong — a Reference hovering its own descendant
+ * is asking for nothing, and the row after its whole branch is what follows it.
+ *
+ * Answering with the row rather than an index is deliberate: a caller rendering
+ * gaps holds a list that still contains the dragged branch, so the index into
+ * the list *without* it would need translating back. A row identifies its gap
+ * whichever list the caller is walking.
+ */
+export function referenceDropTarget<T extends FlatReference = FlatReference>({
+	items,
+	activeIndex,
+	overIndex,
+}: DropTargetInput<T>): T | null {
+	if (!items[activeIndex]) return null;
+	const end = referenceBranchEnd(items, activeIndex);
+	const rest = [...items.slice(0, activeIndex), ...items.slice(end + 1)];
+	return rest[dropSlot(activeIndex, end, overIndex)] ?? null;
+}
+
 /** What `projectInsertDepth` is asked. */
 export interface InsertProjectionInput<
 	T extends FlatReference = FlatReference,
