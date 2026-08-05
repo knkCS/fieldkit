@@ -107,6 +107,10 @@ _Avoid_: property, metadata, setting
 What happens to the References that follow one that arrives shallower than they are: they become its children, and their branches travel with them. A Reference gains children this way whether it was inserted between rows or dragged there, and both say so before they do it — an insert names the rows that will move, a drag highlights them (ADR-0012). Adoption never changes what a Reference *is*, only whose child it is.
 _Avoid_: re-parenting, stealing, nesting
 
+**Spring**:
+A folded thing opening because a drag rested on it, rather than because anyone clicked. Editor Tabs spring to reveal a Section; Reference Tree rows spring to reveal a branch. A spring is a **preview**: whatever sprang open and did not receive the drop folds back when the drag ends, and cancelling restores every fold to how it was at the lift. Both use one dwell, so the two feel like one idea.
+_Avoid_: auto-expand, hover-expand, unfold
+
 **Version**:
 One saved state of a Content's data. Versions have no names of their own.
 _Avoid_: revision, snapshot, draft
