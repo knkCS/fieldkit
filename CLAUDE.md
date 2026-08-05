@@ -47,7 +47,7 @@ src/
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — id, pin, attributes, children — plus referenceTreeSchema and withPin (ADR-0008)
 │   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
-│   ├── reference-find.ts # Find: which References in a tree match a typed name, and the ancestor path placing each one. Matches client-side over resolved names (ADR-0013); knows nothing about a dropdown
+│   ├── reference-find.ts # Find: which References in a tree match a typed name, ranked and capped, and the ancestor path placing each one. Matches client-side over resolved names (ADR-0013); one answer carries the list and the true total; knows nothing about a dropdown
 │   ├── reference-attributes.ts # Composes a Reference Field's Attribute Spec into each Reference's branch (ADR-0007's boundary)
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
