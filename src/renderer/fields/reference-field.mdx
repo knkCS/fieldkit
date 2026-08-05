@@ -85,6 +85,20 @@ Because it restructures rows the Author never pointed at, it is **announced befo
 
 Adoption cannot make a tree too deep. Splicing moves no other row, and a row is adopted only when it is already deeper than the arrival, so re-nesting never pushes an existing row down. What `max_depth` does withdraw is the offer to rearrange a branch on a tree that *already* breaks the cap, where no placement could make it legal.
 
+## Finding a Reference the tree already holds
+
+A Field past `REFERENCE_TREE_COLLAPSE_THRESHOLD` — the same number that decides a tree opens collapsed — carries a **Find** control above the tree. Type the display name of a Content and it lists the References *in this tree* that match, each under the path of ancestors leading to it. At or below the threshold there is no control at all: a tree an Author reads at a glance does not need one.
+
+Matching is **case-insensitive substring** against the resolved display name, over **every** Reference at every level rather than the rows a fold set leaves on screen — a collapsed branch hiding the answer is the problem Find exists for. It happens in the browser, over the names the Field has already resolved (ADR-0013); the Adapter is not asked. A row whose Content did not resolve shows its id, and Find matches that id, so the control can always find what is on screen. The same Content sitting in the tree twice gives **two results**, told apart by their paths.
+
+Picking one **Reveals** it: every fold above it opens, the row scrolls to the centre of the viewport, takes focus, and stays marked until the next Reveal. The row itself takes `tabIndex={-1}` — it never joins the tab order, and landing on it puts its grip, its fold control and its buttons one <kbd>Tab</kbd> away, in the order they are drawn. The Reveal is announced in a live region as well as marked on the row.
+
+**A Reveal is not a preview**, in deliberate contrast to a Spring. It opens the ancestors that are shut and touches nothing else, so Reveals **accumulate**: an earlier Reveal's folds stay open, a fold an Author opened by hand is never fought, and the revealed Reference's own branch stays as it was — showing a row and opening what hangs under it are different questions.
+
+Find **never filters or restructures the tree**, and writes nothing: order, nesting, Pins and Attributes are untouched, so a drag is never standing on ground that moved. It claims **no global keyboard shortcut** — the form's own field search claims `/` on a first-mounted-wins basis, and a rival listener here could never fire. <kbd>Esc</kbd> dismisses the results and is contained, so a Field rendered in a drawer does not lose its edits to the press that shut a dropdown.
+
+The matching and the ancestor paths are pure functions in `src/schema/reference-find.ts`, and which folds a Reveal opens is `foldsToReveal` in `src/schema/reference-tree.ts` — so none of it is asserted through a DOM. A Consumer driving `ReferenceTree` itself passes `revealKey` and a `revealToken`; the token is what makes asking for the same Reference twice running two Reveals.
+
 ## Value
 
 Fieldkit owns the shape; a Consumer maps it to whatever it persists (ADR-0008).
@@ -337,7 +351,7 @@ Drag a grip to reorder or to nest; fold a branch away with its chevron.
 
 ### Large Tree
 
-Past the node-count threshold, every parent starts collapsed.
+Past the node-count threshold, every parent starts collapsed — and the Find control appears. Type "Content 20" to see the References that match with the path to each, and pick one to Reveal it.
 
 <Canvas of={Stories.LargeTree} />
 
