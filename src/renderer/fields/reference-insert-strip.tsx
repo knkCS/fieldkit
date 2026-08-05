@@ -161,20 +161,21 @@ export function ReferenceInsertStrip({
 	 * anker's `DrawerRoot` among them, listen for Escape on `document` in the
 	 * capture phase. A Reference Field inside a drawer — `EditDrawer` renders one
 	 * through `SpecForm` — would otherwise have the drawer close, discarding the
-	 * edits, on the very press that backed out of a strip. `FieldSearch` contains
-	 * its own Escape this way and for this reason; window-capture is the one
-	 * place that runs first, outermost-first and whatever the registration order.
+	 * edits, on the very press that backed out of a strip. The shared
+	 * `SearchCombobox` contains its own Escape this way and for this reason;
+	 * window-capture is the one place that runs first, outermost-first and
+	 * whatever the registration order.
 	 *
 	 * Scoped to this strip's own node, so an Escape aimed anywhere else travels
 	 * untouched — an unscoped intercept would swallow the one that cancels a
-	 * keyboard drag, which is the bug class the same scoping in `FieldSearch`
+	 * keyboard drag, which is the bug class the same scoping in `SearchCombobox`
 	 * exists to avoid.
 	 *
 	 * Blurring is the whole of the work: `onBlur` already collapses the offer and
 	 * hushes the live region, and leaving nothing else here is what stops Escape
 	 * from having two answers that could drift apart.
 	 *
-	 * **A passive effect here, deliberately** — where `FieldSearch`'s twin is a
+	 * **A passive effect here, deliberately** — where `SearchCombobox`'s twin is a
 	 * layout effect (#82), and the difference is the gate, not the pattern. That
 	 * one is opened by anker's *debounced* `onSearch`, i.e. from a timer, and
 	 * React defers a timer-lane render's passive effects to a later task: the

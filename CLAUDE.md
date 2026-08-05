@@ -46,7 +46,7 @@ src/
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — id, pin, attributes, children — plus referenceTreeSchema and withPin (ADR-0008)
-│   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences. Drag maths lives here, never in a component
+│   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
 │   ├── reference-attributes.ts # Composes a Reference Field's Attribute Spec into each Reference's branch (ADR-0007's boundary)
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
@@ -74,6 +74,7 @@ src/
 │   └── try-it-view.tsx  # Preview: resolveSpec() on the draft, then a real SpecForm on a scratch form
 ├── renderer/            # Field renderer
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
+│   ├── search-combobox.tsx     # SearchCombobox — the shared typeahead: listbox roles, keyboard model, window-capture Escape containment, opt-in "/" shortcut. Agnostic about what it lists; callers supply results and describe them
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
 │   │   └── tab-shell.tsx # useTabShell() + shared TabShell: state/DOM plumbing behind edit & read tabs, no RHF hooks
 │   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
