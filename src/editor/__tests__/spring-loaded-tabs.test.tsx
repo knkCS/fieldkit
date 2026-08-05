@@ -21,7 +21,11 @@
  * technique and carries the same four lines for the tree's dwell. **The
  * duplication is the decision, not an oversight**: a third pointer-driving file
  * should copy the shim again rather than promote it to shared setup, where it
- * would change how every test in the package branches.
+ * would change how every test in the package branches. The small drag helpers
+ * around it (`settleDrag`, `dwell`, `pressDuringDrag`) are copied from that file
+ * for a plainer reason — `/renderer` imports nothing from `/editor`, so the two
+ * layers' drag suites have never shared a fixture, and four lines each is not
+ * the thing to mint a cross-layer test module for.
  *
  * **What this file can and cannot see.** jsdom lays nothing out, so which
  * trigger a pointer is "on" is decided by `springRectMock` below, not by a real
@@ -74,14 +78,10 @@ class TestPointerEvent extends MouseEvent {
 	TestPointerEvent;
 
 // anker's Menu/Tooltip positioning relies on @floating-ui/dom's autoUpdate,
-// which needs ResizeObserver and IntersectionObserver — neither implemented in
-// jsdom. Stubbed locally, mirroring dnd.test.tsx: a pointer lift puts the
-// grip's Tooltip in reach of an autoUpdate tick.
-class MockResizeObserver {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-}
+// which needs IntersectionObserver — unimplemented in jsdom, and (unlike
+// ResizeObserver, which `src/test/setup.ts` now ships globally for exactly this
+// reason) still every test file's own problem. A pointer lift puts the grip's
+// Tooltip in reach of an autoUpdate tick, so this file needs it.
 class MockIntersectionObserver {
 	observe() {}
 	unobserve() {}
@@ -92,7 +92,6 @@ class MockIntersectionObserver {
 }
 
 beforeEach(() => {
-	vi.stubGlobal("ResizeObserver", MockResizeObserver);
 	vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
 });
 
@@ -106,6 +105,18 @@ const THREE_TABS: Schema = [
 	makeField("x"),
 	makeSection("s1", "SEO"),
 	makeField("b"),
+	makeSection("s2", "Meta"),
+	makeField("c"),
+];
+
+/** THREE_TABS with a SECOND field in SEO, so that a drop landing at a slot
+ * *between* them is distinguishable from an append at the section's end. */
+const SEO_WITH_TWO: Schema = [
+	makeField("a"),
+	makeField("x"),
+	makeSection("s1", "SEO"),
+	makeField("b1"),
+	makeField("b2"),
 	makeSection("s2", "Meta"),
 	makeField("c"),
 ];
@@ -149,6 +160,21 @@ Harness.displayName = "Harness";
  * idiom, same numbers). The DragOverlay preview is pinned to the dragged
  * shell's initial rect because dnd-kit derives the keyboard collision rect from
  * the overlay once it measures.
+ *
+ * **What it deliberately does NOT model:** a hidden tab's panel really measures
+ * 0x0, which is why `isVisibleDroppable` exists to filter it out of collisions
+ * (`visible-collision.ts`, and `visible-collision.test.ts` covers that filter
+ * directly). Here every shell gets a rect whether its panel is open or not,
+ * matching the sectioned mocks in `dnd.test.tsx` and `drag-feedback.test.tsx`.
+ * So a drop resolved here says "this is where the collision landed", never "a
+ * hidden tab's shell could not have won it".
+ *
+ * This is now the THIRD near-identical sectioned-canvas rect mock in
+ * `src/editor/__tests__` (`mockSectionedRects` in dnd.test.tsx,
+ * `tabdropRectMock` in drag-feedback.test.tsx). Consolidating into
+ * `editor-helpers.tsx` means editing two passing test files, which this
+ * ticket's scope forbids — it belongs with the keyboard-drag audit that will
+ * touch them anyway.
  */
 function springRectMock(shellLeft = 0) {
 	return vi
@@ -174,9 +200,14 @@ function springRectMock(shellLeft = 0) {
 			if (testId.startsWith("tabdrop-")) {
 				return rect(0, Number(testId.slice("tabdrop-".length)) * 200, 100, 40);
 			}
-			if (testId.startsWith("shell-")) {
+			if (testId.startsWith("shell-") && !testId.startsWith("shell-toolbar-")) {
+				// The `:not(...)` matters: a SELECTED shell renders a
+				// `shell-toolbar-*` child sharing the prefix, and counting it would
+				// silently skew every rect below it in the column.
 				const shells = Array.from(
-					document.querySelectorAll('[data-testid^="shell-"]'),
+					document.querySelectorAll(
+						'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
+					),
 				);
 				return rect(100 + shells.indexOf(this) * 60, shellLeft, 200, 50);
 			}
@@ -226,6 +257,16 @@ function openPanelShells(): string[] {
 			'[data-testid^="shell-"]:not([data-testid^="shell-toolbar-"])',
 		) ?? [],
 	).map((el) => (el.getAttribute("data-testid") ?? "").slice("shell-".length));
+}
+
+/** Which field the canvas has selected, if any. A selected shell — and only a
+ * selected shell — grows its `shell-toolbar-*` row, which is how "the moved
+ * item is selected" (Decision 3) is visible in the rendered output at all. */
+function selectedField(): string | null {
+	const toolbar = document.querySelector('[data-testid^="shell-toolbar-"]');
+	return (
+		toolbar?.getAttribute("data-testid")?.slice("shell-toolbar-".length) ?? null
+	);
 }
 
 /** The draft's accessors in flat order — the schema, as the canvas holds it. */
@@ -443,6 +484,38 @@ describe("a pointer drag resting on a tab trigger springs the canvas", () => {
 		// The schema never moved — a spring was only ever a preview.
 		expect(draftOrder()).toBe("a,x,s1,b,s2,c");
 	});
+
+	it("stays on the sprung section when the drop commits there (Decision 4)", async () => {
+		// Decision 4's other half. Every test above unwinds the preview; this one
+		// COMMITS, which is the case the feature exists for — "resting the pointer
+		// on a tab trigger's drop zone switches the visible section; the drag
+		// continues uninterrupted and the existing feedback guides to the exact
+		// slot" (Decision 1). A spring you cannot then drop into has switched
+		// nothing worth switching.
+		renderCanvas(SEO_WITH_TWO);
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+		await pointerLift("a");
+		await pointerTo(onTrigger(1));
+		await dwell();
+		expect(openSection()).toBe("SEO");
+		expect(openPanelShells()).toEqual(["b1", "b2"]);
+
+		// Back down into the section that just appeared, onto its FIRST field, and
+		// release. Aiming BETWEEN its two fields is what makes this a slot drop
+		// rather than an append — the append (Decisions 2/3, tested below) would
+		// have put `a` last.
+		await pointerTo({ x: 100, y: 240 });
+		await pointerDrop();
+
+		expect(draftOrder()).toBe("x,s1,b1,a,b2,s2,c");
+		// And the canvas STAYS: "a successful drop stays on the sprung/target
+		// tab". Restoring here instead would dump the author back in General the
+		// instant they let go, having watched the field arrive somewhere else.
+		expect(openSection()).toBe("SEO");
+		expect(openPanelShells()).toEqual(["b1", "a", "b2"]);
+		expect(selectedField()).toBe("a");
+	});
 });
 
 describe("a quick drop on a trigger, before the dwell", () => {
@@ -479,6 +552,9 @@ describe("a quick drop on a trigger, before the dwell", () => {
 		// from.
 		expect(openSection()).toBe("SEO");
 		expect(openPanelShells()).toEqual(["b", "a"]);
+		// …and the third clause of Decision 3, "the moved item is selected":
+		// arriving in the right section is only half of not losing the field.
+		expect(selectedField()).toBe("a");
 	});
 });
 

@@ -296,7 +296,8 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
   are deliberate copies, not a share: `PointerEvent` is a **global**, and
   anker's zag-based components branch on whether it exists, so it stays in the
   files that need it and out of `src/test/setup.ts`. A third pointer-driving
-  file copies the shim again rather than promoting it. Two gotchas: the move that *satisfies* the 8px
+  file copies the shim again rather than promoting it.
+  Two gotchas: the move that *satisfies* the 8px
   distance constraint calls `handleStart()` and returns without reporting
   coordinates, so a drag needs one move to activate and another to travel; and
   a sensor keeps a **capture-phase `click` blocker on `document`** until 50ms
