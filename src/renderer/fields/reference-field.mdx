@@ -97,7 +97,7 @@ Picking one **Reveals** it: every fold above it opens, the row scrolls to the ce
 
 Find **never filters or restructures the tree**, and writes nothing: order, nesting, Pins and Attributes are untouched, so a drag is never standing on ground that moved. It claims **no global keyboard shortcut** — the form's own field search claims `/` on a first-mounted-wins basis, and a rival listener here could never fire. <kbd>Esc</kbd> dismisses the results and is contained, so a Field rendered in a drawer does not lose its edits to the press that shut a dropdown.
 
-The matching and the ancestor paths are pure functions in `src/schema/reference-find.ts`, and which folds a Reveal opens is `foldsToReveal` in `src/schema/reference-tree.ts` — so none of it is asserted through a DOM. A Consumer driving `ReferenceTree` itself passes `revealKey` and a `revealToken`; the token is what makes asking for the same Reference twice running two Reveals.
+The matching and the ancestor paths are pure functions in `src/schema/reference-find.ts`, and which folds a Reveal opens is `foldsToReveal` in `src/schema/reference-tree.ts` — so none of it is asserted through a DOM. A Consumer driving `ReferenceTree` itself passes a `reveal` — a row key and a token together, because the token is what makes asking for the same Reference twice running two Reveals, and a key with nothing to arm it would silently do nothing the second time.
 
 ## Value
 
@@ -330,6 +330,7 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 - The browse drawer's page size is fixed at 10.
 - When the adapter ignores `excludeIds`, the backstop shortens each page after it was cut, so a page can show fewer than 10 rows — or none at all, if a field already references ten Contents that land on the same page — while the total still promises more. Honouring `excludeIds` removes this entirely.
 - Very large trees are not virtualised.
+- Find reports "No matching References" while the names are still arriving, rather than saying they are still arriving. It also matches neither diacritic-folded text ("muller" does not find "Müller") nor a resolved Reference's id — an id matches only where no name resolved, which is what the row is showing anyway. All three are ADR-0013's rules and are not yet built.
 
 ## Examples
 

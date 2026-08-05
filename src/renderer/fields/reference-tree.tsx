@@ -56,6 +56,7 @@ import {
 	readReferenceTree,
 	referenceAncestorKeys,
 	referenceBranchEnd,
+	referenceDisplayName,
 	referenceDropTarget,
 	referenceHasBranch,
 	removeReferenceAt,
@@ -94,6 +95,26 @@ function carryCollapsed(
 		if (was && collapsed.has(was.key)) carried.add(row.key);
 	});
 	return carried;
+}
+
+/**
+ * Carries the Reveal's mark across the same change of shape, on the same
+ * pairing — a Reveal is not undone by an edit, and a key names a position, so
+ * without this the mark would silently move to whichever Reference the old key
+ * now names.
+ *
+ * Expressed through `carryCollapsed` rather than beside it: the question is the
+ * same one ("what is this row called now?"), and two answers to it would be two
+ * things free to disagree.
+ */
+function carryRevealed(
+	before: readonly { key: string }[],
+	after: readonly { key: string }[],
+	revealed: string | null,
+): string | null {
+	if (revealed === null) return null;
+	const [carried] = carryCollapsed(before, after, new Set([revealed]));
+	return carried ?? null;
 }
 
 /** What {@link resolveDrop} is asked: a drag, as the two lists see it. */
@@ -535,6 +556,32 @@ export interface ReferenceInsertRequest {
 	commit: (reference: Reference) => void;
 }
 
+/**
+ * An ask to **Reveal** a Reference: every fold above it opens, the row lands
+ * in the middle of the viewport, takes focus, and stays marked until the next
+ * one (CONTEXT.md).
+ *
+ * The two travel together, and that is the point of the type. The `token` is
+ * what makes asking for the same Reference twice running *two* Reveals — a key
+ * on its own changes no prop the second time, which is exactly the case an
+ * Author hits by scrolling away and wanting back. `spec-form.tsx`'s `jumpToken`
+ * is the same device for the same reason. Passing them as one value is what
+ * stops a caller offering a key with no token to arm it.
+ */
+export interface ReferenceReveal {
+	/**
+	 * Which Reference, by row key.
+	 *
+	 * A key rather than an id, because the same Content may sit in one tree
+	 * twice and only a position tells the two apart. A key naming no row is
+	 * ignored — a caller's target can be renamed by any edit, and a Reveal is
+	 * not worth throwing over.
+	 */
+	key: string;
+	/** Bumped by the caller on every ask. */
+	token: number;
+}
+
 export interface ReferenceTreeProps {
 	/** The rows to render — `readReferenceTree` of the stored value. */
 	rows: readonly ReferenceRow[];
@@ -583,26 +630,9 @@ export interface ReferenceTreeProps {
 	 * `referenceItemCap` in `/schema` is what says so.
 	 */
 	atItemCap?: boolean;
-	/**
-	 * The key of the Reference to **Reveal**: every fold above it opens, the
-	 * row lands in the middle of the viewport, takes focus, and stays marked
-	 * until the next one (CONTEXT.md).
-	 *
-	 * A key rather than a row, because the same Content may sit in one tree
-	 * twice and only a position tells the two apart. A key naming no row is
-	 * ignored — a caller's target can be renamed by any edit, and a Reveal is
-	 * not worth throwing over.
-	 */
-	revealKey?: string | null;
-	/**
-	 * Bumped by the caller on every ask, so asking for the same Reference twice
-	 * running is two Reveals.
-	 *
-	 * Without it the second ask changes no prop and does nothing, which is
-	 * exactly the case an Author hits by scrolling away and wanting back.
-	 * `spec-form.tsx`'s `jumpToken` is the same device for the same reason.
-	 */
-	revealToken?: number;
+	/** The Reference to **Reveal**, or null for a tree nobody has asked
+	 * anything of — see {@link ReferenceReveal}. */
+	reveal?: ReferenceReveal | null;
 }
 
 /**
@@ -641,8 +671,7 @@ export function ReferenceTree({
 	onOpenAttributes,
 	onInsert,
 	atItemCap,
-	revealKey,
-	revealToken,
+	reveal,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -745,10 +774,10 @@ export function ReferenceTree({
 	 * Author is looking; order, nesting, Pins and Attributes are untouched, so
 	 * a drag is never standing on ground that moved.
 	 */
-	// biome-ignore lint/correctness/useExhaustiveDependencies: revealToken is a re-run trigger, not read in the effect body — it is what makes asking for the same Reference twice two Reveals, which naming `revealKey` or `rows` here would not
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the token is a re-run trigger, not read for its value — it is what makes asking for the same Reference twice two Reveals, which naming `reveal` or `rows` here would not
 	useEffect(() => {
-		if (revealKey == null) return;
-		const index = rows.findIndex((row) => row.key === revealKey);
+		if (!reveal) return;
+		const index = rows.findIndex((row) => row.key === reveal.key);
 		// A key naming no row: a caller's target can be renamed by any edit, and
 		// there is nothing to reveal or to say about it.
 		if (index === -1) return;
@@ -761,9 +790,9 @@ export function ReferenceTree({
 			for (const key of opening) next.delete(key);
 			return next;
 		});
-		setRevealed(revealKey);
-		pendingRevealRef.current = revealKey;
-	}, [revealToken]);
+		setRevealed(reveal.key);
+		pendingRevealRef.current = reveal.key;
+	}, [reveal?.token]);
 
 	/**
 	 * The landing: focus the revealed row and put it in the middle of the
@@ -824,7 +853,9 @@ export function ReferenceTree({
 		const end = referenceBranchEnd(rows, from);
 		const kept = rows.filter((_, index) => index < from || index > end);
 		const next = removeReferenceAt(value, row.path);
-		setCollapsed(carryCollapsed(kept, readReferenceTree(next), collapsed));
+		const nextRows = readReferenceTree(next);
+		setCollapsed(carryCollapsed(kept, nextRows, collapsed));
+		setRevealed(carryRevealed(kept, nextRows, revealed));
 		onChange(next);
 	}
 
@@ -856,6 +887,7 @@ export function ReferenceTree({
 		for (const key of referenceAncestorKeys(nextRows, at)) carried.delete(key);
 
 		setCollapsed(carried);
+		setRevealed(carryRevealed(before, nextRows, revealed));
 		onChange(next);
 	}
 
@@ -986,6 +1018,7 @@ export function ReferenceTree({
 			carried.delete(key);
 
 		setCollapsed(carried);
+		setRevealed(carryRevealed(moved, nextRows, revealed));
 		onChange(next);
 	}
 
@@ -995,9 +1028,10 @@ export function ReferenceTree({
 
 	// What the last Reveal landed on, named — null until one has, and again if
 	// the row it landed on has since left the tree.
-	const revealedRow = rows.find((row) => row.key === revealed);
+	const revealedRow =
+		revealed === null ? undefined : rows.find((row) => row.key === revealed);
 	const revealedName = revealedRow
-		? (names[revealedRow.reference.id] ?? revealedRow.reference.id)
+		? referenceDisplayName(revealedRow, names)
 		: null;
 
 	// Where the release would land, for the one gap that draws it.
@@ -1066,7 +1100,7 @@ export function ReferenceTree({
 						{insertionGap(index)}
 						<ReferenceTreeRowItem
 							row={row}
-							name={names[row.reference.id] ?? row.reference.id}
+							name={referenceDisplayName(row, names)}
 							registerNode={registerRow}
 							revealed={row.key === revealed}
 							// The dragged row indents to where releasing would put it,
@@ -1195,12 +1229,22 @@ function ReferenceTreeRowItem({
 	});
 	const hasChildren = referenceHasBranch(row);
 
+	// One stable callback rather than a fresh closure per render: React detaches
+	// and reattaches a ref whose identity changed, and dnd-kit answers that by
+	// unobserving and re-observing the row — churn on exactly the large trees
+	// Find exists for, and mid-drag, where {@link TREE_MEASURING} is already
+	// load-bearing.
+	const setRowRef = useCallback(
+		(node: HTMLElement | null) => {
+			setNodeRef(node);
+			registerNode(row.key, node);
+		},
+		[setNodeRef, registerNode, row.key],
+	);
+
 	return (
 		<Flex
-			ref={(node: HTMLElement | null) => {
-				setNodeRef(node);
-				registerNode(row.key, node);
-			}}
+			ref={setRowRef}
 			// A row is not a control, and this does not make it one: it is
 			// -1, so it never joins the tab order and nothing changes for
 			// someone tabbing through the tree. It exists so a Reveal can put

@@ -664,6 +664,26 @@ export interface ReferenceRow extends FlatReference {
 }
 
 /**
+ * What a row shows for the Content it points at: the resolved display name,
+ * falling back to the id.
+ *
+ * A Reference stores only an id (ADR-0008), so a name is always something a
+ * caller resolved and may not have. Falling back to the id rather than to
+ * nothing is what keeps a Content that no longer resolves visible instead of
+ * gone — and it is why Find can match what is on screen in that state.
+ *
+ * Here rather than in each control because it is one rule about a row, and
+ * the tree, the Find results and the announcements all have to answer it the
+ * same way. (#110 tracks the copies of it still elsewhere in the renderer.)
+ */
+export function referenceDisplayName(
+	row: Pick<FlatReference, "reference">,
+	names: Record<string, string>,
+): string {
+	return names[row.reference.id] ?? row.reference.id;
+}
+
+/**
  * A row's index path as the dotted name the stored value takes in a form —
  * `[1, 0]` reads `1.children.0`, so under a Field's Accessor it addresses
  * exactly the entry the path came from.

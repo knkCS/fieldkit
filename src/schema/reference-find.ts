@@ -16,7 +16,7 @@
  * dropdown is.
  */
 import type { ReferenceRow } from "./reference-tree";
-import { referenceAncestorRows } from "./reference-tree";
+import { referenceAncestorRows, referenceDisplayName } from "./reference-tree";
 
 /** One Reference that answered to a query, and where it sits. */
 export interface ReferenceFindResult {
@@ -49,29 +49,29 @@ export interface ReferenceFindResult {
 }
 
 /**
- * What a row shows, and therefore what Find matches: the resolved display name,
- * falling back to the id.
- *
- * The fallback is not id matching (that is #151's, and matches an id *as well
- * as* a name). It is Find degrading exactly as the rows already do — with no
- * Adapter, or after a failed lookup, an id is the name on screen, and a control
- * that could not find what is on screen would be lying about the tree.
- */
-function displayName(row: ReferenceRow, names: Record<string, string>): string {
-	return names[row.reference.id] ?? row.reference.id;
-}
-
-/**
  * The References in a tree whose display name contains `query`, in the order
  * the tree holds them.
  *
- * Case-insensitive substring, and nothing else: no ranking, no cap, no
- * diacritic folding. A blank query answers with nothing rather than with
- * everything — Find is asked a question, and "all of them" is what the tree
- * already says.
+ * What it matches is what a row *shows* — `referenceDisplayName`, so an id
+ * stands in wherever no name resolved. That is Find degrading exactly as the
+ * rows already do (ADR-0013): with no Adapter, or after a failed lookup, an id
+ * is the name on screen, and a control that could not find what is on screen
+ * would be lying about the tree. It is not the same as matching an id
+ * *alongside* a resolved name, which is #151's.
+ *
+ * A blank query answers with nothing rather than with everything — Find is
+ * asked a question, and "all of them" is what the tree already says.
  *
  * Every row is searched, not the rows a fold set leaves on screen. A collapsed
  * branch hiding the answer is the whole problem Find exists for.
+ *
+ * **Case-insensitive substring, and nothing else yet.** ADR-0013's matching
+ * rules go further — diacritics folded, ids matched as well as names — and
+ * this is the first slice of them, not a disagreement with the record: #151
+ * carries the folding and the ids, #149 the ranking and the cap. Two more
+ * consequences of that ADR are likewise still outstanding: names arrive
+ * unbatched (#147), and Find cannot yet tell "no match" from "not resolved
+ * yet" (#152), which is the one an Author can be misled by.
  */
 export function findReferences(
 	rows: readonly ReferenceRow[],
@@ -82,7 +82,7 @@ export function findReferences(
 	if (needle === "") return [];
 	const found: ReferenceFindResult[] = [];
 	rows.forEach((row, index) => {
-		const name = displayName(row, names);
+		const name = referenceDisplayName(row, names);
 		if (!name.toLowerCase().includes(needle)) return;
 		found.push({
 			key: row.key,
@@ -91,7 +91,7 @@ export function findReferences(
 			// the same rule `foldsToReveal` reads, so the path a result shows can
 			// never name a route different from the folds picking it opens.
 			ancestors: referenceAncestorRows(rows, index)
-				.map((ancestor) => displayName(ancestor, names))
+				.map((ancestor) => referenceDisplayName(ancestor, names))
 				.reverse(),
 		});
 	});

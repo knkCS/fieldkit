@@ -1124,21 +1124,31 @@ describe("ReferenceField", () => {
 			});
 
 			it("scrolls the revealed row to the centre of the viewport", async () => {
-				const scrollIntoView = vi.fn();
 				// jsdom implements no scrolling at all, so the row's own method is
-				// what a test can read.
+				// what a test can read — and it is put back afterwards, since
+				// defining it changes what every later test in this file sees.
+				const scrollIntoView = vi.fn();
+				const had = Object.hasOwn(Element.prototype, "scrollIntoView");
+				const original = Element.prototype.scrollIntoView;
 				Element.prototype.scrollIntoView = scrollIntoView;
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
+				try {
+					renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+					await screen.findByText("Content 1");
 
-				await reveal("Content 20");
+					await reveal("Content 20");
 
-				await waitFor(() => {
-					expect(scrollIntoView).toHaveBeenCalledWith({
-						block: "center",
-						behavior: "smooth",
+					await waitFor(() => {
+						expect(scrollIntoView).toHaveBeenCalledWith({
+							block: "center",
+							behavior: "smooth",
+						});
 					});
-				});
+				} finally {
+					if (had) Element.prototype.scrollIntoView = original;
+					else
+						delete (Element.prototype as { scrollIntoView?: unknown })
+							.scrollIntoView;
+				}
 			});
 
 			it("announces the Reveal, for an Author who is not watching the tree", async () => {
@@ -1277,6 +1287,35 @@ describe("ReferenceField", () => {
 				// The control never fights a deliberate act: nothing but the
 				// ancestors of what was asked for is touched.
 				expect(rowNamed("Content 6")).not.toBeNull();
+			});
+
+			it("keeps the mark on the Reference it revealed when an edit renames the rows", async () => {
+				// A row is keyed by where it sits, so removing a Reference above
+				// the revealed one renames it — and a mark left on the old key
+				// would silently start naming somebody else's Reference.
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				await reveal("Content 4");
+				await waitFor(() => {
+					expect(rowNamed("Content 4")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
+				});
+
+				fireEvent.click(
+					screen.getByRole("button", { name: "Remove Content 1" }),
+				);
+
+				// Still exactly one row marked, and still the one that was asked
+				// for — not whichever Reference inherited its old key.
+				await waitFor(() => {
+					const marked = screen
+						.queryAllByTestId("reference-row")
+						.filter((row) => row.getAttribute("data-revealed") === "true");
+					expect(marked).toHaveLength(1);
+					expect(within(marked[0]).getByText("Content 4")).toBeInTheDocument();
+				});
 			});
 
 			it("changes nothing that is stored — order, nesting, Pins and Attributes alike", async () => {
