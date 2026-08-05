@@ -1267,6 +1267,34 @@ describe("the list holds still while a drag runs", () => {
 		await pressDuringDrag("Escape");
 	});
 
+	it("keeps it travelling after its own branch has folded away", async () => {
+		// The lift folds the dragged branch (Decision 7), which changes
+		// `SortableContext`'s `items` — and `displaceItem` is false while
+		// `disableTransforms` is, so *every* row including this one goes
+		// untransformed for that commit. It has to come back on the next one, or
+		// the drag would stop following the pointer exactly when the tree
+		// reshapes itself. Nothing else pins that: a tree of childless roots
+		// never changes `items` at all.
+		renderTree({
+			value: [
+				{ id: "article-1", children: [{ id: "article-2" }] },
+				{ id: "article-3" },
+			],
+		});
+		await screen.findByText("Content 1");
+
+		await liftWithKeyboard("Content 1");
+		expect(renderedRows().map(([name]) => name)).toEqual([
+			"Content 1",
+			"Content 3",
+		]);
+
+		await pressDuringDrag("ArrowDown");
+		expect(translateOf("Content 1")).toEqual({ x: 0, y: 60 });
+
+		await pressDuringDrag("Escape");
+	});
+
 	it("lifts the dragged row instead of dimming it", async () => {
 		renderTree({ value: threeFlat });
 		await screen.findByText("Content 1");
@@ -1284,9 +1312,9 @@ describe("the list holds still while a drag runs", () => {
 		// reintroduced at any value would show up here.
 		expect(style.opacity).toBe("");
 		// Raised and shadowed — the two halves of "carried over the list" rather
-		// than "blended into it". jsdom hands back the token reference
-		// unresolved, which is enough to say a shadow was asked for.
-		expect(style.zIndex).toBe("1");
+		// than "blended into it". jsdom hands back the token references
+		// unresolved, which is enough to say both were asked for.
+		expect(style.zIndex).toBe("var(--chakra-z-index-docked)");
 		expect(style.boxShadow).toBe("var(--chakra-shadows-lg)");
 
 		// Its neighbours are not lifted, and never were dimmed.

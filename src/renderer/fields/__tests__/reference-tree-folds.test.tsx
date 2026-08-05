@@ -562,6 +562,12 @@ describe("resting on a folded Reference springs it open (Decision 8)", () => {
 		expect(transformOf("Content 1")).toBe("");
 		expect(transformOf("Content 2")).toBe("");
 
+		// And the dragged row is still travelling. A spring changes
+		// `SortableContext`'s `items`, which makes `disableTransforms` true and
+		// blanks *every* transform for that commit — the active row's included —
+		// so this is the half of Decision 11 the shape change puts at risk.
+		expect(transformOf("Content 3")).toMatch(/^translate3d\(0px, /);
+
 		// What this cannot see: jsdom lays nothing out, so it cannot show that
 		// Content 1 stayed put on screen. It pins the absence of the transform
 		// that used to move it — the mechanism, not the pixels.

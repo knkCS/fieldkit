@@ -80,6 +80,17 @@ guess here does not fail loudly — it produces a drag with nothing following th
 pointer, which jsdom cannot see, since jsdom lays nothing out and only the
 *absence* of a transform is assertable there.
 
+**One caveat sits inside `displaceItem`, and it bites the active row too.**
+`displaceItem` is false while `disableTransforms` is, and `SortableContext`
+sets that whenever its `items` changed on this render — so for the single commit
+after rows mount or unmount mid-drag, *nothing* is transformed, the dragged node
+included. That is dnd-kit declining to displace against rects it is replacing,
+and it corrects on the next render. It matters here because the tree changes
+`items` mid-drag by design (Decisions 7–8), so any test that means to pin "the
+dragged row follows the pointer" has to drive a drag *through* a fold or a
+spring and read the translate afterwards — a list of childless roots never
+changes `items` and cannot see it.
+
 Both `useSortable` calls also pass `animateLayoutChanges: () => false`. Without
 it, `useDerivedTransform` re-transforms any row whose index changed from the
 rect it used to occupy — which in the tree fires on the mid-drag fold and every

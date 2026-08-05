@@ -496,12 +496,25 @@ const TREE_MEASURING = {
  * collapse into the overlay Decision 11 declines: the list can stop parting and
  * the dragged row can still follow the pointer.
  *
+ * The one caveat, in the same expression: `displaceItem` is false while
+ * `disableTransforms` is, and `SortableContext` sets that whenever its `items`
+ * changed on this render — so *no* row is transformed, the dragged one
+ * included, for the single commit after a fold or a spring reshapes the list
+ * (Decisions 7 and 8). It is what lets dnd-kit avoid displacing against rects
+ * it is in the middle of replacing, it corrects on the next render, and it is
+ * unchanged from the parting list. The tests below drive a drag through both
+ * shape changes and read the dragged row's translate afterwards, because that
+ * is where "it still follows the pointer" is actually at risk.
+ *
  * Read off the installed @dnd-kit/sortable 8.0.0 `useSortable` source, because
  * a wrong guess here does not fail loudly — it produces a drag with nothing
  * following the pointer, which jsdom cannot see. The editor canvas's own no-op
  * strategy leans on the *other* half of the same expression: its overlay makes
  * `useDragOverlay` true, so its active node falls through to the strategy and
- * stays put while the clone travels.
+ * stays put while the clone travels. That the two are the same one-liner is why
+ * they are not shared: `/renderer` imports nothing from `/editor`, and the
+ * reason each holds is the opposite of the other's, so one name over both would
+ * carry a comment that is half wrong wherever it is read.
  */
 const stillListStrategy: SortingStrategy = () => null;
 
@@ -1088,6 +1101,11 @@ function ReferenceTreeRowItem({
 		// springs open on a dwell (Decisions 7 and 8) — so leaving it on would
 		// put a displacement transform back on rows the still-list strategy has
 		// just taken it off, by a second route (Decision 10).
+		//
+		// Flat `false` rather than "false only while sorting", as the canvas
+		// passes it: it also drops the settle after a drop, which the tree never
+		// relied on. Its rows are one height and one width, so the layout
+		// animation had nothing to smooth that a re-render does not.
 		animateLayoutChanges: () => false,
 	});
 	const hasChildren = row.height > 0;
@@ -1145,7 +1163,7 @@ function ReferenceTreeRowItem({
 			// matters more. And with the list no longer parting (Decision 10) the
 			// row overlaps what it passes — two translucent rows stacked is
 			// precisely the thing to avoid.
-			zIndex={isDragging ? "1" : undefined}
+			zIndex={isDragging ? "docked" : undefined}
 			boxShadow={isDragging ? "lg" : undefined}
 			data-testid="reference-row"
 			// Whether this is the row in flight — the same fact the lift draws,
