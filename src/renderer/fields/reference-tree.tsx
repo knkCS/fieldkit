@@ -41,14 +41,18 @@ import {
 } from "../../schema/reference-attributes";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
+	initialReferenceFolds,
 	moveReferenceBranch,
 	nestReferences,
 	projectDropDepth,
 	readReferenceTree,
+	referenceAncestorKeys,
 	referenceBranchEnd,
 	referenceDropTarget,
+	referenceHasBranch,
 	removeReferenceAt,
 	spliceReference,
+	visibleReferenceRows,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
@@ -62,41 +66,6 @@ import { useSpringLoadedBranch } from "./use-spring-loaded-branch";
 /** Pixels of indentation one level of nesting is drawn at. Exported because
  * read mode draws the same tree and has to draw a level at the same width. */
 export const INDENT_WIDTH = 24;
-
-/**
- * Above this many References a tree opens with its parents collapsed; at or
- * below it, expanded.
- *
- * PROVISIONAL — a guess, not a measurement, and parent #61 says as much: the
- * threshold "wants tuning against a real Spec". Twenty rows is roughly a
- * screenful at the row height below, which is the point where an expanded
- * tree stops being something an Author takes in at a glance and starts being
- * something they scroll. Below it, collapsing would only make someone expand
- * a three-item list before they could read it.
- */
-export const REFERENCE_TREE_COLLAPSE_THRESHOLD = 20;
-
-/** Whether a Reference has anything under it to fold away. */
-function hasBranch(row: ReferenceRow): boolean {
-	return row.height > 0;
-}
-
-/** The rows an Author can see: everything not inside a collapsed Reference. */
-function visibleRows(
-	rows: readonly ReferenceRow[],
-	collapsed: ReadonlySet<string>,
-): ReferenceRow[] {
-	const shown: ReferenceRow[] = [];
-	let hiddenThrough = -1;
-	rows.forEach((row, index) => {
-		if (index <= hiddenThrough) return;
-		shown.push(row);
-		if (hasBranch(row) && collapsed.has(row.key)) {
-			hiddenThrough = referenceBranchEnd(rows, index);
-		}
-	});
-	return shown;
-}
 
 /**
  * Carries the collapsed set across a change of shape, `before[i]` being the
@@ -117,12 +86,6 @@ function carryCollapsed(
 		if (was && collapsed.has(was.key)) carried.add(row.key);
 	});
 	return carried;
-}
-
-/** The collapsed set a tree opens with — see the threshold above. */
-function initialCollapsed(rows: readonly ReferenceRow[]): Set<string> {
-	if (rows.length <= REFERENCE_TREE_COLLAPSE_THRESHOLD) return new Set();
-	return new Set(rows.filter(hasBranch).map((row) => row.key));
 }
 
 /** What {@link resolveDrop} is asked: a drag, as the two lists see it. */
@@ -326,27 +289,6 @@ function resolveDrop({
 	};
 }
 
-/**
- * The keys of everything the branch now at `index` sits inside.
- *
- * A drop may land under a Reference that is folded, and a Reference has to be
- * visible where it was dropped — so what it landed inside is unfolded.
- */
-function ancestorKeys(
-	rows: readonly { depth: number; key: string }[],
-	index: number,
-): string[] {
-	const keys: string[] = [];
-	let depth = rows[index]?.depth ?? 0;
-	for (let above = index - 1; above >= 0 && depth > 0; above--) {
-		if (rows[above].depth < depth) {
-			keys.push(rows[above].key);
-			depth = rows[above].depth;
-		}
-	}
-	return keys;
-}
-
 /** The key of the row a drag event is carrying. */
 function draggedKey(event: DragMoveEvent | DragEndEvent | DragStartEvent) {
 	return String(event.active.id);
@@ -426,7 +368,7 @@ function springableKey(
 	if (!drag || overKey == null || overKey === drag.activeKey) return null;
 	if (!collapsed.has(overKey)) return null;
 	const row = rows.find((candidate) => candidate.key === overKey);
-	return row && hasBranch(row) ? overKey : null;
+	return row && referenceHasBranch(row) ? overKey : null;
 }
 
 /** The fold set with `key` folded away — the very same set when it already is,
@@ -676,7 +618,7 @@ export function ReferenceTree({
 	// what opens on screen, so adding a Reference must not collapse the tree
 	// an Author is working in.
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() =>
-		initialCollapsed(rows),
+		initialReferenceFolds(rows),
 	);
 	// The drag in flight, or null when none is — see {@link DragSession}.
 	const [drag, setDrag] = useState<DragSession | null>(null);
@@ -692,7 +634,10 @@ export function ReferenceTree({
 		useSensor(KeyboardSensor, { coordinateGetter: treeKeyboardCoordinates }),
 	);
 
-	const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed]);
+	const shown = useMemo(
+		() => visibleReferenceRows(rows, collapsed),
+		[rows, collapsed],
+	);
 
 	/**
 	 * Where a reading of a drag would land, against the tree as it stands *now*.
@@ -793,7 +738,7 @@ export function ReferenceTree({
 			...rows.slice(at),
 		];
 		const carried = carryCollapsed(before, nextRows, collapsed);
-		for (const key of ancestorKeys(nextRows, at)) carried.delete(key);
+		for (const key of referenceAncestorKeys(nextRows, at)) carried.delete(key);
 
 		setCollapsed(carried);
 		onChange(next);
@@ -851,7 +796,7 @@ export function ReferenceTree({
 			reading: null,
 		});
 		const lifted = rows.find((row) => row.key === key);
-		if (lifted && hasBranch(lifted)) {
+		if (lifted && referenceHasBranch(lifted)) {
 			setCollapsed((current) => foldedWith(current, key));
 		}
 		// The strips become spacers for the duration, so whatever one of them
@@ -922,7 +867,8 @@ export function ReferenceTree({
 		// restore above — a branch that sprang open *and* received the drop
 		// stays open, because it is now an ancestor of what landed in it
 		// (Decision 9, which is #65's rule seen from the other side).
-		for (const key of ancestorKeys(nextRows, landed)) carried.delete(key);
+		for (const key of referenceAncestorKeys(nextRows, landed))
+			carried.delete(key);
 
 		setCollapsed(carried);
 		onChange(next);
@@ -1108,7 +1054,7 @@ function ReferenceTreeRowItem({
 		// animation had nothing to smooth that a re-render does not.
 		animateLayoutChanges: () => false,
 	});
-	const hasChildren = row.height > 0;
+	const hasChildren = referenceHasBranch(row);
 
 	return (
 		<Flex

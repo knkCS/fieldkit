@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { ReferenceSettings } from "../../../schema/field-types/reference";
 import type { Reference } from "../../../schema/reference";
+import { REFERENCE_TREE_COLLAPSE_THRESHOLD } from "../../../schema/reference-tree";
 import type { Field } from "../../../schema/types";
 import { specToZodSchema } from "../../../schema/zod-builder";
 import {
@@ -16,7 +17,6 @@ import {
 } from "../../../test/fake-reference-adapter";
 import { FieldComponent } from "../../field-component";
 import { FieldKitProvider } from "../../provider";
-import { REFERENCE_TREE_COLLAPSE_THRESHOLD } from "../reference-tree";
 
 const ACCESSOR = "related";
 

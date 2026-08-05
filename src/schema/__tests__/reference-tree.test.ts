@@ -1,20 +1,25 @@
 // src/schema/__tests__/reference-tree.test.ts
 import { describe, expect, it } from "vitest";
 import type { Reference } from "../reference";
-import type { FlatReference } from "../reference-tree";
+import type { FlatReference, ReferenceRow } from "../reference-tree";
 import {
 	countReferences,
 	flattenReferences,
+	foldsToReveal,
+	initialReferenceFolds,
 	moveReferenceBranch,
 	nestReferences,
 	projectDropDepth,
 	projectInsertDepth,
+	REFERENCE_TREE_COLLAPSE_THRESHOLD,
 	readReferenceTree,
+	referenceAncestorKeys,
 	referenceBranchEnd,
 	referenceDropTarget,
 	referencesPastDepth,
 	removeReferenceAt,
 	spliceReference,
+	visibleReferenceRows,
 	writeReferenceTree,
 } from "../reference-tree";
 
@@ -1538,5 +1543,233 @@ describe("removeReferenceAt", () => {
 		expect(
 			removeReferenceAt(["loose-id", { id: "a" }, { id: "b" }], [1]),
 		).toEqual(["loose-id", { id: "b" }]);
+	});
+});
+
+/**
+ * A tree with something to fold at two levels: `a` hides a branch that itself
+ * hides one. Read through `readReferenceTree` rather than hand-built, so the
+ * keys a fold set names are the keys a control actually holds.
+ */
+const foldable: Reference[] = [
+	{
+		id: "a",
+		children: [
+			{ id: "a1", children: [{ id: "a1x" }, { id: "a1y" }] },
+			{ id: "a2" },
+		],
+	},
+	{ id: "b" },
+];
+
+/** `foldable`'s rows: keys "0", "0.0", "0.0.0", "0.0.1", "0.1", "1". */
+const foldableRows = readReferenceTree(foldable);
+
+/** The ids of whatever rows a fold rule answered with. */
+const ids = (rows: readonly ReferenceRow[]) =>
+	rows.map((row) => row.reference.id);
+
+describe("visibleReferenceRows", () => {
+	it("shows every row when nothing is folded", () => {
+		expect(ids(visibleReferenceRows(foldableRows, new Set()))).toEqual([
+			"a",
+			"a1",
+			"a1x",
+			"a1y",
+			"a2",
+			"b",
+		]);
+	});
+
+	it("hides a folded Reference's branch, keeping the Reference itself", () => {
+		// A folded Reference stands in for what it hides, so it stays on screen.
+		expect(ids(visibleReferenceRows(foldableRows, new Set(["0.0"])))).toEqual([
+			"a",
+			"a1",
+			"a2",
+			"b",
+		]);
+	});
+
+	it("hides a whole branch, grandchildren and all", () => {
+		expect(ids(visibleReferenceRows(foldableRows, new Set(["0"])))).toEqual([
+			"a",
+			"b",
+		]);
+	});
+
+	it("hides a fold nested inside a fold once, not twice", () => {
+		expect(
+			ids(visibleReferenceRows(foldableRows, new Set(["0", "0.0"]))),
+		).toEqual(["a", "b"]);
+	});
+
+	it("hides nothing for a fold set naming rows that no longer exist", () => {
+		// A key names a position, so a move or a removal renames it — and a set
+		// left over from a tree that has changed must not hide a stranger.
+		expect(
+			ids(
+				visibleReferenceRows(foldableRows, new Set(["9", "0.0.0.0", "gone"])),
+			),
+		).toEqual(["a", "a1", "a1x", "a1y", "a2", "b"]);
+	});
+
+	it("hides nothing for a folded Reference with no branch to hide", () => {
+		expect(
+			ids(visibleReferenceRows(foldableRows, new Set(["0.0.0", "1"]))),
+		).toEqual(["a", "a1", "a1x", "a1y", "a2", "b"]);
+	});
+
+	it("answers with the caller's own entries, so a row's name travels back", () => {
+		const shown = visibleReferenceRows(foldableRows, new Set(["0.0"]));
+		expect(shown[1]).toBe(foldableRows[1]);
+	});
+});
+
+/**
+ * A tree four levels deep, with a sibling at every level for the ancestor
+ * rules to walk past. Rows: "0", "1", "1.0", "1.1", "1.1.0", "1.1.0.0".
+ */
+const deepRows = readReferenceTree([
+	{ id: "r0" },
+	{
+		id: "r1",
+		children: [
+			{ id: "n1" },
+			{ id: "n2", children: [{ id: "m1", children: [{ id: "leaf" }] }] },
+		],
+	},
+] satisfies Reference[]);
+
+describe("referenceAncestorKeys", () => {
+	it("finds none for a root, which sits inside nothing", () => {
+		expect(referenceAncestorKeys(deepRows, 0)).toEqual([]);
+	});
+
+	it("names every ancestor of a row nested several levels deep", () => {
+		// Nearest first: a caller opening its way down to a row reads them in
+		// the order it meets them.
+		expect(referenceAncestorKeys(deepRows, 5)).toEqual(["1.1.0", "1.1", "1"]);
+	});
+
+	it("names only ancestors, never a sibling or a sibling's branch", () => {
+		// "1.0" is above the row and "0" is a root above it; neither contains it.
+		expect(referenceAncestorKeys(deepRows, 4)).toEqual(["1.1", "1"]);
+	});
+
+	it("finds none for an index the list does not reach", () => {
+		expect(referenceAncestorKeys(deepRows, 99)).toEqual([]);
+		expect(referenceAncestorKeys(deepRows, -1)).toEqual([]);
+	});
+});
+
+describe("foldsToReveal", () => {
+	it("names the folds standing between a row and being seen", () => {
+		expect(foldsToReveal(deepRows, 5, new Set(["1", "1.1.0"]))).toEqual([
+			"1.1.0",
+			"1",
+		]);
+	});
+
+	it("names none when every ancestor is already open", () => {
+		// Revealing a row already on screen opens nothing, so an Author's own
+		// folds elsewhere are left exactly as they are.
+		expect(foldsToReveal(deepRows, 5, new Set())).toEqual([]);
+	});
+
+	it("names only the ancestors that are shut, not all of them", () => {
+		expect(foldsToReveal(deepRows, 5, new Set(["1.1"]))).toEqual(["1.1"]);
+	});
+
+	it("names none for a root, which sits inside nothing", () => {
+		expect(foldsToReveal(deepRows, 0, new Set(["1", "1.1"]))).toEqual([]);
+	});
+
+	it("leaves the revealed Reference's own fold shut", () => {
+		// A Reveal brings the row into view; what hangs under it is the
+		// Author's business, and opening it would move rows they never named.
+		expect(foldsToReveal(deepRows, 4, new Set(["1.1.0"]))).toEqual([]);
+	});
+
+	it("ignores folds beside the row, and folds naming rows that no longer exist", () => {
+		expect(foldsToReveal(deepRows, 5, new Set(["0", "1.0", "gone"]))).toEqual(
+			[],
+		);
+	});
+});
+
+/**
+ * A tree of exactly `size` References: one parent carrying a branch, and
+ * leaves at the root for the rest — so the threshold can be walked a row at a
+ * time, and there is always exactly one Reference with anything to fold.
+ */
+const treeOfSize = (size: number): Reference[] => {
+	if (size <= 0) return [];
+	if (size === 1) return [{ id: "solo" }];
+	const roots: Reference[] = [{ id: "parent", children: [{ id: "child" }] }];
+	for (let index = 2; index < size; index++) {
+		roots.push({ id: `leaf-${String(index)}` });
+	}
+	return roots;
+};
+
+/** A tree past the threshold with folds at two levels — `foldable` and then
+ * enough leaves to be worth collapsing. */
+const big: Reference[] = [
+	...foldable,
+	...treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD),
+];
+
+describe("initialReferenceFolds", () => {
+	it("builds trees of the size it was asked for", () => {
+		// The threshold tests below are only worth anything if this is exact.
+		expect(countReferences(treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD))).toBe(
+			REFERENCE_TREE_COLLAPSE_THRESHOLD,
+		);
+	});
+
+	it("folds nothing at exactly the threshold", () => {
+		const rows = readReferenceTree(
+			treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD),
+		);
+		expect([...initialReferenceFolds(rows)]).toEqual([]);
+	});
+
+	it("folds nothing one Reference below the threshold", () => {
+		const rows = readReferenceTree(
+			treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1),
+		);
+		expect([...initialReferenceFolds(rows)]).toEqual([]);
+	});
+
+	it("folds every Reference with a branch one above the threshold", () => {
+		// Only the parent: a leaf has nothing to fold away, and a fold set
+		// naming one would say a row is shut that has nothing behind it.
+		const rows = readReferenceTree(
+			treeOfSize(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
+		);
+		expect([...initialReferenceFolds(rows)]).toEqual(["0"]);
+	});
+
+	it("folds every parent at every level, not only the roots", () => {
+		// `a` and `a1` both carry branches, three levels apart at the top of a
+		// tree well past the threshold.
+		const rows = readReferenceTree(big);
+		expect([...initialReferenceFolds(rows)].sort()).toEqual(["0", "0.0", "2"]);
+	});
+
+	it("leaves the roots on screen — what the fold set opens to", () => {
+		// The two rules together: a tree that opens collapsed shows its roots,
+		// which is the whole point of the threshold.
+		const rows = readReferenceTree(big);
+		const shown = visibleReferenceRows(rows, initialReferenceFolds(rows));
+		expect(shown.every((row) => row.depth === 0)).toBe(true);
+		expect(ids(shown).slice(0, 3)).toEqual(["a", "b", "parent"]);
+		// 21 roots: `foldable`'s two, and `treeOfSize`'s parent and 18 leaves.
+		expect(shown).toHaveLength(21);
+	});
+
+	it("folds nothing in a tree with nothing in it", () => {
+		expect([...initialReferenceFolds([])]).toEqual([]);
 	});
 });
