@@ -290,12 +290,14 @@ FIVE handlers are wired: `onDragStart` (drag flag + overlay id),
   reads `clientX`/`clientY` — all of which a `class extends MouseEvent` with an
   `isPrimary` field carries. Define it, and `fireEvent.pointerDown(grip, …)` +
   `fireEvent.pointerMove(document, …)` drive a real drag (the sensor listens on
-  the owner *document*, not the grip). **Two files define it, each for its own
-  layer's pointer-only dwell** — `src/renderer/fields/__tests__/reference-tree-folds.test.tsx`
-  (tree) and `src/editor/__tests__/spring-loaded-tabs.test.tsx` (canvas). They
+  the owner *document*, not the grip). **Three files define it** —
+  `src/renderer/fields/__tests__/reference-tree-folds.test.tsx` (the tree's
+  dwell), `src/editor/__tests__/spring-loaded-tabs.test.tsx` (the canvas's), and
+  `src/editor/__tests__/grip-click-vs-drag.test.tsx` (the 8px dead zone between
+  a click on a grip and a drag from it). They
   are deliberate copies, not a share: `PointerEvent` is a **global**, and
   anker's zag-based components branch on whether it exists, so it stays in the
-  files that need it and out of `src/test/setup.ts`. A third pointer-driving
+  files that need it and out of `src/test/setup.ts`. A fourth pointer-driving
   file copies the shim again rather than promoting it.
   Two gotchas: the move that *satisfies* the 8px
   distance constraint calls `handleStart()` and returns without reporting
