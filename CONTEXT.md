@@ -111,6 +111,14 @@ _Avoid_: re-parenting, stealing, nesting
 A folded thing opening because a drag rested on it, rather than because anyone clicked. Editor Tabs spring to reveal a Section; Reference Tree rows spring to reveal a branch. A spring is a **preview**: whatever sprang open and did not receive the drop folds back when the drag ends, and cancelling restores every fold to how it was at the lift. Both use one dwell, so the two feel like one idea.
 _Avoid_: auto-expand, hover-expand, unfold
 
+**Find**:
+Locating a Reference the tree already holds, by the name of the Content it points at. Distinct from the catalogue browse the picker opens, which looks outward for a Content to add — that one is the Adapter's `search`, and a Reference Field has both.
+_Avoid_: search (that's the catalogue browse), filter, lookup
+
+**Reveal**:
+A Reference being brought into view: every fold above it opened, and the row itself shown and marked. Where a Spring opens a fold because a drag rested on it, a Reveal opens one because someone named the Reference — so a Spring is a preview and folds back, and a Reveal is not and does not.
+_Avoid_: jump, scroll to, expand to
+
 **Version**:
 One saved state of a Content's data. Versions have no names of their own.
 _Avoid_: revision, snapshot, draft
