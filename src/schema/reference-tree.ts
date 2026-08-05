@@ -39,8 +39,8 @@
  * Folding reads it. Which rows a fold set hides, which folds stand above a
  * row, which of those a Reveal must open, and the set a tree opens with — all
  * of them arithmetic over the same list, and all of them here rather than in
- * a component because two renderers draw this tree and a rule each of them
- * owns a copy of is a rule they are free to disagree about (#88).
+ * the control that folds today, because a second renderer of this tree is to
+ * share these rules rather than grow a copy of them (#88, #153).
  *
  * `countReferences` is the same model's answer to "how big is this tree",
  * which is what `max_items` caps — every Reference at every level, since a
@@ -824,8 +824,13 @@ export function referencesPastDepth(
  * a control's own state and never the value's (ADR-0008), but what it *means*
  * is the tree's: which rows it hides, and which of them stand between a
  * Reference and being seen. Those rules live here for the same reason the drag
- * maths above does — two renderers draw this tree, and a rule each of them
- * owns a copy of is a rule they are free to disagree about.
+ * maths above does — the editing control folds today and the read-mode one is
+ * to (#153), and a rule each of them owned a copy of would be a rule they were
+ * free to disagree about.
+ *
+ * What a fold *hides*, and what stands above a row, are read off order and
+ * depth alone — the same two facts `nestReferences` reads, and the only two a
+ * list a caller reshaped mid-drag can still be trusted for.
  *
  * Every one of them takes the fold set as it stands, strangers and all. Keys
  * name positions, so a move or a removal renames them and a set is routinely
@@ -882,6 +887,12 @@ export function initialReferenceFolds(
  * hides is the slice below it that `referenceBranchEnd` bounds, however deep,
  * so a fold nested inside a folded branch costs nothing and says nothing.
  *
+ * A fold naming a row with nothing under it hides nothing, and needs no guard
+ * of its own to say so: the branch of a leaf is the leaf. That is deliberately
+ * asked of the rows below rather than of the row's own `height`, so a leaf, a
+ * key that no longer resolves and a row whose cached height is stale all get
+ * the one honest answer — what actually follows it.
+ *
  * Entries are the caller's own, in the order it holds them, so whatever a row
  * carries — a key for React, a resolved name — travels back on the row.
  */
@@ -913,8 +924,8 @@ export function visibleReferenceRows<T extends FoldableRow>(
  * Empty for a root, and for an index the list does not reach — an ancestor of
  * a row that is not there is not a question with an answer.
  */
-export function referenceAncestorKeys<T extends FoldableRow>(
-	rows: readonly T[],
+export function referenceAncestorKeys(
+	rows: readonly FoldableRow[],
 	index: number,
 ): string[] {
 	const keys: string[] = [];
@@ -944,8 +955,8 @@ export function referenceAncestorKeys<T extends FoldableRow>(
  * cares about the order — a caller opens all of them — but an order that is
  * defined is one a caller may rely on.
  */
-export function foldsToReveal<T extends FoldableRow>(
-	rows: readonly T[],
+export function foldsToReveal(
+	rows: readonly FoldableRow[],
 	index: number,
 	folded: ReadonlySet<string>,
 ): string[] {

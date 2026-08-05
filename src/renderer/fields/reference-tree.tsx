@@ -68,15 +68,6 @@ import { useSpringLoadedBranch } from "./use-spring-loaded-branch";
 export const INDENT_WIDTH = 24;
 
 /**
- * Above this many References a tree opens with its parents collapsed.
- *
- * Re-exported rather than defined here: the threshold and the fold set it
- * produces are the tree model's, so that read mode opens the same way this
- * control does.
- */
-export { REFERENCE_TREE_COLLAPSE_THRESHOLD } from "../../schema/reference-tree";
-
-/**
  * Carries the collapsed set across a change of shape, `before[i]` being the
  * row `after[i]` used to be.
  *
