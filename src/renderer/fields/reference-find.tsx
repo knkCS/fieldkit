@@ -1,6 +1,9 @@
 // src/renderer/fields/reference-find.tsx
 import { useCallback } from "react";
-import type { ReferenceFindResult } from "../../schema/reference-find";
+import type {
+	ReferenceFindAnswer,
+	ReferenceFindResult,
+} from "../../schema/reference-find";
 import { findReferences } from "../../schema/reference-find";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import { SearchCombobox } from "../search-combobox";
@@ -12,6 +15,21 @@ import { SearchCombobox } from "../search-combobox";
  * looked at, and a chevron is announced as punctuation or not at all.
  */
 const PATH_SEPARATOR = " / ";
+
+/**
+ * How a Find answer reads as a count.
+ *
+ * Two sentences, because they answer two different questions. A capped list
+ * names both numbers — twenty on screen, four hundred found — since an Author
+ * who is not told the second reads the first as the whole answer and stops
+ * typing. A list holding everything it found says only how much that was: an
+ * "of" there would invite someone to wonder what was withheld, and nothing was.
+ */
+function describeFindCount({ results, total }: ReferenceFindAnswer): string {
+	if (total > results.length)
+		return `Showing ${results.length} of ${total} matches`;
+	return total === 1 ? "1 match" : `${total} matches`;
+}
 
 export interface ReferenceFindProps {
 	/** Every row of the tree — folded ones included, since a collapsed branch
@@ -45,8 +63,16 @@ export function ReferenceFind({ rows, names, onReveal }: ReferenceFindProps) {
 	// Called during render by the combobox, and pure — the results and the
 	// dropdown's open state land in one render, which its Escape containment
 	// depends on.
+	//
+	// One `findReferences` call answers both the list and the count: the twenty
+	// rows an Author reads and the "of four hundred" beside them come out of a
+	// single walk of a single tree, so no keystroke can leave them describing
+	// different answers.
 	const search = useCallback(
-		(query: string) => findReferences(rows, names, query),
+		(query: string) => {
+			const answer = findReferences(rows, names, query);
+			return { results: answer.results, countLabel: describeFindCount(answer) };
+		},
 		[rows, names],
 	);
 

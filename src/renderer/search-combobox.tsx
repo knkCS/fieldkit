@@ -19,6 +19,29 @@ export interface SearchComboboxResultDisplay {
 	secondary?: string;
 }
 
+/** Everything one search answered: what to list, and what to say about it. */
+export interface SearchComboboxAnswer<T> {
+	/** The results to list, in the order they should be read. */
+	results: T[];
+	/**
+	 * How the results read as a count — "20 of 431 matches" for a caller that
+	 * caps its list, so the person searching knows to keep typing rather than
+	 * reading the cap as the whole answer.
+	 *
+	 * It travels **in the answer** rather than as a prop of its own, and that is
+	 * the whole point: the list and the sentence about the list come out of one
+	 * call, so they cannot be computed from two different questions and disagree
+	 * about what was found. A caller that lists everything it found may leave it
+	 * out, and then no count is shown at all.
+	 *
+	 * The words are the caller's, as `noResultsLabel` and `placeholder` already
+	 * are — a combobox agnostic about what it lists cannot know whether it is
+	 * counting matches, fields or References. Where the line sits, and that it
+	 * is announced, are this component's.
+	 */
+	countLabel?: string;
+}
+
 export interface SearchComboboxProps<T> {
 	/**
 	 * The caller's own matching, called during render with the current query.
@@ -26,7 +49,7 @@ export interface SearchComboboxProps<T> {
 	 * state and its contents can never disagree (see the Escape containment
 	 * below, which depends on both landing in one render).
 	 */
-	search: (query: string) => T[];
+	search: (query: string) => SearchComboboxAnswer<T>;
 	/** How to show one of the caller's results. */
 	describeResult: (result: T) => SearchComboboxResultDisplay;
 	/** Called with the caller's own result object — never a copy. */
@@ -78,7 +101,7 @@ export function SearchCombobox<T>({
 
 	const [query, setQuery] = useState("");
 	const [highlighted, setHighlighted] = useState(0);
-	const results = search(query);
+	const { results, countLabel } = search(query);
 	const open = query.trim().length > 0;
 	// Derived clamp: a caller's result set can shrink (a schema hot-swap, a
 	// tree edit) while the query — and the stale `highlighted` state —
@@ -255,6 +278,28 @@ export function SearchCombobox<T>({
 					boxShadow="md"
 					zIndex="dropdown"
 				>
+					{countLabel !== undefined && results.length > 0 && (
+						// Above the list, not under it: a capped list is exactly the
+						// case where the line saying so would sit below more rows
+						// than fit on screen. `role="status"` so it is announced
+						// when it changes, which is what tells a reader who never
+						// sees the twenty rows that there were four hundred.
+						//
+						// Only ever one status line in this dropdown: this one needs
+						// results to count, `noResultsLabel` below needs there to be
+						// none, and two sentences about one answer is how they come
+						// to disagree.
+						<Text
+							role="status"
+							px="3"
+							pt="2"
+							pb="1"
+							fontSize="xs"
+							color="fg.muted"
+						>
+							{countLabel}
+						</Text>
+					)}
 					<Box id={listboxId} role="listbox">
 						{results.map((result, i) => {
 							const shown = describeResult(result);
