@@ -413,42 +413,42 @@ describe("read mode and the editable tree agree about what a fold hides", () => 
  * picking a result opens the way down to the row, lands on it and marks it,
  * and that none of it writes.
  */
+function findControl() {
+	return screen.queryByRole("combobox", { name: "Find a Reference" });
+}
+
+/** Types a query into Find and waits out anker's search debounce. */
+async function findFor(query: string) {
+	const input = screen.getByRole("combobox", { name: "Find a Reference" });
+	fireEvent.change(input, { target: { value: query } });
+	await screen.findByRole("listbox");
+	return screen.queryAllByRole("option");
+}
+
+/** The row on screen showing `name`, or null while it is folded away. */
+function rowNamed(name: string): HTMLElement | null {
+	return (
+		screen
+			.queryAllByTestId("reference-read-row")
+			.find(
+				(row) =>
+					within(row).queryByTestId("reference-read-name")?.textContent ===
+					name,
+			) ?? null
+	);
+}
+
+/** Finds `name` and picks the only result, which is a Reveal. */
+async function reveal(name: string) {
+	const options = await findFor(name);
+	expect(options).toHaveLength(1);
+	fireEvent.click(options[0]);
+	await waitFor(() => {
+		expect(rowNamed(name)).not.toBeNull();
+	});
+}
+
 describe("SpecForm — read mode, Find and Reveal", () => {
-	function findControl() {
-		return screen.queryByRole("combobox", { name: "Find a Reference" });
-	}
-
-	/** Types a query into Find and waits out anker's search debounce. */
-	async function findFor(query: string) {
-		const input = screen.getByRole("combobox", { name: "Find a Reference" });
-		fireEvent.change(input, { target: { value: query } });
-		await screen.findByRole("listbox");
-		return screen.queryAllByRole("option");
-	}
-
-	/** The row on screen showing `name`, or null while it is folded away. */
-	function rowNamed(name: string): HTMLElement | null {
-		return (
-			screen
-				.queryAllByTestId("reference-read-row")
-				.find(
-					(row) =>
-						within(row).queryByTestId("reference-read-name")?.textContent ===
-						name,
-				) ?? null
-		);
-	}
-
-	/** Finds `name` and picks the only result, which is a Reveal. */
-	async function reveal(name: string) {
-		const options = await findFor(name);
-		expect(options).toHaveLength(1);
-		fireEvent.click(options[0]);
-		await waitFor(() => {
-			expect(rowNamed(name)).not.toBeNull();
-		});
-	}
-
 	describe("when the control appears", () => {
 		it("offers Find on a tree past the collapse threshold", async () => {
 			renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
@@ -666,6 +666,99 @@ describe("SpecForm — read mode, Find and Reveal", () => {
 		await reveal("article-20");
 
 		expect(rowNamed("article-20")).not.toBeNull();
+	});
+});
+
+/**
+ * Collapse all in read mode (#150).
+ *
+ * A read-mode tree opens folded and its Reveals accumulate, exactly as the
+ * editable one's do, so it sprawls open on the same terms and wants the same
+ * way back. The control is the editable tree's, placed by this renderer.
+ */
+describe("SpecForm — read mode, Collapse all", () => {
+	function collapseControl() {
+		return screen.queryByRole("button", { name: "Collapse all" });
+	}
+
+	/**
+	 * The rows the tree model says a tree of this size opens with — the answer
+	 * the control is held against, read off the shared functions rather than
+	 * off the renderer being tested.
+	 */
+	function opensWith(size: number): string[] {
+		const rows = readReferenceTree(fakeReferenceTree(size));
+		const names = catalogueNames(size);
+		return visibleReferenceRows(rows, initialReferenceFolds(rows)).map((row) =>
+			referenceDisplayName(row, names),
+		);
+	}
+
+	it("offers Collapse all on a tree that opens collapsed", async () => {
+		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+
+		expect(await screen.findByText("Content 1")).toBeInTheDocument();
+		expect(collapseControl()).toBeInTheDocument();
+	});
+
+	it("offers none at exactly the threshold, where the tree opens expanded", async () => {
+		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+
+		expect(await screen.findByText("Content 1")).toBeInTheDocument();
+		expect(collapseControl()).not.toBeInTheDocument();
+	});
+
+	it("offers none one Reference below the threshold", async () => {
+		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
+
+		expect(await screen.findByText("Content 1")).toBeInTheDocument();
+		expect(collapseControl()).not.toBeInTheDocument();
+	});
+
+	it("returns the tree to exactly the rows it opened with", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		renderReadTree(size);
+		await screen.findByText("Content 1");
+		const opened = readNames();
+		expect(opened).toEqual(opensWith(size));
+
+		// One fold opened by hand and one by a Reveal — the control reaches both.
+		fireEvent.click(screen.getByRole("button", { name: "Expand Content 5" }));
+		await reveal("Content 20");
+		expect(readNames()).not.toEqual(opened);
+
+		fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+
+		expect(readNames()).toEqual(opened);
+	});
+
+	it("writes nothing to the value it was handed", async () => {
+		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+		const value = fakeReferenceTree(size);
+		const before = structuredClone(value);
+		renderReadTree(size, value);
+		await screen.findByText("Content 1");
+		await reveal("Content 20");
+
+		fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+
+		expect(value).toEqual(before);
+	});
+
+	it("leaves a Reveal after it opening the way down as normal", async () => {
+		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+		await screen.findByText("Content 1");
+		await reveal("Content 20");
+
+		fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+		expect(rowNamed("Content 20")).toBeNull();
+
+		await reveal("Content 20");
+
+		expect(rowNamed("Content 20")).not.toBeNull();
+		await waitFor(() => {
+			expect(rowNamed("Content 20")).toHaveFocus();
+		});
 	});
 });
 
