@@ -747,3 +747,67 @@ describe("a keyboard drag bypasses the dwell", () => {
 		expect(dragInFlight()).toBe(true);
 	});
 });
+
+describe("a drag that dwells back on the tab it started from", () => {
+	springFixture();
+
+	// The one case that makes `handleDragOver`'s UNCONDITIONAL zone tracking
+	// earn its keep, and the source says so in as many words: "dwelling on
+	// the SOURCE tab's own trigger is a null TARGET (releasing there is a
+	// no-op) but must still spring the view back."
+	//
+	// Releasing on your own tab's trigger IS a documented no-op —
+	// `resolveDropTarget` returns null for an own-tab trigger drop, fields
+	// and cards alike, because `moveFieldToSection` appends and an unguarded
+	// self-drop would silently jump the field to its tab's end. So the
+	// resolved target is null for the whole time the pointer rests there,
+	// and gating the zone on a non-null target would look harmless.
+	//
+	// Nothing else in the suite would notice. The chained-spring test above
+	// only ever goes FORWARD (0 → 1 → 2, each a foreign tab and each a
+	// non-null target); `drag-feedback.test.tsx`'s own-tab case proves
+	// highlight ≠ activation but drives the KEYBOARD, which switches on
+	// landing and never dwells. This test is the one that goes back.
+	it("springs the canvas back to it, with no drop target resolved (Decisions 1 & 4)", async () => {
+		renderCanvas();
+		vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+
+		await pointerLift("a");
+		await pointerTo(onTrigger(1));
+		// Guard: a FOREIGN trigger does resolve as a target and does take the
+		// highlight. That makes the null below a statement about the source
+		// tab specifically, not about tab triggers being inert in general.
+		expect(screen.getByTestId("tabdrop-1")).toHaveAttribute(
+			"data-drop-target",
+			"true",
+		);
+		await dwell();
+		// And the spring away is what gives "back" something to mean.
+		expect(openSection()).toBe("SEO");
+		expect(draftOrder()).toBe("a,x,s1,b,s2,c"); // still a preview
+
+		// Now back onto GENERAL's own trigger — the tab `a` still lives in,
+		// because a spring wrote nothing — and rest there.
+		await pointerTo(onTrigger(0));
+		expect(screen.getByTestId("tabdrop-0")).not.toHaveAttribute(
+			"data-drop-target",
+		);
+		expect(openSection()).toBe("SEO"); // not yet — the dwell starts over
+		await dwell();
+
+		// Home again, on a dwell alone.
+		expect(openSection()).toBe("General");
+		expect(openPanelShells()).toEqual(["a", "x"]);
+		// Still null AFTER the spring: coming home is not a drop target
+		// appearing. Releasing here would move nothing.
+		expect(screen.getByTestId("tabdrop-0")).not.toHaveAttribute(
+			"data-drop-target",
+		);
+		// The drag survives the round trip — being able to aim at a slot in
+		// the section you started in is the entire reason to come back
+		// mid-drag rather than Escape and start over.
+		expect(dragInFlight()).toBe(true);
+		// And nothing was written on the way out or the way back (Decision 4).
+		expect(draftOrder()).toBe("a,x,s1,b,s2,c");
+	});
+});
