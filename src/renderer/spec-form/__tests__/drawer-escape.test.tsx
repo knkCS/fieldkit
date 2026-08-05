@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpecForm } from "../spec-form";
 import { makeField, makeSection, Wrapper } from "./helpers";
+import { asSoonAsRendered } from "./render-timing";
 
 // anker's Drawer positions via floating-ui → needs ResizeObserver in jsdom.
 class MockResizeObserver {
@@ -40,15 +41,9 @@ describe("SpecForm search inside a real DrawerRoot", () => {
 
 		// Escape #1: contained by FieldSearch — dropdown closes, drawer lives.
 		fireEvent.keyDown(input, { key: "Escape" });
-		// Generous timeout: the zag teardown exceeded waitFor's 1s default once
-		// under CI runner load (v0.9.0 publish run) — same flake class as the
-		// field-search deflake (fieldkit#39).
-		await waitFor(
-			() => {
-				expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-			},
-			{ timeout: 5000 },
-		);
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
 		expect(onClose).not.toHaveBeenCalled();
 
 		// Escape #2 (dropdown closed): FieldSearch's handler early-returns,
@@ -57,11 +52,46 @@ describe("SpecForm search inside a real DrawerRoot", () => {
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
 		});
-		// Generous TEST timeout (#39 flake class, 4th instance 2026-07-15:
-		// the 53db1d7 waitFor headroom now exceeds vitest's 5s TEST budget
-		// under CI load — the failure just moved up a level). The awaits
-		// pass; they're slow on a loaded runner.
-	}, 15000);
+	});
+
+	// The drawer half of #82: the same press at the earliest instant it can be
+	// made, against a real DrawerRoot rather than a stand-in, so what the gap
+	// costs is what actually gets asserted — the Author's edits. See
+	// `asSoonAsRendered` for why this instant differs from `findByRole`'s.
+	it("contains an Escape pressed the instant the dropdown appears", async () => {
+		const onClose = vi.fn();
+		render(
+			<Wrapper>
+				<DrawerRoot open onClose={onClose} title="Edit">
+					<SpecForm schema={schema} />
+				</DrawerRoot>
+			</Wrapper>,
+		);
+		const input = screen.getByPlaceholderText("Find field…");
+		fireEvent.change(input, { target: { value: "meta" } });
+
+		// Native dispatch: RTL's fireEvent runs inside act(), whose exit
+		// flushes the pending passive effects and would paper over the gap.
+		await asSoonAsRendered('[role="listbox"]', () => {
+			input.dispatchEvent(
+				new KeyboardEvent("keydown", {
+					key: "Escape",
+					bubbles: true,
+					cancelable: true,
+				}),
+			);
+		});
+
+		// Provable at the instant of the press: had it been going to reach the
+		// drawer, it already had.
+		expect(onClose).not.toHaveBeenCalled();
+		// And the press still did its own job — the dropdown closed, and the
+		// drawer survived the teardown as well as the keypress.
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+		expect(onClose).not.toHaveBeenCalled();
+	});
 
 	it("does not swallow Escape aimed outside the search UI while the dropdown is open", async () => {
 		const onClose = vi.fn();

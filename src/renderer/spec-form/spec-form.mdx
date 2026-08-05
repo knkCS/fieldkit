@@ -176,9 +176,26 @@ so a bubble-phase `stopPropagation()` on the search input would always lose the
 race and let the same keypress close the host drawer, discarding in-progress
 edits. `FieldSearch` instead registers its own `window`-level, capture-phase
 `keydown` listener, but **only while its dropdown is open** (mounted/torn
-down in an effect keyed on that open state). A capture listener on `window`
-always fires before one on `document` — regardless of registration
-order — so it reliably wins. Before calling `stopPropagation()`, it checks
+down in a **layout** effect keyed on that open state). A capture listener on
+`window` always fires before one on `document` — regardless of registration
+order — so it reliably wins.
+
+The effect is a **layout** effect rather than a passive one, and the contract
+below depends on that. `open` is derived synchronously from the query, so the
+listbox and `open === true` land in one render — but that render is reached
+from anker's **debounced** `onSearch`, i.e. from a timer rather than from a
+discrete user event, and React defers a timer-lane render's passive effects to
+a later task instead of flushing them with the render. A passive listener
+therefore attaches after the dropdown is already painted, leaving a window in
+which the dropdown is visible and Escape is *not* contained; a press landing
+there closes the host drawer, which is what the containment exists to stop. A
+layout effect runs before paint, so "visible" and "contained" cannot separate
+(#82). The sibling containment in `reference-insert-strip.tsx` is a passive
+effect for the reason its own comment gives — its gate is set by a discrete
+focus event, whose passive effects React flushes with the render — so the two
+differ by gate, not by pattern.
+
+Before calling `stopPropagation()`, it checks
 whether the event target is inside this search UI's own container; Escapes
 aimed elsewhere (e.g. a keyboard drag in the editor canvas whose cancel
 listens on document-bubble) are allowed to propagate untouched.

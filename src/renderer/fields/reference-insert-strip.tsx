@@ -173,6 +173,19 @@ export function ReferenceInsertStrip({
 	 * Blurring is the whole of the work: `onBlur` already collapses the offer and
 	 * hushes the live region, and leaving nothing else here is what stops Escape
 	 * from having two answers that could drift apart.
+	 *
+	 * **A passive effect here, deliberately** — where `FieldSearch`'s twin is a
+	 * layout effect (#82), and the difference is the gate, not the pattern. That
+	 * one is opened by anker's *debounced* `onSearch`, i.e. from a timer, and
+	 * React defers a timer-lane render's passive effects to a later task: the
+	 * dropdown is painted before the listener exists. `focused` is only ever set
+	 * from `onFocus` — a discrete event, whose render React commits and whose
+	 * passive effects React flushes in the same microtask — so there is no task
+	 * between the strip taking focus and this listener being attached, and no
+	 * test can tell a layout effect here from this one. Measured, not assumed:
+	 * with a spy on `addEventListener`, the attach lands before the first
+	 * microtask checkpoint after `focus()` returns. Move the gate onto anything
+	 * a timer can set and that stops being true.
 	 */
 	useEffect(() => {
 		// Gated on focus, not on the offer: an Escape belongs to whoever the
