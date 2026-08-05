@@ -884,6 +884,30 @@ export function referenceHasBranch(row: Pick<ReferenceRow, "height">): boolean {
 }
 
 /**
+ * Whether a tree is big enough to open folded — the one reading of
+ * {@link REFERENCE_TREE_COLLAPSE_THRESHOLD} there is.
+ *
+ * **One threshold, two behaviours**: the same answer says that a tree opens
+ * with its parents collapsed and that it is worth carrying a Find control at
+ * all, because both are the same judgement — that this is more tree than an
+ * Author takes in at a glance. A control offered on trees that opened expanded
+ * would be clutter; folds on a tree of three would be a list to expand before
+ * it could be read.
+ *
+ * It answers about a *list of rows* rather than a nested tree, because that is
+ * what both callers hold, and it reads nothing but the count — every Reference
+ * at every level, which is the size the threshold is about.
+ *
+ * Here rather than in either renderer for the reason the rest of this section
+ * is: three sites spelling the same comparison out are three sites free to
+ * spell it differently, and one of them is a `>` that has to stay the opposite
+ * of a `<=`.
+ */
+export function referenceTreeOpensFolded(rows: readonly unknown[]): boolean {
+	return rows.length > REFERENCE_TREE_COLLAPSE_THRESHOLD;
+}
+
+/**
  * The fold set a tree opens with: every Reference that has a branch, once the
  * tree is past {@link REFERENCE_TREE_COLLAPSE_THRESHOLD}, and nothing at all
  * below it.
@@ -895,7 +919,7 @@ export function referenceHasBranch(row: Pick<ReferenceRow, "height">): boolean {
 export function initialReferenceFolds(
 	rows: readonly Pick<ReferenceRow, "key" | "height">[],
 ): Set<string> {
-	if (rows.length <= REFERENCE_TREE_COLLAPSE_THRESHOLD) return new Set();
+	if (!referenceTreeOpensFolded(rows)) return new Set();
 	return new Set(rows.filter(referenceHasBranch).map((row) => row.key));
 }
 

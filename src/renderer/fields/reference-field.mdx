@@ -107,6 +107,8 @@ Find **never filters or restructures the tree**, and writes nothing: order, nest
 
 The matching, the ranking, the cap and the ancestor paths are pure functions in `src/schema/reference-find.ts` — and one call answers both the list and the count, so the two can never describe different searches, and which folds a Reveal opens is `foldsToReveal` in `src/schema/reference-tree.ts` — so none of it is asserted through a DOM. A Consumer driving `ReferenceTree` itself passes a `reveal` — a row key and a token together, because the token is what makes asking for the same Reference twice running two Reveals, and a key with nothing to arm it would silently do nothing the second time.
 
+**Read mode carries the same control**, on the same threshold and over the same functions — see [Table Cell and Read Mode](#table-cell-and-read-mode). Locating a Reference never requires switching into an editable view.
+
 ## Value
 
 Fieldkit owns the shape; a Consumer maps it to whatever it persists (ADR-0008).
@@ -293,7 +295,11 @@ That has a blast radius, and it is intended: **a Spec whose caps were never enfo
 
 `ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, exactly as `max_items` does. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids. `SingleReferenceCell` counts on the same terms ("1 reference"), so the two types read alike in one table.
 
-Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's Attribute values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never folds — collapsing is there to make a tall tree draggable, and there is nothing to drag when reading — and it never touches react-hook-form, so read mode still needs no `FormProvider`.
+Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's Attribute values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never touches react-hook-form, so read mode still needs no `FormProvider`.
+
+It **folds and finds on the same terms the editable tree does**. Past `REFERENCE_TREE_COLLAPSE_THRESHOLD` a read-mode tree opens with its parents collapsed and carries the Find control; at or below it, expanded and without one. Folds open and close while reading, because reading a folded branch is reading, and picking a Find result Reveals the Reference exactly as it does when editing — every fold above it opens, the row scrolls to the centre, takes focus and stays marked. Nothing about any of it is written: folding and the mark are the component's own state, as folding already is on the editable side.
+
+The two renderers stay separate components — one has grips, drags and springs, the other has none of them — but they call one implementation of the rules they share: `initialReferenceFolds`, `visibleReferenceRows` and `foldsToReveal` in `src/schema/reference-tree.ts`. That is what makes "the same tree does not behave like two different trees" a fact rather than a promise, and it narrows #88 without closing it.
 
 The bypass is the plugin's own `readComponent` rather than a `field_type` branch in read mode's code (ADR-0007). For reference types that is not merely tidier but necessary: a minted type carries its own id, which no list of names in shared code could contain, so `toc_reference` gets the same read mode `reference` does.
 
@@ -413,3 +419,9 @@ Two Attributes — a number and a required select. Each row shows its filled cou
 The resolved tree, not the count cell: names through the adapter, nesting by indentation, each Reference's Attribute values against it.
 
 <Canvas of={Stories.ReadMode} />
+
+### Read Mode, Large Tree
+
+Past the node-count threshold, read mode opens with every parent collapsed and carries Find — the same threshold, the same control and the same Reveal the editable tree has.
+
+<Canvas of={Stories.ReadModeLargeTree} />
