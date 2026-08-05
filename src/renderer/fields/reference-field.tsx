@@ -10,6 +10,7 @@ import {
 } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
 import { withPin } from "../../schema/reference";
+import { referenceFindState } from "../../schema/reference-find";
 import {
 	readReferenceTree,
 	referenceTreeOpensFolded,
@@ -128,10 +129,15 @@ export function ReferenceField({
 	// cannot make a remove act one place off.
 	const rows = useMemo(() => readReferenceTree(value), [value]);
 
-	const names = useResolvedContentNames(
+	// The names, and what the lookup behind them is doing. A row needs only the
+	// first — it falls back to its id whatever the reason — while Find needs
+	// both, because "nothing in this tree matches" is a claim about a tree whose
+	// names have all arrived (#152).
+	const { names, progress } = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		accessor,
 	);
+	const findState = referenceFindState(progress);
 
 	// What the picker must stop offering: adding a Content the tree already
 	// holds would put it there twice. Every level, not just the roots — a
@@ -245,6 +251,7 @@ export function ReferenceField({
 								<ReferenceFind
 									rows={rows}
 									names={names}
+									state={findState}
 									onReveal={(key) =>
 										setReveal((last) => ({
 											key,

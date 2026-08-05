@@ -61,6 +61,20 @@ export interface FakeReferenceAdapterOptions {
 	 * fall.
 	 */
 	failFetchIds?: string[];
+	/**
+	 * Hold every `fetch` open until {@link FakeReferenceAdapter.releaseFetches}
+	 * is called, rather than answering it.
+	 *
+	 * The window in which names are still arriving, made long enough to assert
+	 * in. Nothing else can drive it: a resolution that answers as fast as a
+	 * promise can is over before a test has typed anything, so a control that
+	 * lied during it would look exactly like one that did not.
+	 *
+	 * The call is still *recorded* when it arrives — what is held is only the
+	 * answer — so a test can prove the calls went out while proving nothing has
+	 * come back.
+	 */
+	holdFetch?: boolean;
 	/** Reject every `listPinTargets` with this error, for the degrade paths. */
 	failPinTargets?: Error;
 	/**
@@ -138,6 +152,17 @@ export interface FakeReferenceAdapter
 	 * name a Field shows must come from here on every load.
 	 */
 	rename(id: string, displayName: string): void;
+	/**
+	 * Let every `fetch` held by {@link FakeReferenceAdapterOptions.holdFetch}
+	 * answer — the moment a batch lands.
+	 *
+	 * Only the calls made so far: a later one is held again, so a test can let
+	 * one round of batches through and still be inside the window. Each of them
+	 * then answers or fails exactly as it would have unheld, `failFetchIds`
+	 * included, so holding changes *when* a Field learns something and never
+	 * what it learns.
+	 */
+	releaseFetches(): void;
 }
 
 /**
@@ -268,6 +293,8 @@ export function createFakeReferenceAdapter(
 	}));
 	const searches: ReferenceSearchQuery[] = [];
 	const fetches: string[][] = [];
+	/** The `fetch` calls waiting on `holdFetch`, each one its own resolver. */
+	const heldFetches: (() => void)[] = [];
 	const pinTargetQueries: { contentId: string; mode: PinningMode }[] = [];
 
 	const searchFilters =
@@ -378,8 +405,17 @@ export function createFakeReferenceAdapter(
 			};
 		},
 
+		releaseFetches() {
+			// Spliced before any of them runs, so a resolver that starts a new
+			// call cannot be released by the loop that is releasing it.
+			for (const release of heldFetches.splice(0)) release();
+		},
+
 		async fetch(ids) {
 			fetches.push([...ids]);
+			if (options.holdFetch) {
+				await new Promise<void>((resolve) => heldFetches.push(resolve));
+			}
 			if (rejectsFetch(ids)) {
 				throw options.failFetch ?? new Error("reference fetch failed");
 			}

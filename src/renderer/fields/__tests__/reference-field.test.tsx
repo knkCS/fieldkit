@@ -2,6 +2,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DrawerRoot } from "@knkcs/anker/components";
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -1528,6 +1529,195 @@ describe("ReferenceField", () => {
 				await reveal("article-20");
 
 				expect(rowNamed("article-20")).not.toBeNull();
+			});
+		});
+
+		/**
+		 * No match, not yet, and not all of it (#152).
+		 *
+		 * Which of the three sentences goes with which state is decided by
+		 * `referenceFindState` and asserted as a table in the schema suite. What
+		 * is left for here is the only thing a component can be wrong about:
+		 * that the state an Author is looking at is the state the names are
+		 * actually in, and that the sentence about it is on screen and announced
+		 * rather than left to a spinner someone has to be watching.
+		 */
+		describe("while the names are still arriving", () => {
+			/** A tree past the threshold whose names are held in flight, so the
+			 * window an Author can type into is long enough to assert in. */
+			function renderResolving(
+				size: number = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1,
+			) {
+				return renderTree(size, {
+					adapter: createFakeReferenceAdapter({
+						contents: fakeCatalogue(size),
+						holdFetch: true,
+					}),
+				});
+			}
+
+			it("says the names are still resolving rather than that nothing matched", async () => {
+				renderResolving();
+				// Rows show their ids until the names land — which is the state
+				// the tree is in, and exactly why "no matches" would be a lie
+				// about it rather than a report of it (ADR-0013).
+				await screen.findByText("article-1");
+
+				expect(await findFor("Content 20")).toHaveLength(0);
+
+				expect(screen.getByText("Still resolving names…")).toBeInTheDocument();
+				expect(
+					screen.queryByText("No matching References"),
+				).not.toBeInTheDocument();
+			});
+
+			it("announces the state instead of leaving it to be looked at", async () => {
+				// An Author who cannot see the dropdown is the one most likely to
+				// read an empty list as an answer.
+				renderResolving();
+				await screen.findByText("article-1");
+
+				await findFor("Content 20");
+
+				expect(screen.getByText("Still resolving names…")).toHaveAttribute(
+					"role",
+					"status",
+				);
+			});
+
+			it("lists what it can already answer, and still says it is not done", async () => {
+				// A row answers on its id as well as its name (#151), so a
+				// Reference whose name has not arrived is still reachable — and
+				// the match is shown at once rather than held back until the
+				// names land. It is not a complete answer for all that: Find has
+				// no id syntax, so a name still arriving may contain what was
+				// typed, and a count reading "1 match" here would claim a whole
+				// tree was searched.
+				renderResolving();
+				await screen.findByText("article-1");
+
+				expect(await findFor("article-20")).toHaveLength(1);
+
+				expect(
+					screen.getByText("1 match — still resolving names"),
+				).toBeInTheDocument();
+			});
+
+			it("answers again as the names land, without the Author retyping", async () => {
+				const { adapter } = renderResolving();
+				await screen.findByText("article-1");
+				expect(await findFor("Content 20")).toHaveLength(0);
+				expect(screen.getByText("Still resolving names…")).toBeInTheDocument();
+
+				await act(async () => {
+					adapter.releaseFetches();
+				});
+
+				// The same query, never typed a second time: the list and the
+				// sentence about it are derived from the names as they stand, so
+				// a batch landing is a re-render rather than something an Author
+				// has to go and ask for again.
+				const options = await screen.findAllByRole("option");
+				expect(options).toHaveLength(1);
+				expect(within(options[0]).getByText("Content 20")).toBeInTheDocument();
+				expect(screen.getByText("1 match")).toBeInTheDocument();
+			});
+
+			it("says plainly that nothing matched once every name has landed", async () => {
+				const { adapter } = renderResolving();
+				await screen.findByText("article-1");
+
+				await act(async () => {
+					adapter.releaseFetches();
+				});
+				await screen.findByText("Content 1");
+				expect(await findFor("Pyrenees")).toHaveLength(0);
+
+				expect(screen.getByText("No matching References")).toBeInTheDocument();
+				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();
+			});
+
+			it("never reports a half-named tree where one call carries the whole of it", async () => {
+				// A tree this side of the batch size is resolved by a single
+				// call, so its names are all absent or all present and there is
+				// no partly-named tree for Find to report. Read off the Adapter
+				// rather than assumed: it is the batching that makes it true.
+				const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+				const { adapter } = renderTree(size);
+				await screen.findByText("Content 1");
+
+				expect(adapter.fetches).toHaveLength(1);
+				expect(adapter.fetches.flat()).toHaveLength(size);
+				expect(await findFor("Pyrenees")).toHaveLength(0);
+				expect(screen.getByText("No matching References")).toBeInTheDocument();
+				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();
+			});
+
+			describe("when some of the names never came", () => {
+				/** Two batches, the second of which fails: half the tree is named
+				 * and half of it never will be. */
+				function renderPartlyFailed() {
+					const size = REFERENCE_NAME_BATCH_SIZE + 20;
+					renderTree(size, {
+						adapter: createFakeReferenceAdapter({
+							contents: fakeCatalogue(size),
+							failFetchIds: [
+								`article-${String(REFERENCE_NAME_BATCH_SIZE + 1)}`,
+							],
+							failFetch: new Error("gateway down"),
+						}),
+						onError: vi.fn(),
+					});
+				}
+
+				it("does not report an absence as though it had searched the tree", async () => {
+					renderPartlyFailed();
+					await screen.findByText("Content 1");
+
+					expect(await findFor("Pyrenees")).toHaveLength(0);
+
+					expect(
+						screen.getByText(
+							"No matching References — some names could not be resolved",
+						),
+					).toBeInTheDocument();
+				});
+
+				it("says the same of a count, which is as easily read as complete", async () => {
+					renderPartlyFailed();
+					await screen.findByText("Content 1");
+
+					expect(await findFor("Content 20")).toHaveLength(1);
+
+					expect(
+						screen.getByText("1 match — some names could not be resolved"),
+					).toBeInTheDocument();
+				});
+
+				it("still says it is resolving while the rest of the batches are out", async () => {
+					// A batch that failed beside batches still in flight is a tree
+					// whose names are arriving: the gap may yet close, and naming
+					// it permanent is the same lie in the other direction.
+					const size = REFERENCE_NAME_BATCH_SIZE + 20;
+					renderTree(size, {
+						adapter: createFakeReferenceAdapter({
+							contents: fakeCatalogue(size),
+							failFetchIds: [
+								`article-${String(REFERENCE_NAME_BATCH_SIZE + 1)}`,
+							],
+							failFetch: new Error("gateway down"),
+							holdFetch: true,
+						}),
+						onError: vi.fn(),
+					});
+					await screen.findByText("article-1");
+
+					expect(await findFor("Pyrenees")).toHaveLength(0);
+
+					expect(
+						screen.getByText("Still resolving names…"),
+					).toBeInTheDocument();
+				});
 			});
 		});
 	});

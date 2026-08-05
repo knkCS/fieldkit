@@ -22,6 +22,10 @@ export function useResolvedContentName(
 	id: string | null,
 	fieldId: string,
 ): string | null {
-	const names = useResolvedContentNames(id ? [id] : [], fieldId);
+	// The names alone: one Reference is drawn as a row is, falling back to its
+	// id whichever of the three reasons left it without a name. What the lookup
+	// is *doing* only matters to a control that reports an absence across a
+	// whole tree, which is Find (#152) and not this.
+	const { names } = useResolvedContentNames(id ? [id] : [], fieldId);
 	return id ? (names[id] ?? null) : null;
 }
