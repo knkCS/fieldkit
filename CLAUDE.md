@@ -212,7 +212,11 @@ newer-only API fails typecheck here rather than at runtime in a consumer. The
 range used to span three majors with the devDependency pinned to the lowest
 defensible leg; it narrowed to one major when the `lookup` field type took a
 hard dependency on `LookupSelect`, which first ships in anker 5.1.0
-(`docs/adr/0015-lookup-is-generic-and-keyed-by-source.md`). Read
+(`docs/adr/0015-lookup-is-generic-and-keyed-by-source.md`). `single_reference`
+renders through that same atom now
+(`docs/adr/0016-one-async-select-and-the-staleness-it-costs.md`), so the floor
+holds even if `lookup` were ever dropped — two field types depend on it, not
+one. Read
 `docs/adr/0014-compile-against-the-oldest-anker-we-promise.md` before raising
 either — the rule is unchanged, and raising the devDependency past the peer
 floor is still the mistake it warns about.

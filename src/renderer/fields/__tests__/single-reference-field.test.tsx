@@ -1,6 +1,6 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -11,6 +11,7 @@ import { specToZodSchema } from "../../../schema/zod-builder";
 import {
 	createFakeReferenceAdapter,
 	type FakeReferenceAdapter,
+	fakeCatalogue,
 } from "../../../test/fake-reference-adapter";
 import type { FieldKitAdapters } from "../../adapters";
 import { FieldComponent } from "../../field-component";
@@ -111,6 +112,16 @@ function renderField({
 	};
 }
 
+/** jsdom reports every box as 0×0; state the geometry the scroll implies. */
+function setScrollGeometry(
+	el: HTMLElement,
+	geometry: { scrollTop: number; scrollHeight: number; clientHeight: number },
+) {
+	for (const [key, value] of Object.entries(geometry)) {
+		Object.defineProperty(el, key, { value, configurable: true });
+	}
+}
+
 describe("SingleReferenceField", () => {
 	it("stores only the picked Content's id — never its name", async () => {
 		const user = userEvent.setup();
@@ -138,9 +149,103 @@ describe("SingleReferenceField", () => {
 
 		await user.type(control(), "cat");
 
-		expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
+		// Awaited on the Content that must *go*, rather than on one that must
+		// stay. Typing into the control opens the menu first, on an empty query,
+		// so every Content is briefly on offer and awaiting one that matches
+		// would resolve against that first answer. The typed query then settles
+		// through the select's debounce — where this control used to ask the
+		// Adapter on every keystroke — so the narrowing lands a moment after the
+		// typing does. Same claim, one wait added: see the pull request.
+		await waitFor(() =>
+			expect(screen.queryByText("Dogs of the world")).not.toBeInTheDocument(),
+		);
+		expect(screen.getByText("Cats of the world")).toBeInTheDocument();
 		expect(screen.getByText("Catalogues explained")).toBeInTheDocument();
-		expect(screen.queryByText("Dogs of the world")).not.toBeInTheDocument();
+	});
+
+	it("reaches the Contents past the first page as the menu is scrolled", async () => {
+		const user = userEvent.setup();
+		// More Contents than one page holds. Before this control was rebuilt on
+		// the shared select it asked for one page of fifty and never asked
+		// again, so a Consumer with a larger catalogue could not reach the rest
+		// of it from here at all — only by typing a query narrow enough to bring
+		// what it wanted inside the first fifty.
+		const adapter = createFakeReferenceAdapter({ contents: fakeCatalogue(60) });
+		const { control } = renderField({ adapter });
+
+		await user.click(control());
+		expect(await screen.findByText("Content 1")).toBeInTheDocument();
+		// The whole first page and no more: the Adapter cut it, not the control.
+		expect(screen.queryByText("Content 51")).not.toBeInTheDocument();
+
+		const listbox = screen.getByRole("listbox");
+		setScrollGeometry(listbox, {
+			scrollTop: 300,
+			scrollHeight: 400,
+			clientHeight: 100,
+		});
+		fireEvent.scroll(listbox);
+
+		// The second page is appended, not swapped in — page one is still there.
+		expect(await screen.findByText("Content 51")).toBeInTheDocument();
+		expect(screen.getByText("Content 1")).toBeInTheDocument();
+		expect(adapter.searches[1]).toMatchObject({ query: "", page: 2 });
+
+		// 60 of 60 are on screen, so there is no page three however far it
+		// scrolls: the Adapter's total said so.
+		fireEvent.scroll(listbox);
+		await new Promise((resolve) => setTimeout(resolve, 60));
+		expect(adapter.searches).toHaveLength(2);
+	});
+
+	it("does not ask for a page past the end of an exactly-full one", async () => {
+		const user = userEvent.setup();
+		// Exactly one page: the boundary where an off-by-one asks for a page two
+		// that does not exist, and the Adapter cannot say so because it is never
+		// reached with a wrong offset — only the call count shows it.
+		const adapter = createFakeReferenceAdapter({ contents: fakeCatalogue(50) });
+		const { control } = renderField({ adapter });
+
+		await user.click(control());
+		expect(await screen.findByText("Content 50")).toBeInTheDocument();
+
+		const listbox = screen.getByRole("listbox");
+		setScrollGeometry(listbox, {
+			scrollTop: 300,
+			scrollHeight: 400,
+			clientHeight: 100,
+		});
+		fireEvent.scroll(listbox);
+		await new Promise((resolve) => setTimeout(resolve, 60));
+
+		expect(adapter.searches).toHaveLength(1);
+	});
+
+	it("counts a page by what the Adapter sent, not by what survived the exclusion", async () => {
+		const user = userEvent.setup();
+		// An Adapter that ignores `excludeIds` returns a full page of fifty and
+		// counts the held Content in its total; the backstop then drops one, so
+		// the menu shows forty-nine. Paging on the *shown* count would read the
+		// short page as the end of the catalogue and strand the last Content.
+		const adapter = createFakeReferenceAdapter({
+			contents: fakeCatalogue(51),
+			ignoreExcludeIds: true,
+		});
+		const { control } = renderField({ value: { id: "article-1" }, adapter });
+
+		await user.click(control());
+		expect(await screen.findByText("Content 2")).toBeInTheDocument();
+
+		const listbox = screen.getByRole("listbox");
+		setScrollGeometry(listbox, {
+			scrollTop: 300,
+			scrollHeight: 400,
+			clientHeight: 100,
+		});
+		fireEvent.scroll(listbox);
+
+		expect(await screen.findByText("Content 51")).toBeInTheDocument();
+		expect(adapter.searches[1]).toMatchObject({ page: 2 });
 	});
 
 	it("shows the stored Content's current name, resolved on load", async () => {
@@ -167,6 +272,19 @@ describe("SingleReferenceField", () => {
 		// And the value is left exactly as it was — an unresolvable Content is
 		// not silently dropped from the form data.
 		expect(stored()).toEqual({ id: "deleted-42" });
+	});
+
+	it("reads a blank id as no Reference, not as a Content with no name", async () => {
+		const adapter = createFakeReferenceAdapter();
+		// The Schema types `id` as `z.string().min(1)`, so this only reaches the
+		// control as unvalidated form state — a Consumer's `defaultValues`, most
+		// of all. Handed to the select as a bare id it would render an option
+		// with a blank label: placeholder suppressed, clear button offered,
+		// reading as a Reference whose name failed to load.
+		renderField({ value: { id: "" }, adapter });
+
+		expect(await screen.findByText("Search content...")).toBeInTheDocument();
+		expect(adapter.fetches).toHaveLength(0);
 	});
 
 	it("still renders the stored Content when resolution fails", async () => {
@@ -286,6 +404,17 @@ describe("SingleReferenceField", () => {
 			await screen.findByText("Cats of the world");
 			await user.click(control());
 			await user.keyboard("{Backspace}");
+
+			// The exclusion must not outlive the Reference — but the menu that is
+			// already open keeps the answer it was given. The select owns its own
+			// request lifecycle now (anker's `LookupSelect`), and it re-asks when
+			// a menu opens, when a typed query settles, and when the list is
+			// scrolled to its end — never because a prop underneath it changed.
+			// So a menu open across a clear goes stale until the next of those,
+			// where this control used to re-search the moment the value moved.
+			// Named in the pull request; the anker gap is filed separately.
+			await user.keyboard("{Escape}");
+			await user.click(control());
 
 			await waitFor(() => expect(offered()).toContain("Cats of the world"));
 		});
