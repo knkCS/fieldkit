@@ -175,7 +175,7 @@ describe("LookupField", () => {
 		expect(source.searches).toHaveLength(0);
 	});
 
-	it("sends the typed query to the Source rather than filtering in the browser", async () => {
+	it("sends the typed query to the Source", async () => {
 		const user = userEvent.setup();
 		const source = createFakeLookupSource();
 		const { control } = renderField({ source });
@@ -185,7 +185,22 @@ describe("LookupField", () => {
 
 		expect(await screen.findByText("Boorberg screen")).toBeInTheDocument();
 		await waitFor(() => expect(source.searches.at(-1)?.query).toBe("screen"));
-		expect(screen.queryByText("Boorberg print")).not.toBeInTheDocument();
+	});
+
+	it("keeps an item the Source matched on something the label does not show", async () => {
+		const user = userEvent.setup();
+		const source = createFakeLookupSource();
+		const { control } = renderField({ source });
+
+		await user.click(control());
+		// "columns" appears in this item's description and nowhere in its label,
+		// so a control that re-filtered the Source's answer by what was typed
+		// would drop it. That the Source is the filter is the claim; only an item
+		// the query cannot match client-side can prove it.
+		await user.type(control(), "columns");
+
+		expect(await screen.findByText("Boorberg print")).toBeInTheDocument();
+		await waitFor(() => expect(source.searches.at(-1)?.query).toBe("columns"));
 	});
 
 	it("asks the Source for the next page when the menu reaches the bottom", async () => {
@@ -261,8 +276,13 @@ describe("LookupField", () => {
 		renderField({ source, value: "sheet-2" });
 
 		// Visibly degraded rather than blank — and the stored value is untouched.
+		// This pins the *rendered* degrade, not the conditional `resolve` prop
+		// behind it: passing a resolver that answered with nothing would render
+		// exactly this, which is why the field's comment there claims only that
+		// it declines to advertise a capability the Source lacks.
 		expect(await screen.findByText("sheet-2")).toBeInTheDocument();
 		expect(stored()).toBe("sheet-2");
+		expect(source.resolves).toHaveLength(0);
 	});
 
 	it("keeps a stored id on screen when the Source cannot resolve it", async () => {
@@ -271,6 +291,73 @@ describe("LookupField", () => {
 
 		expect(await screen.findByText("sheet-gone")).toBeInTheDocument();
 		expect(stored()).toBe("sheet-gone");
+	});
+
+	it("reads an empty string as nothing picked, not as a blank selection", async () => {
+		const source = createFakeLookupSource();
+		renderField({ source, value: "" });
+
+		// `""` is what a cleared control can leave behind, and the Zod type and
+		// the table cell both treat it as empty. Passed through to the select it
+		// would become an item with a blank label — placeholder suppressed, clear
+		// button offered — which reads as a selection whose name failed to load.
+		expect(await screen.findByText("Search…")).toBeInTheDocument();
+		expect(source.resolves).toHaveLength(0);
+	});
+
+	it("reads a non-string value as nothing picked", async () => {
+		const source = createFakeLookupSource();
+		// What a Spec migrated from a Reference-shaped value would leave behind.
+		renderField({ source, value: { id: "sheet-1" } });
+
+		// The cell refuses to print such a value; so does the control, rather
+		// than rendering an option with no label.
+		expect(await screen.findByText("Search…")).toBeInTheDocument();
+	});
+
+	it("re-resolves against the new Source when the Field is pointed at another", async () => {
+		// The same stored id in both Sources under different names — the only way
+		// to tell a genuine re-resolve from a per-mount label cache that was
+		// never cleared.
+		const SHARED = "shared-1";
+		const first = createFakeLookupSource({
+			items: [{ id: SHARED, label: "Named by the first Source" }],
+		});
+		const second = createFakeLookupSource({
+			items: [{ id: SHARED, label: "Named by the second Source" }],
+		});
+		const adapters: FieldKitAdapters = {
+			lookup: { first, second },
+		};
+
+		// A harness of its own, because this is the one test that changes the
+		// Field's settings after mount — which is what the editor's preview does
+		// while an Author edits the Source id.
+		function SwitchingHarness({ sourceId }: { sourceId: string }) {
+			const field = makeField({ settings: { source: sourceId } });
+			const methods = useForm({ defaultValues: { [ACCESSOR]: SHARED } });
+			return (
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
+						<FormProvider {...methods}>
+							<FieldComponent field={field} />
+						</FormProvider>
+					</FieldKitProvider>
+				</ChakraProvider>
+			);
+		}
+
+		const { rerender } = render(<SwitchingHarness sourceId="first" />);
+		expect(
+			await screen.findByText("Named by the first Source"),
+		).toBeInTheDocument();
+
+		rerender(<SwitchingHarness sourceId="second" />);
+
+		expect(
+			await screen.findByText("Named by the second Source"),
+		).toBeInTheDocument();
+		expect(second.resolves).toEqual([[SHARED]]);
 	});
 
 	it("stores null when the selection is cleared", async () => {

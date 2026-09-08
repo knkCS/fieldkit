@@ -107,7 +107,10 @@ is deliberately no second async implementation here.
 adapter method (ADR-0009). Three fallbacks, in order:
 
 1. **The resolved label**, from `resolveByIds`.
-2. **The just-picked label**, for an item chosen in this session — no round trip.
+2. **The just-picked label**, for an item chosen in this session. Picking stores
+   a bare id, so `resolveByIds` is still asked about it — what this buys is that
+   no flash of the raw id is visible while that answer is in flight, not that
+   the round trip is skipped. Size the endpoint accordingly.
 3. **The raw id**, with no resolver and nothing picked.
 
 A Consumer that has not implemented resolution therefore degrades visibly rather

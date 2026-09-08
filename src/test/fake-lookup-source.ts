@@ -42,13 +42,8 @@ export interface FakeLookupSourceOptions {
 	withoutResolve?: boolean;
 }
 
-export interface FakeLookupSource extends LookupSource {
-	/**
-	 * Always implemented here, though the Source interface makes it optional —
-	 * narrowed back so a test can call it without a null check. `withoutResolve`
-	 * is how a test drives the absence.
-	 */
-	resolveByIds: (ids: string[]) => Promise<LookupItem[]>;
+/** What every fake Source records, resolver or not. */
+export interface FakeLookupSourceBase extends LookupSource {
 	/**
 	 * Every query `search` was called with, oldest first.
 	 *
@@ -64,15 +59,46 @@ export interface FakeLookupSource extends LookupSource {
 }
 
 /**
+ * A fake Source that resolves.
+ *
+ * `resolveByIds` is narrowed from optional back to required, so a test can call
+ * it without a null check. The narrowing is only sound because
+ * {@link createFakeLookupSource} returns this type *only* when
+ * `withoutResolve` is not set — see the overloads below.
+ */
+export interface FakeLookupSource extends FakeLookupSourceBase {
+	resolveByIds: (ids: string[]) => Promise<LookupItem[]>;
+}
+
+/** A fake Source that does not resolve: the method is gone from the type as
+ * well as from the object, so a test cannot call what is not there. */
+export interface FakeLookupSourceWithoutResolve extends FakeLookupSourceBase {
+	resolveByIds?: undefined;
+}
+
+/**
  * An in-memory stand-in for one of a Consumer's Sources.
  *
  * Every `lookup` test drives through this rather than hand-rolling a `vi.fn()`
  * per test, so "what a Source does" is written down once: search honours the
  * query and the page, and `resolveByIds` answers only for ids that exist.
+ *
+ * Overloaded on `withoutResolve` so the returned type says whether the
+ * resolver is there. Narrowing it to required on a factory that can omit it
+ * would be a lie the compiler could not catch.
  */
 export function createFakeLookupSource(
+	options: FakeLookupSourceOptions & { withoutResolve: true },
+): FakeLookupSourceWithoutResolve;
+export function createFakeLookupSource(
+	options?: FakeLookupSourceOptions & { withoutResolve?: false },
+): FakeLookupSource;
+export function createFakeLookupSource(
+	options?: FakeLookupSourceOptions,
+): FakeLookupSourceBase;
+export function createFakeLookupSource(
 	options: FakeLookupSourceOptions = {},
-): FakeLookupSource {
+): FakeLookupSourceBase {
 	// Copied, so one test's fixture cannot leak into the next through the
 	// shared default collection.
 	const items = (options.items ?? FAKE_STYLESHEETS).map((item) => ({
@@ -96,11 +122,27 @@ export function createFakeLookupSource(
 		searches.push(request);
 		if (options.failSearch) throw options.failSearch;
 
+		// A real Source decides what matches, and rarely by substring on the
+		// label alone. Matching the description too is what lets a test prove
+		// fieldkit does not re-filter: an item found by its second line does not
+		// contain the query in the text the menu shows.
 		const needle = request.query.trim().toLowerCase();
 		const matched = items.filter(
-			(item) => needle === "" || item.label.toLowerCase().includes(needle),
+			(item) =>
+				needle === "" ||
+				item.label.toLowerCase().includes(needle) ||
+				(item.description?.toLowerCase().includes(needle) ?? false),
 		);
-		const start = (Math.max(1, request.page) - 1) * request.page_size;
+		// Loud rather than forgiving: `Math.max(1, NaN)` is `NaN`, and
+		// `slice(NaN, NaN)` quietly answers with nothing, which a caller reads as
+		// "end of results". A fixture that absorbs a caller's arithmetic bug is
+		// worse than no fixture.
+		if (!Number.isInteger(request.page) || request.page < 1) {
+			throw new Error(
+				`fake lookup Source asked for page ${String(request.page)}; pages are 1-based integers`,
+			);
+		}
+		const start = (request.page - 1) * request.page_size;
 		return {
 			items: matched
 				.slice(start, start + request.page_size)
@@ -111,13 +153,18 @@ export function createFakeLookupSource(
 		};
 	};
 
-	const full: FakeLookupSource = { searches, resolves, search, resolveByIds };
 	// The method is *removed*, not stubbed: the control reads its presence to
-	// decide whether to resolve at all, so a stub would prove nothing.
+	// decide whether to declare a resolver at all, so a stub would prove
+	// nothing. The overloads above are what keep the removal honest in the type.
 	if (options.withoutResolve) {
-		const { resolveByIds: _omitted, ...withoutResolve } = full;
-		return withoutResolve as FakeLookupSource;
+		const withoutResolve: FakeLookupSourceWithoutResolve = {
+			searches,
+			resolves,
+			search,
+		};
+		return withoutResolve;
 	}
+	const full: FakeLookupSource = { searches, resolves, search, resolveByIds };
 	return full;
 }
 
@@ -127,9 +174,13 @@ export function createFakeLookupSource(
  * `count` items named so a test can tell page one from page two by reading a
  * row.
  */
-export function fakeLookupCollection(count: number, prefix = "sheet") {
+export function fakeLookupCollection(
+	count: number,
+	prefix = "sheet",
+	label = "Stylesheet",
+) {
 	return Array.from({ length: count }, (_, index) => ({
 		id: `${prefix}-${index + 1}`,
-		label: `Stylesheet ${index + 1}`,
+		label: `${label} ${index + 1}`,
 	}));
 }

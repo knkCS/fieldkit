@@ -98,8 +98,16 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 	const sourceId = settings?.source ?? "";
 	const source = sourceId ? adapters.lookup?.[sourceId] : undefined;
 
-	const value = useWatch({ name: accessor }) as string | null | undefined;
-	const selectedId = value ?? null;
+	const value = useWatch({ name: accessor }) as unknown;
+	// Narrowed rather than passed through, so the three places that read this
+	// value agree about what "empty" is. `??` alone would let `""` past — the
+	// select would then hold an item with a blank label, suppress its
+	// placeholder and offer a clear button, looking like a selection whose name
+	// failed to load. The Zod type rejects `""` under `required` and the cell
+	// renders it as empty; this is the third. Anything that is not a string at
+	// all — an old `{ id }` from before this type stored bare ids — is empty
+	// here for the same reason the cell refuses to print it.
+	const selectedId = typeof value === "string" && value !== "" ? value : null;
 
 	const report = useAdapterErrorReporter(accessor, "Lookup source failed");
 
@@ -117,7 +125,11 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 			// atom treats it as opaque and hands it straight back, which is what
 			// lets one adapter surface ask in pages while the atom pages by cursor
 			// (ADR-0015).
-			const page = cursor ? Number.parseInt(cursor, 10) : 1;
+			// `|| 1` because a cursor is only ever this callback's own
+			// `String(page + 1)` — so anything unparseable means the cursor did not
+			// come from here, and page one is the only safe thing to ask for. NaN
+			// would otherwise reach the Source as a page number.
+			const page = (cursor ? Number.parseInt(cursor, 10) : 1) || 1;
 			try {
 				const { items, total } = await source.search({
 					query,
@@ -131,6 +143,15 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 				// however high its total claims to be, and that guard rather than
 				// the number is what makes the loop terminate against a Source whose
 				// total is wrong, stale, or larger than it can actually serve.
+				//
+				// Stateless, and therefore assuming every *earlier* page was full —
+				// which is the page/total contract, and the only thing a request can
+				// know without carrying a running count across a sequence the atom
+				// may abandon or restart at any point. A Source that returns a short
+				// page that is not the last one (filtering after slicing, say) breaks
+				// that assumption and loses the items past it; the fix is for the
+				// Source to filter before it slices, which is also what keeps its
+				// `total` honest.
 				const seen = (page - 1) * LOOKUP_PAGE_SIZE + options.length;
 				return {
 					items: options,
@@ -199,6 +220,16 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 		>
 			{(formField) => (
 				<LookupSelect<LookupOption>
+					// Remounted when the Field is pointed at a different Source. The
+					// atom's resolved-label map and its "already asked" set are
+					// per-mount caches, and its resolve effect deliberately does not
+					// react to the resolver's identity — so without this, changing
+					// `source` while a stored id stays put leaves the *previous*
+					// Source's label on screen for good. The live path is the
+					// editor's preview, where an Author edits the Source id with the
+					// control mounted. It also drops a page cursor that belonged to
+					// the old Source.
+					key={sourceId}
 					// Matches the `htmlFor` anker's FormField puts on the label, so
 					// the label names react-select's input.
 					inputId={accessor}
@@ -207,10 +238,11 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 					// handing it one is what puts the resolver to work.
 					value={selectedId}
 					search={search}
-					// Presence is the signal: absent, the atom shows a stored id as
-					// itself rather than resolving it. A Source without `resolveByIds`
-					// must therefore contribute no resolver at all, not one that
-					// answers with nothing.
+					// Presence is the signal the atom reads. Passing one that answered
+					// with nothing would render the same thing — the id — so this is
+					// not what makes the degrade work; what it does is decline to
+					// claim a capability the Source does not have, and spare the atom
+					// a resolve pass that could only come back empty.
 					resolve={source.resolveByIds ? resolve : undefined}
 					// CLAUDE.md says to pass `readOnly`, not `disabled`, because anker
 					// styles them differently. The select exposes only `disabled`, so

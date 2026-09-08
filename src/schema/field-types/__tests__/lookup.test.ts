@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../types";
+import { specToZodSchema } from "../../zod-builder";
+import { builtInFieldTypes } from "../index";
 import type { LookupSettings } from "../lookup";
 import { lookupPlugin } from "../lookup";
 
@@ -39,6 +41,19 @@ describe("lookupPlugin", () => {
 		// Never an object, and never an array: single-only, and a bare id.
 		expect(zodType.safeParse({ id: "sheet-1" }).success).toBe(false);
 		expect(zodType.safeParse(["sheet-1"]).success).toBe(false);
+	});
+
+	it("accepts a missing key once composed into a Spec's Schema", () => {
+		// `toZodType` returns a bare `z.string().nullable()` when the Field is
+		// optional, and that rejects `undefined` on its own — it is
+		// `specToZodSchema` that appends `.optional()`. Asserted through the
+		// composed Schema, because the plugin's own type is only half the answer
+		// and a change to the builder could break this invisibly.
+		const schema = specToZodSchema([makeField()], builtInFieldTypes);
+
+		expect(schema.safeParse({}).success).toBe(true);
+		expect(schema.safeParse({ stylesheet: null }).success).toBe(true);
+		expect(schema.safeParse({ stylesheet: "sheet-1" }).success).toBe(true);
 	});
 
 	it("rejects both ways of being empty when required", () => {
