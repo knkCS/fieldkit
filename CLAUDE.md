@@ -192,7 +192,7 @@ Always run `npm run typecheck` and `npm run lint` before committing. Tests use V
 ## Peer Dependencies
 
 Consuming projects must install:
-- `@knkcs/anker` ^3.1.0 || ^4.0.0 || ^5.0.0
+- `@knkcs/anker` ^5.1.0
 - `react` >= 19, `react-dom` >= 19
 - `@chakra-ui/react` ^3.0.0
 - `react-hook-form` ^7.0.0, `@hookform/resolvers` ^3.0.0, `zod` ^3.0.0
@@ -206,11 +206,16 @@ Optional:
 Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
 resolved by consumers importing `@knkcs/anker/dashboard`.
 
-Note: the `@knkcs/anker` **devDependency is deliberately older than the peer
-range** (`^4.0.0` against a range spanning three majors). fieldkit compiles
-against the oldest anker it promises, so that using newer-only API fails
-typecheck here rather than at runtime in a consumer. Read `docs/adr/0014-compile-against-the-oldest-anker-we-promise.md`
-before raising it.
+Note: the `@knkcs/anker` **devDependency equals the peer floor** (`^5.1.0`
+both). fieldkit compiles against the oldest anker it promises, so that using
+newer-only API fails typecheck here rather than at runtime in a consumer. The
+range used to span three majors with the devDependency pinned to the lowest
+defensible leg; it narrowed to one major when the `lookup` field type took a
+hard dependency on `LookupSelect`, which first ships in anker 5.1.0
+(`docs/adr/0015-lookup-is-generic-and-keyed-by-source.md`). Read
+`docs/adr/0014-compile-against-the-oldest-anker-we-promise.md` before raising
+either — the rule is unchanged, and raising the devDependency past the peer
+floor is still the mistake it warns about.
 
 ## Related Repositories
 

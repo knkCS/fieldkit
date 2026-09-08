@@ -11,6 +11,7 @@ import { emailPlugin } from "./email";
 import { fieldsetPlugin } from "./fieldset";
 import { groupPlugin } from "./group";
 import { listPlugin } from "./list";
+import { lookupPlugin } from "./lookup";
 import { markdownPlugin } from "./markdown";
 import { mediaPlugin } from "./media";
 import { numberPlugin } from "./number";
@@ -46,6 +47,9 @@ export const selectionFieldTypes: FieldTypePlugin<any>[] = [
 	selectPlugin,
 	radioPlugin,
 	checkboxesPlugin,
+	// Picking one thing from a set, like the three above it — the difference
+	// being that a Source holds the set, not the Field (ADR-0015).
+	lookupPlugin,
 ];
 
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
@@ -98,6 +102,7 @@ export {
 	selectPlugin,
 	radioPlugin,
 	checkboxesPlugin,
+	lookupPlugin,
 	sectionPlugin,
 	cardPlugin,
 	groupPlugin,
@@ -127,6 +132,7 @@ export type { EmailSettings } from "./email";
 export type { FieldsetSettings } from "./fieldset";
 export type { GroupSettings } from "./group";
 export type { ListSettings } from "./list";
+export type { LookupSettings } from "./lookup";
 export type { MarkdownSettings } from "./markdown";
 export type { MediaSettings } from "./media";
 export type { NumberSettings } from "./number";

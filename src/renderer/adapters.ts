@@ -116,6 +116,74 @@ export interface MediaFilter {
 	query?: string;
 }
 
+/**
+ * One thing a Lookup may point at, already normalised by the Source.
+ *
+ * Deliberately not a {@link ReferenceItem}: a Lookup does not point at a
+ * Content. It points into a collection that lives somewhere else entirely — a
+ * layout stylesheet, a printer profile — with no Blueprint, no Versions and no
+ * Releases, so there is nothing here to pin to and nothing to resolve a
+ * `display_name` from. Three parts, and the same three a {@link PinTarget} has,
+ * for the same reason: an id to store, words to read, and a second line where
+ * one helps tell two apart.
+ */
+export interface LookupItem {
+	id: string;
+	/** What the person filling in the form reads. */
+	label: string;
+	/** A second line where one helps tell two items apart. Optional because not
+	 * every Source has one. */
+	description?: string;
+}
+
+/**
+ * One page of a search through a Source.
+ *
+ * A query object taking `page` and `page_size`, on exactly the terms
+ * {@link ReferenceSearchQuery} does — one adapter surface, one way of asking
+ * for a page. The atom underneath pages by opaque cursor; translating between
+ * the two is fieldkit's job, not a Consumer's (see
+ * `docs/adr/0015-lookup-is-generic-and-keyed-by-source.md`).
+ */
+export interface LookupSearchQuery {
+	/** What the person filling in the form typed. Empty on the first open. */
+	query: string;
+	/** 1-based. */
+	page: number;
+	page_size: number;
+}
+
+/** What a {@link LookupSearchQuery} answers with: the page's items, and how
+ * many there are in total. The total is the only thing that can say whether
+ * there is another page — the Source is the only thing that knows it. */
+export interface LookupSearchResult {
+	items: LookupItem[];
+	total: number;
+}
+
+/**
+ * One external collection a `lookup` Field may point into, registered by the
+ * Consumer under an id its Fields name.
+ *
+ * Fieldkit knows nothing about what is in a Source — not its name, not its
+ * shape, not where it lives. It knows only how to ask (ADR-0002).
+ */
+export interface LookupSource {
+	search: (query: LookupSearchQuery) => Promise<LookupSearchResult>;
+	/**
+	 * Turns stored ids back into readable items.
+	 *
+	 * **Optional on purpose** (ADR-0009). Without it a stored id reads as the
+	 * id — visibly degraded rather than blank, and rather than an error. That is
+	 * what a Consumer who has not implemented resolution should get.
+	 *
+	 * Ids with nothing behind them are simply absent from the answer, the way
+	 * `reference.fetch` omits a Content that no longer exists; each of them then
+	 * reads as its id too.
+	 */
+	resolveByIds?: (ids: string[]) => Promise<LookupItem[]>;
+}
+
 export interface DataQuery {
 	page?: number;
 	page_size?: number;
@@ -200,6 +268,22 @@ export interface FieldKitAdapters {
 		upload: (file: File) => Promise<MediaItem>;
 		browse: (filter: MediaFilter) => Promise<MediaItem[]>;
 	};
+	/**
+	 * The Sources a `lookup` Field may point into, keyed by the id its
+	 * `source` setting names.
+	 *
+	 * **A record, where every other key on this object is an object of
+	 * functions.** That is the whole design (ADR-0015): a Consumer adds a
+	 * Source by adding a key, with nothing here to change and no other Source
+	 * to disturb; fieldkit can tell "no Source registered under that id" from
+	 * "the Source found nothing" and degrade with a message that names the id;
+	 * and each Source is testable on its own.
+	 *
+	 * Absent, empty, or missing the id a Field names all degrade the same way
+	 * — the Field says so and renders nothing to pick from, on the same terms
+	 * as a missing `reference` adapter (ADR-0009).
+	 */
+	lookup?: Record<string, LookupSource>;
 	/** `getSchema` is the schema layer's `BlueprintSchemaAdapter`, so the same
 	 * adapters object serves `resolveSpec()` and the provider alike. */
 	blueprint?: BlueprintSchemaAdapter & {

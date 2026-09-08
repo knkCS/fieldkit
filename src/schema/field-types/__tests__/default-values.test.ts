@@ -26,6 +26,7 @@ const SEEDED: Record<string, unknown> = {
 	select: "", // single (settings.multiple falsy); multi pinned separately
 	reference: [], // default settings (max_items undefined); 1 pinned separately
 	single_reference: null, // one Reference or none — never an array
+	lookup: null, // one id or none — never an array, and never an object
 };
 const UNSEEDED = [
 	"color",
