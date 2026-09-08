@@ -125,10 +125,12 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 					page_size: LOOKUP_PAGE_SIZE,
 				});
 				const options = items.map(toOption);
-				// Counted from what actually arrived rather than from `page *
-				// LOOKUP_PAGE_SIZE`, so a Source that answers with a short page is
-				// not asked for a page beyond the end — and an empty answer always
-				// stops, whatever the total claims.
+				// `total` is what says whether there is another page — only the
+				// Source knows it. The arrived-item count is the backstop the total
+				// cannot be: a Source that answered with nothing has reached the end
+				// however high its total claims to be, and that guard rather than
+				// the number is what makes the loop terminate against a Source whose
+				// total is wrong, stale, or larger than it can actually serve.
 				const seen = (page - 1) * LOOKUP_PAGE_SIZE + options.length;
 				return {
 					items: options,
