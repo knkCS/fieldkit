@@ -15,7 +15,10 @@ The control is anker's `LookupSelect` and nothing else — the same atom
 alike by construction rather than by discipline. Debounce, menu-open gating,
 request cancellation, the stale-answer guard, page accumulation, loading and
 failure presentation, and the resolved → just-picked → raw-id name chain all
-belong to the atom (anker ADR-0002). What is left here is asking the reference
+belong to the atom (anker ADR-0002). "Cancellation" there means the atom aborts
+the request it no longer wants and **discards the answer** — the adapter's own
+call is never stopped, because `ReferenceSearchQuery` has nowhere to carry a
+signal. What is left here is asking the reference
 adapter, translating between the page its surface asks in and the cursor the
 atom pages by, keeping the Content already held out of the menu, and reporting
 a failure on the Consumer's own channel.
@@ -134,13 +137,16 @@ interface PinTarget {
   it excludes it at the source, and one that ignores it is not wrong, only less
   precise — the field drops it from whatever came back either way. The control
   still *shows* that Content, because its name comes from `fetch` and never
-  from the menu. Clearing the reference offers it again on the **next** search
-  — the atom owns its own request lifecycle and re-asks when a menu opens, a
-  query settles or the list reaches its end, not because the value underneath
-  it changed, so a menu left open across a clear keeps the answer it was given
-  (ADR-0016). The tree [Reference](?path=/docs/fields-reference--docs) field
-  applies the same rule over its whole tree, and the two share one
-  implementation.
+  from the menu. Clearing the reference offers it again on the **next fresh
+  search** — when the menu is reopened, or when a typed query settles. The atom
+  owns its own request lifecycle and never re-asks because a prop underneath it
+  changed, so a menu left open across a clear keeps the answer it was given.
+  Scrolling does not correct it either: a next page is *appended* to what is on
+  screen, so it is asked for with the exclusion that cut the first page rather
+  than the current one — which is what stops page two repeating a row page one
+  already showed (ADR-0016). The tree
+  [Reference](?path=/docs/fields-reference--docs) field applies the same rule
+  over its whole tree, and the two share one implementation.
 - `fetch` resolves the stored id to a name on load. A Content the adapter
   cannot return still renders, showing its id rather than disappearing.
 - `listPinTargets` is **optional**, and is called only when the field pins, and
@@ -151,7 +157,11 @@ interface PinTarget {
   omits the method, and the field then offers the newest Version alone rather
   than erroring. That absence is silent, unlike a call that rejects.
 - Adapter failures are reported through the provider's `onError`, against this
-  field's accessor. A failed pin lookup costs the targets, not the control.
+  field's accessor. A failed pin lookup costs the targets, not the control. A
+  request the select has already abandoned — superseded by a newer query, or a
+  StrictMode double-invoke — is **not** reported: it is one failure per visible
+  one, not one per attempt. The adapter's own call is never cancelled, only its
+  answer discarded; `ReferenceSearchQuery` has nowhere to carry a signal.
 
 Without a `reference` adapter the field renders "Reference adapter not
 configured".

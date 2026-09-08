@@ -2,6 +2,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
@@ -110,6 +111,21 @@ function renderField({
 		submitted,
 		control: () => screen.getByLabelText(new RegExp(LABEL)),
 	};
+}
+
+/**
+ * The Field alone on a form, for the one test that needs its own StrictMode
+ * tree. {@link renderField} builds the provider chain itself, so it cannot be
+ * wrapped from outside without rendering two of them.
+ */
+function StrictModeForm({ value }: { value: unknown }) {
+	const field = makeField();
+	const methods = useForm({ defaultValues: { [ACCESSOR]: value } });
+	return (
+		<FormProvider {...methods}>
+			<FieldComponent field={field} />
+		</FormProvider>
+	);
 }
 
 /** jsdom reports every box as 0×0; state the geometry the scroll implies. */
@@ -223,18 +239,56 @@ describe("SingleReferenceField", () => {
 
 	it("counts a page by what the Adapter sent, not by what survived the exclusion", async () => {
 		const user = userEvent.setup();
-		// An Adapter that ignores `excludeIds` returns a full page of fifty and
-		// counts the held Content in its total; the backstop then drops one, so
-		// the menu shows forty-nine. Paging on the *shown* count would read the
-		// short page as the end of the catalogue and strand the last Content.
+		// Exactly one full page from an Adapter that ignores `excludeIds`, so it
+		// counts the held Content in both the page and the total; the backstop
+		// then drops it, and the menu shows forty-nine of a claimed fifty.
+		//
+		// This is the one shape where the two counts disagree. Counting the
+		// survivors reads 49 < 50 and asks for a page two the Adapter has nothing
+		// to put in; counting what arrived reads 50 < 50 and stops. Fifty-one
+		// Contents would *not* discriminate — both counts page there, and both
+		// show the same fifty — so the catalogue size is the whole test.
 		const adapter = createFakeReferenceAdapter({
-			contents: fakeCatalogue(51),
+			contents: fakeCatalogue(50),
 			ignoreExcludeIds: true,
 		});
 		const { control } = renderField({ value: { id: "article-1" }, adapter });
 
 		await user.click(control());
 		expect(await screen.findByText("Content 2")).toBeInTheDocument();
+		// Forty-nine on offer: the backstop dropped the one the Field holds, even
+		// though the Adapter handed it back.
+		expect(screen.getAllByRole("option")).toHaveLength(49);
+
+		const listbox = screen.getByRole("listbox");
+		setScrollGeometry(listbox, {
+			scrollTop: 300,
+			scrollHeight: 400,
+			clientHeight: 100,
+		});
+		fireEvent.scroll(listbox);
+		await new Promise((resolve) => setTimeout(resolve, 60));
+
+		// One wasted request is all the other count would cost — never a lost
+		// Content — but it is a request against a real service on every scroll to
+		// the bottom of a full last page.
+		expect(adapter.searches).toHaveLength(1);
+	});
+
+	it("pages on the exclusion the sequence started with, so a row cannot repeat", async () => {
+		const user = userEvent.setup();
+		// Cleared with the menu open, then scrolled. The atom appends page two to
+		// page one and asks through the newest callback, so a page two cut from
+		// the now-unexcluded list would slide by one and hand back the Content
+		// page one already showed as its fiftieth — a duplicate option, and a
+		// duplicate React key.
+		const adapter = createFakeReferenceAdapter({ contents: fakeCatalogue(60) });
+		const { control } = renderField({ value: { id: "article-1" }, adapter });
+
+		await screen.findByText("Content 1");
+		await user.click(control());
+		await screen.findByText("Content 2");
+		await user.keyboard("{Backspace}");
 
 		const listbox = screen.getByRole("listbox");
 		setScrollGeometry(listbox, {
@@ -244,8 +298,15 @@ describe("SingleReferenceField", () => {
 		});
 		fireEvent.scroll(listbox);
 
-		expect(await screen.findByText("Content 51")).toBeInTheDocument();
-		expect(adapter.searches[1]).toMatchObject({ page: 2 });
+		await waitFor(() => expect(adapter.searches).toHaveLength(2));
+		// The second page was asked for with the exclusion the first was cut
+		// with, not with the empty one the cleared value now implies.
+		expect(adapter.searches[1]).toMatchObject({
+			page: 2,
+			excludeIds: ["article-1"],
+		});
+		const labels = screen.getAllByRole("option").map((o) => o.textContent);
+		expect(new Set(labels).size).toBe(labels.length);
 	});
 
 	it("shows the stored Content's current name, resolved on load", async () => {
@@ -284,7 +345,9 @@ describe("SingleReferenceField", () => {
 		renderField({ value: { id: "" }, adapter });
 
 		expect(await screen.findByText("Search content...")).toBeInTheDocument();
-		expect(adapter.fetches).toHaveLength(0);
+		// And the value is left exactly as it was: reading a stored value is
+		// never an occasion to rewrite it.
+		expect(stored()).toEqual({ id: "" });
 	});
 
 	it("still renders the stored Content when resolution fails", async () => {
@@ -469,6 +532,39 @@ describe("SingleReferenceField", () => {
 			expect(onError).toHaveBeenCalledWith(expect.any(Error), ACCESSOR),
 		);
 		expect(control()).toBeInTheDocument();
+	});
+
+	it("reports an abandoned resolution once, not once per attempt", async () => {
+		const onError = vi.fn();
+		const adapter = createFakeReferenceAdapter({
+			failFetch: new Error("gateway down"),
+		});
+		// Under StrictMode the select's resolve effect runs, is cleaned up, and
+		// runs again — so one failing Adapter is asked twice for one visible
+		// attempt. The first is aborted before its answer lands, and a Consumer
+		// showing a toast per `onError` must not see it. The hook this control
+		// used to resolve through guarded its own report the same way
+		// (`if (cancelled) return;`), so losing the guard would be a regression
+		// and not merely an omission.
+		render(
+			<StrictMode>
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider
+						plugins={builtInFieldTypes}
+						adapters={{ reference: adapter }}
+						onError={onError}
+					>
+						<StrictModeForm value={{ id: "article-2" }} />
+					</FieldKitProvider>
+				</ChakraProvider>
+			</StrictMode>,
+		);
+
+		// Asked twice — the double-invoke really happened, so the assertion below
+		// is about the guard and not about StrictMode failing to double-invoke.
+		await waitFor(() => expect(adapter.fetches).toHaveLength(2));
+		await waitFor(() => expect(onError).toHaveBeenCalled());
+		expect(onError).toHaveBeenCalledTimes(1);
 	});
 
 	it("cannot be changed in read-only mode", async () => {

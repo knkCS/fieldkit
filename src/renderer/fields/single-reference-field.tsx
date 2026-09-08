@@ -8,7 +8,7 @@ import {
 	LookupSelect,
 } from "@knkcs/anker/atoms";
 import { FormField } from "@knkcs/anker/forms";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
@@ -20,13 +20,17 @@ import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds, withoutExcluded } from "./exclude-referenced";
 
-/** react-select's option shape (anker's `BaseOption`): `id` is the value,
- * `label` is what the person filling in the form reads. Serves both selects —
- * a Content and a Pin target reduce to exactly the same two things here. */
-interface ContentOption extends BaseOption {
-	id: string;
-	label: string;
-}
+/**
+ * react-select's option shape (anker's `BaseOption`): `id` is the value,
+ * `label` is what the person filling in the form reads.
+ *
+ * Named rather than used bare because it serves both selects — a Content and a
+ * Pin target reduce to exactly the same two things here — and adds nothing to
+ * `BaseOption`, because there is nothing to add. A {@link PinTarget} carries a
+ * `description` and a `ReferenceItem` does not, so a second line here would
+ * appear under one of the two selects and never the other.
+ */
+type ContentOption = BaseOption;
 
 /** How many Contents one page of the menu offers. The Adapter pages; this is
  * the size fieldkit asks in. Scrolling to the bottom asks for the next one, so
@@ -116,12 +120,26 @@ export function SingleReferenceField({
 	// a stable identity because the menu searches on it.
 	const excludeIds = useStableValue(referencedContentIds(value));
 
+	// The exclusion the page sequence currently on screen was cut with.
+	//
+	// A cursor'd page is *appended* to what the menu already holds, and the atom
+	// re-asks through the newest callback rather than the one that fetched page
+	// one. So if the value moved in between — cleared, with the menu left open —
+	// page two would be cut from a differently-filtered list and could repeat a
+	// Content page one already showed: a duplicated option, and a duplicated
+	// React key. Pinning the exclusion to the sequence keeps the pages on screen
+	// consistent with each other. A *fresh* search — a menu opening, a query
+	// settling — starts a new sequence and takes the current exclusion, which is
+	// also what eventually clears the staleness ADR-0016 records.
+	const sequenceExcludeIds = useRef(excludeIds);
+
 	const report = useAdapterErrorReporter(accessor, "Reference adapter failed");
 
 	const search = useCallback(
 		async ({
 			query,
 			cursor,
+			signal,
 		}: LookupSearchArgs): Promise<LookupPage<ContentOption>> => {
 			// Unreachable while an Adapter is configured — the degrade path below
 			// returns before the control is rendered — but the callback is built
@@ -137,6 +155,11 @@ export function SingleReferenceField({
 			// come from here, and page one is the only safe thing to ask for. NaN
 			// would otherwise reach the Adapter as a page number.
 			const page = (cursor ? Number.parseInt(cursor, 10) : 1) || 1;
+			// No cursor means this is page one of a new sequence, so it is this
+			// request that decides what the sequence excludes. Written before the
+			// request goes out, so every page after it agrees.
+			if (!cursor) sequenceExcludeIds.current = excludeIds;
+			const excluded = sequenceExcludeIds.current;
 			try {
 				const { items, total } = await adapter.search({
 					blueprintIds: blueprints,
@@ -144,7 +167,7 @@ export function SingleReferenceField({
 					// empty record is what "no narrowing beyond the query" means.
 					filters: {},
 					query,
-					excludeIds,
+					excludeIds: excluded,
 					page,
 					page_size: MENU_PAGE_SIZE,
 				});
@@ -152,13 +175,18 @@ export function SingleReferenceField({
 					// The same backstop the drawer applies, for the same reason: an
 					// Adapter that ignores `excludeIds` must still not offer the
 					// Content this Field already holds.
-					items: withoutExcluded(items, excludeIds).map((item) => ({
+					items: withoutExcluded(items, excluded).map((item) => ({
 						id: item.id,
 						label: item.display_name,
 					})),
 					// Counted on what the *Adapter* returned, not on what survived the
-					// backstop: paging is the Adapter's cut of its own catalogue, and
-					// an excluded row still occupied a place in the page it sent.
+					// backstop. Both are correct — the filtered count is never larger,
+					// so it can only ever ask for one page too many, never stop one too
+					// early — and this one is chosen because paging is the Adapter's cut
+					// of its own catalogue: an excluded row still occupied a place in
+					// the page it sent. Counting the survivors instead would ask for an
+					// empty page whenever the last page is full and holds the Content
+					// this Field already has. One wasted request, not a lost Content.
 					//
 					// `total` is what says whether there is another page — only the
 					// Adapter knows it. The arrived-item count is the backstop the
@@ -179,10 +207,29 @@ export function SingleReferenceField({
 							: null,
 				};
 			} catch (error) {
-				// Reported here and re-thrown: the Consumer hears about the failure
-				// on its own channel, and the atom still turns it into the failure
-				// line in the menu.
-				report(error);
+				// Reported and re-thrown: the Consumer hears about the failure on its
+				// own channel, and the atom still turns it into the failure line in
+				// the menu.
+				//
+				// Not reported once the atom has abandoned this request, though. A
+				// superseded answer is not a failure anyone can act on, and the effect
+				// this replaced guarded its own report exactly here (`if (cancelled)
+				// return;` before `report`), as `usePinTargets` and
+				// `useResolvedContentNames` still do.
+				//
+				// It bites when a request is still *in flight* as a newer one
+				// supersedes it — a slow Adapter under fast typing. It does not fire
+				// for an Adapter that rejects as fast as a promise can, because
+				// nothing has superseded that request by the time it fails; two such
+				// failures are two visible failures and both are reported. The
+				// {@link SingleReferenceField} test that pins this drives the case
+				// that is deterministic — a StrictMode double-invoke of `resolve`,
+				// where the first pass is aborted before its answer lands.
+				//
+				// The Adapter's own request is not cancelled by any of this: nothing
+				// on `ReferenceSearchQuery` can carry a signal (ADR-0015), so the
+				// answer is discarded rather than the call stopped.
+				if (!signal.aborted) report(error);
 				throw error;
 			}
 		},
@@ -190,7 +237,7 @@ export function SingleReferenceField({
 	);
 
 	const resolve = useCallback(
-		async ({ ids }: LookupResolveArgs): Promise<ContentOption[]> => {
+		async ({ ids, signal }: LookupResolveArgs): Promise<ContentOption[]> => {
 			if (!adapter) return [];
 			try {
 				return (await adapter.fetch(ids)).map((item) => ({
@@ -198,7 +245,7 @@ export function SingleReferenceField({
 					label: item.display_name,
 				}));
 			} catch (error) {
-				report(error);
+				if (!signal.aborted) report(error);
 				// The atom keeps the raw id on screen and forgets the attempt, so a
 				// later change to the value can try again.
 				throw error;
@@ -266,6 +313,16 @@ export function SingleReferenceField({
 				<Flex gap="2" align="start">
 					<Box flex="1" minWidth="0">
 						<LookupSelect<ContentOption>
+							// No `key`, where `LookupField` remounts on its `source`
+							// setting. The atom's resolved-name map is a per-mount cache,
+							// so a Field pointed at a different catalogue after mount
+							// would keep the old one's names — but a Lookup's Source is a
+							// Field setting an Author edits live in the editor's preview,
+							// and the reference Adapter is provider-level and does not
+							// move under a mounted control. There is nothing here to key
+							// on that a Consumer swapping its whole provider would not
+							// already remount.
+							//
 							// Matches the `htmlFor` anker's FormField puts on the label,
 							// so the label names react-select's input.
 							inputId={accessor}

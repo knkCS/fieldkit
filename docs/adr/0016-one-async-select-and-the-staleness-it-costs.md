@@ -8,6 +8,15 @@ resolved → just-picked → raw-id name chain — is gone, because the atom own
 of it (anker ADR-0002, and [ADR-0015](0015-lookup-is-generic-and-keyed-by-source.md)
 for the Lookup half).
 
+"Cancellation" throughout this record means what the atom means by it: the atom
+aborts the request it no longer wants and **discards the answer**. It does not
+mean the Adapter's own call is stopped, because it never is —
+`ReferenceSearchQuery` has nowhere to carry a signal, exactly as
+`LookupSearchQuery` has not (ADR-0015). What fieldkit does with the signal it is
+handed is decline to report a failure nobody can act on: `report(error)` runs
+only when `signal.aborted` is false, which is the guard the effect this replaced
+spelled `if (cancelled) return;`. Both pickers do this, identically.
+
 The reason this was not deferred is that the two pickers are **adjacent fields in
 one form** in Boorberg's export drawer: an Ausgabe (Single Reference) beside a
 stylesheet (Lookup). Two hand-rolled async selects side by side differ in exactly
@@ -34,16 +43,27 @@ about the async ones.
 **A menu left open across a change of the value goes stale.** The Content the
 Field already holds is withheld from the picker — its id travels with the search
 as `excludeIds`, and the Adapter (or fieldkit's backstop) drops it. Clearing the
-Reference should put it back on offer, and it does: on the *next* search. It no
-longer happens instantly, because the atom re-asks when a menu opens, when a
-typed query settles, and when the list is scrolled to its end — **never because
-a prop underneath it changed**. The old hand-rolled effect listed `excludeIds`
-among its dependencies and so re-ran the moment the value moved.
+Reference should put it back on offer, and it does: on the next **fresh** search
+— one that starts from page one, which is a menu opening or a typed query
+settling. It no longer happens instantly, because the atom re-asks on those and
+on a scroll to the end, and **never because a prop underneath it changed**. The
+old hand-rolled effect listed `excludeIds` among its dependencies and so re-ran
+the moment the value moved.
 
-The window is small and self-healing: typing, scrolling to the end, or closing
-and reopening the menu all correct it, and one of those is what a person does
-next anyway. What must not happen — the exclusion outliving the Reference — does
-not.
+The window is small and self-healing: **typing, or closing and reopening the
+menu**, corrects it, and one of those is what a person does next anyway. What
+must not happen — the exclusion outliving the Reference — does not.
+
+**Scrolling does not correct it, and must not try to.** The atom's
+`loadNextPage` *appends* the next page to what is on screen; it never re-fetches
+page one. So a cursor'd page is a continuation of a sequence, and the exclusion
+it is cut with has to be the one that cut page one — otherwise page two comes
+from a differently-filtered list, slides by one, and hands back a Content page
+one already showed: a duplicated option, and a duplicated React key. The field
+therefore pins the exclusion to the sequence rather than reading the current one
+on every page, and a fresh search — a menu opening, a query settling — is what
+starts a new sequence with a new exclusion. Paging stays coherent with what is
+on screen; correcting the staleness is the other two paths' job.
 
 It is accepted rather than worked around because every workaround is worse than
 the staleness:
@@ -88,3 +108,12 @@ Reference picker drawer already uses.
 the atom's `resolve` calls `reference.fetch` directly. The hook stays, because
 `single-reference-read.tsx` reads through it, and read mode has no select to
 resolve anything for it.
+
+One trigger is lost with it, and deliberately not replaced. The hook listed the
+Adapter among its dependencies, so swapping the reference Adapter under a mounted
+control re-fetched the name; the atom's resolved-name map is a per-mount cache
+and nothing re-fetches now. `LookupField` guards the same thing with
+`key={sourceId}` — but a Lookup's Source is a *Field setting* an Author edits
+live in the editor's preview, where the reference Adapter is provider-level and
+does not move under a mounted control. There is nothing here to key on that a
+Consumer replacing its whole provider would not already remount.
