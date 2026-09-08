@@ -1,0 +1,149 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./lookup-field.stories";
+
+<Meta of={Stories} />
+
+# Lookup
+
+Exactly one id from an external **Source**, or none. The person filling in the
+form searches the Source and picks one item; the picked item's **current**
+label is resolved through the Source rather than stored, so an item renamed
+elsewhere reads correctly here.
+
+<Canvas of={Stories.Empty} />
+
+## When to Use
+
+Use **Lookup** when a field points at one thing that lives in another service —
+a layout stylesheet, a printer profile, a row in somebody else's database. A
+Consumer registers a Source and declares a field naming it; there is nothing to
+build per collection.
+
+Use [Single Reference](?path=/docs/fields-single-reference--docs) instead when
+the target is a **Content** — something with a Blueprint, Versions and Releases,
+and therefore something to pin to. A Lookup has none of that, which is why it is
+its own field type rather than a Reference with the pinning turned off
+(ADR-0015).
+
+**Single-only.** A list variant would produce `string[]` where this produces
+`string`, and ADR-0005 is about not hiding incompatible value shapes behind one
+`field_type`.
+
+## Value
+
+```ts
+value: string | null   // the id, and nothing else
+```
+
+A **bare id string**, following `media` rather than `single_reference`: a
+Reference stores an object because it carries a Pin and Attributes, and a Lookup
+carries neither. A label is never stored — it is resolved on load, every load.
+
+<Canvas of={Stories.WithAStoredId} />
+
+## Settings
+
+| Setting  | Type     | Default | Description                                        |
+|----------|----------|---------|----------------------------------------------------|
+| `source` | `string` | `""`    | The id this application registered the Source under |
+
+The id is opaque to fieldkit: it never parses it, never enumerates the Sources
+and has no notion of what any of them hold (ADR-0002). Writing it
+`service:collection` is a Consumer convention.
+
+## Registering a Source
+
+Sources are a **record keyed by Source id** on the adapters object, so adding
+one is purely additive — a key, with nothing in fieldkit to change and no other
+Source to disturb.
+
+```tsx
+<FieldKitProvider
+  plugins={builtInFieldTypes}
+  adapters={{
+    lookup: {
+      "layout:stylesheet": {
+        async search({ query, page, page_size }) {
+          const res = await api.stylesheets.list({ q: query, page, page_size });
+          return {
+            items: res.items.map((s) => ({
+              id: s.id,
+              label: s.name,
+              description: s.format,
+            })),
+            total: res.total,
+          };
+        },
+        // Optional — see below.
+        async resolveByIds(ids) {
+          const items = await api.stylesheets.byIds(ids);
+          return items.map((s) => ({ id: s.id, label: s.name }));
+        },
+      },
+    },
+  }}
+>
+```
+
+- **The Source is not called until the menu opens.** A form holding forty of
+  these issues no requests until someone uses one.
+- **Typing is debounced** into a single request for the final query.
+- **Superseded answers are discarded**, so a slow answer for an old query can
+  never overwrite a fast answer for the current one.
+- **Scrolling to the bottom asks for the next page**, cut with the same
+  `page` / `page_size` the reference adapter uses. `total` is what says whether
+  there is one.
+- **The Source is the filter.** Client-side filtering is off: an item whose
+  label does not contain the query still shows if the Source returned it.
+
+All of that belongs to anker's `LookupSelect`, which this field binds to. There
+is deliberately no second async implementation here.
+
+<Canvas of={Stories.ManyItems} />
+
+## Resolving stored ids
+
+`resolveByIds` is **optional**, on the same terms as every other optional
+adapter method (ADR-0009). Three fallbacks, in order:
+
+1. **The resolved label**, from `resolveByIds`.
+2. **The just-picked label**, for an item chosen in this session. Picking stores
+   a bare id, so `resolveByIds` is still asked about it — what this buys is that
+   no flash of the raw id is visible while that answer is in flight, not that
+   the round trip is skipped. Size the endpoint accordingly.
+3. **The raw id**, with no resolver and nothing picked.
+
+A Consumer that has not implemented resolution therefore degrades visibly rather
+than rendering an empty control, and an id the Source has nothing behind keeps
+its id on screen. The stored value is never rewritten in either case.
+
+<Canvas of={Stories.SourceWithoutResolver} />
+<Canvas of={Stories.UnresolvableId} />
+
+## Degrading
+
+A field naming a Source nobody registered says so and names the id, rather than
+throwing — the same way a missing reference adapter degrades. A field naming no
+Source at all says that instead, because the two are different mistakes.
+
+<Canvas of={Stories.SourceNotRegistered} />
+
+A Source that rejects puts its failure in the menu and leaves the control alive;
+the next query tries again. The failure also reaches the Consumer's own
+`onError`, attributed to the field it degrades.
+
+<Canvas of={Stories.SourceFailure} />
+
+## Validation
+
+`required` blocks submit on every way of being empty — `null`, a missing key,
+and the empty string a cleared control leaves behind — and reports the field's
+own name at the field's own path.
+
+<Canvas of={Stories.Required} />
+
+## Table cell
+
+The cell renders the **stored id**. A cell has neither adapter access nor async,
+so it cannot reach the Source for a label; the id is what is stored, and it is
+the same fallback the control shows for an id no resolver could resolve.

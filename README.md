@@ -58,14 +58,14 @@ function ProductForm() {
 }
 ```
 
-## Built-in Field Types (27)
+## Built-in Field Types (28)
 
 | Category | Types |
 |---|---|
 | Text | `text`, `textarea`, `markdown`, `code`, `rich_text`, `color`, `email`, `url`, `slug` |
 | Number | `number` |
 | Date/Time | `date`, `time` |
-| Selection | `select`, `radio`, `checkboxes` |
+| Selection | `select`, `radio`, `checkboxes`, `lookup` |
 | Boolean | `boolean` |
 | Structural | `section`, `card`, `group`, `fieldset`, `blocks`, `array`, `list` |
 | Reference | `reference`, `single_reference`, `media`, `virtual_table` |

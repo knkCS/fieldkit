@@ -15,7 +15,7 @@ Where fieldkit's catalogue stands against the field types knkCMS core registers,
 
 Core stores `settings` as free-form JSON. A missing Go `Settings` struct does **not** mean "no settings" — it means Go ignores them and React reads them, so both columns matter. Two types below have settings in one place only.
 
-**Counts: core 27, fieldkit 27, 21 ids shared** — `toc_reference` left fieldkit on 2026-08-04 (ADR-0010), taking a shared id with it, and `single_reference` arrived to keep the total at 27.
+**Counts: core 27, fieldkit 28, 21 ids shared** — `toc_reference` left fieldkit on 2026-08-04 (ADR-0010), taking a shared id with it, and `single_reference` arrived to keep the total at 27. `lookup` then arrived (ADR-0015) and is fieldkit-only: it has no core counterpart, and none is implied — a Source is whatever a Consumer registers, so core would register its own rather than gain a field type.
 
 ## A. Compatible — no work
 
@@ -116,7 +116,7 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 
 ## D. fieldkit-only
 
-`blocks`, `card`, `email`, `slug`, `url` — unreachable from an xml-to-blueprint derivation today. `email`/`url`/`slug` are plausible future core additions; `card` is entangled with B4.
+`blocks`, `card`, `email`, `lookup`, `slug`, `url` — unreachable from an xml-to-blueprint derivation today. `email`/`url`/`slug` are plausible future core additions; `card` is entangled with B4. `lookup` is different in kind: it is not a core type waiting to be matched, because what it points at is whatever Source a Consumer registers (**ADR-0015**), so core would register Sources rather than grow a field type.
 
 ## Decided — do not re-open
 
@@ -129,6 +129,7 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 | Should the reference picker know about status/assignee? | No — the adapter describes its filters and columns as Specs (**ADR-0009**) |
 | Should fieldkit keep `toc_reference`? | No — it moved to the Consumer on 2026-08-04; fieldkit exports `createReferencePlugin()` (**ADR-0010**) |
 | Who decides a setting is unsafe to change? | The Consumer, via `locked_settings` (**ADR-0011**) |
+| Should a pointer at another service's row be a Reference? | No — `lookup`, keyed by Source, storing a bare id (**ADR-0015**) |
 
 ## Pending decisions not yet in code
 

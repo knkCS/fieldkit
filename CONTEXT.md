@@ -113,7 +113,9 @@ _Avoid_: auto-expand, hover-expand, unfold
 
 **Find**:
 Locating a Reference the tree already holds, by what its row shows for the Content it points at — the Content's name, or the raw id shown in place of one. Matching folds diacritics and ignores case, so what an Author can read off a row they can type back in. Distinct from the catalogue browse the picker opens, which looks outward for a Content to add — that one is the Adapter's `search`, and a Reference Field has both.
-_Avoid_: search (that's the catalogue browse), filter, lookup
+_Avoid_: search (that's the catalogue browse), filter
+
+> Find and Lookup are the pair: **Find looks inward** at the tree already held, **Lookup looks outward** at a Source. Neither is "search" — that word is the Adapter method both of them are not.
 
 **Reveal**:
 A Reference being brought into view: every fold above it opened, and the row itself shown and marked. Where a Spring opens a fold because a drag rested on it, a Reveal opens one because someone named the Reference — so a Spring is a preview and folds back, and a Reveal is not and does not.
@@ -130,6 +132,16 @@ _Avoid_: publication, tag, release version
 **Pin**:
 The Version or Release one Reference is fixed to. Whether a Reference Field pins at all, and to which of the two, is settled once per Field; which target is settled per Reference. A Reference with no Pin resolves to the Content's newest Version, which is also what a Reference falls back to when its Field stops pinning.
 _Avoid_: lock, freeze, snapshot
+
+## Lookups
+
+**Lookup**:
+The field type holding exactly one id from a Source, or none. Distinct from a Reference, which points at a Content — a Lookup points at something with no Blueprint, no Versions and no Releases, so it carries no Pin and no Attributes and its value is a bare id string (ADR-0015). Paired with Find: **Find looks inward** at the tree already held, **Lookup looks outward** at a Source.
+_Avoid_: reference, relation, external reference
+
+**Source**:
+One external collection a Lookup may point into, registered by the Consumer under an id its Fields name. Fieldkit knows only how to ask a Source — what is in one, where it lives and what it is called are the Consumer's alone.
+_Avoid_: catalogue (that word already means both the field-type catalogue and the catalogue browse over Contents), collection, provider, registry
 
 ## Authoring
 
