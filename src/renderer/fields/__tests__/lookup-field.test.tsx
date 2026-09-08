@@ -2,6 +2,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
@@ -442,5 +443,46 @@ describe("LookupField", () => {
 				ACCESSOR,
 			),
 		);
+	});
+
+	it("reports an abandoned resolution once, not once per attempt", async () => {
+		const onError = vi.fn();
+		const source = createFakeLookupSource({
+			failResolve: new Error("layout service is down"),
+		});
+		// Under StrictMode the select's resolve effect runs, is cleaned up, and
+		// runs again, so one failing Source is asked twice for one visible
+		// attempt. A Consumer showing a toast per `onError` must not see the
+		// abandoned one. `SingleReferenceField` pins the same claim — the two
+		// pickers differ nowhere.
+		function Harness() {
+			const field = makeField();
+			const methods = useForm({ defaultValues: { [ACCESSOR]: "sheet-2" } });
+			return (
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider
+						plugins={builtInFieldTypes}
+						adapters={{ lookup: { [SOURCE]: source } }}
+						onError={onError}
+					>
+						<FormProvider {...methods}>
+							<FieldComponent field={field} />
+						</FormProvider>
+					</FieldKitProvider>
+				</ChakraProvider>
+			);
+		}
+
+		render(
+			<StrictMode>
+				<Harness />
+			</StrictMode>,
+		);
+
+		// Asked twice — the double-invoke really happened, so the assertion below
+		// is about the guard and not about StrictMode failing to double-invoke.
+		await waitFor(() => expect(source.resolves).toHaveLength(2));
+		await waitFor(() => expect(onError).toHaveBeenCalled());
+		expect(onError).toHaveBeenCalledTimes(1);
 	});
 });

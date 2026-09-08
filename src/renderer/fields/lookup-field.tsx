@@ -115,6 +115,7 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 		async ({
 			query,
 			cursor,
+			signal,
 		}: LookupSearchArgs): Promise<LookupPage<LookupOption>> => {
 			// Unreachable while a Source is configured — the degrade paths below
 			// return before the control is rendered — but the callback is built
@@ -159,10 +160,20 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 						options.length > 0 && seen < total ? String(page + 1) : null,
 				};
 			} catch (error) {
-				// Reported here and re-thrown: the Consumer hears about the failure
-				// on its own channel, and the atom still turns it into the failure
-				// line in the menu.
-				report(error);
+				// Reported and re-thrown: the Consumer hears about the failure on its
+				// own channel, and the atom still turns it into the failure line in
+				// the menu.
+				//
+				// Not reported once the atom has abandoned this request, though: a
+				// superseded answer is not a failure anyone can act on. It bites when
+				// a request is still *in flight* as a newer one supersedes it — a slow
+				// Source under fast typing — and not for one that rejects as fast as a
+				// promise can, which nothing has superseded by the time it fails. The
+				// Source's own request is not cancelled by any of this — nothing on
+				// `LookupSearchQuery` can carry a signal (ADR-0015) — so the answer is
+				// discarded rather than the call stopped. `SingleReferenceField` guards
+				// its own the same way; the two pickers differ nowhere.
+				if (!signal.aborted) report(error);
 				throw error;
 			}
 		},
@@ -170,13 +181,15 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 	);
 
 	const resolve = useCallback(
-		async ({ ids }: LookupResolveArgs): Promise<LookupOption[]> => {
+		async ({ ids, signal }: LookupResolveArgs): Promise<LookupOption[]> => {
 			const resolveByIds = source?.resolveByIds;
 			if (!resolveByIds) return [];
 			try {
 				return (await resolveByIds(ids)).map(toOption);
 			} catch (error) {
-				report(error);
+				// A StrictMode double-invoke aborts the first pass; without this
+				// guard one failing Source reports twice for one visible attempt.
+				if (!signal.aborted) report(error);
 				// The atom keeps the raw id on screen and forgets the attempt, so a
 				// later change to the value can try again.
 				throw error;
