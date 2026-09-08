@@ -221,6 +221,31 @@ describe("LookupField", () => {
 		expect(source.searches).toHaveLength(2);
 	});
 
+	it("does not ask for a page past the end of an exactly-full one", async () => {
+		const user = userEvent.setup();
+		// Exactly one page: the boundary where an off-by-one asks for a page two
+		// that does not exist, and the Source cannot say so because it is never
+		// reached with a wrong offset — only the call count shows it.
+		const source = createFakeLookupSource({
+			items: fakeLookupCollection(50),
+		});
+		const { control } = renderField({ source });
+
+		await user.click(control());
+		expect(await screen.findByText("Stylesheet 50")).toBeInTheDocument();
+
+		const listbox = screen.getByRole("listbox");
+		setScrollGeometry(listbox, {
+			scrollTop: 300,
+			scrollHeight: 400,
+			clientHeight: 100,
+		});
+		fireEvent.scroll(listbox);
+		await new Promise((resolve) => setTimeout(resolve, 60));
+
+		expect(source.searches).toHaveLength(1);
+	});
+
 	it("reads a stored id as its label, through the Source's resolver", async () => {
 		const source = createFakeLookupSource();
 		renderField({ source, value: "sheet-2" });
