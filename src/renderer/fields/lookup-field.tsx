@@ -66,6 +66,10 @@ const LookupOptionRow = ({
 );
 LookupOptionRow.displayName = "LookupOptionRow";
 
+/** Hoisted for the same reason the row itself is: a fresh object every render
+ * is a fresh `components` map for react-select to work through. */
+const LOOKUP_COMPONENTS = { Option: LookupOptionRow };
+
 /**
  * Exactly one id, picked from the Source this Field names.
  *
@@ -218,7 +222,7 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 						// and never a label (ADR-0015).
 						formField.onChange(option?.id ?? null);
 					}}
-					components={{ Option: LookupOptionRow }}
+					components={LOOKUP_COMPONENTS}
 					placeholder="Search…"
 				/>
 			)}

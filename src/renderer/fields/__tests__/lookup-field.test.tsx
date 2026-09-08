@@ -277,6 +277,14 @@ describe("LookupField", () => {
 		);
 	});
 
+	it("cannot be changed in read-only mode", async () => {
+		const { control } = renderField({ value: "sheet-1", readOnly: true });
+
+		// The label still resolves — reading is what read mode is for.
+		expect(await screen.findByText("Boorberg print")).toBeInTheDocument();
+		expect(control()).toBeDisabled();
+	});
+
 	it("says so, rather than throwing, when the named Source is not registered", async () => {
 		renderField({
 			adapters: { lookup: { "print:printer": createFakeLookupSource() } },
