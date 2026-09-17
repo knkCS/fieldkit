@@ -356,10 +356,10 @@ are the two built-in cases — drills into it through that **same**
 Back-and-frames mechanism rather than a nested editor of its own: a Spec
 held in a **settings key** calls `onDrillIn(settingsKey, accessor)` from
 `SettingsProps`, and the panel never learns which setting of which field
-type holds Fields; a Spec held in the field's own **`children`** (a Virtual
-Table's columns, ADR-0017) calls `onDrillIntoChild(accessor)` and writes the
+type holds Fields; a Spec held in the field's own **`children`** (the Fields
+of an embedded Row Spec, ADR-0017) calls `onDrillIntoChild(accessor)` and writes the
 list back through `onChildrenChange(children)` — the same frame the Children
-list pushes, so a column drilled into from Type settings is the drill-in a
+list pushes, so a row field drilled into from Type settings is the drill-in a
 group child gets. `onChildrenChange` is the only channel a settings editor
 has to the field itself; `onChange` writes settings and nothing else. A drilled field resolves its **own** plugin's settings
 UI when `SpecEditor` supplied the registry (it always does), so a drilled
@@ -805,7 +805,7 @@ every edit) is replaced by the draft session described above:
   (drill-in only) lets you *edit* an existing child field's config, but
   there is no in-editor way to add or remove a group's children — author
   those via `defineSpec()` / hand-authored `Field[]` up front. A Virtual
-  Table's embedded Row Spec is the exception: its columns are added and
+  Table's embedded Row Spec is the exception: its row fields are added and
   removed in the Type settings tab, which is where its Row Spec is chosen.
 - **No condition-editing UI.** `FieldCondition` exists on the schema type,
   but the renderer doesn't evaluate conditions yet, so an authoring UI for
@@ -832,10 +832,10 @@ each `onCommit` call.
 ### Virtual Table Row Spec
 
 Two Virtual Tables, one embedded and one linked (ADR-0017). Select
-`Line items` → **Type settings** to author columns (only the flat value
-types a row may hold are offered), or `Deliveries` to see the linked
+`Line items` → **Type settings** to author the row's fields (only the flat
+value types a row may hold are offered), or `Deliveries` to see the linked
 Blueprint. Switching a field between the two clears the other side, asking
-first where authored columns would be discarded. This story registers a
+first where an authored Row Spec would be discarded. This story registers a
 blueprint adapter; without one, only the embedded option is offered.
 
 <Canvas of={Stories.VirtualTableRowSpec} />

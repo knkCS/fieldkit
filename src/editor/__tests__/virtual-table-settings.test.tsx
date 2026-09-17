@@ -9,9 +9,11 @@ import { FieldKitProvider } from "../../renderer/provider";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { FieldTypePlugin } from "../../schema/plugin";
-import type { Field, Schema } from "../../schema/types";
+import type { Field, LockedSetting, Schema } from "../../schema/types";
+import { validateSpec } from "../../schema/validate-spec";
 import { EditorCanvas } from "../editor-canvas";
 import { FieldConfigPanel } from "../field-config-panel";
+import { SettingLockProvider } from "../field-settings/setting-lock";
 import { VirtualTableSettingsEditor } from "../field-settings/virtual-table-settings";
 import { DEFAULT_EDITOR_LABELS } from "../spec-editor";
 import { useSpecDraft } from "../use-spec-draft";
@@ -49,7 +51,7 @@ function lineItems(
 	};
 }
 
-function column(accessor: string, fieldType = "text"): Field {
+function rowField(accessor: string, fieldType = "text"): Field {
 	return {
 		field_type: fieldType,
 		config: {
@@ -69,12 +71,14 @@ function renderEditor({
 	adapters = {},
 	plugins = builtInFieldTypes,
 	withChildrenChannel = true,
+	locked,
 }: {
 	settings?: VirtualTableSettings | null;
 	children?: Field[];
 	adapters?: FieldKitAdapters;
 	plugins?: FieldTypePlugin[];
 	withChildrenChannel?: boolean;
+	locked?: LockedSetting[];
 } = {}) {
 	const onChange = vi.fn();
 	const onChildrenChange = vi.fn();
@@ -109,7 +113,9 @@ function renderEditor({
 		<ChakraProvider value={defaultSystem}>
 			<ConfirmModalProvider>
 				<FieldKitProvider plugins={plugins} adapters={adapters}>
-					<Harness />
+					<SettingLockProvider locked={locked}>
+						<Harness />
+					</SettingLockProvider>
 				</FieldKitProvider>
 			</ConfirmModalProvider>
 		</ChakraProvider>,
@@ -122,45 +128,47 @@ describe("VirtualTableSettingsEditor — choosing the Row Spec", () => {
 	it("offers only an embedded Row Spec when no blueprint adapter is registered", () => {
 		renderEditor();
 
-		expect(screen.getByLabelText(/Columns in this field/)).toBeChecked();
-		expect(screen.queryByLabelText(/Linked blueprint/)).not.toBeInTheDocument();
+		expect(screen.getByLabelText("Declared in this field")).toBeChecked();
+		expect(
+			screen.queryByLabelText("A linked blueprint"),
+		).not.toBeInTheDocument();
 	});
 
 	it("offers both ways when the Consumer registers a blueprint adapter", () => {
 		renderEditor({ adapters: blueprintAdapters() });
 
-		expect(screen.getByLabelText(/Linked blueprint/)).toBeInTheDocument();
-		expect(screen.getByLabelText(/Columns in this field/)).toBeInTheDocument();
+		expect(screen.getByLabelText("A linked blueprint")).toBeInTheDocument();
+		expect(screen.getByLabelText("Declared in this field")).toBeInTheDocument();
 	});
 
 	it("keeps the linked option for a Field that already links one", () => {
 		renderEditor({ settings: { blueprint: "line_item_bp" } });
 
-		expect(screen.getByLabelText(/Linked blueprint/)).toBeChecked();
+		expect(screen.getByLabelText("A linked blueprint")).toBeChecked();
 	});
 
 	it("reads an embedded Row Spec off the Field's own children", () => {
 		renderEditor({
 			adapters: blueprintAdapters(),
-			children: [column("description"), column("quantity", "number")],
+			children: [rowField("description"), rowField("quantity", "number")],
 		});
 
-		expect(screen.getByLabelText(/Columns in this field/)).toBeChecked();
+		expect(screen.getByLabelText("Declared in this field")).toBeChecked();
 		expect(
-			screen.getByTestId("virtual-table-column-description"),
+			screen.getByTestId("virtual-table-row-field-description"),
 		).toBeInTheDocument();
 		expect(
-			screen.getByTestId("virtual-table-column-quantity"),
+			screen.getByTestId("virtual-table-row-field-quantity"),
 		).toBeInTheDocument();
 	});
 });
 
-describe("VirtualTableSettingsEditor — authoring embedded columns", () => {
+describe("VirtualTableSettingsEditor — authoring an embedded Row Spec", () => {
 	it("offers only the flat value types a Row Spec may hold", async () => {
 		const user = userEvent.setup();
 		renderEditor();
 
-		await user.click(screen.getByLabelText("Add column"));
+		await user.click(screen.getByLabelText("Add row field"));
 
 		// A flat value type is on offer…
 		expect(await screen.findByTestId("type-option-text")).toBeInTheDocument();
@@ -186,11 +194,11 @@ describe("VirtualTableSettingsEditor — authoring embedded columns", () => {
 		}
 	});
 
-	it("adds the picked column and drills straight into it", async () => {
+	it("adds the picked row field and drills straight into it", async () => {
 		const user = userEvent.setup();
 		const { onChildrenChange, onDrillIntoChild } = renderEditor();
 
-		await user.click(screen.getByLabelText("Add column"));
+		await user.click(screen.getByLabelText("Add row field"));
 		await user.click(await screen.findByTestId("type-option-text"));
 
 		expect(onChildrenChange).toHaveBeenCalledTimes(1);
@@ -200,29 +208,29 @@ describe("VirtualTableSettingsEditor — authoring embedded columns", () => {
 		expect(onDrillIntoChild).toHaveBeenCalledWith(added[0].config.api_accessor);
 	});
 
-	it("removes a column the Author drops", async () => {
+	it("removes a row field the Author drops", async () => {
 		const user = userEvent.setup();
 		const { onChildrenChange } = renderEditor({
-			children: [column("description"), column("quantity", "number")],
+			children: [rowField("description"), rowField("quantity", "number")],
 		});
 
 		await user.click(screen.getByLabelText("Remove description"));
 
 		expect(onChildrenChange).toHaveBeenLastCalledWith([
-			column("quantity", "number"),
+			rowField("quantity", "number"),
 		]);
 	});
 });
 
 describe("VirtualTableSettingsEditor — switching between the two", () => {
-	it("clears the blueprint when the Author switches to embedded columns", async () => {
+	it("clears the blueprint when the Author switches to declaring the fields here", async () => {
 		const user = userEvent.setup();
 		const { onChange } = renderEditor({
 			settings: { blueprint: "line_item_bp", max_records_per_page: 25 },
 			adapters: blueprintAdapters(),
 		});
 
-		await user.click(screen.getByLabelText(/Columns in this field/));
+		await user.click(screen.getByText("Declared in this field"));
 
 		expect(onChange).toHaveBeenLastCalledWith({
 			blueprint: undefined,
@@ -230,13 +238,13 @@ describe("VirtualTableSettingsEditor — switching between the two", () => {
 		});
 	});
 
-	it("asks before discarding authored columns, then clears them", async () => {
+	it("asks before discarding an authored Row Spec, then clears it", async () => {
 		const { onChildrenChange } = renderEditor({
-			children: [column("description")],
+			children: [rowField("description")],
 			adapters: blueprintAdapters(),
 		});
 
-		fireEvent.click(screen.getByLabelText(/Linked blueprint/));
+		fireEvent.click(screen.getByText("A linked blueprint"));
 
 		const confirmButton = await screen.findByRole("button", {
 			name: "Discard and link",
@@ -246,16 +254,16 @@ describe("VirtualTableSettingsEditor — switching between the two", () => {
 		});
 
 		expect(onChildrenChange).toHaveBeenLastCalledWith([]);
-		expect(screen.getByLabelText(/Linked blueprint/)).toBeChecked();
+		expect(screen.getByLabelText("A linked blueprint")).toBeChecked();
 	});
 
-	it("keeps the columns when the Author cancels", async () => {
+	it("keeps the row fields when the Author cancels", async () => {
 		const { onChildrenChange } = renderEditor({
-			children: [column("description")],
+			children: [rowField("description")],
 			adapters: blueprintAdapters(),
 		});
 
-		fireEvent.click(screen.getByLabelText(/Linked blueprint/));
+		fireEvent.click(screen.getByText("A linked blueprint"));
 
 		const cancelButton = await screen.findByRole("button", { name: "Cancel" });
 		await act(async () => {
@@ -263,32 +271,77 @@ describe("VirtualTableSettingsEditor — switching between the two", () => {
 		});
 
 		expect(onChildrenChange).not.toHaveBeenCalled();
-		expect(screen.getByLabelText(/Columns in this field/)).toBeChecked();
+		expect(screen.getByLabelText("Declared in this field")).toBeChecked();
 	});
 
-	it("does not ask when there are no columns to discard", async () => {
+	it("does not ask, or write, when there is nothing to discard", async () => {
 		const user = userEvent.setup();
-		const { onChildrenChange } = renderEditor({
+		const { onChange, onChildrenChange } = renderEditor({
 			adapters: blueprintAdapters(),
 		});
 
-		await user.click(screen.getByLabelText(/Linked blueprint/));
+		await user.click(screen.getByText("A linked blueprint"));
 
 		expect(
 			screen.queryByRole("button", { name: "Discard and link" }),
 		).not.toBeInTheDocument();
-		expect(onChildrenChange).toHaveBeenLastCalledWith([]);
-		expect(screen.getByLabelText(/Linked blueprint/)).toBeChecked();
+		// Nothing to clear on either side, so nothing is written: a mode the
+		// Author has not acted on yet must not dirty the draft.
+		expect(onChildrenChange).not.toHaveBeenCalled();
+		expect(onChange).not.toHaveBeenCalled();
+		expect(screen.getByLabelText("A linked blueprint")).toBeChecked();
 	});
 
-	it("cannot switch where the Field's children cannot be written", () => {
+	it("cannot link away from a Row Spec it has no way to discard", () => {
+		// A settings editor mounted outside the config panel: it can read the
+		// Field's children but not write them, so the switch that would discard
+		// them is refused rather than offered and silently half-applied.
 		renderEditor({
 			adapters: blueprintAdapters(),
+			children: [rowField("description")],
 			withChildrenChannel: false,
 		});
 
-		expect(screen.getByLabelText(/Linked blueprint/)).toBeDisabled();
-		expect(screen.getByLabelText(/Columns in this field/)).toBeDisabled();
+		expect(screen.getByLabelText("A linked blueprint")).toBeDisabled();
+		// Declaring the fields here only clears a setting, so it stays open.
+		expect(screen.getByLabelText("Declared in this field")).not.toBeDisabled();
+	});
+});
+
+describe("VirtualTableSettingsEditor — a frozen Blueprint", () => {
+	const FROZEN: LockedSetting[] = [
+		{ key: "blueprint", reason: "The row spec is fixed by the service." },
+	];
+
+	it("freezes the choice of Row Spec, and the fields an embedded one holds", () => {
+		renderEditor({
+			adapters: blueprintAdapters(),
+			children: [rowField("description")],
+			locked: FROZEN,
+		});
+
+		// Freezing the Blueprint freezes the CHOICE (ADR-0011) — and with it
+		// every write that changes which way the Row Spec is declared.
+		expect(screen.getByLabelText("A linked blueprint")).toBeDisabled();
+		expect(screen.getByLabelText("Declared in this field")).toBeDisabled();
+		expect(screen.getByLabelText("Add row field")).toBeDisabled();
+		expect(screen.getByLabelText("Remove description")).toBeDisabled();
+		expect(
+			screen.getByText("The row spec is fixed by the service."),
+		).toBeInTheDocument();
+	});
+
+	it("still lets the Author configure a row field it holds", () => {
+		renderEditor({
+			children: [rowField("description")],
+			locked: FROZEN,
+		});
+
+		// Configuring one is not a write to the Row Spec's shape; that Field's
+		// own settings are its own to freeze.
+		expect(
+			screen.getByTestId("virtual-table-row-field-edit-description"),
+		).not.toBeDisabled();
 	});
 });
 
@@ -335,17 +388,25 @@ describe("VirtualTableSettingsEditor — the caps", () => {
 describe("a Virtual Table in the config panel", () => {
 	function PanelHarness({
 		onFieldChange,
+		initial = lineItems({}),
 	}: {
 		onFieldChange: (f: Field) => void;
+		initial?: Field;
 	}) {
-		const [field, setField] = useState<Field>(lineItems({}));
+		const [field, setField] = useState<Field>(initial);
+		// The very errors SpecEditor feeds the panel, from the real validator
+		// rather than a hand-written list.
+		const { fieldErrors } = validateSpec(
+			[field],
+			new Map(builtInFieldTypes.map((p) => [p.id, p])),
+		);
 		return (
 			<ConfirmModalProvider>
 				<FieldConfigPanel
 					field={field}
 					plugin={builtInFieldTypes.find((p) => p.id === "virtual_table")}
 					draft={[field]}
-					fieldErrors={[]}
+					fieldErrors={fieldErrors}
 					onFieldChange={(next) => {
 						onFieldChange(next);
 						setField(next);
@@ -360,21 +421,26 @@ describe("a Virtual Table in the config panel", () => {
 		);
 	}
 
-	it("writes an added column into the Field's children", async () => {
-		const user = userEvent.setup();
+	function renderPanel(initial?: Field) {
 		const onFieldChange = vi.fn();
 		render(
 			<ChakraProvider value={defaultSystem}>
 				<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
-					<PanelHarness onFieldChange={onFieldChange} />
+					<PanelHarness onFieldChange={onFieldChange} initial={initial} />
 				</FieldKitProvider>
 			</ChakraProvider>,
 		);
+		return onFieldChange;
+	}
+
+	it("writes an added row field into the Field's children", async () => {
+		const user = userEvent.setup();
+		const onFieldChange = renderPanel();
 
 		await user.click(
 			screen.getByRole("tab", { name: DEFAULT_EDITOR_LABELS.panelTabType }),
 		);
-		await user.click(screen.getByLabelText("Add column"));
+		await user.click(screen.getByLabelText("Add row field"));
 		await user.click(await screen.findByTestId("type-option-text"));
 
 		const next = onFieldChange.mock.calls.at(-1)?.[0] as Field;
@@ -382,6 +448,31 @@ describe("a Virtual Table in the config panel", () => {
 		expect(next.children?.[0].field_type).toBe("text");
 		// …and the panel drilled into it, so the Author names it straight away.
 		expect(screen.getByTestId("panel-back")).toBeInTheDocument();
+	});
+
+	it("surfaces the missing-Row-Spec error where the Row Spec is chosen", () => {
+		renderPanel();
+
+		expect(screen.getByTestId("panel-field-errors")).toHaveTextContent(
+			/has no Row Spec/,
+		);
+	});
+
+	it("surfaces a row field of a type a Row Spec may not hold", () => {
+		// Hand-authored, since the picker will not offer a container: the Author
+		// still has to be told why the draft will not save, and the canvas only
+		// outlines top-level shells — this error names the row field.
+		renderPanel(lineItems({}, [rowField("addresses", "group")]));
+
+		expect(screen.getByTestId("panel-field-errors")).toHaveTextContent(
+			/is not allowed in a Row Spec/,
+		);
+	});
+
+	it("says nothing about a Field whose Row Spec is sound", () => {
+		renderPanel(lineItems({}, [rowField("description")]));
+
+		expect(screen.queryByTestId("panel-field-errors")).not.toBeInTheDocument();
 	});
 });
 
@@ -421,7 +512,7 @@ describe("a Virtual Table with no Row Spec on the canvas", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
 				<FieldKitProvider plugins={plugins} adapters={{}}>
-					<Harness schema={[lineItems({}), column("title")]} />
+					<Harness schema={[lineItems({}), rowField("title")]} />
 				</FieldKitProvider>
 			</ChakraProvider>,
 		);

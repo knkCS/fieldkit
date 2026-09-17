@@ -522,6 +522,28 @@ export function FieldConfigPanel({
 				e.accessor === activeField.config.api_accessor,
 		)?.message ?? null;
 
+	/**
+	 * Everything else `validateSpec()` says about the Field in front of the
+	 * Author — its own errors, and those of the Fields it holds.
+	 *
+	 * The duplicate-accessor banner below has its own surface (it also puts the
+	 * panel read-only), so it is not repeated here. The children are included
+	 * because some rules report against a CHILD's accessor while the thing to
+	 * fix is the parent's: a Virtual Table whose Row Spec holds a type no cell
+	 * can draw is flagged at that row Field (ADR-0017), and the canvas — which
+	 * outlines top-level shells — has nowhere to show it. The panel does: the
+	 * Row Spec is chosen here.
+	 */
+	const childAccessors = new Set(
+		(activeField.children ?? []).map((c) => c.config.api_accessor),
+	);
+	const fieldNotices = fieldErrors.filter(
+		(e) =>
+			e.code !== "duplicate_accessor" &&
+			(e.accessor === activeField.config.api_accessor ||
+				childAccessors.has(e.accessor)),
+	);
+
 	// F2: a consumer-supplied schema can contain duplicate accessors — exactly
 	// the state validateSpec flags via the `duplicate_accessor` fieldError
 	// found above. Selection and updateField key on accessor alone elsewhere
@@ -733,6 +755,31 @@ export function FieldConfigPanel({
 							<Text fontSize="xs" fontWeight="semibold" color="danger.600">
 								{accessorError}
 							</Text>
+						</Box>
+					)}
+
+					{/* Above the strip, for the duplicate banner's reason: what makes
+					    a Field invalid must be readable from ANY tab, and the fix
+					    (choosing a Row Spec, changing a row Field's type) lives in
+					    one of them. */}
+					{fieldNotices.length > 0 && (
+						<Box
+							borderWidth="1px"
+							borderColor="danger.600"
+							borderRadius="md"
+							p="2"
+							mb="4"
+							data-testid="panel-field-errors"
+						>
+							{fieldNotices.map((notice) => (
+								<Text
+									key={`${notice.code}:${notice.accessor}`}
+									fontSize="xs"
+									color="danger.600"
+								>
+									{notice.message}
+								</Text>
+							))}
 						</Box>
 					)}
 

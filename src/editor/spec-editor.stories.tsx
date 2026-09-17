@@ -114,13 +114,13 @@ const addressBlueprint: Schema = [
 ];
 
 // The two ways a Virtual Table declares its Row Spec (ADR-0017), side by side
-// as an Author authors them in the Type settings tab: `line_items` embeds its
-// columns in the Field's own children, `deliveries` links a Blueprint. Neither
+// as an Author authors them in the Type settings tab: `line_items` declares the
+// row's Fields in its own children, `deliveries` links a Blueprint. Neither
 // carries the other side — a Field with both is a Spec validateSpec refuses.
 function virtualTableField(
 	accessor: string,
 	name: string,
-	rowSpec: { blueprint: string } | { columns: Field[] },
+	rowSpec: { blueprint: string } | { fields: Field[] },
 ): Field {
 	const linked = "blueprint" in rowSpec;
 	return {
@@ -131,14 +131,14 @@ function virtualTableField(
 			...(linked ? { blueprint: rowSpec.blueprint } : {}),
 		},
 		system: false,
-		children: linked ? undefined : rowSpec.columns,
+		children: linked ? undefined : rowSpec.fields,
 	};
 }
 
 const virtualTableSpec: Schema = [
 	text("reference", { name: "Reference", required: true }),
 	virtualTableField("line_items", "Line items", {
-		columns: [
+		fields: [
 			text("description", { name: "Description", required: true }),
 			number("quantity", { name: "Quantity", min: 1 }),
 			number("unit_price", { name: "Unit price", min: 0 }),
@@ -367,15 +367,16 @@ export const VirtualTableRowSpec: Story = {
 					Two <strong>Virtual Tables</strong>, one per way of declaring a{" "}
 					<strong>Row Spec</strong>. Select <code>Line items</code> and open{" "}
 					<strong>Type settings</strong>: its Row Spec is <em>embedded</em> —
-					the columns are authored in the field itself, and the type picker
+					the row's fields are authored in the field itself, and the type picker
 					there offers only the flat value types a row may hold (no Group, no
 					Fieldset, no Marker, no nested Virtual Table). <code>Deliveries</code>{" "}
 					is <em>linked</em> instead: its rows come from the{" "}
 					<code>delivery_bp</code> Blueprint, offered here because this story
 					registers a blueprint adapter — without one, only the embedded option
 					appears. Switching a field between the two clears the other side, and
-					asks first where authored columns would be discarded, because a field
-					carrying both is a spec <code>validateSpec()</code> refuses.
+					asks first where an authored Row Spec would be discarded, because a
+					field carrying both is a spec <code>validateSpec()</code> refuses. A
+					field with no Row Spec at all says so in the panel, above the tabs.
 				</>
 			}
 		/>
