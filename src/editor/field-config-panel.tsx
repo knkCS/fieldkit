@@ -49,6 +49,18 @@ export interface PanelSectionProps {
 	 * else does.
 	 */
 	onDrillIn: (settingsKey: string, accessor: string) => void;
+	/**
+	 * Opens the panel's drill-in on one of this Field's own `children`, keyed
+	 * by that child's Accessor.
+	 *
+	 * `onDrillIn`'s twin for a Spec authored in `children` rather than in a
+	 * settings key — a Virtual Table's embedded Row Spec (ADR-0017). The group
+	 * children list in the General body pushes the very same frame; both go
+	 * through this one function so a child drilled into from the Type settings
+	 * tab is the same frame, with the same frozen baseline, as one drilled into
+	 * from the list.
+	 */
+	onDrillIntoChild: (accessor: string) => void;
 	/** Every registered field type, for a settings editor that offers a type
 	 * picker of its own. Absent when the panel was given no registry. */
 	plugins?: FieldTypePlugin[];
@@ -510,6 +522,28 @@ export function FieldConfigPanel({
 				e.accessor === activeField.config.api_accessor,
 		)?.message ?? null;
 
+	/**
+	 * Everything else `validateSpec()` says about the Field in front of the
+	 * Author — its own errors, and those of the Fields it holds.
+	 *
+	 * The duplicate-accessor banner below has its own surface (it also puts the
+	 * panel read-only), so it is not repeated here. The children are included
+	 * because some rules report against a CHILD's accessor while the thing to
+	 * fix is the parent's: a Virtual Table whose Row Spec holds a type no cell
+	 * can draw is flagged at that row Field (ADR-0017), and the canvas — which
+	 * outlines top-level shells — has nowhere to show it. The panel does: the
+	 * Row Spec is chosen here.
+	 */
+	const childAccessors = new Set(
+		(activeField.children ?? []).map((c) => c.config.api_accessor),
+	);
+	const fieldNotices = fieldErrors.filter(
+		(e) =>
+			e.code !== "duplicate_accessor" &&
+			(e.accessor === activeField.config.api_accessor ||
+				childAccessors.has(e.accessor)),
+	);
+
 	// F2: a consumer-supplied schema can contain duplicate accessors — exactly
 	// the state validateSpec flags via the `duplicate_accessor` fieldError
 	// found above. Selection and updateField key on accessor alone elsewhere
@@ -554,6 +588,17 @@ export function FieldConfigPanel({
 		]);
 	}
 
+	/** Pushes a frame onto one of the ACTIVE field's own `children`. Shared by
+	 * the group children list below and by a settings editor that authors a
+	 * Spec in `children` (a Virtual Table's embedded Row Spec), so neither can
+	 * push a frame the other would not recognise. */
+	function drillIntoChild(accessor: string) {
+		setDrillStack((s) => [
+			...s,
+			{ accessor, baselineAccessor: accessor, holder: CHILDREN },
+		]);
+	}
+
 	const sectionProps: PanelSectionProps = {
 		field: activeField,
 		plugin: activePlugin,
@@ -563,6 +608,7 @@ export function FieldConfigPanel({
 		committedAccessors,
 		labels,
 		onDrillIn: drillIntoSettings,
+		onDrillIntoChild: drillIntoChild,
 		plugins,
 	};
 
@@ -712,6 +758,31 @@ export function FieldConfigPanel({
 						</Box>
 					)}
 
+					{/* Above the strip, for the duplicate banner's reason: what makes
+					    a Field invalid must be readable from ANY tab, and the fix
+					    (choosing a Row Spec, changing a row Field's type) lives in
+					    one of them. */}
+					{fieldNotices.length > 0 && (
+						<Box
+							borderWidth="1px"
+							borderColor="danger.600"
+							borderRadius="md"
+							p="2"
+							mb="4"
+							data-testid="panel-field-errors"
+						>
+							{fieldNotices.map((notice) => (
+								<Text
+									key={`${notice.code}:${notice.accessor}`}
+									fontSize="xs"
+									color="danger.600"
+								>
+									{notice.message}
+								</Text>
+							))}
+						</Box>
+					)}
+
 					{/* The tab strip (spec Decisions 2–4). Structure order: banner
 					    ABOVE the strip (rendered just before this Tabs.Root, so it
 					    is visible from any tab), strip, body. All three bodies
@@ -787,21 +858,14 @@ export function FieldConfigPanel({
 												<Button
 													size="xs"
 													variant="ghost"
+													// `drillIntoChild` freezes `baselineAccessor` to the child's
+													// accessor AT THIS MOMENT — the disconnect-warning baseline
+													// for the whole time this frame stays on top of the stack.
+													// `accessor` (the lookup key) starts equal to it but, unlike
+													// `baselineAccessor`, follows subsequent renames — see the
+													// rename-follow logic in `handleActiveFieldChange`.
 													onClick={() =>
-														// Freeze `baselineAccessor` to the child's accessor AT
-														// THIS MOMENT — the disconnect-warning baseline for the
-														// whole time this frame stays on top of the stack. `accessor`
-														// (the lookup key) starts equal to it but, unlike
-														// `baselineAccessor`, follows subsequent renames — see the
-														// rename-follow logic in `handleActiveFieldChange`.
-														setDrillStack((s) => [
-															...s,
-															{
-																accessor: child.config.api_accessor,
-																baselineAccessor: child.config.api_accessor,
-																holder: CHILDREN,
-															},
-														])
+														drillIntoChild(child.config.api_accessor)
 													}
 													data-testid={`panel-child-edit-${child.config.api_accessor}`}
 												>

@@ -25,6 +25,7 @@ export function SettingsSection({
 	onFieldChange,
 	labels,
 	onDrillIn,
+	onDrillIntoChild,
 	plugins,
 }: PanelSectionProps) {
 	const SettingsComponent = plugin?.settingsComponent;
@@ -55,6 +56,14 @@ export function SettingsSection({
 				// the panel's incumbent drill-in rather than a nested editor of its
 				// own — see SettingsProps.onDrillIn.
 				onDrillIn={onDrillIn}
+				// A settings editor whose type authors its Spec in `children`
+				// rather than in a setting (a Virtual Table's embedded Row Spec)
+				// writes it here. `restoreLockedSettings` does not apply: children
+				// are not settings, and what freezing one means for a Row Spec is
+				// the settings editor's own call — it freezes the choice of Row
+				// Spec with the `blueprint` key that names the linked one.
+				onChildrenChange={(children) => onFieldChange({ ...field, children })}
+				onDrillIntoChild={onDrillIntoChild}
 				plugins={plugins}
 			/>
 		</SettingLockProvider>

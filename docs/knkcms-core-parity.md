@@ -27,11 +27,11 @@ Core stores `settings` as free-form JSON. A missing Go `Settings` struct does **
 | `media` | `accept`, `max_items` — identical |
 | `fieldset` | `blueprint`, `collapsible` — identical (ADR-0003) |
 | `list` | `max_items_per_page` — identical (ADR-0005) |
-| `virtual_table` | `blueprint`, `always_latest`, `max_records_per_page` — identical |
+| `virtual_table` | `blueprint`, `always_latest`, `max_records_per_page` — identical; fieldkit adds `min_items`/`max_items` and an embedded Row Spec (ADR-0017) |
 | `code` `color` `markdown` | core free-form; fieldkit adds `language` / `default_color` / `placeholder` |
 | `text` | `placeholder`, `prepend`, `append` — identical |
 
-`virtual_table` is worth a note: core's Go struct also carries `fields`, an inline row schema. It is code-emitted only, the config UI cannot edit it, and the derivation pipeline is instructed never to produce it — so the editable surface really is the three keys fieldkit has.
+`virtual_table` is worth a note: core's Go struct also carries `fields`, an inline row schema. It is code-emitted only, core's config UI cannot edit it, and the derivation pipeline is instructed never to produce it. Fieldkit's editable surface has since grown past those three keys: ADR-0017 made a Row Spec either linked (`settings.blueprint`, as before) or **embedded** in the Field's own `children`, and the Spec editor authors both — so an embedded Row Spec is the shape core emits but cannot edit, and a spec authored in fieldkit may carry one. The caps `min_items`/`max_items` are fieldkit's too, shared with `group` (`row-array.ts`).
 
 `media`, `select` and `virtual_table` matched from the start; `fieldset` and `list` were then built to match deliberately, both citing "so seeded specs migrate without a rewrite". That is the established pattern, and section B is worth holding to it.
 

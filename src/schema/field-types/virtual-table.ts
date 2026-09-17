@@ -1,4 +1,5 @@
 import { Table2 } from "lucide-react";
+import { VirtualTableSettingsEditor } from "../../editor/field-settings/virtual-table-settings";
 import { VirtualTableField } from "../../renderer/fields/virtual-table-field";
 import { DEFAULT_MAX_RECORDS_PER_PAGE } from "../../renderer/fields/virtual-table-rows";
 import { VirtualTableCell } from "../../table/cells/virtual-table-cell";
@@ -27,6 +28,7 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 
 	fieldComponent: VirtualTableField,
 	cellComponent: VirtualTableCell,
+	settingsComponent: VirtualTableSettingsEditor,
 
 	/**
 	 * An array of the row objects the resolved Row Spec describes — the row
