@@ -1,5 +1,6 @@
 import { Table2 } from "lucide-react";
 import { VirtualTableField } from "../../renderer/fields/virtual-table-field";
+import { DEFAULT_MAX_RECORDS_PER_PAGE } from "../../renderer/fields/virtual-table-rows";
 import { VirtualTableCell } from "../../table/cells/virtual-table-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { RowArrayCaps } from "../row-array";
@@ -40,7 +41,9 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 		return rowArrayZodType(field, composeChildren);
 	},
 
-	defaultSettings: { max_records_per_page: 25 },
+	// The same constant the renderer pages by, so a Field saved without the
+	// setting and a Field saved with its default page identically.
+	defaultSettings: { max_records_per_page: DEFAULT_MAX_RECORDS_PER_PAGE },
 
 	defaultValue: () => [],
 

@@ -63,6 +63,7 @@ nested provider is exactly what keeps the two form states apart.
 | Where | Whose values |
 |---|---|
 | `src/table/edit-drawer.tsx` | A row being edited — a self-contained compound component |
+| `src/renderer/fields/virtual-table-row-drawer.tsx` | One Virtual Table row, edited as a **draft**. The values do belong to the consumer's payload in the end, which is exactly why they are collected apart: cancelling a row has to write nothing, and a draft the drawer owns is what makes cancel a discard rather than an undo the consumer's form would have to implement. Only `onSave` moves the row into the Field's array in the form the consumer owns |
 | `src/renderer/fields/reference-picker-drawer.tsx` | The Reference picker's **filter** form. The adapter describes its filters as a Spec (ADR-0009) and fieldkit renders them with its own renderer; the values go straight back to `search()` as an opaque record and must never reach the form the consumer owns |
 | `src/editor/try-it-view.tsx`, `src/editor/editor-canvas.tsx` | The editor's scratch forms — nothing an Author fills in here is ever submitted |
 
@@ -78,14 +79,14 @@ form is separate.
 | Hook/Component | Used In | Purpose |
 |---|---|---|
 | `useFormContext` | All field components, `slug-field` | Access form state from `FormProvider` |
-| `Controller` | `select`, `list`, `media`, `rich-text`, `virtual-table` | Controlled field render-prop |
-| `useWatch` | `reference`, `single-reference`, `reference-picker-drawer` | Read a value without owning the control that writes it |
-| `useFieldArray` | `blocks-field`, `group-field` | Dynamic array management |
-| `useFormState` | `reference-field` | Subscribe to the errors under one name without re-rendering on every keystroke |
+| `Controller` | `select`, `list`, `media`, `rich-text` | Controlled field render-prop |
+| `useWatch` | `reference`, `single-reference`, `reference-picker-drawer`, `virtual-table-field` | Read a value without owning the control that writes it |
+| `useFieldArray` | `blocks-field`, `group-field`, `virtual-table-field` | Dynamic array management |
+| `useFormState` | `reference-field`, `virtual-table-field` | Subscribe to the errors under one name without re-rendering on every keystroke |
 | `get` | `reference-field` | Read an error at a dotted path (`related.0.children.1`) out of the nested `errors` object |
-| `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
-| `useForm` | `edit-drawer`, `reference-picker-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
-| `zodResolver` | `edit-drawer` | Zod validation adapter |
+| `FormProvider` | `edit-drawer`, `reference-picker-drawer`, `virtual-table-row-drawer`, `try-it-view`, `editor-canvas` | Wrap an internal form |
+| `useForm` | `edit-drawer`, `reference-picker-drawer`, `virtual-table-row-drawer`, `try-it-view`, `editor-canvas` | Create a form instance (the exceptions above) |
+| `zodResolver` | `edit-drawer`, `virtual-table-row-drawer` | Zod validation adapter |
 
 The Reference field components read with `useWatch` and write through anker's
 `FormField` render prop rather than a `Controller` of their own — anker's
