@@ -195,12 +195,14 @@ Always run `npm run typecheck` and `npm run lint` before committing. Tests use V
 ## Peer Dependencies
 
 Consuming projects must install:
-- `@knkcs/anker` ^5.1.0
+- `@knkcs/anker` ^5.4.0
 - `react` >= 19, `react-dom` >= 19
 - `@chakra-ui/react` ^3.0.0
 - `react-hook-form` ^7.0.0, `@hookform/resolvers` ^3.0.0, `zod` ^3.0.0
 - `@tanstack/react-table` ^8.0.0
-- `@dnd-kit/core`, `@dnd-kit/sortable`
+- `@dnd-kit/core` ^6.3.1, `@dnd-kit/sortable` ^8.0.0, `@dnd-kit/utilities` ^3.2.2 —
+  fieldkit imports all three itself, and since anker 5.4.0 anker declares them
+  as peers too, at these same floors
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional:
@@ -209,7 +211,7 @@ Optional:
 Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
 resolved by consumers importing `@knkcs/anker/dashboard`.
 
-Note: the `@knkcs/anker` **devDependency equals the peer floor** (`^5.1.0`
+Note: the `@knkcs/anker` **devDependency equals the peer floor** (`^5.4.0`
 both). fieldkit compiles against the oldest anker it promises, so that using
 newer-only API fails typecheck here rather than at runtime in a consumer. The
 range used to span three majors with the devDependency pinned to the lowest
@@ -219,7 +221,9 @@ hard dependency on `LookupSelect`, which first ships in anker 5.1.0
 renders through that same atom now
 (`docs/adr/0016-one-async-select-and-the-staleness-it-costs.md`), so the floor
 holds even if `lookup` were ever dropped — two field types depend on it, not
-one. Read
+one. It moved on again to `^5.4.0` when the Virtual Table took `DataTable`'s
+`onRowReorder`, which first ships in anker 5.4.0 — both legs moved together and
+stayed equal, which is the rule, not an exception to it. Read
 `docs/adr/0014-compile-against-the-oldest-anker-we-promise.md` before raising
 either — the rule is unchanged, and raising the devDependency past the peer
 floor is still the mistake it warns about.

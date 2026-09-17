@@ -74,12 +74,32 @@ The Field renders as anker's `DataTable`:
 - **An actions column** carries *edit* and *delete* per row. It is not rendered at all in read mode.
 - **Paging** is a slice of the Field's own array, `max_records_per_page` rows at a time. A row's position in the array — not its position on the page — is what edit and delete address, and deleting the last row of the last page falls back to the new last page.
 - **Add row** appends; it disappears once `max_items` rows are stored, and *delete* disappears once only `min_items` are left — the same caps `group` honours.
+- **A drag handle** per row, injected by anker when reordering is offered — that is, everywhere but read mode.
 
 ## Editing a row
 
 "Add row" and "edit row" open a drawer that renders the Row Spec through fieldkit's **own renderer**, so every column brings its own control, its own Zod type and its own message — the drawer has no case for any Field Type.
 
 The drawer edits a **draft**: its own form, seeded from the row and validated by the Row Spec's Schema. Saving writes the row into the Field's array value; cancelling writes nothing. Keys a row carries that no column edits — a backend id — survive a save, matching the `passthrough` in the row array's Zod type.
+
+## Reordering rows
+
+A row is dragged by its handle — pointer or keyboard, with dnd-kit's live-region
+announcements — and the new order is written straight into the Field's array
+value. The order the array is stored in *is* the order, so there is nothing else
+to persist.
+
+anker's `DataTable` stays controlled: it reports the move as `(fromIndex,
+toIndex)` against the rows it was handed, which here is **one page** of the
+array. Both indices are translated back to their place in the whole array before
+the move is applied, so a drag on page two moves page two's rows. Moving a row
+**across** pages is out of scope — anker's reorder only reaches rows that are
+currently rendered.
+
+Reordering is offered on every table this Field can edit and on none it cannot:
+read mode passes no callback, so anker injects no handle column at all. Sorting
+stays off on every column — a manual order and a sort order are two different
+orders, and anker reports reorder indices against the unsorted `data`.
 
 ## Validation errors
 
@@ -115,8 +135,9 @@ Renders a row count via `VirtualTableCell` (e.g. "5 rows", "1 row", "0 rows"). S
 
 ## Known Limitations
 
-- **No row reordering** — rows are stored in the order they were added. Reordering needs an anker `DataTable` that offers it, and arrives with #732
-- No sorting and no selection: the table is an editor over an ordered array, and sorting a stored order would lie about it
+- **No reordering across pages** — a row can only be dragged among the rows currently rendered, which is anker's own limit on `onRowReorder`. Moving a row to another page still means editing it there
+- No sorting and no selection: the table is an editor over an ordered array, and sorting a stored order would lie about it — and would also break reordering, which addresses the unsorted array
+- **The drag handle's label counts the page, the actions column counts the array** — anker labels a handle `Reorder row 2` by visible position, while *edit* and *delete* say `Edit row 4` by position in the array. On page two the two disagree
 - Never fetches data from the adapter (`getData` is unused) — data must be provided as the form value
 - `always_latest` is unused
 - No settings editor yet: the editor offers no control for linking a Blueprint or authoring an embedded Row Spec
