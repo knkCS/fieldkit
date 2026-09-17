@@ -55,6 +55,14 @@ _Avoid_: group, panel, box
 The repeating field type — a list of rows, each row holding the same child Fields.
 _Avoid_: card, repeater, collection
 
+**Virtual Table**:
+The repeating field type whose rows are shown and edited as a table, one row per record. Its Row Spec is either **linked** — a Blueprint, which several Virtual Table Fields can share — or **embedded** in the Field itself. Distinct from Group, whose rows are edited inline as stacked forms and whose row Fields are always its own `children`.
+_Avoid_: group, grid, repeater
+
+**Row Spec**:
+The Spec every row of a Virtual Table follows. **Linked** when it is a Blueprint the Field names; **embedded** when the Field declares it itself. A Field has exactly one.
+_Avoid_: table schema, columns (a column is how a Row Spec's Field is shown, not the Field)
+
 **Fieldset**:
 The field type that embeds a Blueprint's Fields as one non-repeating record, nested under its own Accessor.
 _Avoid_: group, nested object, sub-form
