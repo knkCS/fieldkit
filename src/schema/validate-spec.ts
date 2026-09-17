@@ -2,12 +2,24 @@ import { partitionSchemaBySections } from "./partition";
 import { partitionTabByCards } from "./partition-cards";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
+import {
+	isVirtualTableRowFieldType,
+	virtualTableRowSpecKind,
+} from "./virtual-table-row-spec";
 
 export type SpecFieldErrorCode =
 	| "duplicate_accessor"
 	| "empty_name"
 	| "empty_accessor"
-	| "loose_field_in_carded_tab";
+	| "loose_field_in_carded_tab"
+	/** A Virtual Table naming a Blueprint *and* carrying children — two Row
+	 * Specs where ADR-0017 allows exactly one. */
+	| "virtual_table_row_spec_ambiguous"
+	/** A Virtual Table with neither a linked nor an embedded Row Spec. */
+	| "virtual_table_row_spec_missing"
+	/** A Field a Row Spec may not hold — a Marker, a container, or any type
+	 * outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
+	| "virtual_table_row_field_type";
 
 export interface SpecFieldError {
 	accessor: string;
@@ -62,6 +74,7 @@ export function validateSpec(
 	// ADR-0007 states the boundary and what it costs.
 	checkAccessors(fields, fieldErrors);
 	checkCardLayout(fields, fieldErrors);
+	checkVirtualTables(fields, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -132,5 +145,74 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				message: `Field "${loose.config.api_accessor}" must be inside a card`,
 			});
 		}
+	}
+}
+
+/**
+ * ADR-0017: a Virtual Table declares its Row Spec in exactly one of two ways —
+ * a linked Blueprint in `settings.blueprint`, or an embedded one in its own
+ * `children` — and a Row Spec holds only flat value Fields.
+ *
+ * Both rules are checked here rather than in the plugin's `toZodType`, because
+ * an authored Spec with two Row Specs or a Group in one is a Spec the Author
+ * must fix before saving, not a value to reject at submit: the editor shows
+ * these against the offending Field the way it shows a duplicate Accessor.
+ *
+ * Walks `children` like the accessor check, so a Virtual Table inside a Group
+ * is checked too — and, on the same ADR-0007 boundary, one declared inside a
+ * Block Type's settings Fields is not.
+ *
+ * **Takes an authored Spec**, as every check here does. `resolveSpec()` puts a
+ * linked Row Spec into `children` (ADR-0004), so a *Resolved* linked Virtual
+ * Table names a Blueprint and has children at once and is reported ambiguous.
+ * That is not a contradiction with the Field-type check below reading those
+ * same `children`: an authored Field's children are its embedded Row Spec, and
+ * the check is about what an Author declared. A Resolved Spec is the renderer's
+ * and the Schema builder's input, never this function's — validate before you
+ * resolve.
+ */
+function checkVirtualTables(
+	fields: Field[],
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		if (field.field_type === "virtual_table") {
+			checkVirtualTable(field, fieldErrors);
+		}
+		if (field.children?.length) {
+			checkVirtualTables(field.children, fieldErrors);
+		}
+	}
+}
+
+function checkVirtualTable(field: Field, fieldErrors: SpecFieldError[]): void {
+	const accessor = field.config.api_accessor;
+	const kind = virtualTableRowSpecKind(field);
+
+	if (kind === "both") {
+		fieldErrors.push({
+			accessor,
+			code: "virtual_table_row_spec_ambiguous",
+			message: `Virtual Table "${accessor}" has both a linked and an embedded Row Spec; it must have exactly one`,
+		});
+	} else if (kind === "neither") {
+		fieldErrors.push({
+			accessor,
+			code: "virtual_table_row_spec_missing",
+			message: `Virtual Table "${accessor}" has no Row Spec: link a Blueprint or declare its Fields`,
+		});
+	}
+
+	// Checked whichever way the Row Spec was declared: an embedded one is the
+	// Author's to fix, and a linked one resolved into `children` would be the
+	// Blueprint's — reported either way rather than silently rendering a Field
+	// no cell can draw.
+	for (const rowField of field.children ?? []) {
+		if (isVirtualTableRowFieldType(rowField.field_type)) continue;
+		fieldErrors.push({
+			accessor: rowField.config.api_accessor,
+			code: "virtual_table_row_field_type",
+			message: `Field "${rowField.config.api_accessor}" of type "${rowField.field_type}" is not allowed in a Row Spec`,
+		});
 	}
 }

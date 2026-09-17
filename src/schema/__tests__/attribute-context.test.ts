@@ -69,8 +69,13 @@ describe("the attribute Field Context", () => {
 		expect(registry.getByContext("form").map((p) => p.id)).toContain(
 			"reference",
 		);
-		expect(registry.getByContext("task").map((p) => p.id)).not.toContain(
-			"virtual_table",
+		expect(registry.getByContext("task").map((p) => p.id)).toContain("group");
+		// `virtual_table` used to stand here as the blueprint-only type; ADR-0017
+		// made it available everywhere, so `group` carries the "offered in the
+		// incumbent contexts, withheld from attribute" half of the check and the
+		// assertion below carries the other.
+		expect(registry.getByContext("attribute").map((p) => p.id)).not.toContain(
+			"group",
 		);
 	});
 });

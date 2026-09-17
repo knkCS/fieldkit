@@ -41,14 +41,17 @@ src/
 │   ├── registry.ts      # Plugin registry
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
 │   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
-│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule
-│   ├── resolve-spec.ts  # resolveSpec() — expands fieldsets into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
+│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into group children), card-layout rule, the Virtual Table Row Spec rules (ADR-0017)
+│   ├── resolve-spec.ts  # resolveSpec() — expands the adapter-backed containers (a fieldset, and a virtual_table whose Row Spec is linked) into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
 │   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — id, pin, attributes, children — plus referenceTreeSchema and withPin (ADR-0008)
 │   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
 │   ├── reference-find.ts # Find: which References in a tree match a typed query, ranked and capped, and the ancestor path placing each one. Matches client-side (ADR-0013) against both the name a row shows and the id behind it, case-insensitively and with diacritics folded (foldReferenceText — ß spelled out in its own right); one answer carries the list, the total and which of Find's three states (referenceFindState — matches, nothing, or names still arriving) the names behind it were in, so neither the count nor the empty line can claim a whole tree was searched when it was not; knows nothing about a dropdown
 │   ├── reference-attributes.ts # Composes a Reference Field's Attribute Spec into each Reference's branch (ADR-0007's boundary)
+│   ├── blueprint-link.ts # linkedBlueprintId() — the Blueprint a Fieldset or a linked Virtual Table names, read in ONE place so the validator, the resolver and the renderer cannot disagree
+│   ├── row-array.ts     # rowArrayZodType() — the Zod type shared by every Field holding an array of rows all shaped alike (group, virtual_table), plus the RowArrayCaps (min_items/max_items) both offer
+│   ├── virtual-table-row-spec.ts # ADR-0017's rules as pure functions: which of the two ways a Virtual Table declares its Row Spec (linked, embedded, both, neither) and the flat value types a Row Spec may hold — shared by validateSpec and the renderer
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
