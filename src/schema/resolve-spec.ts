@@ -3,6 +3,7 @@
 // imported type-only — this module stays free of the renderer at runtime.
 import type { FieldsetSettings } from "./field-types/fieldset";
 import type { Field, Schema } from "./types";
+import { virtualTableBlueprintId } from "./virtual-table-row-spec";
 
 /** The one adapter capability resolution needs: a Blueprint id in, that
  * Blueprint's Fields out. `FieldKitAdapters["blueprint"]` is built on this
@@ -36,11 +37,12 @@ export interface ResolveSpecAdapters {
 
 /**
  * Expands every adapter-backed container in a Spec into a Resolved Spec —
- * today only `fieldset` (ADR-0003, ADR-0004).
+ * `fieldset` (ADR-0003, ADR-0004) and a `virtual_table` whose Row Spec is
+ * linked rather than embedded (ADR-0017).
  *
- * Each Fieldset's Blueprint is fetched through `adapters.blueprint.getSchema`
- * and attached as that Field's `children`, recursing into Fieldsets the
- * Blueprint itself embeds. Only a Resolved Spec can produce a complete Schema,
+ * Each such Field's Blueprint is fetched through `adapters.blueprint.getSchema`
+ * and attached as that Field's `children`, recursing into the containers the
+ * Blueprint itself holds. Only a Resolved Spec can produce a complete Schema,
  * so this is the step a Consumer runs between loading a Spec and building its
  * Zod schema.
  *
@@ -53,6 +55,14 @@ export interface ResolveSpecAdapters {
  * is a no-op that returns it by identity rather than fetching every Blueprint
  * again. An authored Fieldset never carries children (ADR-0003), so a
  * Consumer who repoints one at another Blueprint drops them with it.
+ *
+ * A Virtual Table resolves on the same terms, with one difference worth
+ * naming: its `children` are also where an **embedded** Row Spec is authored,
+ * so "has children" and "links a Blueprint" are the two states
+ * `validateSpec()` keeps apart (ADR-0017). Only a Field that links one and has
+ * no children is fetched for — an embedded Row Spec is already resolved, and a
+ * Field with both is the Spec error the validator reports rather than a shape
+ * resolution guesses at.
  *
  * Not walked: Fields nested inside `settings` rather than `children` (a
  * block's `allowed_blocks[].fields`, an array's settings). That is the same
@@ -107,11 +117,31 @@ export function specNeedsResolution(
 }
 
 function fieldNeedsResolution(field: Field): boolean {
-	if (field.field_type === "fieldset") {
+	const container = blueprintContainer(field);
+	if (container) {
 		if (field.children != null) return false;
-		return fieldsetBlueprintId(field) != null;
+		return container.blueprintId != null;
 	}
 	return field.children?.some(fieldNeedsResolution) ?? false;
+}
+
+/** The two Field Types that fetch a Blueprint to become resolved, and the
+ * Blueprint each one names — or undefined for every other Field Type. One
+ * place, so the predicate above and the resolver below cannot disagree about
+ * what is left to fetch. */
+function blueprintContainer(
+	field: Field,
+): { label: string; blueprintId: string | undefined } | undefined {
+	if (field.field_type === "fieldset") {
+		return { label: "Fieldset", blueprintId: fieldsetBlueprintId(field) };
+	}
+	if (field.field_type === "virtual_table") {
+		return {
+			label: "Virtual Table",
+			blueprintId: virtualTableBlueprintId(field),
+		};
+	}
+	return undefined;
 }
 
 /** The Blueprint a Fieldset names, or undefined for one an Author has not
@@ -163,19 +193,21 @@ async function resolveField(
 	chain: string[],
 	fetch: Fetcher,
 ): Promise<Field> {
-	if (field.field_type === "fieldset") {
+	const container = blueprintContainer(field);
+	if (container) {
 		// Already resolved — including to the empty array an empty Blueprint
-		// gives — so nothing to fetch.
+		// gives — so nothing to fetch. For a Virtual Table this is also how an
+		// embedded Row Spec is left alone (ADR-0017).
 		if (field.children != null) return field;
 
-		const blueprintId = fieldsetBlueprintId(field);
-		// An incomplete Fieldset is not an error here — the renderer says "No
+		const { label, blueprintId } = container;
+		// An incomplete Field is not an error here — the renderer says "No
 		// blueprint selected" and the rest of the form still works.
 		if (!blueprintId) return field;
 
 		if (chain.includes(blueprintId)) {
 			throw new Error(
-				`Fieldset blueprint cycle detected: ${[...chain, blueprintId].join(" → ")}`,
+				`${label} blueprint cycle detected: ${[...chain, blueprintId].join(" → ")}`,
 			);
 		}
 
@@ -188,7 +220,7 @@ async function resolveField(
 	}
 
 	// A Group row, or any other container holding its children inline, can
-	// embed a Fieldset of its own.
+	// embed a Fieldset or a Virtual Table of its own.
 	if (!field.children?.length) return field;
 
 	const children = await resolveFields(field.children, chain, fetch);

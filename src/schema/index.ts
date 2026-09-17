@@ -153,6 +153,15 @@ export type {
 	SpecValidationResult,
 } from "./validate-spec";
 export { validateSpec } from "./validate-spec";
+// The Virtual Table's Row Spec rules (ADR-0017): which of the two ways a
+// Field declares one, and what a column may be.
+export type { VirtualTableRowSpecKind } from "./virtual-table-row-spec";
+export {
+	isVirtualTableRowFieldType,
+	VIRTUAL_TABLE_ROW_FIELD_TYPES,
+	virtualTableBlueprintId,
+	virtualTableRowSpecKind,
+} from "./virtual-table-row-spec";
 // Zod builder
 export type { ZodBuilderOptions } from "./zod-builder";
 export { getDefaultValues, specToZodSchema } from "./zod-builder";

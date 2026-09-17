@@ -301,3 +301,130 @@ describe("specNeedsResolution", () => {
 		expect(specNeedsResolution(spec, { blueprint })).toBe(true);
 	});
 });
+
+// ADR-0017: a Virtual Table's **linked** Row Spec resolves into `children`
+// exactly as a Fieldset's Blueprint does — so the renderer, the table cell and
+// the Schema builder all see one shape. An **embedded** Row Spec is already
+// that shape and is left alone.
+describe("resolveSpec — a Virtual Table's Row Spec", () => {
+	function virtualTable(
+		accessor: string,
+		options: { blueprint?: string; columns?: Field[] | null } = {},
+	): Field {
+		return {
+			field_type: "virtual_table",
+			config: {
+				name: accessor,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: options.blueprint ? { blueprint: options.blueprint } : {},
+			children: options.columns ?? null,
+			system: false,
+		};
+	}
+
+	const lineItemBlueprint = [
+		textField("Description", "description"),
+		textField("Unit price", "unit_price"),
+	];
+
+	it("turns a linked Row Spec into children through the blueprint adapter", async () => {
+		const blueprint = blueprintAdapter({ line_item_bp: lineItemBlueprint });
+
+		const resolved = await resolveSpec(
+			[virtualTable("line_items", { blueprint: "line_item_bp" })],
+			{ blueprint },
+		);
+
+		expect(blueprint.getSchema).toHaveBeenCalledWith("line_item_bp");
+		expect(resolved[0].children).toEqual(lineItemBlueprint);
+	});
+
+	it("leaves an embedded Row Spec untouched and fetches nothing", async () => {
+		const blueprint = blueprintAdapter({ line_item_bp: lineItemBlueprint });
+		const spec: Schema = [
+			virtualTable("line_items", {
+				columns: [textField("Description", "description")],
+			}),
+		];
+
+		const resolved = await resolveSpec(spec, { blueprint });
+
+		expect(resolved).toBe(spec);
+		expect(blueprint.getSchema).not.toHaveBeenCalled();
+	});
+
+	it("resolves one nested inside a Group's children", async () => {
+		const blueprint = blueprintAdapter({ line_item_bp: lineItemBlueprint });
+
+		const resolved = await resolveSpec(
+			[
+				group("orders", [
+					virtualTable("line_items", { blueprint: "line_item_bp" }),
+				]),
+			],
+			{ blueprint },
+		);
+
+		expect(resolved[0].children?.[0].children).toEqual(lineItemBlueprint);
+	});
+
+	it("shares one fetch with a Fieldset naming the same Blueprint", async () => {
+		const blueprint = blueprintAdapter({ line_item_bp: lineItemBlueprint });
+
+		await resolveSpec(
+			[
+				virtualTable("line_items", { blueprint: "line_item_bp" }),
+				fieldset("summary", "line_item_bp"),
+			],
+			{ blueprint },
+		);
+
+		expect(blueprint.getSchema).toHaveBeenCalledTimes(1);
+	});
+
+	it("throws naming the chain when a linked Row Spec cycles back", async () => {
+		const blueprint = blueprintAdapter({
+			line_item_bp: [
+				textField("Description", "description"),
+				virtualTable("sub_items", { blueprint: "line_item_bp" }),
+			],
+		});
+
+		await expect(
+			resolveSpec([virtualTable("line_items", { blueprint: "line_item_bp" })], {
+				blueprint,
+			}),
+		).rejects.toThrow("line_item_bp → line_item_bp");
+	});
+
+	it("needs resolution only while a linked Row Spec has no children", () => {
+		const blueprint = blueprintAdapter({ line_item_bp: lineItemBlueprint });
+
+		expect(
+			specNeedsResolution(
+				[virtualTable("line_items", { blueprint: "line_item_bp" })],
+				{ blueprint },
+			),
+		).toBe(true);
+		expect(
+			specNeedsResolution(
+				[
+					virtualTable("line_items", {
+						blueprint: "line_item_bp",
+						columns: [],
+					}),
+				],
+				{ blueprint },
+			),
+		).toBe(false);
+		expect(
+			specNeedsResolution(
+				[virtualTable("line_items", { columns: [textField("D", "d")] })],
+				{ blueprint },
+			),
+		).toBe(false);
+	});
+});

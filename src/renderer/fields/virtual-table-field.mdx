@@ -5,23 +5,38 @@ import * as Stories from "./virtual-table-field.stories";
 
 # Virtual Table
 
-Embedded table of records from another blueprint. Displays data in a read-oriented table layout using column definitions fetched from the referenced blueprint's schema. Requires a `blueprint` adapter to be configured via `FieldKitProvider`.
+A repeating table of rows, one per record. Its **Row Spec** — the Spec every row follows — is declared in exactly one of two ways (ADR-0017):
+
+- **Linked:** `settings.blueprint` names a Blueprint, resolved through the blueprint adapter as a Fieldset's is, so several Virtual Table Fields can share one Row Spec.
+- **Embedded:** the Field's own `children` hold the Row Spec, as a Group's do — no adapter needed.
+
+`validateSpec()` refuses a Field with both or neither. `resolveSpec()` turns a linked Row Spec into `children`, so the renderer, the table cell and the Schema all read one shape.
 
 ## When to Use
 
-Use **Virtual Table** when you want to embed a read-only view of records from another blueprint directly within a form (e.g., showing order line items, product variants, or related records). This field is only available in blueprints (`availableIn: ["blueprint"]`).
+Use **Virtual Table** for a repeating set of records edited as a table rather than as stacked forms — a line-items table on an order, for example. Link the Row Spec when several Fields should share it; embed it when the Row Spec belongs to this Field alone. Available in every context: `availableIn: ["blueprint", "task", "form"]`.
+
+## Row Spec columns
+
+A Row Spec holds **only flat value Fields**, because each column must fit a table cell and a row drawer:
+
+`text`, `textarea`, `markdown`, `number`, `date`, `time`, `boolean`, `select`, `radio`, `checkboxes`, `email`, `url`, `slug`, `color`, `lookup`, `media`, `single_reference`
+
+No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending column with the `virtual_table_row_field_type` code. The list is exported from `/schema` as `VIRTUAL_TABLE_ROW_FIELD_TYPES`.
 
 ## Settings
 
 | Setting                | Type     | Default | Description                                    |
 |------------------------|----------|---------|------------------------------------------------|
-| `blueprint`            | `string` | —       | ID of the blueprint whose schema defines the table columns |
+| `blueprint`            | `string` | —       | Id of the Blueprint holding a **linked** Row Spec. Must not be set together with `children` |
 | `always_latest`        | `boolean`| —       | Always fetch the latest schema version (currently unused) |
 | `max_records_per_page` | `number` | `25`    | Maximum records per page (currently unused — no pagination) |
+| `min_items`            | `number` | —       | Fewest rows the table accepts |
+| `max_items`            | `number` | —       | Most rows the table accepts |
 
 ## Adapter Interface
 
-The virtual table field requires a `blueprint` adapter injected via `FieldKitProvider`:
+A **linked** Row Spec is resolved through the `blueprint` adapter injected via `FieldKitProvider`. An **embedded** Row Spec needs no adapter at all:
 
 ```ts
 blueprint: {
@@ -49,14 +64,22 @@ interface DataPage<T = Record<string, unknown>> {
 
 **Note:** Only `getSchema` is called. `getData` is defined in the adapter interface but never invoked by the component — data comes from the form value, not the adapter.
 
+The component reads its columns from `field.children` — the resolved Row Spec, whichever way it was declared. A Consumer who skipped `resolveSpec()` gets the Fieldset degrade path: the component self-resolves a linked Row Spec **for display only**, so the preview has headers even though the Schema was built before those Fields existed.
+
 ## Validation
 
-The Zod schema is `z.array(z.record(z.unknown()))`. No further validation is applied.
+An array of the row objects the resolved Row Spec describes, composed the way a Group composes its children (ADR-0007) — so a wrong column type or a missing required column blocks submit and reports at `line_items.1.quantity`. Rows are `passthrough`: a stored row carries keys the Row Spec does not edit (a backend id), and validating must not prune them.
+
+An **unresolved** linked Row Spec keeps the opaque row — the Schema must not reject values for Fields fieldkit was never told about.
 
 ## Zod Output
 
 ```ts
-// Always
+// Resolved Row Spec
+z.array(composeChildren(children).passthrough())
+  // .min(min_items) / .max(max_items) when set
+
+// Row Spec not resolved (no children)
 z.array(z.record(z.unknown()))
 ```
 
@@ -66,13 +89,14 @@ Renders a row count via `VirtualTableCell` (e.g. "5 rows", "1 row", "0 rows"). S
 
 ## Known Limitations
 
+- The renderer is still the **read-only preview**; the full editor on anker's `DataTable` arrives with #731
 - Never fetches data from the adapter (`getData` is unused) — data must be provided as the form value
 - `max_records_per_page` is unused (no pagination implemented)
 - `always_latest` is unused
-- Hardcoded 5-column limit — only the first 5 non-hidden fields from the schema are shown
+- Hardcoded 5-column limit — only the first 5 non-hidden Row Spec Fields are previewed
 - Uses raw Chakra `Table` instead of anker's `DataTable` (no sorting, selection, or pagination)
 - No column type-aware rendering — all cell values are stringified with `String()`
-- `availableIn: ["blueprint"]` only — not available in tasks or forms
+- No settings editor yet: the editor offers no control for linking a Blueprint or authoring an embedded Row Spec
 
 ## Examples
 
