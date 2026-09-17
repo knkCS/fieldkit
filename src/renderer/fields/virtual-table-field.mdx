@@ -30,7 +30,7 @@ No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`,
 |------------------------|----------|---------|------------------------------------------------|
 | `blueprint`            | `string` | —       | Id of the Blueprint holding a **linked** Row Spec. Must not be set together with `children` |
 | `always_latest`        | `boolean`| —       | Always fetch the latest schema version (currently unused) |
-| `max_records_per_page` | `number` | `25`    | Maximum records per page (currently unused — no pagination) |
+| `max_records_per_page` | `number` | `25`    | Rows shown per page. The table pages over the stored array — nothing is fetched |
 | `min_items`            | `number` | —       | Fewest rows the table accepts (shared with `group` via `RowArrayCaps`) |
 | `max_items`            | `number` | —       | Most rows the table accepts |
 
@@ -64,7 +64,31 @@ interface DataPage<T = Record<string, unknown>> {
 
 **Note:** Only `getSchema` is called. `getData` is defined in the adapter interface but never invoked by the component — data comes from the form value, not the adapter.
 
-The component reads its columns from `field.children` — the resolved Row Spec, whichever way it was declared. A Consumer who skipped `resolveSpec()` gets the Fieldset degrade path: the component self-resolves a linked Row Spec **for display only**, so the preview has headers even though the Schema was built before those Fields existed.
+The component reads its columns from `field.children` — the resolved Row Spec, whichever way it was declared. A Consumer who skipped `resolveSpec()` gets the Fieldset degrade path: the component self-resolves a linked Row Spec **for display only**, so the table has columns even though the Schema was built before those Fields existed.
+
+## The table
+
+The Field renders as anker's `DataTable`:
+
+- **Columns** are the resolved Row Spec's Fields, each drawn by that Field Type's own `cellComponent` — the same cells `SpecDataTable` uses. A column whose Field is `hidden` is left out.
+- **An actions column** carries *edit* and *delete* per row. It is not rendered at all in read mode.
+- **Paging** is a slice of the Field's own array, `max_records_per_page` rows at a time. A row's position in the array — not its position on the page — is what edit and delete address, and deleting the last row of the last page falls back to the new last page.
+- **Add row** appends; it disappears once `max_items` rows are stored, and *delete* disappears once only `min_items` are left — the same caps `group` honours.
+
+## Editing a row
+
+"Add row" and "edit row" open a drawer that renders the Row Spec through fieldkit's **own renderer**, so every column brings its own control, its own Zod type and its own message — the drawer has no case for any Field Type.
+
+The drawer edits a **draft**: its own form, seeded from the row and validated by the Row Spec's Schema. Saving writes the row into the Field's array value; cancelling writes nothing. Keys a row carries that no column edits — a backend id — survive a save, matching the `passthrough` in the row array's Zod type.
+
+## Validation errors
+
+A row's messages come from the Consumer's own parse, at the path the row array's Zod type reports (`line_items.1.quantity`):
+
+- on the **row**, in an "Issue" column that appears only while some row has an error, naming the column and its message;
+- in the **drawer**, on the column itself, so an invalid row opens with its error already showing rather than looking clean until the first save attempt.
+
+A write re-runs validation only on a form that has already been submitted, so a fresh form does not report every empty required column before the Author has tried to save.
 
 ## Validation
 
@@ -91,26 +115,53 @@ Renders a row count via `VirtualTableCell` (e.g. "5 rows", "1 row", "0 rows"). S
 
 ## Known Limitations
 
-- The renderer is still the **read-only preview**; the full editor on anker's `DataTable` arrives with #731
+- **No row reordering** — rows are stored in the order they were added. Reordering needs an anker `DataTable` that offers it, and arrives with #732
+- No sorting and no selection: the table is an editor over an ordered array, and sorting a stored order would lie about it
 - Never fetches data from the adapter (`getData` is unused) — data must be provided as the form value
-- `max_records_per_page` is unused (no pagination implemented)
 - `always_latest` is unused
-- Hardcoded 5-column limit — only the first 5 non-hidden Row Spec Fields are previewed
-- Uses raw Chakra `Table` instead of anker's `DataTable` (no sorting, selection, or pagination)
-- No column type-aware rendering — all cell values are stringified with `String()`
 - No settings editor yet: the editor offers no control for linking a Blueprint or authoring an embedded Row Spec
 
 ## Examples
 
-### Default With Mock Adapter
+### Embedded Row Spec
 
-A product catalog table with 5 rows of sample data. Column headers are fetched from the mock adapter's schema.
+A line-items table whose Row Spec is authored on the Field. Add, edit and delete rows.
 
-<Canvas of={Stories.DefaultWithMockAdapter} />
+<Canvas of={Stories.EmbeddedRowSpec} />
+
+### Linked Row Spec
+
+The same table with its Row Spec fetched from a Blueprint through the adapter.
+
+<Canvas of={Stories.LinkedRowSpec} />
+
+### Paged
+
+`max_records_per_page: 2` over five stored rows.
+
+<Canvas of={Stories.Paged} />
+
+### Read Only
+
+No add, no edit, no delete — the rows and their cells alone.
+
+<Canvas of={Stories.ReadOnly} />
+
+### Invalid Row
+
+Submit to see a missing required column reported on its row, and again in the drawer.
+
+<Canvas of={Stories.InvalidRow} />
+
+### Capped
+
+`min_items` and `max_items`: Add row and delete come and go with the caps.
+
+<Canvas of={Stories.Capped} />
 
 ### Empty Table
 
-A table with no records, showing the "No records" placeholder row.
+A table with no rows, showing its empty state.
 
 <Canvas of={Stories.EmptyTable} />
 

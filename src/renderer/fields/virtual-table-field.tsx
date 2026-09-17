@@ -1,23 +1,50 @@
-import { Box, Table, Text } from "@chakra-ui/react";
+import { Box, Button, Flex, IconButton, Stack, Text } from "@chakra-ui/react";
+import { DataTable } from "@knkcs/anker/components";
 import { FormField } from "@knkcs/anker/forms";
-import { type ReactNode, useEffect, useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
+import {
+	useFieldArray,
+	useFormContext,
+	useFormState,
+	useWatch,
+} from "react-hook-form";
 import { linkedBlueprintId } from "../../schema/blueprint-link";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { FieldProps } from "../../schema/plugin";
 import type { Field as FieldDef } from "../../schema/types";
+import { getCellForFieldType } from "../../table/get-cell-for-type";
 import { useFieldKit } from "../provider";
+import { VirtualTableRowDrawer } from "./virtual-table-row-drawer";
+import {
+	absoluteRowIndex,
+	clampPage,
+	pageCount,
+	pageOfRows,
+	rowErrorMessages,
+	rowsPerPage,
+} from "./virtual-table-rows";
+
+/** One empty array for every Field whose value is not one yet, so a table with
+ * nothing stored does not hand `DataTable` a new `data` array each render. */
+const NO_ROWS: Record<string, unknown>[] = [];
 
 /** "ready" covers both "nothing to fetch" and "the fetch came back". */
 type ResolveStatus = "ready" | "loading" | "error";
 
-/** How many columns the read-only preview draws. The full editor (#731)
- * replaces this component; until then a preview stays inside one row's width
- * rather than growing a Row Spec's worth of columns. */
-const PREVIEW_COLUMN_LIMIT = 5;
+/** Which row the drawer is editing: a position in the array, or `null` for a
+ * row being added — one that has no position until it is saved. */
+type RowDraft = { index: number | null };
 
 /**
- * `virtual_table` — the repeating table type, previewed read-only.
+ * `virtual_table` — the repeating table type, edited as a table.
  *
  * Its columns are the resolved Row Spec's Fields: `field.children`, whether
  * they were authored there (an **embedded** Row Spec) or put there by
@@ -26,17 +53,17 @@ const PREVIEW_COLUMN_LIMIT = 5;
  * the table cell read.
  *
  * A Consumer who skipped `resolveSpec()` gets the Fieldset degrade path: a
- * linked Row Spec is self-resolved here **for display only**, so the preview
- * has headers even though the Schema was built before those Fields existed.
+ * linked Row Spec is self-resolved here **for display only**, so the table has
+ * columns even though the Schema was built before those Fields existed.
  *
- * This ticket keeps the preview read-only; #731 replaces it with a full editor
- * on anker's `DataTable`.
+ * Rows are added and edited in a drawer, never inline: a Row Spec column is a
+ * Field with its own control, its own validation and its own drawer of its own
+ * (a media picker), and a table cell is one row of height.
  */
 export function VirtualTableField({
 	field,
 	readOnly,
 }: FieldProps<VirtualTableSettings>) {
-	const { control } = useFormContext();
 	const { adapters } = useFieldKit();
 	const { config } = field;
 	const accessor = config.api_accessor;
@@ -51,8 +78,8 @@ export function VirtualTableField({
 	const needsFetch = !isResolved && !!blueprintAdapter && !!blueprintId;
 
 	const [fetched, setFetched] = useState<FieldDef[] | null>(null);
-	// Seeded rather than defaulted to "ready", so the empty-Row-Spec preview
-	// does not flash before the first effect runs.
+	// Seeded rather than defaulted to "ready", so the empty-Row-Spec table does
+	// not flash before the first effect runs.
 	const [status, setStatus] = useState<ResolveStatus>(() =>
 		needsFetch ? "loading" : "ready",
 	);
@@ -91,10 +118,14 @@ export function VirtualTableField({
 		};
 	}, [isResolved, blueprintAdapter, blueprintId]);
 
-	const rowSpec = isResolved ? (field.children ?? []) : (fetched ?? []);
-	const columns = rowSpec
-		.filter((column) => !column.config.hidden)
-		.slice(0, PREVIEW_COLUMN_LIMIT);
+	const resolvedChildren = field.children;
+	const rowSpec = useMemo(
+		() =>
+			(isResolved ? (resolvedChildren ?? []) : (fetched ?? [])).filter(
+				(column) => !column.config.hidden,
+			),
+		[isResolved, resolvedChildren, fetched],
+	);
 
 	return (
 		<FormField
@@ -116,70 +147,10 @@ export function VirtualTableField({
 				}
 
 				return (
-					<Controller
-						name={accessor}
-						control={control}
-						render={({ field: formField }) => {
-							const rows: Record<string, unknown>[] = Array.isArray(
-								formField.value,
-							)
-								? formField.value
-								: [];
-
-							return (
-								<Box>
-									<Box overflowX="auto">
-										<Table.Root size="sm" variant="outline">
-											<Table.Header>
-												<Table.Row>
-													{columns.map((col) => (
-														<Table.ColumnHeader key={col.config.api_accessor}>
-															{col.config.name}
-														</Table.ColumnHeader>
-													))}
-													{columns.length === 0 && (
-														<Table.ColumnHeader>Data</Table.ColumnHeader>
-													)}
-												</Table.Row>
-											</Table.Header>
-											<Table.Body>
-												{rows.length === 0 ? (
-													<Table.Row>
-														<Table.Cell
-															colSpan={columns.length || 1}
-															textAlign="center"
-															color="fg.muted"
-														>
-															No records
-														</Table.Cell>
-													</Table.Row>
-												) : (
-													rows.map((row, idx) => (
-														// biome-ignore lint/suspicious/noArrayIndexKey: preview rows are positional; virtual-table records carry no stable id
-														<Table.Row key={idx}>
-															{columns.map((col) => (
-																<Table.Cell key={col.config.api_accessor}>
-																	{row[col.config.api_accessor] != null
-																		? String(row[col.config.api_accessor])
-																		: "—"}
-																</Table.Cell>
-															))}
-															{columns.length === 0 && (
-																<Table.Cell>{JSON.stringify(row)}</Table.Cell>
-															)}
-														</Table.Row>
-													))
-												)}
-											</Table.Body>
-										</Table.Root>
-									</Box>
-									<Text fontSize="xs" color="fg.muted" mt={1}>
-										{rows.length} record{rows.length !== 1 ? "s" : ""}
-										{readOnly ? " (read only)" : ""}
-									</Text>
-								</Box>
-							);
-						}}
+					<VirtualTableEditor
+						field={field}
+						rowSpec={rowSpec}
+						readOnly={readOnly}
 					/>
 				);
 			}}
@@ -187,6 +158,252 @@ export function VirtualTableField({
 	);
 }
 VirtualTableField.displayName = "VirtualTableField";
+
+interface VirtualTableEditorProps {
+	field: FieldDef<VirtualTableSettings>;
+	/** The resolved Row Spec, hidden columns already dropped. */
+	rowSpec: FieldDef[];
+	readOnly?: boolean;
+}
+
+/**
+ * The table itself, once there is a Row Spec to draw it from.
+ *
+ * Everything it shows comes out of the Field's own array value in the form the
+ * Consumer owns — no adapter fetch, no page request — so paging is a slice and
+ * every edit is a write into that array.
+ */
+function VirtualTableEditor({
+	field,
+	rowSpec,
+	readOnly,
+}: VirtualTableEditorProps) {
+	const { control, trigger } = useFormContext();
+	const { getAllPlugins } = useFieldKit();
+	const accessor = field.config.api_accessor;
+	const settings = field.settings;
+
+	// `useFieldArray` for the writes, `useWatch` for the values: the array's
+	// own `fields` carry a react-hook-form key that is not part of a row, and
+	// a row here is exactly what the Consumer stores.
+	const { append, remove, update } = useFieldArray({ control, name: accessor });
+	const watched = useWatch({ control, name: accessor });
+	const rows: Record<string, unknown>[] = Array.isArray(watched)
+		? watched
+		: NO_ROWS;
+
+	const { errors, isSubmitted } = useFormState({ control, name: accessor });
+
+	const pageSize = rowsPerPage(settings?.max_records_per_page);
+	const [requestedPage, setRequestedPage] = useState(1);
+	const page = clampPage(requestedPage, rows.length, pageSize);
+	const pageRows = useMemo(
+		() => pageOfRows(rows, page, pageSize),
+		[rows, page, pageSize],
+	);
+
+	const [draft, setDraft] = useState<RowDraft | null>(null);
+
+	const rowIndexOf = useCallback(
+		(indexOnPage: number) =>
+			absoluteRowIndex(indexOnPage, page, pageSize, rows.length),
+		[page, pageSize, rows.length],
+	);
+
+	const messagesFor = useCallback(
+		(index: number) => rowErrorMessages(errors, accessor, index),
+		[errors, accessor],
+	);
+
+	const hasRowErrors = rows.some(
+		(_row, index) => Object.keys(messagesFor(index)).length > 0,
+	);
+
+	const rowFieldNames = useMemo(() => {
+		const names = new Map<string, string>();
+		for (const rowField of rowSpec) {
+			names.set(rowField.config.api_accessor, rowField.config.name);
+		}
+		return names;
+	}, [rowSpec]);
+
+	const canAdd =
+		!readOnly &&
+		(settings?.max_items === undefined || rows.length < settings.max_items);
+	const canRemove =
+		!readOnly &&
+		(settings?.min_items === undefined || rows.length > settings.min_items);
+
+	// A write leaves the form's errors describing the row as it was. Only a
+	// form that has already been submitted has errors worth re-running: doing
+	// it on an untouched one would report every empty required column before
+	// the Author ever tried to save.
+	const revalidate = useCallback(() => {
+		if (isSubmitted) void trigger(accessor);
+	}, [isSubmitted, trigger, accessor]);
+
+	const saveDraft = useCallback(
+		(values: Record<string, unknown>) => {
+			if (draft?.index == null) {
+				append(values);
+				// A row appended to a full page lands on the next one. Following
+				// it there is the difference between adding a row and watching a
+				// table not change.
+				setRequestedPage(pageCount(rows.length + 1, pageSize));
+			} else {
+				update(draft.index, values);
+			}
+			setDraft(null);
+			revalidate();
+		},
+		[draft, append, update, revalidate, rows.length, pageSize],
+	);
+
+	const deleteRow = useCallback(
+		(index: number) => {
+			remove(index);
+			revalidate();
+		},
+		[remove, revalidate],
+	);
+
+	const columns = useMemo((): ColumnDef<Record<string, unknown>>[] => {
+		// Sorting is off on every column: the rows are a stored, ordered array
+		// — a Consumer reads row 3 as the third line of the order — and a
+		// header that reordered what is on screen would say otherwise without
+		// changing anything. Reordering rows for real is #732.
+		const cols: ColumnDef<Record<string, unknown>>[] = getCellForFieldType(
+			rowSpec,
+			getAllPlugins(),
+		).map((col) => ({ ...col, enableSorting: false }));
+
+		if (hasRowErrors) {
+			// Underscored, as anker underscores its own `_select`: a Row Spec
+			// Accessor is a backend field name, which these cannot collide with.
+			cols.unshift({
+				id: "_row_error",
+				header: "Issue",
+				enableSorting: false,
+				cell: ({ row }) => {
+					const messages = messagesFor(rowIndexOf(row.index));
+					const text = Object.entries(messages)
+						.map(([accessor, message]) =>
+							accessor === ""
+								? message
+								: `${rowFieldNames.get(accessor) ?? accessor}: ${message}`,
+						)
+						.join("; ");
+					if (text === "") return null;
+					return (
+						<Text
+							fontSize="xs"
+							color="fg.error"
+							data-testid="virtual-table-row-error"
+						>
+							{text}
+						</Text>
+					);
+				},
+			});
+		}
+
+		if (!readOnly) {
+			cols.push({
+				id: "_actions",
+				header: "Actions",
+				enableSorting: false,
+				cell: ({ row }) => {
+					const index = rowIndexOf(row.index);
+					return (
+						<Flex gap="1" justify="flex-end">
+							<IconButton
+								aria-label={`Edit row ${String(index + 1)}`}
+								size="xs"
+								variant="ghost"
+								onClick={() => setDraft({ index })}
+							>
+								<Pencil size={14} aria-hidden="true" />
+							</IconButton>
+							{canRemove && (
+								<IconButton
+									aria-label={`Delete row ${String(index + 1)}`}
+									size="xs"
+									variant="ghost"
+									onClick={() => deleteRow(index)}
+								>
+									<Trash2 size={14} aria-hidden="true" />
+								</IconButton>
+							)}
+						</Flex>
+					);
+				},
+			});
+		}
+
+		return cols;
+	}, [
+		rowSpec,
+		getAllPlugins,
+		hasRowErrors,
+		messagesFor,
+		rowIndexOf,
+		rowFieldNames,
+		readOnly,
+		canRemove,
+		deleteRow,
+	]);
+
+	const draftErrors = useMemo(
+		() => (draft?.index == null ? undefined : messagesFor(draft.index)),
+		[draft, messagesFor],
+	);
+
+	return (
+		<Stack gap="2" data-testid="virtual-table">
+			{canAdd && (
+				<Flex justify="flex-end">
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => setDraft({ index: null })}
+					>
+						<Plus size={16} aria-hidden="true" />
+						Add row
+					</Button>
+				</Flex>
+			)}
+
+			<Box>
+				<DataTable
+					columns={columns}
+					data={pageRows}
+					variant="line"
+					emptyState={
+						<Text fontSize="sm" color="fg.muted">
+							No rows yet.
+						</Text>
+					}
+					total={rows.length}
+					page={page}
+					pageSize={pageSize}
+					onPageChange={setRequestedPage}
+				/>
+			</Box>
+
+			{draft && (
+				<VirtualTableRowDrawer
+					rowSpec={rowSpec}
+					initialValues={draft.index == null ? undefined : rows[draft.index]}
+					initialErrors={draftErrors}
+					title={draft.index == null ? "Add row" : "Edit row"}
+					onSave={saveDraft}
+					onCancel={() => setDraft(null)}
+				/>
+			)}
+		</Stack>
+	);
+}
+VirtualTableEditor.displayName = "VirtualTableEditor";
 
 function StatusText({ children }: { children: ReactNode }) {
 	return (

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { Field } from "../../schema/types";
 import type { FieldKitAdapters } from "../adapters";
 import {
@@ -6,125 +7,65 @@ import {
 	type FieldStoryWrapperProps,
 } from "./__stories__/field-story-wrapper";
 
+function rowField(
+	fieldType: string,
+	name: string,
+	accessor: string,
+	required = false,
+): Field {
+	return {
+		field_type: fieldType,
+		config: { name, api_accessor: accessor, required, instructions: "" },
+		settings: null,
+		children: null,
+		system: false,
+	};
+}
+
+/** A line-items table: what one row of an order holds. */
+const ROW_SPEC: Field[] = [
+	rowField("text", "Description", "description", true),
+	rowField("number", "Quantity", "quantity"),
+	rowField("number", "Unit price", "unit_price"),
+	rowField("boolean", "Taxed", "taxed"),
+];
+
+function lineItems(
+	settings: VirtualTableSettings,
+	children: Field[] | null,
+	instructions = "",
+): Field<VirtualTableSettings> {
+	return {
+		field_type: "virtual_table",
+		config: {
+			name: "Line items",
+			api_accessor: "line_items",
+			required: false,
+			instructions,
+		},
+		settings,
+		children,
+		system: false,
+	};
+}
+
+const ROWS = [
+	{ description: "Binding", quantity: 2, unit_price: 12.5, taxed: true },
+	{ description: "Cover", quantity: 1, unit_price: 40, taxed: true },
+	{ description: "Proof copy", quantity: 3, unit_price: 5, taxed: false },
+	{ description: "Delivery", quantity: 1, unit_price: 9.9, taxed: false },
+	{ description: "Handling", quantity: 1, unit_price: 2.5, taxed: false },
+];
+
+/** Stands in for a Consumer's Blueprint backend: the linked Row Spec, fetched. */
 const mockBlueprintAdapter: FieldKitAdapters["blueprint"] = {
-	getSchema: async (_blueprintId: string) => {
-		return [
-			{
-				field_type: "text",
-				config: {
-					name: "Product Name",
-					api_accessor: "product_name",
-					required: true,
-					instructions: "",
-				},
-				settings: null,
-				children: null,
-				system: false,
-			},
-			{
-				field_type: "number",
-				config: {
-					name: "Price",
-					api_accessor: "price",
-					required: false,
-					instructions: "",
-				},
-				settings: null,
-				children: null,
-				system: false,
-			},
-			{
-				field_type: "text",
-				config: {
-					name: "SKU",
-					api_accessor: "sku",
-					required: false,
-					instructions: "",
-				},
-				settings: null,
-				children: null,
-				system: false,
-			},
-			{
-				field_type: "boolean",
-				config: {
-					name: "In Stock",
-					api_accessor: "in_stock",
-					required: false,
-					instructions: "",
-				},
-				settings: null,
-				children: null,
-				system: false,
-			},
-			{
-				field_type: "text",
-				config: {
-					name: "Category",
-					api_accessor: "category",
-					required: false,
-					instructions: "",
-				},
-				settings: null,
-				children: null,
-				system: false,
-			},
-		] satisfies Field[];
-	},
-	getData: async (_blueprintId: string, _query) => {
-		return {
-			items: [],
-			total: 0,
-			page: 1,
-			page_size: 25,
-		};
-	},
-};
-
-const defaultVirtualTableField: Field = {
-	field_type: "virtual_table",
-	config: {
-		name: "Product Catalog",
-		api_accessor: "product_catalog",
-		required: false,
-		instructions: "Embedded view of the product catalog",
-	},
-	settings: {
-		blueprint: "products",
-		max_records_per_page: 25,
-	},
-	children: null,
-	system: false,
-};
-
-const emptyTableField: Field = {
-	field_type: "virtual_table",
-	config: {
-		name: "Order Items",
-		api_accessor: "order_items",
-		required: false,
-		instructions: "Items in this order",
-	},
-	settings: {
-		blueprint: "products",
-	},
-	children: null,
-	system: false,
-};
-
-const noAdapterField: Field = {
-	field_type: "virtual_table",
-	config: {
-		name: "Product Catalog",
-		api_accessor: "product_catalog",
-		required: false,
-		instructions: "This field has no adapter configured",
-	},
-	settings: {
-		blueprint: "products",
-	},
-	children: null,
-	system: false,
+	getSchema: async (_blueprintId: string) => ROW_SPEC,
+	getData: async (_blueprintId: string, _query) => ({
+		items: [],
+		total: 0,
+		page: 1,
+		page_size: 25,
+	}),
 };
 
 const slowBlueprintAdapter: FieldKitAdapters["blueprint"] = {
@@ -132,25 +73,12 @@ const slowBlueprintAdapter: FieldKitAdapters["blueprint"] = {
 		await new Promise((resolve) => setTimeout(resolve, 60000));
 		return [];
 	},
-	getData: async (_blueprintId: string, _query) => {
-		return { items: [], total: 0, page: 1, page_size: 25 };
-	},
-};
-
-const loadingField: Field = {
-	field_type: "virtual_table",
-	config: {
-		name: "Slow Table",
-		api_accessor: "slow_table",
-		required: false,
-		instructions:
-			"This table's adapter never resolves, showing the loading state",
-	},
-	settings: {
-		blueprint: "products",
-	},
-	children: null,
-	system: false,
+	getData: async (_blueprintId: string, _query) => ({
+		items: [],
+		total: 0,
+		page: 1,
+		page_size: 25,
+	}),
 };
 
 const meta = {
@@ -162,50 +90,89 @@ const meta = {
 export default meta;
 type Story = StoryObj<FieldStoryWrapperProps>;
 
-export const DefaultWithMockAdapter: Story = {
+export const EmbeddedRowSpec: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[defaultVirtualTableField]}
+			fields={[
+				lineItems({}, ROW_SPEC, "Add, edit and delete rows of this order"),
+			]}
+			defaultValues={{ line_items: ROWS.slice(0, 3) }}
+		/>
+	),
+};
+
+export const LinkedRowSpec: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				lineItems(
+					{ blueprint: "line_item_bp" },
+					null,
+					"The Row Spec comes from a Blueprint, through the adapter",
+				),
+			]}
+			defaultValues={{ line_items: ROWS.slice(0, 2) }}
+			adapters={{ blueprint: mockBlueprintAdapter }}
+		/>
+	),
+};
+
+export const Paged: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				lineItems(
+					{ max_records_per_page: 2 },
+					ROW_SPEC,
+					"Two rows per page, paged over the stored array",
+				),
+			]}
+			defaultValues={{ line_items: ROWS }}
+		/>
+	),
+};
+
+export const ReadOnly: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[lineItems({}, ROW_SPEC, "No add, no edit, no delete")]}
+			defaultValues={{ line_items: ROWS.slice(0, 3) }}
+			readOnly
+		/>
+	),
+};
+
+export const InvalidRow: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				lineItems(
+					{},
+					ROW_SPEC,
+					"Submit to see row 2's missing description reported on its row",
+				),
+			]}
 			defaultValues={{
-				product_catalog: [
-					{
-						product_name: "Wireless Keyboard",
-						price: 79.99,
-						sku: "KB-001",
-						in_stock: true,
-						category: "Peripherals",
-					},
-					{
-						product_name: "USB-C Hub",
-						price: 49.99,
-						sku: "HB-012",
-						in_stock: true,
-						category: "Accessories",
-					},
-					{
-						product_name: "Ergonomic Mouse",
-						price: 59.99,
-						sku: "MS-003",
-						in_stock: false,
-						category: "Peripherals",
-					},
-					{
-						product_name: "Monitor Stand",
-						price: 129.0,
-						sku: "ST-007",
-						in_stock: true,
-						category: "Furniture",
-					},
-					{
-						product_name: "Webcam HD",
-						price: 89.95,
-						sku: "WC-021",
-						in_stock: true,
-						category: "Peripherals",
-					},
+				line_items: [
+					{ description: "Binding", quantity: 2, unit_price: 12.5 },
+					{ description: "", quantity: 1, unit_price: 40 },
 				],
 			}}
-			adapters={{ blueprint: mockBlueprintAdapter }}
+		/>
+	),
+};
+
+export const Capped: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				lineItems(
+					{ min_items: 1, max_items: 3 },
+					ROW_SPEC,
+					"Between one and three rows: Add row and delete come and go with the caps",
+				),
+			]}
+			defaultValues={{ line_items: ROWS.slice(0, 3) }}
 		/>
 	),
 };
@@ -213,9 +180,8 @@ export const DefaultWithMockAdapter: Story = {
 export const EmptyTable: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[emptyTableField]}
-			defaultValues={{ order_items: [] }}
-			adapters={{ blueprint: mockBlueprintAdapter }}
+			fields={[lineItems({}, ROW_SPEC, "Nothing stored yet")]}
+			defaultValues={{ line_items: [] }}
 		/>
 	),
 };
@@ -223,8 +189,14 @@ export const EmptyTable: Story = {
 export const Loading: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[loadingField]}
-			defaultValues={{ slow_table: [] }}
+			fields={[
+				lineItems(
+					{ blueprint: "line_item_bp" },
+					null,
+					"This table's adapter never resolves, showing the loading state",
+				),
+			]}
+			defaultValues={{ line_items: [] }}
 			adapters={{ blueprint: slowBlueprintAdapter }}
 		/>
 	),
@@ -233,8 +205,14 @@ export const Loading: Story = {
 export const NoAdapter: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[noAdapterField]}
-			defaultValues={{ product_catalog: [] }}
+			fields={[
+				lineItems(
+					{ blueprint: "line_item_bp" },
+					null,
+					"A linked Row Spec with no adapter configured",
+				),
+			]}
+			defaultValues={{ line_items: [] }}
 		/>
 	),
 };
