@@ -40,8 +40,13 @@ Author reorders and nests the References a Field holds:
 | `src/renderer/fields/use-spring-loaded-branch.ts` | Pointer dwell before a hovered folded Reference springs open |
 | `src/schema/reference-tree.ts` | The maths, with no dnd-kit import at all: flatten, project a drop depth, move a branch, re-nest |
 
-Nothing else (table, rich-text-spec) uses dnd-kit. `EditorSpecEditor` uses
-toggle checkboxes, not drag-and-drop.
+A third surface drags without a line of dnd-kit in this repo: a **Virtual
+Table**'s rows (`src/renderer/fields/virtual-table-field.tsx`). anker's
+`DataTable` owns the `DndContext`, the sensors and the handle column from anker
+5.4.0 on; fieldkit only passes `onRowReorder` and applies the reported move to
+its array. Nothing below applies to it — the conventions here are for drag
+fieldkit wires itself. Nothing else (rich-text-spec, `SpecDataTable`) uses
+dnd-kit at all. `EditorSpecEditor` uses toggle checkboxes, not drag-and-drop.
 
 ### The Reference Tree's differences from the canvas
 

@@ -186,7 +186,10 @@ function VirtualTableEditor({
 	// `useFieldArray` for the writes, `useWatch` for the values: the array's
 	// own `fields` carry a react-hook-form key that is not part of a row, and
 	// a row here is exactly what the Consumer stores.
-	const { append, remove, update } = useFieldArray({ control, name: accessor });
+	const { append, move, remove, update } = useFieldArray({
+		control,
+		name: accessor,
+	});
 	const watched = useWatch({ control, name: accessor });
 	const rows: Record<string, unknown>[] = Array.isArray(watched)
 		? watched
@@ -267,11 +270,34 @@ function VirtualTableEditor({
 		[remove, revalidate],
 	);
 
+	/**
+	 * A row dragged to a new place in the table, written into the array.
+	 *
+	 * anker reports both indices against the `data` it was handed, which here
+	 * is one page of the array — so each one is translated back to its place in
+	 * the whole before the move is applied. A drag cannot leave the page it
+	 * started on (anker documents the limit), so both translations use the same
+	 * page and the move stays inside it.
+	 */
+	const reorderRow = useCallback(
+		(fromIndexOnPage: number, toIndexOnPage: number) => {
+			const from = rowIndexOf(fromIndexOnPage);
+			const to = rowIndexOf(toIndexOnPage);
+			if (from === to) return;
+			move(from, to);
+			// The messages standing against the rows are keyed by position, and
+			// two of those positions now hold different rows.
+			revalidate();
+		},
+		[rowIndexOf, move, revalidate],
+	);
+
 	const columns = useMemo((): ColumnDef<Record<string, unknown>>[] => {
 		// Sorting is off on every column: the rows are a stored, ordered array
 		// — a Consumer reads row 3 as the third line of the order — and a
 		// header that reordered what is on screen would say otherwise without
-		// changing anything. Reordering rows for real is #732.
+		// changing anything. The order is changed by dragging a row, which
+		// anker only reports correctly on an unsorted table.
 		const cols: ColumnDef<Record<string, unknown>>[] = getCellForFieldType(
 			rowSpec,
 			getAllPlugins(),
@@ -387,6 +413,9 @@ function VirtualTableEditor({
 					page={page}
 					pageSize={pageSize}
 					onPageChange={setRequestedPage}
+					// Read-only offers no handle at all: the column is injected
+					// only when this callback is set.
+					onRowReorder={readOnly ? undefined : reorderRow}
 				/>
 			</Box>
 

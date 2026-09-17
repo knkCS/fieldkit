@@ -612,3 +612,113 @@ describe("VirtualTableField — an invalid row", () => {
 		).not.toBeInTheDocument();
 	});
 });
+
+/**
+ * dnd-kit's keyboard sensor decides where a moved row lands from the rows'
+ * bounding boxes, and jsdom measures every element as zero-sized. Give each
+ * body row a 50px band so "one row down" has somewhere to go.
+ *
+ * Stubbed per row rather than on `Element.prototype` as the Reference Tree's
+ * drag tests do: the rows this touches are thrown away by Testing Library's
+ * cleanup, so there is nothing left to restore and no way for one test's
+ * layout to reach the next.
+ */
+function layoutRows(): void {
+	for (const [index, row] of Array.from(
+		document.querySelectorAll("tbody tr"),
+	).entries()) {
+		const top = index * 50;
+		(row as HTMLElement).getBoundingClientRect = () =>
+			({
+				x: 0,
+				y: top,
+				top,
+				bottom: top + 50,
+				left: 0,
+				right: 300,
+				width: 300,
+				height: 50,
+				toJSON: () => ({}),
+			}) as DOMRect;
+	}
+}
+
+/** Picks the handle up, moves it one row down and drops it — the keyboard half
+ * of anker's reorder, which is the half jsdom can drive end to end. */
+async function dragDownOne(
+	user: ReturnType<typeof userEvent.setup>,
+	handleLabel: string,
+): Promise<void> {
+	layoutRows();
+	screen.getByRole("button", { name: handleLabel }).focus();
+	await user.keyboard("[Space]");
+	await user.keyboard("[ArrowDown]");
+	await user.keyboard("[Space]");
+}
+
+describe("VirtualTableField — reordering rows", () => {
+	const rows = [
+		{ description: "One", quantity: 1 },
+		{ description: "Two", quantity: 2 },
+		{ description: "Three", quantity: 3 },
+		{ description: "Four", quantity: 4 },
+	];
+
+	it("moves the dragged row in the stored array", async () => {
+		const user = userEvent.setup();
+		renderEditor({ field: lineItems({}, ROW_SPEC), rows });
+
+		await dragDownOne(user, "Reorder row 1");
+
+		await waitFor(() => {
+			expect(stored()).toEqual([
+				{ description: "Two", quantity: 2 },
+				{ description: "One", quantity: 1 },
+				{ description: "Three", quantity: 3 },
+				{ description: "Four", quantity: 4 },
+			]);
+		});
+	});
+
+	it("moves the rows the second page is showing, not the first page's", async () => {
+		// anker reports indices into the rows it was handed — one page of them.
+		// The array is what gets written, so the page offset has to be added
+		// back on or a drag on page two would reorder page one.
+		const user = userEvent.setup();
+		renderEditor({
+			field: lineItems({ max_records_per_page: 2 }, ROW_SPEC),
+			rows,
+		});
+
+		await user.click(screen.getByRole("button", { name: "Next page" }));
+		expect(await screen.findByText("Three")).toBeInTheDocument();
+
+		await dragDownOne(user, "Reorder row 1");
+
+		await waitFor(() => {
+			expect(stored()).toEqual([
+				{ description: "One", quantity: 1 },
+				{ description: "Two", quantity: 2 },
+				{ description: "Four", quantity: 4 },
+				{ description: "Three", quantity: 3 },
+			]);
+		});
+	});
+
+	it("offers a drag handle on every row it is editing", () => {
+		renderEditor({ field: lineItems({}, ROW_SPEC), rows });
+
+		expect(screen.getAllByRole("button", { name: /Reorder row/ })).toHaveLength(
+			4,
+		);
+	});
+
+	it("shows no drag handle in read-only mode", () => {
+		renderEditor({ field: lineItems({}, ROW_SPEC), rows, readOnly: true });
+
+		expect(screen.getByText("One")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /Reorder row/ }),
+		).not.toBeInTheDocument();
+	});
+});
