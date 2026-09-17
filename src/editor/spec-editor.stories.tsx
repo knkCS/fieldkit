@@ -113,6 +113,47 @@ const addressBlueprint: Schema = [
 	text("city", { name: "City" }),
 ];
 
+// The two ways a Virtual Table declares its Row Spec (ADR-0017), side by side
+// as an Author authors them in the Type settings tab: `line_items` embeds its
+// columns in the Field's own children, `deliveries` links a Blueprint. Neither
+// carries the other side — a Field with both is a Spec validateSpec refuses.
+function virtualTableField(
+	accessor: string,
+	name: string,
+	rowSpec: { blueprint: string } | { columns: Field[] },
+): Field {
+	const linked = "blueprint" in rowSpec;
+	return {
+		field_type: "virtual_table",
+		config: { name, api_accessor: accessor, required: false, instructions: "" },
+		settings: {
+			max_records_per_page: 25,
+			...(linked ? { blueprint: rowSpec.blueprint } : {}),
+		},
+		system: false,
+		children: linked ? undefined : rowSpec.columns,
+	};
+}
+
+const virtualTableSpec: Schema = [
+	text("reference", { name: "Reference", required: true }),
+	virtualTableField("line_items", "Line items", {
+		columns: [
+			text("description", { name: "Description", required: true }),
+			number("quantity", { name: "Quantity", min: 1 }),
+			number("unit_price", { name: "Unit price", min: 0 }),
+		],
+	}),
+	virtualTableField("deliveries", "Deliveries", { blueprint: "delivery_bp" }),
+];
+
+/** The Blueprint behind the linked Row Spec below — the Fields one row holds,
+ * flat value types only (ADR-0017). */
+const deliveryBlueprint: Schema = [
+	text("tracking_code", { name: "Tracking code", required: true }),
+	number("quantity", { name: "Quantity", min: 1 }),
+];
+
 const blueprintAdapters: FieldKitAdapters = {
 	blueprint: {
 		getSchema: async (id) => {
@@ -120,10 +161,15 @@ const blueprintAdapters: FieldKitAdapters = {
 			// Preview skeleton is one of the two states this story exists to
 			// show, and at realistic latency it flashes past unseen.
 			await new Promise((resolve) => setTimeout(resolve, 1500));
-			return id === "address_bp" ? addressBlueprint : [];
+			if (id === "address_bp") return addressBlueprint;
+			if (id === "delivery_bp") return deliveryBlueprint;
+			return [];
 		},
 		getData: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
-		list: async () => [{ id: "address_bp", name: "Address" }],
+		list: async () => [
+			{ id: "address_bp", name: "Address" },
+			{ id: "delivery_bp", name: "Delivery" },
+		],
 	},
 };
 
@@ -305,6 +351,31 @@ export const FieldsetPreviewAdapterFails: Story = {
 					adapter configured at all, the Fieldset shows "Blueprint adapter not
 					configured" and Preview renders with no skeleton, since there is
 					nothing to fetch.
+				</>
+			}
+		/>
+	),
+};
+
+export const VirtualTableRowSpec: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={virtualTableSpec}
+			adapters={blueprintAdapters}
+			note={
+				<>
+					Two <strong>Virtual Tables</strong>, one per way of declaring a{" "}
+					<strong>Row Spec</strong>. Select <code>Line items</code> and open{" "}
+					<strong>Type settings</strong>: its Row Spec is <em>embedded</em> —
+					the columns are authored in the field itself, and the type picker
+					there offers only the flat value types a row may hold (no Group, no
+					Fieldset, no Marker, no nested Virtual Table). <code>Deliveries</code>{" "}
+					is <em>linked</em> instead: its rows come from the{" "}
+					<code>delivery_bp</code> Blueprint, offered here because this story
+					registers a blueprint adapter — without one, only the embedded option
+					appears. Switching a field between the two clears the other side, and
+					asks first where authored columns would be discarded, because a field
+					carrying both is a spec <code>validateSpec()</code> refuses.
 				</>
 			}
 		/>

@@ -72,6 +72,25 @@ export interface SettingsProps<S = unknown> {
 	 */
 	onDrillIn?: (settingsKey: string, accessor: string) => void;
 	/**
+	 * Replaces the Fields the Field itself holds as `children` — the channel a
+	 * settings editor needs when its type's Spec is authored *there* rather
+	 * than in a setting: a Virtual Table's embedded Row Spec is `children`,
+	 * exactly as a Group's rows are (ADR-0017), and `onChange` above can only
+	 * write settings.
+	 *
+	 * Optional on the same terms as `onDrillIn`: a settings editor mounted
+	 * outside the config panel has no way to write the Field itself, and must
+	 * still render what the Field already declares.
+	 */
+	onChildrenChange?: (children: Field[]) => void;
+	/**
+	 * Opens the config panel's drill-in on one of the Field's own `children`,
+	 * named by its Accessor — `onDrillIn`'s twin for a Spec that lives in
+	 * `children` instead of in a settings key. A column is configured through
+	 * the panel's incumbent drill-in, so no nested editor exists for it either.
+	 */
+	onDrillIntoChild?: (accessor: string) => void;
+	/**
 	 * Every registered field type, for a settings editor that lets an Author
 	 * declare Fields of its own and therefore has to offer a type picker.
 	 *
