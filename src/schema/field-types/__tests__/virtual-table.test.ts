@@ -223,3 +223,29 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 		]);
 	});
 });
+
+describe("virtualTablePlugin — an empty Blueprint is still resolved", () => {
+	it("composes the empty Row Spec rather than falling back to the opaque row", () => {
+		// `resolveSpec()` attaches `[]` for a Blueprint with no Fields, and
+		// `children != null` is what "resolved" means everywhere else too.
+		const field: Field<VirtualTableSettings> = {
+			field_type: "virtual_table",
+			config: {
+				name: "Line items",
+				api_accessor: "line_items",
+				required: false,
+				instructions: "",
+			},
+			settings: { blueprint: "empty_bp" },
+			children: [],
+			system: false,
+		};
+
+		const zodType = virtualTablePlugin.toZodType(field, (children) =>
+			specToZodSchema(children, builtInFieldTypes),
+		);
+
+		expect(zodType.safeParse([{ anything: true }]).success).toBe(true);
+		expect(zodType.safeParse("not an array").success).toBe(false);
+	});
+});

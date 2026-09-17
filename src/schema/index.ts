@@ -1,5 +1,8 @@
 // @knkcs/fieldkit/schema — Field types, registry, Zod generation, defineSpec()
 
+// The Blueprint a Fieldset or a linked Virtual Table names — one reader for
+// both.
+export { linkedBlueprintId } from "./blueprint-link";
 export { boolean, number, section, select, text } from "./builders";
 export type { DefineSpecOptions, SpecDefinition } from "./define-spec";
 // Builder API
@@ -159,7 +162,6 @@ export type { VirtualTableRowSpecKind } from "./virtual-table-row-spec";
 export {
 	isVirtualTableRowFieldType,
 	VIRTUAL_TABLE_ROW_FIELD_TYPES,
-	virtualTableBlueprintId,
 	virtualTableRowSpecKind,
 } from "./virtual-table-row-spec";
 // Zod builder

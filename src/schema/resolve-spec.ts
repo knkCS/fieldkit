@@ -1,9 +1,6 @@
 // src/schema/resolve-spec.ts
-// The fieldset plugin pulls in its React components, so its settings type is
-// imported type-only — this module stays free of the renderer at runtime.
-import type { FieldsetSettings } from "./field-types/fieldset";
+import { linkedBlueprintId } from "./blueprint-link";
 import type { Field, Schema } from "./types";
-import { virtualTableBlueprintId } from "./virtual-table-row-spec";
 
 /** The one adapter capability resolution needs: a Blueprint id in, that
  * Blueprint's Fields out. `FieldKitAdapters["blueprint"]` is built on this
@@ -117,38 +114,24 @@ export function specNeedsResolution(
 }
 
 function fieldNeedsResolution(field: Field): boolean {
-	const container = blueprintContainer(field);
-	if (container) {
+	if (blueprintContainerName(field)) {
 		if (field.children != null) return false;
-		return container.blueprintId != null;
+		return linkedBlueprintId(field) != null;
 	}
 	return field.children?.some(fieldNeedsResolution) ?? false;
 }
 
-/** The two Field Types that fetch a Blueprint to become resolved, and the
- * Blueprint each one names — or undefined for every other Field Type. One
- * place, so the predicate above and the resolver below cannot disagree about
- * what is left to fetch. */
-function blueprintContainer(
-	field: Field,
-): { label: string; blueprintId: string | undefined } | undefined {
-	if (field.field_type === "fieldset") {
-		return { label: "Fieldset", blueprintId: fieldsetBlueprintId(field) };
-	}
-	if (field.field_type === "virtual_table") {
-		return {
-			label: "Virtual Table",
-			blueprintId: virtualTableBlueprintId(field),
-		};
-	}
-	return undefined;
-}
+/** The two Field Types that fetch a Blueprint to become resolved, under the
+ * name a cycle error calls each by — and undefined for every other Field Type.
+ * One place, so the predicate above and the resolver below cannot disagree
+ * about what is left to fetch. */
+const BLUEPRINT_CONTAINERS: Record<string, string> = {
+	fieldset: "Fieldset",
+	virtual_table: "Virtual Table",
+};
 
-/** The Blueprint a Fieldset names, or undefined for one an Author has not
- * pointed anywhere yet. The single place the settings cast lives, so the
- * predicate above and the resolver below cannot read a Fieldset differently. */
-function fieldsetBlueprintId(field: Field): string | undefined {
-	return (field.settings as FieldsetSettings | null | undefined)?.blueprint;
+function blueprintContainerName(field: Field): string | undefined {
+	return BLUEPRINT_CONTAINERS[field.field_type];
 }
 
 type Fetcher = (blueprintId: string) => Promise<Field[]>;
@@ -193,21 +176,21 @@ async function resolveField(
 	chain: string[],
 	fetch: Fetcher,
 ): Promise<Field> {
-	const container = blueprintContainer(field);
-	if (container) {
+	const containerName = blueprintContainerName(field);
+	if (containerName) {
 		// Already resolved — including to the empty array an empty Blueprint
 		// gives — so nothing to fetch. For a Virtual Table this is also how an
 		// embedded Row Spec is left alone (ADR-0017).
 		if (field.children != null) return field;
 
-		const { label, blueprintId } = container;
+		const blueprintId = linkedBlueprintId(field);
 		// An incomplete Field is not an error here — the renderer says "No
 		// blueprint selected" and the rest of the form still works.
 		if (!blueprintId) return field;
 
 		if (chain.includes(blueprintId)) {
 			throw new Error(
-				`${label} blueprint cycle detected: ${[...chain, blueprintId].join(" → ")}`,
+				`${containerName} blueprint cycle detected: ${[...chain, blueprintId].join(" → ")}`,
 			);
 		}
 

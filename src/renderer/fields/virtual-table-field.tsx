@@ -2,10 +2,10 @@ import { Box, Table, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { type ReactNode, useEffect, useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
+import { linkedBlueprintId } from "../../schema/blueprint-link";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { FieldProps } from "../../schema/plugin";
 import type { Field as FieldDef } from "../../schema/types";
-import { virtualTableBlueprintId } from "../../schema/virtual-table-row-spec";
 import { useFieldKit } from "../provider";
 
 /** "ready" covers both "nothing to fetch" and "the fetch came back". */
@@ -41,7 +41,7 @@ export function VirtualTableField({
 	const { config } = field;
 	const accessor = config.api_accessor;
 	const blueprintAdapter = adapters.blueprint;
-	const blueprintId = virtualTableBlueprintId(field);
+	const blueprintId = linkedBlueprintId(field);
 
 	// Presence, not length, exactly as a Fieldset reads it: `resolveSpec()`
 	// attaches an EMPTY array for a Blueprint with no Fields, and that is a
@@ -58,7 +58,15 @@ export function VirtualTableField({
 	);
 
 	useEffect(() => {
-		if (isResolved || !blueprintAdapter || !blueprintId) return;
+		// Nothing to fetch — and that includes a Blueprint the Author has just
+		// cleared, so the columns and the status from the previous one go with
+		// it rather than sitting on screen under a Field that no longer names
+		// it.
+		if (isResolved || !blueprintAdapter || !blueprintId) {
+			setFetched(null);
+			setStatus("ready");
+			return;
+		}
 
 		let cancelled = false;
 		setStatus("loading");

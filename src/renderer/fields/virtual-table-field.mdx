@@ -16,13 +16,13 @@ A repeating table of rows, one per record. Its **Row Spec** — the Spec every r
 
 Use **Virtual Table** for a repeating set of records edited as a table rather than as stacked forms — a line-items table on an order, for example. Link the Row Spec when several Fields should share it; embed it when the Row Spec belongs to this Field alone. Available in every context: `availableIn: ["blueprint", "task", "form"]`.
 
-## Row Spec columns
+## What a Row Spec may hold
 
-A Row Spec holds **only flat value Fields**, because each column must fit a table cell and a row drawer:
+**Only flat value Fields**, because each one must fit a table cell and a row drawer:
 
 `text`, `textarea`, `markdown`, `number`, `date`, `time`, `boolean`, `select`, `radio`, `checkboxes`, `email`, `url`, `slug`, `color`, `lookup`, `media`, `single_reference`
 
-No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending column with the `virtual_table_row_field_type` code. The list is exported from `/schema` as `VIRTUAL_TABLE_ROW_FIELD_TYPES`.
+No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending Field with the `virtual_table_row_field_type` code. The list is exported from `/schema` as `VIRTUAL_TABLE_ROW_FIELD_TYPES`.
 
 ## Settings
 
@@ -31,7 +31,7 @@ No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`,
 | `blueprint`            | `string` | —       | Id of the Blueprint holding a **linked** Row Spec. Must not be set together with `children` |
 | `always_latest`        | `boolean`| —       | Always fetch the latest schema version (currently unused) |
 | `max_records_per_page` | `number` | `25`    | Maximum records per page (currently unused — no pagination) |
-| `min_items`            | `number` | —       | Fewest rows the table accepts |
+| `min_items`            | `number` | —       | Fewest rows the table accepts (shared with `group` via `RowArrayCaps`) |
 | `max_items`            | `number` | —       | Most rows the table accepts |
 
 ## Adapter Interface
@@ -68,18 +68,20 @@ The component reads its columns from `field.children` — the resolved Row Spec,
 
 ## Validation
 
-An array of the row objects the resolved Row Spec describes, composed the way a Group composes its children (ADR-0007) — so a wrong column type or a missing required column blocks submit and reports at `line_items.1.quantity`. Rows are `passthrough`: a stored row carries keys the Row Spec does not edit (a backend id), and validating must not prune them.
+An array of the row objects the resolved Row Spec describes. The rule is shared with `group` (`src/schema/row-array.ts`) — both hold an array of rows all shaped alike, and differ only in how a row is edited — so a wrong value type or a missing required Field blocks submit and reports at `line_items.1.quantity`. Rows are `passthrough`: a stored row carries keys the Row Spec does not edit (a backend id), and validating must not prune them.
 
-An **unresolved** linked Row Spec keeps the opaque row — the Schema must not reject values for Fields fieldkit was never told about.
+An **unresolved** linked Row Spec keeps the opaque row — the Schema must not reject values for Fields fieldkit was never told about. "Resolved" is `children != null`, the same rule `resolveSpec()` and the renderer read.
+
+`validateSpec()` takes an **authored** Spec: a Resolved linked Field names a Blueprint and holds children at once, which it reports as ambiguous. Validate before you resolve.
 
 ## Zod Output
 
 ```ts
-// Resolved Row Spec
+// Resolved Row Spec (children != null)
 z.array(composeChildren(children).passthrough())
   // .min(min_items) / .max(max_items) when set
 
-// Row Spec not resolved (no children)
+// Row Spec not resolved (children == null)
 z.array(z.record(z.unknown()))
 ```
 

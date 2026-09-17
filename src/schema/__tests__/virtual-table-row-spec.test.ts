@@ -223,3 +223,17 @@ describe("the Virtual Table's Field Contexts", () => {
 		);
 	});
 });
+
+describe("validateSpec takes an authored Spec, not a Resolved one", () => {
+	it("reports a resolved linked Row Spec as ambiguous — validate before you resolve", () => {
+		// `resolveSpec()` leaves a linked Field naming a Blueprint AND holding
+		// its Fields, which is the shape the renderer and the Schema builder
+		// consume. Pinned rather than special-cased: nothing structural tells a
+		// resolved linked Field from an Author who declared both.
+		const resolved = lineItems({
+			blueprint: "line_item_bp",
+			columns: [DESCRIPTION],
+		});
+		expect(codes([resolved])).toEqual(["virtual_table_row_spec_ambiguous"]);
+	});
+});

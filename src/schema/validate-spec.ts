@@ -17,8 +17,8 @@ export type SpecFieldErrorCode =
 	| "virtual_table_row_spec_ambiguous"
 	/** A Virtual Table with neither a linked nor an embedded Row Spec. */
 	| "virtual_table_row_spec_missing"
-	/** A Field in a Row Spec that a table column cannot be — a Marker, a
-	 * container, or any type outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
+	/** A Field a Row Spec may not hold — a Marker, a container, or any type
+	 * outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
 	| "virtual_table_row_field_type";
 
 export interface SpecFieldError {
@@ -161,6 +161,15 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  * Walks `children` like the accessor check, so a Virtual Table inside a Group
  * is checked too — and, on the same ADR-0007 boundary, one declared inside a
  * Block Type's settings Fields is not.
+ *
+ * **Takes an authored Spec**, as every check here does. `resolveSpec()` puts a
+ * linked Row Spec into `children` (ADR-0004), so a *Resolved* linked Virtual
+ * Table names a Blueprint and has children at once and is reported ambiguous.
+ * That is not a contradiction with the Field-type check below reading those
+ * same `children`: an authored Field's children are its embedded Row Spec, and
+ * the check is about what an Author declared. A Resolved Spec is the renderer's
+ * and the Schema builder's input, never this function's — validate before you
+ * resolve.
  */
 function checkVirtualTables(
 	fields: Field[],
@@ -190,20 +199,20 @@ function checkVirtualTable(field: Field, fieldErrors: SpecFieldError[]): void {
 		fieldErrors.push({
 			accessor,
 			code: "virtual_table_row_spec_missing",
-			message: `Virtual Table "${accessor}" has no Row Spec: link a Blueprint or add columns`,
+			message: `Virtual Table "${accessor}" has no Row Spec: link a Blueprint or declare its Fields`,
 		});
 	}
 
 	// Checked whichever way the Row Spec was declared: an embedded one is the
 	// Author's to fix, and a linked one resolved into `children` would be the
-	// Blueprint's — reported either way rather than silently rendering a
-	// column no cell can draw.
-	for (const column of field.children ?? []) {
-		if (isVirtualTableRowFieldType(column.field_type)) continue;
+	// Blueprint's — reported either way rather than silently rendering a Field
+	// no cell can draw.
+	for (const rowField of field.children ?? []) {
+		if (isVirtualTableRowFieldType(rowField.field_type)) continue;
 		fieldErrors.push({
-			accessor: column.config.api_accessor,
+			accessor: rowField.config.api_accessor,
 			code: "virtual_table_row_field_type",
-			message: `Field "${column.config.api_accessor}" of type "${column.field_type}" cannot be a Virtual Table column`,
+			message: `Field "${rowField.config.api_accessor}" of type "${rowField.field_type}" is not allowed in a Row Spec`,
 		});
 	}
 }

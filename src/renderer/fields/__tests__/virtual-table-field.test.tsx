@@ -180,3 +180,32 @@ describe("VirtualTableField", () => {
 		expect(screen.getByText(/2 records/)).toBeInTheDocument();
 	});
 });
+
+describe("VirtualTableField — a Blueprint the Author clears", () => {
+	it("drops the previous Blueprint's columns rather than leaving them on screen", async () => {
+		const adapter = blueprintAdapter();
+		const { rerender } = render(
+			<Wrapper
+				adapters={{ blueprint: adapter }}
+				defaultValues={{ line_items: [] }}
+			>
+				<VirtualTableField
+					field={lineItems({ blueprint: "line_item_bp" }, null)}
+				/>
+			</Wrapper>,
+		);
+
+		expect(await screen.findByText("Description")).toBeInTheDocument();
+
+		rerender(
+			<Wrapper
+				adapters={{ blueprint: adapter }}
+				defaultValues={{ line_items: [] }}
+			>
+				<VirtualTableField field={lineItems({}, null)} />
+			</Wrapper>,
+		);
+
+		expect(screen.queryByText("Description")).not.toBeInTheDocument();
+	});
+});
