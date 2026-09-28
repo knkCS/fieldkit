@@ -8,12 +8,13 @@ import { builtInFieldTypes } from "../field-types";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { validateSpec } from "../validate-spec";
+import { validateValue } from "../validate-value";
 
 const CONFORMANCE = path.resolve(__dirname, "../../../conformance");
 
 /** The operations this runner implements. A fixture expecting another fails,
  * so no fixture is ever skipped by one runner alone. */
-const OPERATIONS = ["validateSpec"];
+const OPERATIONS = ["validateSpec", "validateValue"];
 
 interface ExpectedError {
 	path: string;
@@ -23,6 +24,8 @@ interface ExpectedError {
 interface Fixture {
 	description: string;
 	spec: Field[];
+	/** The stored data `validateValue` checks against `spec`. */
+	data?: unknown;
 	expect: Record<string, unknown>;
 }
 
@@ -67,7 +70,10 @@ const UNRELEASED = "unreleased";
 function binds(version: string, operation: string, expected: unknown): boolean {
 	if (version === UNRELEASED) return true;
 	switch (operation) {
+		// Both operations answer with a list of errors, and a valid case is an
+		// empty one.
 		case "validateSpec":
+		case "validateValue":
 			return Array.isArray(expected) && expected.length === 0;
 		default:
 			return true;
@@ -117,6 +123,12 @@ describe("conformance fixtures", () => {
 				const got = validateSpec(fixture.spec, cataloguePlugins).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
 			}
+
+			if (bound.includes("validateValue")) {
+				const want = fixture.expect.validateValue as ExpectedError[];
+				const got = validateValue(fixture.spec, fixture.data, cataloguePlugins);
+				expect(sorted(got)).toEqual(sorted(want));
+			}
 		});
 	}
 });
@@ -134,6 +146,10 @@ describe("which fixtures bind (ADR-0019)", () => {
 		expect(binds("0.18.0", "validateSpec", [{ path: "/a", code: "x" }])).toBe(
 			false,
 		);
+		expect(binds("0.18.0", "validateValue", [])).toBe(true);
+		expect(
+			binds("0.18.0", "validateValue", [{ path: "/a", code: "required" }]),
+		).toBe(false);
 	});
 
 	it("binds an operation it does not know, so it fails as unknown", () => {

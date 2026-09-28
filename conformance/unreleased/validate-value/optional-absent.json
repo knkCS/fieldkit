@@ -1,0 +1,113 @@
+{
+	"description": "An optional Field left absent is valid, whatever its type, and its type is not checked",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Count",
+				"api_accessor": "count",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Published",
+				"api_accessor": "published",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Choice",
+				"api_accessor": "choice",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Email",
+				"api_accessor": "email",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Website",
+				"api_accessor": "website",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Slug",
+				"api_accessor": "slug",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "Layout",
+				"api_accessor": "layout",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "Images",
+				"api_accessor": "images",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

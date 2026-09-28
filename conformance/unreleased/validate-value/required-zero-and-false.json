@@ -1,0 +1,44 @@
+{
+	"description": "0 and false are values, not Unset: a required Number holding 0 and a required Boolean holding false are valid",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Count",
+				"api_accessor": "count",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Published",
+				"api_accessor": "published",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Negative Zero",
+				"api_accessor": "negative_zero",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"count": 0,
+		"published": false,
+		"negative_zero": -0.0
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

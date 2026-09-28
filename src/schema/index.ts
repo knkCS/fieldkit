@@ -151,6 +151,9 @@ export type {
 	LockedSetting,
 	Schema,
 } from "./types";
+// Value validation and the canonical stored form (ADR-0021): the same answers
+// as the Go module's ValidateValue.
+export { canonicalSpecSettings, canonicalValue, isUnset } from "./unset";
 // Spec validation
 export type {
 	SpecFieldError,
@@ -158,6 +161,8 @@ export type {
 	SpecValidationResult,
 } from "./validate-spec";
 export { validateSpec } from "./validate-spec";
+export type { ValueError, ValueErrorCode } from "./validate-value";
+export { VALUE_CAPS, validateValue } from "./validate-value";
 // The Virtual Table's Row Spec rules (ADR-0017): which of the two ways a
 // Field declares one, and what a column may be.
 export type { VirtualTableRowSpecKind } from "./virtual-table-row-spec";

@@ -1,0 +1,91 @@
+{
+	"description": "date, time, color, radio and lookup holding anything but a string are invalid_type",
+	"spec": [
+		{
+			"field_type": "date",
+			"config": {
+				"name": "Day",
+				"api_accessor": "day",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "time",
+			"config": {
+				"name": "At",
+				"api_accessor": "at",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "color",
+			"config": {
+				"name": "Tint",
+				"api_accessor": "tint",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "Size",
+				"api_accessor": "size",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "Layout",
+				"api_accessor": "layout",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"day": 20260101,
+		"at": true,
+		"tint": [
+			"#fff"
+		],
+		"size": {
+			"s": 1
+		},
+		"layout": 7
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/day",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/at",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/tint",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/size",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/layout",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

@@ -1,0 +1,93 @@
+{
+	"description": "select holds one key, or a list of keys with settings.multiple; checkboxes and media a list of strings",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Single",
+				"api_accessor": "single",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "A"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Multiple",
+				"api_accessor": "multiple",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "A"
+				},
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Not Multiple",
+				"api_accessor": "not_multiple",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": false
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "Images",
+				"api_accessor": "images",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"accept": [
+					"image/*"
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"single": "a",
+		"multiple": [
+			"a",
+			"b"
+		],
+		"not_multiple": "a",
+		"tags": [
+			"a"
+		],
+		"images": [
+			"m1",
+			"m2"
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

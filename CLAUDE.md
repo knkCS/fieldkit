@@ -44,7 +44,9 @@ src/
 │   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into children and a Block Type's Fields), card-layout rule, duplicate Block Types, the Virtual Table Row Spec rules (ADR-0017), unknown Field Types and each type's settings against its `settingsSchema` (ADR-0018). Every error carries a `/`-separated `path` shared with Go
 │   ├── validate-settings.ts # validateSettings() — one Field's settings against a strict `settingsSchema` (`unknown_setting`, `invalid_setting`), Unset stripped first (ADR-0021); isUnset(), the path grammar
 │   ├── resolve-spec.ts  # resolveSpec() — expands the adapter-backed containers (a fieldset, and a virtual_table whose Row Spec is linked) into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
-│   ├── zod-builder.ts   # specToZodSchema(), getDefaultValues()
+│   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021)
+│   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)
+│   ├── zod-builder.ts   # specToZodSchema() — its parsed output is canonical, Unset keys stripped — and getDefaultValues()
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — id, pin, attributes, children — plus referenceTreeSchema and withPin (ADR-0008)
 │   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
@@ -111,7 +113,10 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── spec.go              # Spec/Field model, DecodeSpec (strict: an unmodelled property is an error)
 ├── validate.go          # ValidateSpec — unknown_field_type, settings errors, walking children and Block Types' Fields
 ├── settings.go          # ValidateSettings — generic over the Catalogue's JSON Schemas
-└── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec, blocks' Block Types)
+├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec, blocks' Block Types)
+├── values.go            # ValidateValue — Unset/required, not_canonical, the caps; the containers are not implemented yet
+├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
+└── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md
 ├── unreleased/<area>/*.json
 └── <X.Y.Z>/             # A release's frozen fixtures + catalogue.json — never edited; only its valid cases bind (ADR-0019)

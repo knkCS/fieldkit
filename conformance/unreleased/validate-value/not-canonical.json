@@ -1,0 +1,134 @@
+{
+	"description": "A key holding an Unset value is not_canonical at any depth, whether or not the Spec names it — at the outermost key whose whole value is Unset — while array items are kept whatever they hold",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Keyed",
+				"api_accessor": "keyed",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Entries",
+				"api_accessor": "entries",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": "",
+		"keyed": {
+			"a": "1",
+			"b": "",
+			"c": null
+		},
+		"pairs": [
+			{
+				"key": "a",
+				"value": ""
+			},
+			{
+				"key": "b",
+				"value": {}
+			},
+			{}
+		],
+		"tags": [],
+		"entries": [
+			"",
+			"b"
+		],
+		"unnamed": null,
+		"nested": {
+			"deeper": {
+				"deepest": [],
+				"also": {}
+			}
+		},
+		"kept": {
+			"one": 1,
+			"none": null
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/title",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/keyed/b",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/keyed/c",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/pairs/0/value",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/pairs/1/value",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/tags",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/unnamed",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/nested",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/kept/none",
+				"code": "not_canonical"
+			}
+		]
+	}
+}

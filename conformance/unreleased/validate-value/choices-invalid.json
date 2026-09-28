@@ -1,0 +1,125 @@
+{
+	"description": "A list where one key belongs, one key where a list belongs, and an item that is not a string are invalid_type, at the item for an item",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Single",
+				"api_accessor": "single",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Multiple",
+				"api_accessor": "multiple",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Multiple Items",
+				"api_accessor": "multiple_items",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tag Items",
+				"api_accessor": "tag_items",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "Images",
+				"api_accessor": "images",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"single": [
+			"a"
+		],
+		"multiple": "a",
+		"multiple_items": [
+			"a",
+			1
+		],
+		"tags": "a",
+		"tag_items": [
+			null,
+			"b",
+			false
+		],
+		"images": [
+			{
+				"id": "m1"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/single",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/multiple",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/multiple_items/1",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/tags",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/tag_items/0",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/tag_items/2",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/images/0",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

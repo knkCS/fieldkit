@@ -19,7 +19,7 @@ const conformanceDir = "../conformance"
 
 // operations are the operations this runner implements. A fixture expecting
 // another fails, so a fixture is never silently skipped by one runner.
-var operations = []string{"validateSpec"} //nolint:gochecknoglobals
+var operations = []string{"validateSpec", "validateValue"} //nolint:gochecknoglobals
 
 type expectedError struct {
 	Path string `json:"path"`
@@ -29,6 +29,7 @@ type expectedError struct {
 type fixture struct {
 	Description string                     `json:"description"`
 	Spec        json.RawMessage            `json:"spec"`
+	Data        json.RawMessage            `json:"data,omitempty"`
 	Expect      map[string]json.RawMessage `json:"expect"`
 }
 
@@ -78,6 +79,8 @@ func TestConformance(t *testing.T) {
 				switch op {
 				case "validateSpec":
 					runValidateSpec(t, fx, raw)
+				case "validateValue":
+					runValidateValue(t, fx, raw)
 				default:
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
@@ -105,7 +108,9 @@ func binds(version, op string, raw json.RawMessage) bool {
 		return true
 	}
 	switch op {
-	case "validateSpec":
+	// Both operations answer with a list of errors, and a valid case is an
+	// empty one.
+	case "validateSpec", "validateValue":
 		var want []json.RawMessage
 		if err := json.Unmarshal(raw, &want); err != nil {
 			return true // malformed: let the run report it
@@ -127,6 +132,8 @@ func TestBinds(t *testing.T) {
 		{"an unreleased invalid case", unreleased, "validateSpec", invalid, true},
 		{"a released valid case", "0.18.0", "validateSpec", json.RawMessage(`[]`), true},
 		{"a released invalid case", "0.18.0", "validateSpec", invalid, false},
+		{"a released valid value", "0.18.0", "validateValue", json.RawMessage(`[]`), true},
+		{"a released invalid value", "0.18.0", "validateValue", invalid, false},
 		{"an operation the runner does not know", "0.18.0", "somethingNew", invalid, true},
 	}
 	for _, c := range cases {
@@ -157,6 +164,30 @@ func runValidateSpec(t *testing.T, fx fixture, raw json.RawMessage) {
 	sortErrors(want)
 	if !slices.Equal(got, want) {
 		t.Errorf("validateSpec\n got: %s\nwant: %s", show(got), show(want))
+	}
+}
+
+func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
+	t.Helper()
+	var want []expectedError
+	if err := decodeStrict(raw, &want); err != nil {
+		t.Fatalf("malformed validateValue expectation: %v", err)
+	}
+	spec, err := DecodeSpec(fx.Spec)
+	if err != nil {
+		t.Fatalf("DecodeSpec: %v", err)
+	}
+	got := []expectedError{}
+	for _, e := range ValidateValue(spec, fx.Data) {
+		got = append(got, expectedError{Path: e.Path, Code: e.Code})
+	}
+	if want == nil {
+		want = []expectedError{}
+	}
+	sortErrors(got)
+	sortErrors(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("validateValue\n got: %s\nwant: %s", show(got), show(want))
 	}
 }
 

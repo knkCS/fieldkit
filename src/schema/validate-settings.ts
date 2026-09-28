@@ -1,5 +1,10 @@
 // src/schema/validate-settings.ts
 import type { ZodIssue, ZodTypeAny } from "zod";
+import { isUnset, stripUnset } from "./unset";
+
+// Re-exported: the Unset rule lived here first, and moved to ./unset once
+// values needed it too (ADR-0021).
+export { isUnset };
 
 /**
  * The codes settings validation reports. Part of the data contract, shared
@@ -18,17 +23,6 @@ export type SettingsErrorCode =
 export interface SettingsError {
 	path: string;
 	code: SettingsErrorCode;
-}
-
-/**
- * Whether a value is **Unset** — absent, `null`, `""`, `[]` or `{}`
- * (ADR-0021). `0` and `false` are values.
- */
-export function isUnset(value: unknown): boolean {
-	if (value === undefined || value === null || value === "") return true;
-	if (Array.isArray(value)) return value.length === 0;
-	if (typeof value === "object") return Object.keys(value).length === 0;
-	return false;
 }
 
 /** Escapes one path segment the way RFC 6901 does, so an Accessor or a key
@@ -88,20 +82,4 @@ function fromIssue(issue: ZodIssue): SettingsError[] {
 function withoutUnset(settings: unknown): unknown {
 	const canonical = stripUnset(settings);
 	return isUnset(canonical) ? {} : canonical;
-}
-
-/**
- * Drops every object key whose value is Unset, at every depth, deepest first —
- * so `{ a: { b: null } }` loses `a` too. Array elements are kept, Unset or
- * not: `[null]` holds one element, and is not `[]`.
- */
-function stripUnset(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stripUnset);
-	if (typeof value !== "object" || value === null) return value;
-	const kept: Record<string, unknown> = {};
-	for (const [key, child] of Object.entries(value)) {
-		const canonical = stripUnset(child);
-		if (!isUnset(canonical)) kept[key] = canonical;
-	}
-	return kept;
 }
