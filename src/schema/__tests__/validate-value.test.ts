@@ -98,6 +98,43 @@ describe("validateValue caps", () => {
 	});
 });
 
+describe("validateValue over the whole document", () => {
+	it("caps keys the Spec does not name, and reports nothing else then", () => {
+		const items = Array.from({ length: VALUE_CAPS.maxItems + 1 }, () => "");
+		expect(
+			validateValue(
+				[
+					field("text", "title", {
+						config: { ...field("text", "title").config, required: true },
+					}),
+				],
+				{ stray: items },
+				builtInFieldTypes,
+			).map((e) => `${e.path} ${e.code}`),
+		).toEqual(["/stray too_many_items"]);
+	});
+
+	it("caps the number of keys at the root, at the empty path", () => {
+		const data = Object.fromEntries(
+			Array.from({ length: VALUE_CAPS.maxItems + 1 }, (_, i) => [`k${i}`, 1]),
+		);
+		expect(
+			validateValue([], data, builtInFieldTypes).map((e) => e.code + e.path),
+		).toEqual(["too_many_items"]);
+	});
+
+	it("checks everything but a validation.pattern that is no JS regular expression", () => {
+		const spec = [
+			field("text", "code", {
+				validation: { pattern: "(", max_length: 2 },
+			}),
+		];
+		expect(validateValue(spec, { code: "abc" }, builtInFieldTypes)).toEqual([
+			{ path: "/code", code: "too_big" },
+		]);
+	});
+});
+
 describe("validateValue beyond the scalar types", () => {
 	it("validates a Group's rows through its toZodType, a row's Unset required child as required", () => {
 		const spec = [

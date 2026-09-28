@@ -2,7 +2,7 @@
 import type { ZodIssue } from "zod";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
-import { canonicalValue, isUnset, stripUnset } from "./unset";
+import { canonicalValue, isPlainObject, isUnset, stripUnset } from "./unset";
 import { toPath } from "./validate-settings";
 import { fieldProducesValue, specToZodSchema } from "./zod-builder";
 
@@ -81,8 +81,10 @@ export const VALUE_CAPS = {
  *   names it, is `not_canonical`: Unset is stored as absent. A form's
  *   submitted values are canonical already (`specToZodSchema` strips them);
  *   {@link canonicalValue} canonicalises anything else.
- * - {@link VALUE_CAPS} are enforced as `too_many_items` and `too_large`. A
- *   value beyond a cap is not checked further.
+ * - {@link VALUE_CAPS} are enforced as `too_many_items` and `too_large`,
+ *   over the whole document — keys the Spec does not name, and the number of
+ *   keys at the root, included. Data beyond a cap reports only the caps it
+ *   breaks: nothing else is checked.
  *
  * Settings and `validation` are read in canonical form too, so a `min: null`
  * is no minimum. Keys the Spec does not name are otherwise ignored, as the
@@ -120,6 +122,11 @@ export function validateValue(
 		errors.push(error);
 	};
 
+	// The caps come first and cover the whole document, keys the Spec does
+	// not name included: nothing else walks a document beyond them.
+	const capped = capErrors(data, []);
+	if (capped.length > 0) return capped;
+
 	reportNonCanonical(data, [], push);
 	const canonical = stripUnset(data) as Record<string, unknown>;
 
@@ -136,15 +143,7 @@ export function validateValue(
 			continue;
 		}
 
-		const capped = capErrors(value, at);
-		if (capped.length > 0) {
-			for (const error of capped) push(error);
-			continue;
-		}
-
-		const schema = plugin.toZodType(canonicalField(field), (children) =>
-			specToZodSchema(children, pluginList),
-		);
+		const schema = zodTypeOf(plugin, canonicalField(field), pluginList);
 		const result = schema.safeParse(value);
 		if (result.success) continue;
 		for (const issue of result.error.issues) {
@@ -153,6 +152,27 @@ export function validateValue(
 	}
 
 	return errors;
+}
+
+/**
+ * The Field's Zod type. A `validation.pattern` that is no JS regular
+ * expression makes `toZodType` throw; the pattern then checks nothing, and
+ * everything else still does — which is also Go's answer to a pattern it
+ * cannot compile.
+ */
+function zodTypeOf(
+	plugin: FieldTypePlugin,
+	field: Field<unknown>,
+	plugins: FieldTypePlugin[],
+) {
+	const compose = (children: Field[]) => specToZodSchema(children, plugins);
+	try {
+		return plugin.toZodType(field, compose);
+	} catch (error) {
+		if (!field.validation?.pattern) throw error;
+		const { pattern: _, ...validation } = field.validation;
+		return plugin.toZodType({ ...field, validation }, compose);
+	}
 }
 
 /** The Field as `toZodType` should read it: settings and validation in
@@ -199,7 +219,7 @@ function reportNonCanonical(
 		});
 		return;
 	}
-	if (typeof value !== "object" || value === null) return;
+	if (!isPlainObject(value)) return;
 	for (const [key, child] of Object.entries(value)) {
 		if (child === undefined) continue; // absent: the canonical form itself
 		if (isUnset(stripUnset(child))) {
@@ -225,7 +245,7 @@ function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
 			}
 			return;
 		}
-		if (typeof node !== "object" || node === null) return;
+		if (!Array.isArray(node) && !isPlainObject(node)) return;
 		const entries: [string | number, unknown][] = Array.isArray(node)
 			? node.map((item, index) => [index, item])
 			: Object.entries(node);

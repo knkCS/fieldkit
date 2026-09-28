@@ -76,6 +76,24 @@ func TestValidateValueCaps(t *testing.T) {
 	}
 }
 
+func TestValidateValueCapsTheWholeDocument(t *testing.T) {
+	stray := make([]string, MaxItems+1)
+	required := valueField("text", "title", "")
+	required.Config.Required = true
+	got := codesOf(ValidateValue(Spec{required}, mustJSON(t, map[string]any{"stray": stray})))
+	if strings.Join(got, ",") != "/stray too_many_items" {
+		t.Errorf("keys the Spec does not name: got %v", got)
+	}
+	root := map[string]int{}
+	for i := 0; i <= MaxItems; i++ {
+		root[fmt.Sprint("k", i)] = 1
+	}
+	got = codesOf(ValidateValue(nil, mustJSON(t, root)))
+	if strings.Join(got, ",") != " too_many_items" {
+		t.Errorf("keys at the root: got %v", got)
+	}
+}
+
 func TestValidateValueCapParams(t *testing.T) {
 	errs := ValidateValue(Spec{valueField("text", "title", "")},
 		mustJSON(t, map[string]any{"title": strings.Repeat("a", MaxStringBytes+1)}))
@@ -123,6 +141,18 @@ func TestValidateValueSkipsWhatItDoesNotImplement(t *testing.T) {
 	data := json.RawMessage(`{"authors": 5, "related": "x", "body": 1}`)
 	if errs := ValidateValue(spec, data); errs != nil {
 		t.Errorf("got %v, want nil", errs)
+	}
+}
+
+func TestInvalidPatternChecksTheRest(t *testing.T) {
+	// "(" is neither JS nor RE2: the pattern checks nothing, the lengths
+	// still do — TS answers the same.
+	f := valueField("text", "code", "")
+	pattern, most := "(", 2.0
+	f.Validation = &Validation{Pattern: &pattern, MaxLength: &most}
+	got := codesOf(ValidateValue(Spec{f}, json.RawMessage(`{"code":"abc"}`)))
+	if strings.Join(got, ",") != "/code too_big" {
+		t.Errorf("got %v, want /code too_big", got)
 	}
 }
 

@@ -2,10 +2,6 @@
 import type { ZodIssue, ZodTypeAny } from "zod";
 import { isUnset, stripUnset } from "./unset";
 
-// Re-exported: the Unset rule lived here first, and moved to ./unset once
-// values needed it too (ADR-0021).
-export { isUnset };
-
 /**
  * The codes settings validation reports. Part of the data contract, shared
  * with the Go module: a code is only ever added, never renamed or removed

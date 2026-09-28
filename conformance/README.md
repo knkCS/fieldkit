@@ -149,7 +149,7 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_format` | *(value)* A string not in its type's format: `email`, `url`, `slug`, or the Field's `validation.pattern`. |
 | `too_small` | *(value)* Below a minimum the Spec states: a string shorter than `validation.min_length` (in UTF-16 code units), a number below `settings.min`, fewer rows than `min_items`; and a blank entry in a required List. |
 | `too_big` | *(value)* Above a maximum the Spec states: a string longer than `validation.max_length`, a number above `settings.max`. |
-| `too_many_items` | *(value)* An array, or an object's keys, beyond 10 000 (TS `VALUE_CAPS.maxItems`, Go `MaxItems`), or rows beyond a Field's `max_items`. Nothing inside it is checked. |
+| `too_many_items` | *(value)* An array, or an object's keys, beyond 10 000 (TS `VALUE_CAPS.maxItems`, Go `MaxItems`), or rows beyond a Field's `max_items`. The 10 000 cap covers the whole document, keys the Spec does not name and the root included; data beyond it or `too_large` reports only its caps. |
 | `too_large` | *(value)* A string beyond 1 MiB of UTF-8 (TS `VALUE_CAPS.maxStringBytes`, Go `MaxStringBytes`). |
 | `invalid_value` | *(value)* Any other rule a type's `toZodType` states. No type Go validates reports it. |
 

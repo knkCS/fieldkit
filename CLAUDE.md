@@ -42,7 +42,7 @@ src/
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
 │   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
 │   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into children and a Block Type's Fields), card-layout rule, duplicate Block Types, the Virtual Table Row Spec rules (ADR-0017), unknown Field Types and each type's settings against its `settingsSchema` (ADR-0018). Every error carries a `/`-separated `path` shared with Go
-│   ├── validate-settings.ts # validateSettings() — one Field's settings against a strict `settingsSchema` (`unknown_setting`, `invalid_setting`), Unset stripped first (ADR-0021); isUnset(), the path grammar
+│   ├── validate-settings.ts # validateSettings() — one Field's settings against a strict `settingsSchema` (`unknown_setting`, `invalid_setting`), Unset stripped first (ADR-0021); the path grammar
 │   ├── resolve-spec.ts  # resolveSpec() — expands the adapter-backed containers (a fieldset, and a virtual_table whose Row Spec is linked) into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
 │   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021)
 │   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)

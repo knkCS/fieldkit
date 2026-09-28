@@ -43,7 +43,9 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 //     names it, is CodeNotCanonical: Unset is stored as absent. Array items
 //     are kept whatever they hold, so [null] is one item, not Unset.
 //   - MaxItems and MaxStringBytes are enforced as CodeTooManyItems and
-//     CodeTooLarge. A value beyond a cap is not checked further.
+//     CodeTooLarge, over the whole document — keys the Spec does not name,
+//     and the number of keys at the root, included. Data beyond a cap
+//     reports only the caps it breaks: nothing else is checked.
 //
 // Paths are /-separated from the data's root: a Field is its Accessor, an
 // array item its index, an object entry its key. Numbers are read as JS
@@ -73,7 +75,12 @@ func ValidateValue(spec Spec, data json.RawMessage) []Error {
 		return []Error{{Path: "", Code: CodeInvalidType}}
 	}
 
+	// The caps come first and cover the whole document, keys the Spec does
+	// not name included: nothing else walks a document beyond them.
 	errs := &valueErrors{}
+	if capErrors(obj, "", errs) {
+		return errs.list
+	}
 	reportNonCanonical(obj, "", errs)
 	canonical, _ := stripUnset(obj).(map[string]any)
 
@@ -91,9 +98,6 @@ func ValidateValue(spec Spec, data json.RawMessage) []Error {
 			if f.Config.Required {
 				errs.add(path, CodeRequired, nil)
 			}
-			continue
-		}
-		if capErrors(value, path, errs) {
 			continue
 		}
 		settings, _ := canonicalSettings(f.Settings)
@@ -141,12 +145,7 @@ func reportNonCanonical(value any, path string, errs *valueErrors) {
 			reportNonCanonical(item, joinPath(path, fmt.Sprint(i)), errs)
 		}
 	case map[string]any:
-		keys := make([]string, 0, len(x))
-		for key := range x {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-		for _, key := range keys {
+		for _, key := range sortedKeys(x) {
 			at := joinPath(path, key)
 			if isUnset(stripUnset(x[key])) {
 				errs.add(at, CodeNotCanonical, nil)
@@ -155,6 +154,16 @@ func reportNonCanonical(value any, path string, errs *valueErrors) {
 			}
 		}
 	}
+}
+
+// sortedKeys are an object's keys in order, so errors come in one order.
+func sortedKeys(obj map[string]any) []string {
+	keys := make([]string, 0, len(obj))
+	for key := range obj {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 // capErrors reports the caps a value breaks, and whether it broke any. A
@@ -184,8 +193,8 @@ func capErrors(value any, path string, errs *valueErrors) bool {
 				broke = true
 				return
 			}
-			for key, child := range x {
-				walk(child, joinPath(at, key))
+			for _, key := range sortedKeys(x) {
+				walk(x[key], joinPath(at, key))
 			}
 		}
 	}

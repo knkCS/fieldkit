@@ -405,8 +405,10 @@ describe("Integration: resolveSpec -> FieldRenderer", () => {
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-		expect(onSubmit.mock.calls[0][0]).toEqual({
-			address: { street: "12 Bridge Lane", city: "" },
+		// The untouched city is "" — Unset, so absent from a canonical submit
+		// (ADR-0021).
+		expect(onSubmit.mock.calls[0][0]).toStrictEqual({
+			address: { street: "12 Bridge Lane" },
 		});
 	});
 });

@@ -14,7 +14,9 @@ export function isUnset(value: unknown): boolean {
 }
 
 /** A record as JSON makes one: its prototype is `Object.prototype`, or none. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(
+	value: unknown,
+): value is Record<string, unknown> {
 	if (typeof value !== "object" || value === null) return false;
 	const proto = Object.getPrototypeOf(value);
 	return proto === Object.prototype || proto === null;
