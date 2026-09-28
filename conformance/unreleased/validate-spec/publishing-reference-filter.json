@@ -1,0 +1,196 @@
+{
+	"description": "With the publishing package, reference_filter is valid in a Reference Spec and position everywhere else: the root, a Group at the root, a Row Spec, a Block Type. It has no settings, so any key is unknown_setting, and no text, so a search is search_without_text",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Configured",
+				"api_accessor": "configured",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": ""
+						},
+						"settings": {
+							"mode": "strict"
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Searched",
+				"api_accessor": "searched",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": "",
+							"search": "A"
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference_filter",
+			"config": {
+				"name": "Root",
+				"api_accessor": "root",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Grouped",
+				"api_accessor": "grouped",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "reference_filter",
+					"config": {
+						"name": "Inner",
+						"api_accessor": "inner",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "reference_filter",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "hero",
+						"name": "Hero",
+						"fields": [
+							{
+								"field_type": "reference_filter",
+								"config": {
+									"name": "Block",
+									"api_accessor": "block",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/configured/settings/spec/exclude/settings/mode",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/searched/settings/spec/exclude/config/search",
+				"code": "search_without_text"
+			},
+			{
+				"path": "/root",
+				"code": "position"
+			},
+			{
+				"path": "/grouped/children/inner",
+				"code": "position"
+			},
+			{
+				"path": "/rows/children/cell",
+				"code": "position"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/block",
+				"code": "position"
+			}
+		]
+	}
+}

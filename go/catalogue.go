@@ -24,6 +24,9 @@ type Catalogue struct {
 	Types []CatalogueType `json:"types"`
 
 	byID map[string]*CatalogueType
+	// code is the code of a Catalogue section's types (extension.go); nil
+	// for the built-in types alone, whose rules live in this package.
+	code map[string]TypeCode
 }
 
 // CatalogueType is what the Catalogue records about one Field Type.

@@ -15,14 +15,22 @@ import {
 	statSync,
 } from "node:fs";
 import path from "node:path";
-import { type Catalogue, compareCatalogues } from "./catalogue-compat";
+import type { Catalogue } from "./catalogue-compat";
+import {
+	CATALOGUE_SECTIONS,
+	type CatalogueSections,
+	compareCatalogueSections,
+	joinSections,
+	sectionProblems,
+} from "./catalogue-sections";
 import { compareVersions, finalOf, isFinalVersion } from "./versions";
 
 /** Where the fixtures of fieldkit as it is now live. Never frozen itself. */
 export const UNRELEASED = "unreleased";
 
-/** The frozen copy of the Catalogue inside a version folder. It sits beside
- * the area folders, not in one, so neither runner reads it as a fixture. */
+/** The frozen copy of the Catalogue's core section inside a version folder.
+ * It sits beside the area folders, not in one, so neither runner reads it as
+ * a fixture; so does each other section's (CATALOGUE_SECTIONS' `frozen`). */
 export const FROZEN_CATALOGUE = "catalogue.json";
 
 /** Every final release frozen under `conformanceDir`, oldest first. */
@@ -51,11 +59,21 @@ export function readCatalogue(file: string): Catalogue {
 	return JSON.parse(readFileSync(file, "utf8")) as Catalogue;
 }
 
-/** The Catalogue the newest release froze, with its version. */
+/** Every section's Catalogue, read from its file (by section name). */
+export function readCatalogueSections(
+	files: Record<string, string>,
+): CatalogueSections {
+	return Object.fromEntries(
+		Object.entries(files).map(([name, file]) => [name, readCatalogue(file)]),
+	);
+}
+
+/** The Catalogue the newest release froze, section by section, with its
+ * version. A section the release had not got yet is empty in it. */
 export function lastReleasedCatalogue(
 	conformanceDir: string,
 	before?: string,
-): { version: string; catalogue: Catalogue } | undefined {
+): { version: string; catalogue: CatalogueSections } | undefined {
 	const version = lastReleasedVersion(conformanceDir, before);
 	if (!version) return undefined;
 	const file = path.join(conformanceDir, version, FROZEN_CATALOGUE);
@@ -64,7 +82,15 @@ export function lastReleasedCatalogue(
 			`conformance/${version}/ has no ${FROZEN_CATALOGUE}: every released version freezes its Catalogue`,
 		);
 	}
-	return { version, catalogue: readCatalogue(file) };
+	const core = readCatalogue(file);
+	const catalogue: CatalogueSections = {};
+	for (const section of CATALOGUE_SECTIONS) {
+		const frozen = path.join(conformanceDir, version, section.frozen);
+		catalogue[section.name] = existsSync(frozen)
+			? readCatalogue(frozen)
+			: { version: core.version, types: [] };
+	}
+	return { version, catalogue };
 }
 
 /**
@@ -74,14 +100,20 @@ export function lastReleasedCatalogue(
  * check is not "equal to package.json" but: whatever changed since the last
  * release ships under this release's number, and nothing is ever newer than
  * the release that ships it. Returns every problem; empty means it may ship.
+ *
+ * The Catalogue is judged whole, every section together: they carry one
+ * version (catalogue-sections.ts).
  */
 export function catalogueReleaseProblems(
-	current: Catalogue,
+	sections: CatalogueSections,
 	release: string,
-	baseline: Catalogue | undefined,
+	baselineSections: CatalogueSections | undefined,
 ): string[] {
+	const current = joinSections(sections);
+	const baseline = baselineSections && joinSections(baselineSections);
 	const target = finalOf(release);
 	const problems: string[] = [];
+	if (!baselineSections) problems.push(...sectionProblems(sections));
 	if (compareVersions(current.version, target) > 0) {
 		problems.push(
 			`the Catalogue says ${current.version}, newer than the release ${target} that would ship it`,
@@ -94,7 +126,7 @@ export function catalogueReleaseProblems(
 			);
 		}
 	}
-	if (!baseline) {
+	if (!baseline || !baselineSections) {
 		// The first Catalogue ever released ships under this release's number.
 		if (current.version !== target) {
 			problems.push(
@@ -103,7 +135,7 @@ export function catalogueReleaseProblems(
 		}
 		return problems;
 	}
-	problems.push(...compareCatalogues(baseline, current));
+	problems.push(...compareCatalogueSections(baselineSections, sections));
 	if (
 		current.version !== baseline.version &&
 		current.version !== target
@@ -117,12 +149,13 @@ export function catalogueReleaseProblems(
 
 /**
  * Freezes a final release: copies `unreleased/`'s fixtures and the current
- * Catalogue into `conformance/<version>/`. A version folder is never edited
- * (ADR-0018), so an existing one is an error, never overwritten.
+ * Catalogue — each section's file (by section name, `sectionFiles`) under its
+ * frozen name — into `conformance/<version>/`. A version folder is never
+ * edited (ADR-0018), so an existing one is an error, never overwritten.
  */
 export function freezeRelease(
 	conformanceDir: string,
-	catalogueFile: string,
+	catalogueFiles: Record<string, string>,
 	version: string,
 ): string {
 	if (!isFinalVersion(version)) {
@@ -144,8 +177,23 @@ export function freezeRelease(
 	}
 	mkdirSync(target);
 	cpSync(path.join(conformanceDir, UNRELEASED), target, { recursive: true });
-	cpSync(catalogueFile, path.join(target, FROZEN_CATALOGUE));
+	for (const [rel, source] of frozenCatalogues(catalogueFiles)) {
+		cpSync(source, path.join(target, rel));
+	}
 	return target;
+}
+
+/** Each section's frozen name inside a version folder, with its source. */
+function frozenCatalogues(
+	catalogueFiles: Record<string, string>,
+): [string, string][] {
+	return CATALOGUE_SECTIONS.map((section) => {
+		const source = catalogueFiles[section.name];
+		if (!source) {
+			throw new Error(`no file for the ${section.name} Catalogue section`);
+		}
+		return [section.frozen, source];
+	});
 }
 
 /**
@@ -185,7 +233,7 @@ function filesUnder(dir: string, at = ""): string[] {
  */
 export function frozenDrift(
 	conformanceDir: string,
-	catalogueFile: string,
+	catalogueFiles: Record<string, string>,
 	version: string,
 ): string[] {
 	const frozen = path.join(conformanceDir, version);
@@ -194,7 +242,9 @@ export function frozenDrift(
 	const want = new Map<string, string>(
 		filesUnder(unreleased).map((f) => [f, path.join(unreleased, f)]),
 	);
-	want.set(FROZEN_CATALOGUE, catalogueFile);
+	for (const [rel, source] of frozenCatalogues(catalogueFiles)) {
+		want.set(rel, source);
+	}
 	const have = new Set(filesUnder(frozen));
 	const drift: string[] = [];
 	for (const [rel, source] of want) {

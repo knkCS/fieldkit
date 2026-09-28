@@ -1,0 +1,64 @@
+{
+	"description": "With the publishing package, a Blueprint holding a reference_filter is valid linked as a Reference Spec, and position once a Fieldset inlines it at the root: its Position is known only on the Resolved Spec (ADR-0022)",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-filter@1"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Embedded",
+				"api_accessor": "embedded",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-filter@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-filter@1": [
+				{
+					"field_type": "reference_filter",
+					"config": {
+						"name": "Exclude",
+						"api_accessor": "exclude",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/embedded/children/exclude",
+				"code": "position"
+			}
+		]
+	}
+}

@@ -70,8 +70,10 @@ git commit -m "chore(release): 0.18.0 — <what it ships>"
 ```
 
 A final release also **freezes** its data contract: `prepare` copies
-`conformance/unreleased/` and `go/catalogue.json` into `conformance/0.18.0/`
-(ADR-0018). That folder is never edited or deleted, and `tags` refuses a
+`conformance/unreleased/` and every Catalogue section into
+`conformance/0.18.0/` — `go/catalogue.json` as `catalogue.json`,
+`go/publishing/catalogue.json` as `catalogue.publishing.json`
+(`scripts/lib/catalogue-sections.ts`, ADR-0018). That folder is never edited or deleted, and `tags` refuses a
 release commit whose frozen folder does not match `unreleased/` and the
 Catalogue byte for byte. Then `npm run release -- tags`, and a person runs what
 it prints; the `v` tag publishes under `latest`.
@@ -98,6 +100,13 @@ every later fieldkit (ADR-0019):
   to a keyword it cannot judge. Consumers are not compared: they only filter
   type pickers (ADR-0022). Before the first release there is no baseline, and
   the check passes saying so.
+
+  The Catalogue is judged **whole**: the core section and each opt-in
+  package's (the publishing package's, ADR-0002 amended) are one data contract
+  with one version, so a type added to any section moves `CATALOGUE_VERSION`.
+  Each section also keeps its types: a type moving to another section fails,
+  as it would vanish for the Consumers of the one it left. A section a release
+  had not got yet is empty in its baseline.
 
 ## The Catalogue version
 

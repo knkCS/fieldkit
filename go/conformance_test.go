@@ -3,6 +3,7 @@ package fieldkit
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -46,8 +47,37 @@ type fixture struct {
 	GoOnly []string `json:"goOnly,omitempty"`
 	// Targets are the Blueprint of each referenced Content, by its id, for
 	// the value operations (WithTargetBlueprints).
-	Targets map[string]string          `json:"targets,omitempty"`
-	Expect  map[string]json.RawMessage `json:"expect"`
+	Targets map[string]string `json:"targets,omitempty"`
+	// Packages are the opt-in packages whose Catalogue section this
+	// fixture's operations run against, beside the embedded Catalogue.
+	Packages []string                   `json:"packages,omitempty"`
+	Expect   map[string]json.RawMessage `json:"expect"`
+
+	// catalogue is the Catalogue every operation of the fixture runs
+	// against: DefaultCatalogue with each of Packages' sections.
+	catalogue *Catalogue
+}
+
+// ConformancePackages are the Catalogue sections a fixture's packages may
+// name, by package name. This package cannot import the packages that
+// define them — they import it — so the external test package adds them
+// (conformance_packages_test.go) before any test runs.
+var ConformancePackages = map[string]*Catalogue{} //nolint:gochecknoglobals
+
+// catalogueOf is the Catalogue a fixture's operations run against.
+func catalogueOf(packages []string) (*Catalogue, error) {
+	sections := make([]*Catalogue, 0, len(packages))
+	for _, name := range packages {
+		section, ok := ConformancePackages[name]
+		if !ok {
+			return nil, fmt.Errorf("unknown package %q", name)
+		}
+		sections = append(sections, section)
+	}
+	if len(sections) == 0 {
+		return DefaultCatalogue(), nil
+	}
+	return DefaultCatalogue().With(sections...)
 }
 
 // valueOptions are the options a fixture's targets make.
@@ -90,6 +120,9 @@ func TestConformance(t *testing.T) {
 			}
 			if fx.Description == "" {
 				t.Error("fixture has no description")
+			}
+			if fx.catalogue, err = catalogueOf(fx.Packages); err != nil {
+				t.Fatalf("packages: %v", err)
 			}
 			if len(fx.Expect) == 0 {
 				t.Fatal("fixture expects nothing")
@@ -218,7 +251,7 @@ func runValidateSpec(t *testing.T, fx fixture, raw json.RawMessage) {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
 	got := []expectedError{}
-	for _, e := range ValidateSpec(spec) {
+	for _, e := range fx.catalogue.ValidateSpec(spec) {
 		got = append(got, expectedError{Path: e.Path, Code: e.Code})
 	}
 	if want == nil {
@@ -241,7 +274,7 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
-	errs := ValidateValue(spec, fx.Data, fx.valueOptions()...)
+	errs := fx.catalogue.ValidateValue(spec, fx.Data, fx.valueOptions()...)
 	// A fixture with releases validates against its Resolved Spec: a
 	// rich_text Field's Text Type is in its parts.
 	if len(fx.Releases) > 0 {
@@ -249,7 +282,7 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 		if err != nil {
 			t.Fatalf("resolve: %v", err)
 		}
-		errs = ValidateResolvedValue(resolved, fx.Data, fx.valueOptions()...)
+		errs = fx.catalogue.ValidateResolvedValue(resolved, fx.Data, fx.valueOptions()...)
 	}
 	got := []expectedError{}
 	for _, e := range errs {

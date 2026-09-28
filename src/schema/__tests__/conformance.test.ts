@@ -4,6 +4,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { publishingFieldTypes } from "../../publishing";
 import { CATALOGUE_VERSION } from "../catalogue-version";
 import { type Edge, edges, type FieldText, texts } from "../content-walk";
 import { builtInFieldTypes } from "../field-types";
@@ -66,6 +67,9 @@ interface Fixture {
 	targets?: Record<string, string>;
 	/** Operations of this fixture only Go runs (see goOnlyIn). */
 	goOnly?: string[];
+	/** The opt-in packages whose Catalogue section the fixture runs against,
+	 * beside the core one (see pluginsOf). */
+	packages?: string[];
 	expect: Record<string, unknown>;
 }
 
@@ -82,6 +86,25 @@ const cataloguePlugins = new Map<string, FieldTypePlugin>(
 		.filter((plugin) => plugin.settingsSchema)
 		.map((plugin) => [plugin.id, plugin]),
 );
+
+/** The opt-in packages a fixture's `packages` may name, each with the
+ * plugins its Catalogue section lists. Go's runner has the same list
+ * (go/conformance_packages_test.go). */
+const PACKAGES: Record<string, FieldTypePlugin[]> = {
+	publishing: publishingFieldTypes,
+};
+
+/** The plugins a fixture runs against: the Catalogue's, and each opted-in
+ * package's — as a Consumer that opts in passes them. */
+function pluginsOf(fixture: Fixture): Map<string, FieldTypePlugin> {
+	const plugins = new Map(cataloguePlugins);
+	for (const name of fixture.packages ?? []) {
+		const section = PACKAGES[name];
+		if (!section) throw new Error(`unknown package "${name}"`);
+		for (const plugin of section) plugins.set(plugin.id, plugin);
+	}
+	return plugins;
+}
 
 /** Resolves a fixture's Spec against its releases, with its caps. Every kind
  * but `blueprint` is an opaque part. */
@@ -106,7 +129,7 @@ function resolveFixture(fixture: Fixture): Promise<ResolvedSpec> {
 					.map((kind) => [kind, (id: string) => fetch(kind, id)]),
 			),
 		},
-		{ plugins: cataloguePlugins, ...fixture.resolveOptions },
+		{ plugins: pluginsOf(fixture), ...fixture.resolveOptions },
 	);
 }
 
@@ -208,10 +231,11 @@ describe("conformance fixtures", () => {
 			// A released invalid case, kept as history, or a fixture of Go-only
 			// operations: nothing binds here.
 			if (bound.length === 0) ctx.skip();
+			const plugins = pluginsOf(fixture);
 
 			if (bound.includes("validateSpec")) {
 				const want = fixture.expect.validateSpec as ExpectedError[];
-				const got = validateSpec(fixture.spec, cataloguePlugins).fieldErrors;
+				const got = validateSpec(fixture.spec, plugins).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
 			}
 
@@ -220,7 +244,7 @@ describe("conformance fixtures", () => {
 				const got = validateValue(
 					fixture.spec,
 					fixture.data,
-					cataloguePlugins,
+					plugins,
 					valueContext(fixture),
 				);
 				expect(sorted(got)).toEqual(sorted(want));
@@ -230,7 +254,7 @@ describe("conformance fixtures", () => {
 				const want = fixture.expect.pins as SpecPin[];
 				const byPath = (a: SpecPin, b: SpecPin) =>
 					a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
-				const got = specPins(fixture.spec, cataloguePlugins);
+				const got = specPins(fixture.spec, plugins);
 				expect([...got].sort(byPath)).toEqual([...want].sort(byPath));
 			}
 
@@ -252,7 +276,7 @@ describe("conformance fixtures", () => {
 			if (bound.includes("validateResolvedSpec")) {
 				const want = fixture.expect.validateResolvedSpec as ExpectedError[];
 				const resolved = await resolveFixture(fixture);
-				const got = validateSpec(resolved.fields, cataloguePlugins, {
+				const got = validateSpec(resolved.fields, plugins, {
 					resolved: true,
 				}).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
@@ -265,7 +289,7 @@ describe("conformance fixtures", () => {
 				const got = edges(
 					resolved,
 					fixture.data,
-					cataloguePlugins,
+					plugins,
 					valueContext(fixture),
 				);
 				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
@@ -277,7 +301,7 @@ describe("conformance fixtures", () => {
 				const got = texts(
 					resolved,
 					fixture.data,
-					cataloguePlugins,
+					plugins,
 					valueContext(fixture),
 				);
 				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));

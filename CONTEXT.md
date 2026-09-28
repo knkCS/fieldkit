@@ -39,6 +39,10 @@ _Avoid_: field type (that's the kind; the plugin is its implementation)
 Every Field Type one fieldkit release knows, described as data: each type's id, the settings it accepts, where it is available, and which of its settings hold a Pin. TS and Go read the same Catalogue, and it only ever grows — a released Blueprint keeps meaning what it meant.
 _Avoid_: registry (that's the TS runtime lookup of Plugins), type list
 
+**Catalogue section**:
+The part of the Catalogue one package ships: the core section, which every Consumer has, and an opt-in package's — the publishing package's — which a Consumer has only once it adds that package, in TS by passing its Plugins and in Go by building `DefaultCatalogue().With(section)`. Every section carries the one Catalogue version and is judged with the others; a type never moves between them.
+_Avoid_: extension, plugin pack
+
 ## Structure
 
 **Position**:

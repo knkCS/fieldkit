@@ -1,29 +1,39 @@
 /**
  * catalogue — generates the Catalogue (ADR-0018): every Field Type that
- * declares a `settingsSchema`, described as data, in `go/catalogue.json`.
+ * declares a `settingsSchema`, described as data, one file per section
+ * (scripts/lib/catalogue-sections.ts):
  *
- * That one committed file is the Catalogue. The Go module embeds it (Go's
- * `embed` cannot reach outside the module, so the file lives inside `go/`),
- * and the npm package ships the same file as `@knkcs/fieldkit/catalogue.json`.
- * There is no second copy to drift.
+ *   - `go/catalogue.json` — the core section, every built-in type. The Go
+ *     module's root package embeds it (Go's `embed` cannot reach outside the
+ *     module, so the file lives inside `go/`), and the npm package ships the
+ *     same file as `@knkcs/fieldkit/catalogue.json`.
+ *   - `go/publishing/catalogue.json` — the opt-in publishing package's types
+ *     (ADR-0002, amended), embedded by `…/go/publishing` and shipped as
+ *     `@knkcs/fieldkit/publishing/catalogue.json`.
  *
- * Run: tsx scripts/catalogue.ts           # regenerate go/catalogue.json
- *      tsx scripts/catalogue.ts --check   # fail if the committed file is stale
+ * There is no second copy of either to drift.
+ *
+ * Run: tsx scripts/catalogue.ts           # regenerate every section's file
+ *      tsx scripts/catalogue.ts --check   # fail if a committed file is stale
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { publishingFieldTypes } from "../src/publishing";
 // The Catalogue's version lives beside the code that stamps it on a Resolved
 // Spec, so the two cannot disagree (ADR-0020).
 import { CATALOGUE_VERSION } from "../src/schema/catalogue-version";
 import { builtInFieldTypes } from "../src/schema/field-types";
 import type { FieldTypePlugin } from "../src/schema/plugin";
 import { POSITIONS } from "../src/schema/positions";
+import {
+	CATALOGUE_SECTIONS,
+	sectionProblems,
+} from "./lib/catalogue-sections";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
 
 /**
  * The JSON Schema keywords a settings schema may use: exactly those the Go
@@ -152,26 +162,51 @@ function buildCatalogue(plugins: FieldTypePlugin[]): Catalogue {
 	return { version: CATALOGUE_VERSION, types };
 }
 
+/** The plugins each Catalogue section lists (scripts/lib/catalogue-sections.ts). */
+const SECTION_PLUGINS: Record<string, FieldTypePlugin[]> = {
+	core: builtInFieldTypes,
+	publishing: publishingFieldTypes,
+};
+
 function main() {
-	const json = `${JSON.stringify(buildCatalogue(builtInFieldTypes), null, "\t")}\n`;
-	if (process.argv.includes("--check")) {
+	const sections: Record<string, Catalogue> = {};
+	for (const { name } of CATALOGUE_SECTIONS) {
+		const plugins = SECTION_PLUGINS[name];
+		if (!plugins) throw new Error(`no plugins for the ${name} section`);
+		sections[name] = buildCatalogue(plugins);
+	}
+	// A type is in one section: in two, a Consumer holding both would have
+	// it twice (Go's Catalogue.With refuses that).
+	const problems = sectionProblems(sections);
+	if (problems.length > 0) {
+		throw new Error(`the Catalogue's sections disagree:\n  - ${problems.join("\n  - ")}`);
+	}
+
+	const check = process.argv.includes("--check");
+	let stale = false;
+	for (const { name, file } of CATALOGUE_SECTIONS) {
+		const json = `${JSON.stringify(sections[name], null, "\t")}\n`;
+		const at = resolve(ROOT, file);
+		if (!check) {
+			mkdirSync(dirname(at), { recursive: true });
+			writeFileSync(at, json);
+			console.log(`wrote ${file}`);
+			continue;
+		}
 		let committed = "";
 		try {
-			committed = readFileSync(CATALOGUE_FILE, "utf8");
+			committed = readFileSync(at, "utf8");
 		} catch {
 			// missing reads as stale
 		}
 		if (committed !== json) {
-			console.error(
-				"go/catalogue.json is stale: run `npm run catalogue` and commit the result",
-			);
-			process.exit(1);
+			console.error(`${file} is stale: run \`npm run catalogue\` and commit the result`);
+			stale = true;
+		} else {
+			console.log(`${file} is up to date`);
 		}
-		console.log("go/catalogue.json is up to date");
-		return;
 	}
-	writeFileSync(CATALOGUE_FILE, json);
-	console.log("wrote go/catalogue.json");
+	if (stale) process.exit(1);
 }
 
 main();

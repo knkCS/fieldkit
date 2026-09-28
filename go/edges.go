@@ -99,9 +99,19 @@ func mediaEdges(_ Field, _ map[string]any, value any) []Edge {
 // Fields yield none, as ValidateValue skips them. A lookup yields none. Data
 // that is not a JSON object is an error; empty data is {}.
 func Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]Edge, error) {
+	return DefaultCatalogue().Edges(resolved, data, opts...)
+}
+
+// Edges is the package-level Edges against this Catalogue, whose sections'
+// types yield their edges too.
+func (c *Catalogue) Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]Edge, error) {
 	edges := []Edge{}
+	var parts map[string]map[string]json.RawMessage
+	if resolved != nil {
+		parts = resolved.Parts
+	}
 	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
-		rule, ok := edgeRules[f.FieldType]
+		rule, ok := c.edgeRule(f.FieldType, parts)
 		if !ok {
 			return
 		}

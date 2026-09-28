@@ -57,16 +57,14 @@ type heldSpec struct {
 	position string
 }
 
-// typeRulesByID are the rules of every type that has any.
+// typeRulesByID are the rules of every built-in type that has any. A
+// Catalogue section's types bring theirs as TypeCode, and
+// (*Catalogue).rulesFor reads both (extension.go).
 var typeRulesByID = map[string]typeRules{ //nolint:gochecknoglobals
 	"virtual_table":    {field: virtualTableRowSpec, childrenPosition: PositionRow},
 	"blocks":           {settings: duplicateBlockTypes, specs: blockTypeSpecs},
 	"reference":        referenceRules,
 	"single_reference": referenceRules,
-}
-
-func rulesFor(fieldType string) typeRules {
-	return typeRulesByID[fieldType]
 }
 
 // linkedBlueprint is the Blueprint a Field links, or "" for none: the setting

@@ -98,6 +98,9 @@ func finerRuleFor(fieldType string) (finerRule, bool) {
 // for the types that need them (rich_text's Text Type, which its Merge
 // validates under), and the Merge's conflicts.
 type composer struct {
+	// catalogue is the Catalogue whose sections' types compare by their own
+	// code; nil for the built-in types alone.
+	catalogue *Catalogue
 	parts     map[string]map[string]json.RawMessage
 	conflicts []string
 	// richText builds knkeditor's Merger once per Text Type for the whole
@@ -109,7 +112,7 @@ type composer struct {
 // describes, which is compared as a whole value.
 func (c *composer) compare(f *Field, a, b any) (bool, *CompareDetail, error) {
 	if f != nil {
-		if rule, ok := finerRuleFor(f.FieldType); ok {
+		if rule, ok := c.catalogue.finerRule(f.FieldType); ok {
 			return rule.compare(c, f, a, b)
 		}
 	}
@@ -128,7 +131,7 @@ func (c *composer) merge(f *Field, base, ours, theirs any, path string) (any, er
 		return theirs, nil
 	}
 	if f != nil {
-		if rule, ok := finerRuleFor(f.FieldType); ok {
+		if rule, ok := c.catalogue.finerRule(f.FieldType); ok {
 			return rule.merge(c, f, base, ours, theirs, path)
 		}
 	}

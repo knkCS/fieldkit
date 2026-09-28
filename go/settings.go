@@ -113,7 +113,7 @@ func (c *Catalogue) ValidateSettings(fieldType string, settings json.RawMessage)
 	}
 	v := &settingsValidator{}
 	v.check(t.SettingsSchema, value, "")
-	if r := rulesFor(fieldType); r.settings != nil {
+	if r := c.rulesFor(fieldType); r.settings != nil {
 		v.errors = append(v.errors, r.settings(value)...)
 	}
 	return v.errors

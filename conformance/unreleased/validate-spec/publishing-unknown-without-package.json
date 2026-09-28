@@ -1,0 +1,51 @@
+{
+	"description": "Without the publishing package a publishing type is unknown_field_type, in a Reference Spec as anywhere: nothing registers it by default (ADR-0002, amended)",
+	"spec": [
+		{
+			"field_type": "reference_filter",
+			"config": {
+				"name": "Excluded",
+				"api_accessor": "excluded",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/excluded",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/related/settings/spec/exclude",
+				"code": "unknown_field_type"
+			}
+		]
+	}
+}

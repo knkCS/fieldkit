@@ -48,7 +48,7 @@ func schemaFieldsFixture(t *testing.T, fx fixture) []SchemaField {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	fields, err := SchemaFields(resolved)
+	fields, err := fx.catalogue.SchemaFields(resolved)
 	if err != nil {
 		t.Fatalf("SchemaFields: %v", err)
 	}

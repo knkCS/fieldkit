@@ -137,7 +137,7 @@ func (c *Catalogue) validateFields(fields []Field, list, position string, o *opt
 				*errs = append(*errs, Error{Path: searchPath, Code: CodeSearchWithoutText})
 			}
 		}
-		rules := rulesFor(f.FieldType)
+		rules := c.rulesFor(f.FieldType)
 		if rules.field != nil {
 			settings, _ := canonicalSettings(f.Settings)
 			for _, e := range rules.field(c, f, settings, o.resolved) {

@@ -1,0 +1,22 @@
+{
+	"version": "0.18.0",
+	"types": [
+		{
+			"id": "reference_filter",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": false
+			},
+			"positions": [
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint"
+			],
+			"pins": [],
+			"has_text": false
+		}
+	]
+}

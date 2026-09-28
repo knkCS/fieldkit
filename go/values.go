@@ -77,8 +77,17 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // Reference Field that links a Reference Spec for some Blueprints needs to be
 // told whose Blueprint each target is (WithTargetBlueprints) to check its
 // References' values; without it those values are an opaque record.
+//
+// A type the Catalogue does not list is not checked. This is ValidateValue
+// against the embedded Catalogue; (*Catalogue).ValidateValue checks the types
+// of a Catalogue that holds a section too.
 func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
-	return validateValue(spec, data, &richTextContext{}, valueOptionsOf(opts))
+	return DefaultCatalogue().ValidateValue(spec, data, opts...)
+}
+
+// ValidateValue is the package-level ValidateValue against this Catalogue.
+func (c *Catalogue) ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
+	return c.validateValue(spec, data, &richTextContext{}, valueOptionsOf(opts))
 }
 
 // ValidateResolvedValue is ValidateValue against a Resolved Spec (ADR-0020):
@@ -87,14 +96,20 @@ func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error
 // hold, or one knkeditor cannot use, is one CodeInvalidRichText at the Field.
 // A nil Resolved Spec has no Fields. opts are ValidateValue's.
 func ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) []Error {
-	o := valueOptionsOf(opts)
-	if resolved == nil {
-		return validateValue(nil, data, &richTextContext{strict: true}, o)
-	}
-	return validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true}, o)
+	return DefaultCatalogue().ValidateResolvedValue(resolved, data, opts...)
 }
 
-func validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o valueOptions) []Error {
+// ValidateResolvedValue is the package-level ValidateResolvedValue against
+// this Catalogue.
+func (c *Catalogue) ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) []Error {
+	o := valueOptionsOf(opts)
+	if resolved == nil {
+		return c.validateValue(nil, data, &richTextContext{strict: true}, o)
+	}
+	return c.validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true}, o)
+}
+
+func (c *Catalogue) validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o valueOptions) []Error {
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(data))
@@ -111,7 +126,7 @@ func validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o
 
 	// The caps come first and cover the whole document, keys the Spec does
 	// not name included: nothing else walks a document beyond them.
-	errs := &valueErrors{ctx: &valueContext{data: bytes.TrimSpace(data), decoded: obj, richText: richText, targetBlueprint: o.targetBlueprint}}
+	errs := &valueErrors{ctx: &valueContext{catalogue: c, data: bytes.TrimSpace(data), decoded: obj, richText: richText, targetBlueprint: o.targetBlueprint}}
 	if capErrors(obj, "", errs) {
 		return errs.list
 	}
@@ -135,7 +150,7 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 			continue
 		}
 		container, isContainer := containerRuleFor(f.FieldType)
-		rule, ok := valueRules[f.FieldType]
+		rule, ok := errs.catalogue().valueRule(f.FieldType)
 		if !ok && !isContainer {
 			continue
 		}
@@ -195,6 +210,15 @@ type valueErrors struct {
 	// ctx is what the whole run shares, for the rules that need more than
 	// their value: rich_text's (rich_text.go).
 	ctx *valueContext
+}
+
+// catalogue is the Catalogue the run checks against, nil when none was
+// given — which knows the built-in types alone.
+func (v *valueErrors) catalogue() *Catalogue {
+	if v.ctx == nil {
+		return nil
+	}
+	return v.ctx.catalogue
 }
 
 func (v *valueErrors) add(path, code string, params map[string]any) {

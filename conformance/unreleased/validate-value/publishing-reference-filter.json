@@ -1,0 +1,101 @@
+{
+	"description": "With the publishing package, a reference_filter in a Reference's values is a list of Content ids, repeats allowed, each a string that is not blank (too_small); an item or a value of another type is invalid_type, and a required one left Unset is required",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Must",
+							"api_accessor": "must",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"related": [
+			{
+				"_id": "n1",
+				"id": "c1",
+				"values": {
+					"exclude": [
+						"c7",
+						"c8",
+						"c7"
+					],
+					"must": [
+						"c9"
+					]
+				}
+			},
+			{
+				"_id": "n2",
+				"id": "c2",
+				"values": {
+					"exclude": [
+						"c7",
+						"",
+						3
+					],
+					"must": [
+						"c9"
+					]
+				}
+			},
+			{
+				"_id": "n3",
+				"id": "c3",
+				"values": {
+					"exclude": "c7"
+				}
+			}
+		]
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/related/n2/values/exclude/1",
+				"code": "too_small"
+			},
+			{
+				"path": "/related/n2/values/exclude/2",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n3/values/exclude",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n3/values/must",
+				"code": "required"
+			}
+		]
+	}
+}

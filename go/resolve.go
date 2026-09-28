@@ -179,7 +179,7 @@ func (c *Catalogue) collectPins(fields []Field, list string, pins *[]Pin) {
 		if len(f.Children) > 0 {
 			c.collectPins(f.Children, joinPath(path, "children"), pins)
 		}
-		if specs := rulesFor(f.FieldType).specs; specs != nil {
+		if specs := c.rulesFor(f.FieldType).specs; specs != nil {
 			held, _ := specs(f.Settings)
 			for _, h := range held {
 				c.collectPins(h.fields, path+h.path, pins)
@@ -362,7 +362,7 @@ func (r *resolver) field(f Field, path string, chain []pinKey) (Field, bool, err
 			changed = true
 		}
 	}
-	if specs := rulesFor(f.FieldType).specs; specs != nil {
+	if specs := r.c.rulesFor(f.FieldType).specs; specs != nil {
 		held, _ := specs(f.Settings)
 		for _, h := range held {
 			fields, heldChanged, err := r.fields(h.fields, path+h.path, chain)

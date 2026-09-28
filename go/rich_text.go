@@ -231,7 +231,10 @@ func richTextValue(f Field, _ map[string]any, value any, path string, errs *valu
 // stored JSON text, scanned for invalid JSON values only when a rich_text
 // value asks, and the rich-text Text Types.
 type valueContext struct {
-	data json.RawMessage
+	// catalogue is the Catalogue the run checks against: which types have a
+	// value rule (a Catalogue section's among them).
+	catalogue *Catalogue
+	data      json.RawMessage
 	// decoded is data as ValidateValue decoded it, before Unset was
 	// stripped: the tree the scanned JSON Pointers are mapped through.
 	decoded  any
