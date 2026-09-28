@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { Star } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { z } from "zod";
 import type { FieldKitAdapters } from "../renderer/adapters";
 import { FieldKitProvider } from "../renderer/provider";
 import { boolean, number, section, select, text } from "../schema/builders";
 import { builtInFieldTypes } from "../schema/field-types";
+import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import { SpecEditor } from "./spec-editor";
 
@@ -182,6 +185,67 @@ const failingBlueprintAdapters: FieldKitAdapters = {
 	},
 };
 
+// A Consumer's own field type that brings a `settingsSchema` and no
+// `settingsComponent`: the config panel generates its Type settings form from
+// the schema (ADR-0018). One key of every shape the generic form edits, one it
+// can only show (a record), and one the host froze (ADR-0011).
+const ratingPlugin: FieldTypePlugin = {
+	id: "rating",
+	name: "Rating",
+	description: "Stars out of a maximum",
+	icon: Star,
+	category: "number",
+	fieldComponent: () => null,
+	toZodType: () => z.number(),
+	settingsSchema: z
+		.object({
+			label: z.string().describe("Shown above the stars").optional(),
+			max: z.number().int().min(1).optional(),
+			half_steps: z.boolean().optional(),
+			shape: z.enum(["star", "heart", "circle"]).optional(),
+			captions: z.array(z.string()).optional(),
+			layout: z
+				.object({
+					columns: z.number().int().min(1).optional(),
+					compact: z.boolean().optional(),
+				})
+				.strict()
+				.optional(),
+			legend: z.record(z.string()).optional(),
+			scale: z.enum(["linear", "log"]).optional(),
+		})
+		.strict(),
+};
+
+const genericSettingsPlugins: FieldTypePlugin[] = [
+	...builtInFieldTypes,
+	ratingPlugin,
+];
+
+const genericSettingsSpec: Schema = [
+	{
+		field_type: "rating",
+		config: {
+			name: "Score",
+			api_accessor: "score",
+			required: false,
+			instructions: "",
+			locked_settings: [
+				{ key: "scale", reason: "Scores already stored use this scale" },
+			],
+		},
+		settings: {
+			max: 5,
+			shape: "star",
+			captions: ["Poor", "Great"],
+			legend: { "1": "Poor", "5": "Great" },
+			scale: "linear",
+		},
+		system: false,
+	},
+	text("title", { name: "Title" }),
+];
+
 /* ------------------------------------------------------------------ */
 /*  Wrapper                                                            */
 /* ------------------------------------------------------------------ */
@@ -194,9 +258,12 @@ function StoryWrapper({
 	initialSchema,
 	note,
 	adapters,
+	plugins = builtInFieldTypes,
 }: {
 	initialSchema: Schema;
 	note?: ReactNode;
+	/** The built-in types, unless a story registers one of its own. */
+	plugins?: FieldTypePlugin[];
 	/** Left off by most stories — the editor needs no adapter until a Fieldset
 	 * has to be resolved for Preview. */
 	adapters?: FieldKitAdapters;
@@ -213,7 +280,7 @@ function StoryWrapper({
 	}
 
 	return (
-		<FieldKitProvider plugins={builtInFieldTypes} adapters={adapters}>
+		<FieldKitProvider plugins={plugins} adapters={adapters}>
 			<div style={{ maxWidth: 960 }}>
 				{note && (
 					<div
@@ -233,7 +300,7 @@ function StoryWrapper({
 					schema={committed}
 					onCommit={handleCommit}
 					onDirtyChange={setDirty}
-					plugins={builtInFieldTypes}
+					plugins={plugins}
 				/>
 				<details style={{ marginTop: 24 }} open>
 					<summary style={{ cursor: "pointer", fontSize: 13, color: "#888" }}>
@@ -377,6 +444,30 @@ export const VirtualTableRowSpec: Story = {
 					asks first where an authored Row Spec would be discarded, because a
 					field carrying both is a spec <code>validateSpec()</code> refuses. A
 					field with no Row Spec at all says so in the panel, above the tabs.
+				</>
+			}
+		/>
+	),
+};
+
+export const GenericSettingsForm: Story = {
+	render: () => (
+		<StoryWrapper
+			initialSchema={genericSettingsSpec}
+			plugins={genericSettingsPlugins}
+			note={
+				<>
+					<code>Score</code> is a <strong>Rating</strong> — a field type this
+					story registers with a <code>settingsSchema</code> and no{" "}
+					<code>settingsComponent</code>. Select it and open{" "}
+					<strong>Type settings</strong>: the form is generated from the schema
+					— a text box, a whole-number box, a checkbox, a choice, a list of
+					captions and a nested <code>Layout</code> object. <code>Legend</code>{" "}
+					is a record, which a generic form cannot edit, so it is shown as
+					stored and never written. <code>Scale</code> is frozen by the host
+					with its reason beside it (ADR-0011). Emptying a control removes its
+					key rather than storing an empty value (ADR-0021). The built-in{" "}
+					<code>Title</code> text field gets the same generic form.
 				</>
 			}
 		/>

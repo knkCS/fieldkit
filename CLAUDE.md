@@ -73,7 +73,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
-│   ├── field-settings/  # Per-type settings editors + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours)
+│   ├── field-settings/  # Per-type settings editors + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
@@ -146,7 +146,7 @@ an architectural choice.
 
 1. Create `src/schema/field-types/<name>.ts`:
    - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`, and — when a safe one exists — `defaultValue` (function returning the value-level form default; see #38)
-   - Define a `<Name>Settings` interface if the field has configurable settings (plus a `settingsComponent` for the editor's config panel)
+   - Define a `<Name>Settings` interface if the field has configurable settings. A `settingsComponent` for the editor's config panel is optional: without one, the panel renders a form generated from the `settingsSchema` (strings, numbers, booleans, enums, lists of scalars, nested objects; anything else read-only)
    - Declare a strict Zod `settingsSchema` (every key optional — Unset is stripped before it is checked) and the `catalogue` facts (`since`, `hasText`, `pins`); then run `npm run catalogue` and commit `go/catalogue.json`. A type in the Catalogue is validated by Go too, so add conformance fixtures under `conformance/unreleased/` (ADR-0018)
    - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
 2. Register the plugin in `src/schema/field-types/index.ts`
