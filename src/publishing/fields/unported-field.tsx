@@ -1,7 +1,7 @@
 import { Textarea } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { useFormContext } from "react-hook-form";
-import type { FieldProps } from "../schema/plugin";
+import type { FieldProps } from "../../schema/plugin";
 
 /**
  * The field component of a publishing type whose editing UI is not ported

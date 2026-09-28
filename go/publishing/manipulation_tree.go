@@ -48,10 +48,10 @@ const annotationSpec = "annotation_spec"
 // reference_spec Position: a Reference Field's — the embedded spec, each
 // linked one once resolved — and the node-level annotation_spec. A list that
 // does not decode as Fields is CodeInvalidSetting at it.
-func manipulationTreeSpecs(f fieldkit.Field) ([]fieldkit.HeldSpec, []fieldkit.Error) {
-	held, errs := fieldkit.ReferenceSpecs(f)
+func manipulationTreeSpecs(raw json.RawMessage) ([]fieldkit.HeldSpec, []fieldkit.Error) {
+	held, errs := fieldkit.ReferenceSpecs(raw)
 	var settings map[string]json.RawMessage
-	if json.Unmarshal(f.Settings, &settings) != nil {
+	if json.Unmarshal(raw, &settings) != nil {
 		return held, errs
 	}
 	var items []json.RawMessage
@@ -62,7 +62,12 @@ func manipulationTreeSpecs(f fieldkit.Field) ([]fieldkit.HeldSpec, []fieldkit.Er
 	if !ok {
 		return held, append(errs, fieldkit.Error{Path: fieldkit.JoinPath("", "settings", annotationSpec), Code: fieldkit.CodeInvalidSetting})
 	}
-	return append(held, fieldkit.HeldSpec{At: []string{annotationSpec}, Fields: fields, Position: fieldkit.PositionReferenceSpec}), errs
+	return append(held, fieldkit.HeldSpec{
+		Path:     fieldkit.JoinPath("", "settings", annotationSpec),
+		At:       []string{annotationSpec},
+		Fields:   fields,
+		Position: fieldkit.PositionReferenceSpec,
+	}), errs
 }
 
 // annotationFields are the node-level Reference Spec's Fields, read
@@ -162,11 +167,35 @@ func manipulationNode(settings map[string]any, node map[string]any, path string,
 	case IntentInclude:
 		errs = append(errs, env.ReferenceValues(settings, node, path)...)
 	case IntentAnnotate:
-		errs = append(errs, env.RecordValues(annotationFields(settings), node, path)...)
+		errs = append(errs, annotationValues(annotationFields(settings), node, path, env)...)
 	default:
 		if _, present := node["values"]; present {
 			add(fieldkit.CodeInvalidValue, "values")
 		}
+	}
+	return errs
+}
+
+// annotationValues checks an annotate node's values, at path plus "values",
+// against the node-level Reference Spec through the composer
+// (TypeEnv.ValidateFields): a record, a missing one an empty one — its
+// required Fields missing — as a Reference's values are.
+func annotationValues(fields []fieldkit.Field, node map[string]any, path string, env fieldkit.TypeEnv) []fieldkit.Error {
+	at := fieldkit.JoinPath(path, "values")
+	record := map[string]any{}
+	if values, present := node["values"]; present {
+		obj, ok := values.(map[string]any)
+		if !ok {
+			return []fieldkit.Error{{Path: at, Code: fieldkit.CodeInvalidType}}
+		}
+		record = obj
+	}
+	if env.ValidateFields == nil {
+		return nil
+	}
+	errs := env.ValidateFields(fields, record)
+	for i := range errs {
+		errs[i].Path = at + errs[i].Path
 	}
 	return errs
 }
@@ -267,9 +296,11 @@ func nodeFields(f fieldkit.Field) func(nodes ...map[string]any) []fieldkit.Field
 	settings := canonicalSettings(f.Settings)
 	return func(nodes ...map[string]any) []fieldkit.Field {
 		values := fieldkit.Field{FieldType: "fieldset", Config: fieldkit.Config{APIAccessor: "values"}}
-		intent := nodes[0]["intent"]
+		// Read as strings: an intent of the wrong type — an object, say — is
+		// no intent, and two of them must not be compared with != (a panic).
+		intent, _ := nodes[0]["intent"].(string)
 		for _, node := range nodes[1:] {
-			if node["intent"] != intent {
+			if other, _ := node["intent"].(string); other != intent {
 				return []fieldkit.Field{values}
 			}
 		}
@@ -304,8 +335,44 @@ func manipulationTreeCompare(f fieldkit.Field, a, b any, env fieldkit.TypeEnv) (
 // manipulationTreeMerge merges per node by _id, as a Reference Tree does: a
 // node's intent, target, Pin, with and parent each a field of it, its values
 // per Field of the Spec they follow.
+//
+// A node's fields merge independently, but its intent governs the others:
+// an exclude changed on one side and values added on the other would merge
+// into an exclude holding values, which Value refuses. A merged node whose
+// intent no longer admits its values or its with — or a replace that lost
+// its with — is a Conflict at <_id>/intent, so a merge never answers with a
+// value its own validation rejects.
 func manipulationTreeMerge(f fieldkit.Field, base, ours, theirs any, env fieldkit.TypeEnv) (any, []string, error) {
-	return env.MergeTree(f, base, ours, theirs, nodeFields(f))
+	merged, conflicts, err := env.MergeTree(f, base, ours, theirs, nodeFields(f))
+	if err != nil || len(conflicts) > 0 {
+		return merged, conflicts, err
+	}
+	fieldkit.EachTreeNode(merged, func(node map[string]any, path string) {
+		if !coherent(node) {
+			conflicts = append(conflicts, fieldkit.JoinPath(path, "intent"))
+		}
+	})
+	if len(conflicts) > 0 {
+		return nil, conflicts, nil
+	}
+	return merged, nil, nil
+}
+
+// coherent reports whether a node's intent admits what else it holds: values
+// only on an include or an annotate, with on a replace and only there. A
+// node whose intent is none of the four was so on some side already, and is
+// Value's to report.
+func coherent(node map[string]any) bool {
+	intent, _ := node["intent"].(string)
+	if !slices.Contains(intents, intent) {
+		return true
+	}
+	_, hasValues := node["values"]
+	_, hasWith := node["with"]
+	if hasValues && intent != IntentInclude && intent != IntentAnnotate {
+		return false
+	}
+	return hasWith == (intent == IntentReplace)
 }
 
 // manipulationTreeMint gives every node an _id where it has none. A node's

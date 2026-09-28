@@ -1,0 +1,323 @@
+{
+	"description": "With the publishing package, Resolve honours an outline_tree's two Pins as the section's Catalogue entry records them: its Blueprint Release inlined as its children, fetched once however many outlines pin it, and its Text Type stored once in parts, setting the vocabulary; the inlined node Fields sit in the reference_spec Position",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1",
+				"text_type": "article@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Again",
+				"api_accessor": "again",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Boxed",
+				"api_accessor": "boxed",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "boxed-bp@1",
+				"text_type": "article@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"outline-bp@1": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"boxed-bp@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Box",
+						"api_accessor": "box",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Inner",
+								"api_accessor": "inner",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			]
+		},
+		"text_type": {
+			"article@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/outline/settings/blueprint",
+				"kind": "blueprint",
+				"release": "outline-bp@1"
+			},
+			{
+				"path": "/outline/settings/text_type",
+				"kind": "text_type",
+				"release": "article@1"
+			},
+			{
+				"path": "/again/settings/blueprint",
+				"kind": "blueprint",
+				"release": "outline-bp@1"
+			},
+			{
+				"path": "/boxed/settings/blueprint",
+				"kind": "blueprint",
+				"release": "boxed-bp@1"
+			},
+			{
+				"path": "/boxed/settings/text_type",
+				"kind": "text_type",
+				"release": "article@1"
+			}
+		],
+		"resolve": {
+			"vocabulary": "0.1.0",
+			"fields": [
+				{
+					"field_type": "outline_tree",
+					"config": {
+						"name": "Outline",
+						"api_accessor": "outline",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "outline-bp@1",
+						"text_type": "article@1"
+					},
+					"system": false,
+					"children": [
+						{
+							"field_type": "select",
+							"config": {
+								"name": "Kind",
+								"api_accessor": "kind",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"options": {
+									"part": "Part",
+									"chapter": "Chapter"
+								}
+							},
+							"system": false
+						},
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Title",
+								"api_accessor": "title",
+								"required": true,
+								"instructions": ""
+							},
+							"system": false
+						}
+					]
+				},
+				{
+					"field_type": "outline_tree",
+					"config": {
+						"name": "Again",
+						"api_accessor": "again",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "outline-bp@1"
+					},
+					"system": false,
+					"children": [
+						{
+							"field_type": "select",
+							"config": {
+								"name": "Kind",
+								"api_accessor": "kind",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"options": {
+									"part": "Part",
+									"chapter": "Chapter"
+								}
+							},
+							"system": false
+						},
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Title",
+								"api_accessor": "title",
+								"required": true,
+								"instructions": ""
+							},
+							"system": false
+						}
+					]
+				},
+				{
+					"field_type": "outline_tree",
+					"config": {
+						"name": "Boxed",
+						"api_accessor": "boxed",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "boxed-bp@1",
+						"text_type": "article@1"
+					},
+					"system": false,
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Title",
+								"api_accessor": "title",
+								"required": true,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "group",
+							"config": {
+								"name": "Box",
+								"api_accessor": "box",
+								"required": false,
+								"instructions": ""
+							},
+							"children": [
+								{
+									"field_type": "text",
+									"config": {
+										"name": "Inner",
+										"api_accessor": "inner",
+										"required": false,
+										"instructions": ""
+									},
+									"system": false
+								}
+							],
+							"system": false
+						}
+					]
+				}
+			],
+			"parts": {
+				"text_type": {
+					"article@1": {
+						"minimumVocabularyVersion": "0.1.0",
+						"nodes": {
+							"doc": {
+								"options": {}
+							},
+							"textWrapper": {
+								"options": {}
+							},
+							"text": {
+								"options": {}
+							}
+						},
+						"marks": {}
+					}
+				}
+			}
+		},
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/boxed/children/box",
+				"code": "position"
+			}
+		]
+	}
+}

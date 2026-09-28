@@ -122,3 +122,58 @@ func TestManipulationTreeConflictsAreEscaped(t *testing.T) {
 		t.Errorf("conflicts = %q, want %q", conflicts, want)
 	}
 }
+
+func titleType(t *testing.T) (json.RawMessage, fieldkit.Merger) {
+	t.Helper()
+	resolved := &fieldkit.ResolvedSpec{Fields: decode(t, "["+titleTree+"]")}
+	fields, err := publishing.DefaultCatalogue().SchemaFields(resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fields[0].Settings, fields[0].Type.(fieldkit.Merger)
+}
+
+func TestManipulationTreeComparesAnIntentOfTheWrongType(t *testing.T) {
+	settings, typ := titleType(t)
+	a := json.RawMessage(`[{"_id":"n1","id":"c1","intent":{"x":1}}]`)
+	b := json.RawMessage(`[{"_id":"n1","id":"c1","intent":{"x":2}}]`)
+	equal, _, err := typ.Compare(settings, a, b)
+	if err != nil || equal {
+		t.Errorf("Compare = %v, %v; want a difference", equal, err)
+	}
+	if _, conflicts, err := typ.Merge(settings, a, b, json.RawMessage(`[{"_id":"n1","id":"c1","intent":{"x":3}}]`)); err != nil || len(conflicts) == 0 {
+		t.Errorf("Merge = %v, %v; want a conflict", conflicts, err)
+	}
+}
+
+func TestManipulationTreeMergeNeverAnswersAnIncoherentNode(t *testing.T) {
+	settings, typ := titleType(t)
+	cases := map[string]struct{ base, ours, theirs string }{
+		"an exclude gaining values": {
+			`[{"_id":"n1","id":"c1","intent":"include"}]`,
+			`[{"_id":"n1","id":"c1","intent":"exclude"}]`,
+			`[{"_id":"n1","id":"c1","intent":"include","values":{"note":"x"}}]`,
+		},
+		"a replace gaining values": {
+			`[{"_id":"n1","id":"c1","intent":"include"}]`,
+			`[{"_id":"n1","id":"c1","intent":"replace","with":{"id":"na1"}}]`,
+			`[{"_id":"n1","id":"c1","intent":"include","values":{"note":"x"}}]`,
+		},
+		"a with left on an annotate": {
+			`[{"_id":"n1","id":"c1","intent":"replace","with":{"id":"na1"}}]`,
+			`[{"_id":"n1","id":"c1","intent":"annotate","with":{"id":"na1"},"values":{"redtitel":"r"}}]`,
+			`[{"_id":"n1","id":"c1","intent":"replace","with":{"id":"na1"},"pin":"r2"}]`,
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			merged, conflicts, err := typ.Merge(settings, json.RawMessage(tc.base), json.RawMessage(tc.ours), json.RawMessage(tc.theirs))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(conflicts, []string{"n1/intent"}) {
+				t.Errorf("conflicts = %q, merged %s; want n1/intent", conflicts, merged)
+			}
+		})
+	}
+}

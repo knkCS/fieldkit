@@ -14,7 +14,9 @@
 
 import type { FieldTypePlugin } from "../schema/plugin";
 import { manipulationTreePlugin } from "./field-types/manipulation-tree";
+import { outlineTreePlugin } from "./field-types/outline-tree";
 import { referenceFilterPlugin } from "./field-types/reference-filter";
+import { templateTextPlugin } from "./field-types/template-text";
 
 export type {
 	ManipulationIntent,
@@ -23,13 +25,26 @@ export type {
 	ManipulationTreeSettings,
 } from "./field-types/manipulation-tree";
 export { MANIPULATION_INTENTS } from "./field-types/manipulation-tree";
+export type {
+	OutlineNode,
+	OutlineTreeSettings,
+} from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
-export { UnportedField } from "./unported-field";
-export { manipulationTreePlugin, referenceFilterPlugin };
+export type { TemplateTextSettings } from "./field-types/template-text";
+export { OutlineTreeCell, OutlineTreeField } from "./fields/outline-tree-view";
+export { UnportedField } from "./fields/unported-field";
+export {
+	manipulationTreePlugin,
+	outlineTreePlugin,
+	referenceFilterPlugin,
+	templateTextPlugin,
+};
 
 /** Every publishing type: the publishing Catalogue section's plugins. */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const publishingFieldTypes: FieldTypePlugin<any>[] = [
 	manipulationTreePlugin,
 	referenceFilterPlugin,
+	outlineTreePlugin,
+	templateTextPlugin,
 ];

@@ -40,7 +40,7 @@ import { itemSegments, rowIdSchema } from "../../schema/row-ids";
 import type { Field } from "../../schema/types";
 import { isPlainObject } from "../../schema/unset";
 import { ReferenceCell } from "../../table/cells/reference-cell";
-import { UnportedField } from "../unported-field";
+import { UnportedField } from "../fields/unported-field";
 
 /**
  * What a node of a Manipulation Tree does with the Content it names — the

@@ -8,7 +8,7 @@ Working document for the effort to make fieldkit replace knkCMS core's field ren
 
 | Decision | Record |
 |---|---|
-| The catalogue stays generic; core registers its five publishing types as plugins | [ADR-0002](./adr/0002-generic-catalogue-domain-types-belong-to-consumers.md) |
+| The catalogue stays generic; core's publishing types live in fieldkit's opt-in publishing package, which nothing registers (amended) | [ADR-0002](./adr/0002-generic-catalogue-domain-types-belong-to-consumers.md) |
 | `fieldset` embeds a blueprint through the adapter, not as inline children | [ADR-0003](./adr/0003-fieldset-is-an-adapter-backed-blueprint-embed.md) |
 | `resolveSpec()` expands adapter-backed containers before the Zod schema is built | [ADR-0004](./adr/0004-resolve-specs-before-building-zod.md) |
 | `list` is its own field type, not a third `array` mode | [ADR-0005](./adr/0005-list-is-its-own-type-not-an-array-mode.md) |

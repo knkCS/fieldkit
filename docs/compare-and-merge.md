@@ -166,7 +166,10 @@ Field:
   `manipulation_tree` merges as a `reference` does (`TypeEnv.MergeTree`), its
   `intent` and `with` fields of the node: an intent changed on one side and a
   Pin on the other is clean, intents changed differently a Conflict at
-  `<_id>/intent`.
+  `<_id>/intent` — as is a merged node whose intent no longer admits what
+  the other side gave it (an `exclude` gaining `values`, a `with` left on a
+  node that is no `replace`), so a merge never answers with a value the
+  type's own validation refuses.
 - **Canonical.** A key whose merged value is Unset is dropped (ADR-0021). A
   top-level row array the merge empties is `[]`, since Merge cannot answer
   "absent": versionkit's `Validate` then reports it `not_canonical`, and the

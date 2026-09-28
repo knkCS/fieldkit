@@ -1,0 +1,41 @@
+{
+	"description": "With the publishing package, a template_text yields no text: a template's source is not what a reader searches for",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Template",
+				"api_accessor": "template",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"template": "Hello {{ .Name }}",
+		"title": "Hello"
+	},
+	"expect": {
+		"texts": [
+			{
+				"path": "/title",
+				"weight": "D",
+				"text": "Hello"
+			}
+		]
+	}
+}
