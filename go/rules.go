@@ -26,8 +26,9 @@ type typeRules struct {
 	// holds. Its paths are relative to the Field ("" is the Field itself).
 	// ValidateSpec runs it whether or not the Catalogue lists the type, as TS
 	// runs the same rules by field_type. settings is nil when the Field's
-	// settings are not JSON.
-	field func(c *Catalogue, f Field, settings any) []Error
+	// settings are not JSON. resolved is whether the Spec is a Resolved Spec
+	// (ValidateResolvedSpec), whose children may be a resolved Pin's.
+	field func(c *Catalogue, f Field, settings any, resolved bool) []Error
 	// specs returns the Specs the Field holds in its settings rather than in
 	// children, so ValidateSpec walks them as it walks children. A setting
 	// that should hold a Spec but does not decode as one is an error at that
@@ -45,7 +46,11 @@ type heldSpec struct {
 	// path is the list's path relative to the Field:
 	// "/settings/allowed_blocks/0/fields". A Field in it is at path plus its
 	// Accessor.
-	path   string
+	path string
+	// at is the list's segments inside the Field's settings:
+	// {"allowed_blocks", "0", "fields"}. Resolve writes a resolved list back
+	// there.
+	at     []string
 	fields []Field
 	// position is the Position its Fields sit in.
 	position string
@@ -70,14 +75,20 @@ func (c *Catalogue) linkedBlueprint(fieldType string, settings any) string {
 	if !ok {
 		return ""
 	}
-	obj, _ := settings.(map[string]any)
 	for _, pin := range t.Pins {
-		if pin.Kind != pinKindBlueprint {
-			continue
+		if pin.Kind == pinKindBlueprint {
+			return pinRelease(settings, pin.Key)
 		}
-		if id, ok := obj[pin.Key].(string); ok {
-			return trimJS(id)
-		}
+	}
+	return ""
+}
+
+// pinRelease is the Release a Pin setting names, or "" for none: a string
+// that is not blank, read from canonical settings.
+func pinRelease(settings any, key string) string {
+	obj, _ := settings.(map[string]any)
+	if id, ok := obj[key].(string); ok {
+		return trimJS(id)
 	}
 	return ""
 }
@@ -90,14 +101,16 @@ const pinKindBlueprint = "blueprint"
 // in its children. What a Row Spec may hold is the "row" Position, which the
 // Position check enforces for every container alike (ADR-0022).
 //
-// Like TS's validateSpec it reads an authored Spec: a Resolved one carries a
-// linked Row Spec in children as well, and reads as both.
-func virtualTableRowSpec(c *Catalogue, f Field, settings any) []Error {
+// In a Resolved Spec a linked Row Spec is in children as well, so a Field
+// that links and has children is resolved, not ambiguous: only the authored
+// Spec can tell the two apart, and ValidateSpec checks it there. Missing is
+// reported in both.
+func virtualTableRowSpec(c *Catalogue, f Field, settings any, resolved bool) []Error {
 	var errs []Error
 	linked := c.linkedBlueprint(f.FieldType, settings) != ""
 	embedded := len(f.Children) > 0
 	switch {
-	case linked && embedded:
+	case linked && embedded && !resolved:
 		errs = append(errs, Error{Path: "", Code: CodeVirtualTableRowSpecAmbiguous})
 	case !linked && !embedded:
 		errs = append(errs, Error{Path: "", Code: CodeVirtualTableRowSpecMissing})
@@ -162,7 +175,12 @@ func blockTypeSpecs(raw json.RawMessage) ([]heldSpec, []Error) {
 			errs = append(errs, Error{Path: path, Code: CodeInvalidSetting})
 			continue
 		}
-		held = append(held, heldSpec{path: path, fields: fields, position: PositionBlockType})
+		held = append(held, heldSpec{
+			path:     path,
+			at:       []string{"allowed_blocks", strconv.Itoa(i), "fields"},
+			fields:   fields,
+			position: PositionBlockType,
+		})
 	}
 	return held, errs
 }

@@ -4,6 +4,9 @@
 // both.
 export { linkedBlueprintId } from "./blueprint-link";
 export { boolean, number, section, select, text } from "./builders";
+// Spec resolution: every Pin → a Resolved Spec envelope (ADR-0020), the same
+// answers as the Go module's Resolve and Pins
+export { CATALOGUE_VERSION } from "./catalogue-version";
 export type { DefineSpecOptions, SpecDefinition } from "./define-spec";
 // Builder API
 export { defineSpec } from "./define-spec";
@@ -148,13 +151,22 @@ export {
 export type { PluginRegistry } from "./registry";
 // Registry
 export { createRegistry } from "./registry";
-// Spec resolution (adapter-backed containers → Resolved Spec)
 export type {
 	BlueprintSchemaAdapter,
 	BlueprintSummary,
+	PartFetcher,
+	ResolvedSpec,
 	ResolveSpecAdapters,
+	ResolveSpecErrorCode,
+	ResolveSpecOptions,
+	SpecPin,
 } from "./resolve-spec";
-export { resolveSpec } from "./resolve-spec";
+export {
+	RESOLVE_CAPS,
+	ResolveSpecError,
+	resolveSpec,
+	specPins,
+} from "./resolve-spec";
 // Row `_id`s (ADR-0023): minting them, normalising values loaded without them,
 // copying rows, and the `_id`-based value path
 export {

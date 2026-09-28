@@ -88,6 +88,6 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 /** Enough of a Field for the walk not to trip: an object with a `config`
  * object. Anything less is refused whole, never half-walked. */
-function isFieldShaped(value: unknown): boolean {
+export function isFieldShaped(value: unknown): boolean {
 	return isObject(value) && isObject(value.config);
 }

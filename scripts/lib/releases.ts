@@ -70,7 +70,7 @@ export function lastReleasedCatalogue(
 /**
  * Whether `current` may ship in `release` (a final version, or a candidate
  * for one). The Catalogue carries a hand-set version (CATALOGUE_VERSION in
- * scripts/catalogue.ts) that moves only when the Catalogue changes, so the
+ * src/schema/catalogue-version.ts) that moves only when the Catalogue changes, so the
  * check is not "equal to package.json" but: whatever changed since the last
  * release ships under this release's number, and nothing is ever newer than
  * the release that ships it. Returns every problem; empty means it may ship.
@@ -98,7 +98,7 @@ export function catalogueReleaseProblems(
 		// The first Catalogue ever released ships under this release's number.
 		if (current.version !== target) {
 			problems.push(
-				`the first released Catalogue must carry the release's version ${target}, not ${current.version}: set CATALOGUE_VERSION in scripts/catalogue.ts`,
+				`the first released Catalogue must carry the release's version ${target}, not ${current.version}: set CATALOGUE_VERSION in src/schema/catalogue-version.ts`,
 			);
 		}
 		return problems;
@@ -109,7 +109,7 @@ export function catalogueReleaseProblems(
 		current.version !== target
 	) {
 		problems.push(
-			`the Catalogue changed since ${baseline.version}, so it ships as ${target}, not ${current.version}: set CATALOGUE_VERSION in scripts/catalogue.ts`,
+			`the Catalogue changed since ${baseline.version}, so it ships as ${target}, not ${current.version}: set CATALOGUE_VERSION in src/schema/catalogue-version.ts`,
 		);
 	}
 	return problems;

@@ -185,13 +185,13 @@ describe("catalogueReleaseProblems — the Catalogue version at release", () => 
 		expect(
 			catalogueReleaseProblems(catalogue("0.18.0"), "0.19.0", undefined),
 		).toEqual([
-			"the first released Catalogue must carry the release's version 0.19.0, not 0.18.0: set CATALOGUE_VERSION in scripts/catalogue.ts",
+			"the first released Catalogue must carry the release's version 0.19.0, not 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
 		]);
 		expect(
 			catalogueReleaseProblems(catalogue("0.18.0"), "0.17.1", undefined),
 		).toEqual([
 			"the Catalogue says 0.18.0, newer than the release 0.17.1 that would ship it",
-			"the first released Catalogue must carry the release's version 0.17.1, not 0.18.0: set CATALOGUE_VERSION in scripts/catalogue.ts",
+			"the first released Catalogue must carry the release's version 0.17.1, not 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
 		]);
 	});
 
@@ -218,7 +218,7 @@ describe("catalogueReleaseProblems — the Catalogue version at release", () => 
 		expect(
 			catalogueReleaseProblems(skipped, "0.20.0", catalogue("0.18.0")),
 		).toEqual([
-			"the Catalogue changed since 0.18.0, so it ships as 0.20.0, not 0.19.0: set CATALOGUE_VERSION in scripts/catalogue.ts",
+			"the Catalogue changed since 0.18.0, so it ships as 0.20.0, not 0.19.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
 		]);
 	});
 

@@ -1,0 +1,72 @@
+{
+	"description": "More distinct Releases than the fetch cap is resolve_too_many_fetches; a Release pinned again is not fetched again and does not count",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "a",
+				"api_accessor": "a",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-a@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "again",
+				"api_accessor": "again",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-a@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "b",
+				"api_accessor": "b",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-b@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "c",
+				"api_accessor": "c",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-c@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-a@1": [],
+			"bp-b@1": [],
+			"bp-c@1": []
+		}
+	},
+	"resolveOptions": {
+		"maxFetches": 2
+	},
+	"expect": {
+		"resolve": {
+			"error": "resolve_too_many_fetches"
+		}
+	}
+}

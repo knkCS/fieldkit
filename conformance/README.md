@@ -37,6 +37,7 @@ conformance/
 | Area | Contents |
 |---|---|
 | [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022) |
+| [`resolve/`](unreleased/resolve) | `resolve`, `pins` and `validateResolvedSpec` (ADR-0020): Blueprint Releases inlined as children, at any depth and in a Block Type's Fields; each Release fetched once; already-resolved Fields left alone; the refusals (`resolve_cycle`, `resolve_too_deep`, `resolve_too_many_fetches`); a linked Blueprint's Positions checked on the Resolved Spec |
 | [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep` |
 
 ## Fixture format
@@ -57,6 +58,13 @@ conformance/
   fixture may only use properties the Field model declares.
 - `data` — stored data (a Content's values) checked against `spec`; only
   `validateValue` reads it. Absent is `{}`.
+- `releases` — what resolving `spec` fetches, as kind → Release id → the
+  Release: a `blueprint` Release is its Fields (a Spec); any other kind is an
+  opaque part. Only the resolve operations read it. A Release it does not
+  hold fails the fetch.
+- `resolveOptions` — `{ maxFetches, maxDepth }`, overriding the caps
+  (TS `RESOLVE_CAPS`, Go `DefaultMaxFetches` / `DefaultMaxDepth`) so a cap is
+  testable without hundreds of Releases.
 - `expect` — the expected result of each operation, keyed by name. A runner
   fails a fixture that expects an operation it does not implement, so no
   fixture is ever skipped by one side alone.
@@ -109,6 +117,25 @@ conformance/
   A valid case freezes an acceptance for ever (ADR-0019), so a valid fixture
   holds values the type is meant to accept, not whatever it happens to let
   through today.
+
+- **`resolve`** — the Resolved Spec `spec` resolves to against `releases`:
+  `{ vocabulary, fields, parts }`, compared as JSON, or `{ "error": code }`
+  for a refusal, whose code alone is compared (which Pin a concurrent TS
+  resolution trips a cap at first is not fixed). `catalogue` is left out: the
+  runners check it is the running Catalogue's version, which a released
+  fixture could not know. Go encodes every Field with the properties it
+  always writes (`system`, and `name`, `api_accessor`, `required`,
+  `instructions` in `config`), so a fixture's Fields — its Releases' too —
+  spell them out. Both runners resolve against the Catalogue's types only. A
+  released refusal binds nothing, as a released invalid case does not.
+- **`pins`** — every Pin `spec` holds, `{path, kind, release}`, in any order:
+  TS `specPins`, Go `Pins`. Nothing is fetched.
+- **`validateResolvedSpec`** — the errors of the Resolved Spec `spec`
+  resolves to against `releases`, as for `validateSpec`: TS `validateSpec`
+  with `resolved: true`, Go `ValidateResolvedSpec`. On a Resolved Spec a
+  Virtual Table that links a Blueprint and has children is resolved, not
+  `virtual_table_row_spec_ambiguous`, and the inlined Fields' Positions are
+  checked.
 
 ## Paths
 
@@ -173,7 +200,15 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_value` | *(value)* Any other rule a type's `toZodType` states: a Block whose `_type` is not its Block Type's. |
 | `missing_id` | *(value)* A row of a `group`, `virtual_table` or `blocks` value without an `_id` (ADR-0023). At the row. |
 | `duplicate_id` | *(value)* A row repeating an `_id` an earlier row of the same array holds. At each repeat, by its index. |
-| `too_deep` | *(value)* An array or object nested more than 32 levels below the data's root (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`), the root being level 0. At the first such container; nothing inside it is checked, and, like the other caps, nothing else in the data. |
+| `too_deep` | *(value)* An array or object nested more than 32 levels below the data's root (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`), the root being level 0. At the first such container; nothing inside it is checked, and, like the other caps, nothing else in the data. Distinct from `resolve_too_deep`. |
+| `resolve_cycle` | *(resolve)* A Pin in a Blueprint Release that pins, however indirectly, that same Release. At the Pin closing the cycle. |
+| `resolve_too_many_fetches` | *(resolve)* More distinct Releases to fetch than the cap (256). A Release pinned again is not fetched again and does not count. |
+| `resolve_too_deep` | *(resolve)* A Pin nested deeper in pinned Releases than the cap (8); a Pin in the Spec is at depth 1. Distinct from a value's depth cap. |
+| `resolve_fetch_failed` | *(resolve)* A Release the fetcher (TS: the adapter) could not return; its error is wrapped. |
+| `resolve_invalid_release` | *(resolve)* A fetched Blueprint Release that is not a list of Fields (Go: not a strictly decoded Spec; not JSON). |
+
+A resolve error's path is the Pin's setting, through the Releases inlined above
+it: `/owner/children/home/settings/blueprint`.
 
 A setting whose value is Unset — absent, `null`, `""`, `[]` or `{}` — is
 treated as absent at every depth before it is checked (ADR-0021), so an

@@ -713,9 +713,6 @@
 					"blueprint": {
 						"type": "string"
 					},
-					"always_latest": {
-						"type": "boolean"
-					},
 					"max_records_per_page": {
 						"type": "integer",
 						"minimum": 1

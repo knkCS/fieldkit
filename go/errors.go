@@ -45,6 +45,25 @@ const (
 	// Block Type of the same Blocks Field declared, reported at its type.
 	CodeDuplicateBlockType = "duplicate_block_type"
 
+	// The codes Resolve fails with (a *ResolveError), shared with TS's
+	// resolveSpec (ResolveSpecError). Prefixed, because a value's depth cap is
+	// a different rule.
+
+	// CodeResolveCycle is a Pin in a Blueprint Release that pins, however
+	// indirectly, that same Release.
+	CodeResolveCycle = "resolve_cycle"
+	// CodeResolveTooManyFetches is a Resolve that would fetch more distinct
+	// Releases than its cap (DefaultMaxFetches).
+	CodeResolveTooManyFetches = "resolve_too_many_fetches"
+	// CodeResolveTooDeep is a Pin nested deeper in pinned Releases than the
+	// cap (DefaultMaxDepth).
+	CodeResolveTooDeep = "resolve_too_deep"
+	// CodeResolveFetchFailed is a Release the fetcher could not return.
+	CodeResolveFetchFailed = "resolve_fetch_failed"
+	// CodeResolveInvalidRelease is a fetched Release that is not JSON, or a
+	// Blueprint Release that is not a Spec.
+	CodeResolveInvalidRelease = "resolve_invalid_release"
+
 	// The codes ValidateValue reports, shared with TS's validateValue.
 
 	// CodeRequired is a required Field whose value is Unset (ADR-0021).

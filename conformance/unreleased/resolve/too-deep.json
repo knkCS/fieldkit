@@ -1,0 +1,72 @@
+{
+	"description": "Pins nested deeper than the depth cap are resolve_too_deep: a Pin in the Spec is at depth 1",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "root",
+				"api_accessor": "root",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-a@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-a@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "b",
+						"api_accessor": "b",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-b@1"
+					},
+					"system": false
+				}
+			],
+			"bp-b@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "c",
+						"api_accessor": "c",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-c@1"
+					},
+					"system": false
+				}
+			],
+			"bp-c@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "leaf",
+						"api_accessor": "leaf",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"resolveOptions": {
+		"maxDepth": 2
+	},
+	"expect": {
+		"resolve": {
+			"error": "resolve_too_deep"
+		}
+	}
+}

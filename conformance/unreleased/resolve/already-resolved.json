@@ -1,0 +1,218 @@
+{
+	"description": "A Field that already has children — resolved, even to none, or an embedded Row Spec — is left alone and fetches nothing, and a blank Pin is no Pin: resolving a Resolved Spec's Fields changes nothing",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "done",
+				"api_accessor": "done",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address@2"
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "empty",
+				"api_accessor": "empty",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-empty@1"
+			},
+			"children": [],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "embedded",
+				"api_accessor": "embedded",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "unpinned",
+				"api_accessor": "unpinned",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "  "
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "group",
+				"api_accessor": "group",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "inner",
+						"api_accessor": "inner",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {},
+	"expect": {
+		"pins": [
+			{
+				"path": "/done/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-address@2"
+			},
+			{
+				"path": "/empty/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-empty@1"
+			}
+		],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "done",
+						"api_accessor": "done",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-address@2"
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "street",
+								"api_accessor": "street",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "empty",
+						"api_accessor": "empty",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-empty@1"
+					},
+					"children": [],
+					"system": false
+				},
+				{
+					"field_type": "virtual_table",
+					"config": {
+						"name": "embedded",
+						"api_accessor": "embedded",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "label",
+								"api_accessor": "label",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "unpinned",
+						"api_accessor": "unpinned",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "  "
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "group",
+						"api_accessor": "group",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "inner",
+								"api_accessor": "inner",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"parts": {}
+		}
+	}
+}

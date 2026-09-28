@@ -185,9 +185,7 @@ The picker offers strictly less than the canvas does: only the types whose `posi
 
 ### The settings-nested boundary (ADR-0007)
 
-The Attribute Spec lives in `settings.attributes`, following the Blocks precedent. `validateSpec()` walks it — the plugin names it through `heldSpecs`, in the `reference_spec` Position (ADR-0022) — so a duplicate accessor, an empty name or accessor, a reserved `_` accessor and a type that may not sit there are all reported at `/<field>/settings/attributes/<accessor>`. `resolveSpec()` and `resolveMarkerConvention()` still walk `Field.children` only, which is ADR-0007's boundary for them:
-
-- a **Fieldset** declared as an Attribute is never resolved, and composes as the opaque record any unresolved Fieldset does — which is why `fieldset` does not list `reference_spec`, and `validateSpec()` refuses one there.
+The Attribute Spec lives in `settings.attributes`, following the Blocks precedent. `validateSpec()` walks it — the plugin names it through `heldSpecs`, in the `reference_spec` Position (ADR-0022) — so a duplicate accessor, an empty name or accessor, a reserved `_` accessor and a type that may not sit there are all reported at `/<field>/settings/attributes/<accessor>`. `resolveMarkerConvention()` still walks `Field.children` only, which is ADR-0007's boundary for it. `resolveSpec()` and `specPins()` walk the Attribute Spec as `validateSpec()` does (#212), so a Pin in it is listed and resolved — but `fieldset` does not list `reference_spec`, so `validateSpec()` refuses a Fieldset declared as an Attribute.
 
 The Go module does not check a Reference Spec yet: `reference` is not in the Catalogue until its settings schema lands (#215).
 

@@ -210,7 +210,7 @@ export function VirtualTableSettingsEditor({
 					value={linkedBlueprint ? [linkedBlueprint] : []}
 					onChange={(ids) => onChange({ ...settings, blueprint: ids[0] })}
 					selectPlaceholder="Select a blueprint"
-					idInputPlaceholder="Blueprint id"
+					idInputPlaceholder="Blueprint Release id"
 					idInputTestId="virtual-table-blueprint-input"
 				/>
 			) : (

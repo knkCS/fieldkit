@@ -39,7 +39,7 @@ export function FieldsetSettingsEditor({
 				value={settings?.blueprint ? [settings.blueprint] : []}
 				onChange={(ids) => onChange({ ...settings, blueprint: ids[0] })}
 				selectPlaceholder="Select a blueprint"
-				idInputPlaceholder="Blueprint id"
+				idInputPlaceholder="Blueprint Release id"
 				idInputTestId="fieldset-blueprint-input"
 			/>
 

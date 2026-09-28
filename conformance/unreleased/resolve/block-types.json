@@ -1,0 +1,155 @@
+{
+	"description": "A Pin among a Block Type's Fields is listed and resolved like any other: the Fieldset in the Block Type gets its Release inlined, at the Block Type's settings path",
+	"spec": [
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "contact",
+						"name": "Contact",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "heading",
+									"api_accessor": "heading",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "fieldset",
+								"config": {
+									"name": "address",
+									"api_accessor": "address",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"blueprint": "bp-address@2"
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address@2": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "city",
+						"api_accessor": "city",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/address/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-address@2"
+			}
+		],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "blocks",
+					"config": {
+						"name": "content",
+						"api_accessor": "content",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"allowed_blocks": [
+							{
+								"type": "contact",
+								"name": "Contact",
+								"fields": [
+									{
+										"field_type": "text",
+										"config": {
+											"name": "heading",
+											"api_accessor": "heading",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									},
+									{
+										"field_type": "fieldset",
+										"config": {
+											"name": "address",
+											"api_accessor": "address",
+											"required": false,
+											"instructions": ""
+										},
+										"settings": {
+											"blueprint": "bp-address@2"
+										},
+										"children": [
+											{
+												"field_type": "text",
+												"config": {
+													"name": "street",
+													"api_accessor": "street",
+													"required": false,
+													"instructions": ""
+												},
+												"system": false
+											},
+											{
+												"field_type": "text",
+												"config": {
+													"name": "city",
+													"api_accessor": "city",
+													"required": false,
+													"instructions": ""
+												},
+												"system": false
+											}
+										],
+										"system": false
+									}
+								]
+							}
+						]
+					},
+					"system": false
+				}
+			],
+			"parts": {}
+		},
+		"validateResolvedSpec": []
+	}
+}
