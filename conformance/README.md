@@ -37,7 +37,7 @@ conformance/
 | Area | Contents |
 |---|---|
 | [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022) |
-| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value but the containers: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping |
+| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep` |
 
 ## Fixture format
 
@@ -87,9 +87,18 @@ conformance/
   the Field is required and otherwise unchecked, and a stored key holding it
   is `not_canonical`, at any depth, whether or not the Spec names the key.
   Keys the Spec does not name are otherwise ignored, as are hidden Fields and
-  Markers. **Go does not validate the containers' values yet** (`group`,
-  `virtual_table`, `blocks`, `fieldset`), nor the types outside the Catalogue,
-  and skips them; TS validates them. The fixtures stay clear of them until Go
+  Markers. A container hands what it holds to each child's own type: a
+  `group`'s or `virtual_table`'s rows and a resolved `fieldset`'s record are
+  checked against `children`, a Block against its Block Type's `fields`; a
+  missing key a row needs is `required`, as at the root. Every row of a
+  `group`, `virtual_table` and `blocks` carries an `_id` (ADR-0023):
+  `missing_id` at a row without one, `duplicate_id` at each repeat within its
+  array, and an `_id` that is not a string or longer than 64 UTF-16 code units
+  is `invalid_type` or `too_big` at the `_id`. A Block whose `_type` names none
+  of several Block Types is `invalid_value` at `_type` and checked no further;
+  with exactly one Block Type the Block is checked against it whatever its
+  `_type`. **Go does not validate the types outside the Catalogue yet**, and
+  skips them; TS validates them. The fixtures stay clear of them until Go
   does. Two approximations the fixtures stay clear of too: Go reads a
   `validation.pattern` as RE2 where TS reads it as a JS `RegExp` — a pattern
   RE2 cannot compile (a lookaround, a backreference) checks nothing in Go —
@@ -117,15 +126,19 @@ are a Spec held in settings, so a Field in one is the settings path to its
 | a Block Type's missing `name` | `/content/settings/allowed_blocks/1/name` |
 | unknown setting of a Field in a Block Type | `/content/settings/allowed_blocks/0/fields/title/settings/placeholder` |
 
-In data, a Field is its Accessor from the data's root, an array item its
-index and an object entry its key; the data itself is the empty path. (A
-row's `_id` will replace its index, ADR-0023.)
+In data, a Field is its Accessor from the data's root, an object entry its
+key, and an array item its `_id` — when it is an object holding a
+well-formed `_id` no earlier item of the array holds — or its index otherwise
+(ADR-0023): a row without a usable `_id`, or repeating one, still needs a
+place. The data itself is the empty path.
 
 | Error | Path |
 |---|---|
 | a required Field left Unset | `/title` |
 | a List's third entry | `/entries/2` |
 | a `null` held by a keyed Array's entry | `/keyed/b` |
+| a required child of the row with `_id` `a1` | `/authors/a1/name` |
+| a row without an `_id`, the first of its array | `/authors/0` (`missing_id`) |
 | data that is not an object | the empty path |
 
 A segment holding `/` or `~` is escaped as in RFC 6901: `~` as `~0`, `/` as
@@ -154,10 +167,13 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_type` | *(value)* A value of the wrong JSON type, at the value or the item; or data that is not an object, at the empty path. |
 | `invalid_format` | *(value)* A string not in its type's format: `email`, `url`, `slug`, or the Field's `validation.pattern`. |
 | `too_small` | *(value)* Below a minimum the Spec states: a string shorter than `validation.min_length` (in UTF-16 code units), a number below `settings.min`, fewer rows than `min_items`; and a blank entry in a required List. |
-| `too_big` | *(value)* Above a maximum the Spec states: a string longer than `validation.max_length`, a number above `settings.max`. |
+| `too_big` | *(value)* Above a maximum the Spec states: a string longer than `validation.max_length`, a number above `settings.max` — and an `_id` longer than 64 characters. |
 | `too_many_items` | *(value)* An array, or an object's keys, beyond 10 000 (TS `VALUE_CAPS.maxItems`, Go `MaxItems`), or rows beyond a Field's `max_items`. The 10 000 cap covers the whole document, keys the Spec does not name and the root included; data beyond it or `too_large` reports only its caps. |
 | `too_large` | *(value)* A string beyond 1 MiB of UTF-8 (TS `VALUE_CAPS.maxStringBytes`, Go `MaxStringBytes`). |
-| `invalid_value` | *(value)* Any other rule a type's `toZodType` states. No type Go validates reports it. |
+| `invalid_value` | *(value)* Any other rule a type's `toZodType` states: a Block whose `_type` is not its Block Type's. |
+| `missing_id` | *(value)* A row of a `group`, `virtual_table` or `blocks` value without an `_id` (ADR-0023). At the row. |
+| `duplicate_id` | *(value)* A row repeating an `_id` an earlier row of the same array holds. At each repeat, by its index. |
+| `too_deep` | *(value)* An array or object nested more than 32 levels below the data's root (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`), the root being level 0. At the first such container; nothing inside it is checked, and, like the other caps, nothing else in the data. |
 
 A setting whose value is Unset — absent, `null`, `""`, `[]` or `{}` — is
 treated as absent at every depth before it is checked (ADR-0021), so an

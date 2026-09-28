@@ -1,0 +1,79 @@
+{
+	"description": "A key holding an Unset value inside a row is not_canonical at the row's _id path; a required child left Unset is also required there",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 1,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min": 0
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"authors": [
+			{
+				"_id": "a1",
+				"name": "",
+				"born": null
+			},
+			{
+				"_id": "a2",
+				"name": "Grace",
+				"notes": []
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/authors/a1/name",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/authors/a1/born",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/authors/a1/name",
+				"code": "required"
+			},
+			{
+				"path": "/authors/a2/notes",
+				"code": "not_canonical"
+			}
+		]
+	}
+}
