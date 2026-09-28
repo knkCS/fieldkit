@@ -5,6 +5,7 @@ import { SlugField } from "../../renderer/fields/slug-field";
 import { SlugCell } from "../../table/cells/slug-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { stringText } from "../value-text";
 
 export interface SlugSettings {
 	source_field?: string;
@@ -38,6 +39,7 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: stringText,
 
 	defaultSettings: {},
 

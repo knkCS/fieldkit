@@ -6,7 +6,7 @@ import {
 	type ZodTypeAny,
 	z,
 } from "zod";
-import type { FieldTypePlugin, MintIdsContext } from "./plugin";
+import type { FieldTypePlugin, HeldRecord, MintIdsContext } from "./plugin";
 import type { Field } from "./types";
 import { isPlainObject } from "./unset";
 import { toPath } from "./validate-settings";
@@ -204,7 +204,7 @@ function mintRecord(
 	return next ?? record;
 }
 
-function toPluginMap(
+export function toPluginMap(
 	plugins:
 		| readonly FieldTypePlugin[]
 		| ReadonlyMap<string, FieldTypePlugin<unknown>>,
@@ -288,4 +288,27 @@ export function mintRowIds(
 		return next;
 	});
 	return changed ? rows : value;
+}
+
+/**
+ * The `records` of a row container (`FieldTypePlugin.records`): each row that
+ * is an object, at its path segment ({@link itemSegments}), described by
+ * `fieldsOf(row)` — a row with no Fields holds nothing to walk. Used by
+ * `group`, `virtual_table` and `blocks`; Go's `rowRecords` is the same.
+ */
+export function rowRecords(
+	value: unknown,
+	fieldsOf: (row: Record<string, unknown>) => Field[] | undefined,
+): HeldRecord[] {
+	if (!Array.isArray(value)) return [];
+	const segments = itemSegments(value);
+	const records: HeldRecord[] = [];
+	value.forEach((row: unknown, index) => {
+		if (!isPlainObject(row)) return;
+		const fields = fieldsOf(row);
+		if (fields?.length) {
+			records.push({ fields, record: row, segments: [segments[index]] });
+		}
+	});
+	return records;
 }

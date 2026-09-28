@@ -4,6 +4,7 @@ import { ArrayField } from "../../renderer/fields/array-field";
 import { ArrayCell } from "../../table/cells/array-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { arrayText } from "../value-text";
 
 export interface ArraySettings {
 	mode?: "dynamic" | "keyed";
@@ -43,6 +44,7 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: arrayText,
 
 	defaultSettings: { mode: "dynamic" },
 

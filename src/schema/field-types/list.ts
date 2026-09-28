@@ -5,6 +5,7 @@ import { ListField } from "../../renderer/fields/list-field";
 import { ListCell } from "../../table/cells/list-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { listText } from "../value-text";
 
 export interface ListSettings {
 	/** Entries shown on one page. `0` (the default) paginates not at all.
@@ -44,6 +45,7 @@ export const listPlugin: FieldTypePlugin<ListSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: listText,
 
 	defaultSettings: { max_items_per_page: 0 },
 

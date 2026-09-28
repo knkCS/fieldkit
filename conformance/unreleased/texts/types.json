@@ -1,0 +1,325 @@
+{
+	"description": "Every type with text yields its text — a string type the string itself, a List its Entries one per line, an Array its keys and values one per line, pair by pair or, keyed, key by key in UTF-16 order — through a virtual_table's rows, a Block's Fields and a resolved Fieldset's record",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "text",
+				"api_accessor": "text",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "textarea",
+				"api_accessor": "textarea",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "email",
+				"api_accessor": "email",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "url",
+				"api_accessor": "url",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "slug",
+				"api_accessor": "slug",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "code",
+			"config": {
+				"name": "code",
+				"api_accessor": "code",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "markdown",
+				"api_accessor": "markdown",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "list",
+				"api_accessor": "list",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "keyed",
+				"api_accessor": "keyed",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "lines",
+				"api_accessor": "lines",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "sku",
+						"api_accessor": "sku",
+						"required": false,
+						"instructions": "",
+						"search": "B"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "title",
+									"api_accessor": "title",
+									"required": false,
+									"instructions": "",
+									"search": "A"
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "zip",
+						"api_accessor": "zip",
+						"required": false,
+						"instructions": "",
+						"search": "off"
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"data": {
+		"text": "Plain",
+		"textarea": "Line one\nLine two",
+		"email": "a@example.com",
+		"url": "https://example.com/x",
+		"slug": "a-slug",
+		"code": "const x = 1;",
+		"markdown": "# Title",
+		"list": [
+			"alpha",
+			"",
+			"beta"
+		],
+		"pairs": [
+			{
+				"key": "ISBN",
+				"value": "123"
+			},
+			{
+				"value": "only a value"
+			},
+			{
+				"key": "only a key"
+			}
+		],
+		"keyed": {
+			"zeta": "last",
+			"alpha": "first",
+			"😀": "astral",
+			"�": "bmp"
+		},
+		"lines": [
+			{
+				"_id": "l1",
+				"sku": "SKU-1"
+			},
+			{
+				"_id": "l2"
+			}
+		],
+		"content": [
+			{
+				"_id": "h1",
+				"_type": "heading",
+				"title": "Chapter"
+			}
+		],
+		"address": {
+			"street": "Main St",
+			"zip": "12345"
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"texts": [
+			{
+				"path": "/text",
+				"weight": "D",
+				"text": "Plain"
+			},
+			{
+				"path": "/textarea",
+				"weight": "D",
+				"text": "Line one\nLine two"
+			},
+			{
+				"path": "/email",
+				"weight": "D",
+				"text": "a@example.com"
+			},
+			{
+				"path": "/url",
+				"weight": "D",
+				"text": "https://example.com/x"
+			},
+			{
+				"path": "/slug",
+				"weight": "D",
+				"text": "a-slug"
+			},
+			{
+				"path": "/code",
+				"weight": "D",
+				"text": "const x = 1;"
+			},
+			{
+				"path": "/markdown",
+				"weight": "D",
+				"text": "# Title"
+			},
+			{
+				"path": "/list",
+				"weight": "D",
+				"text": "alpha\nbeta"
+			},
+			{
+				"path": "/pairs",
+				"weight": "D",
+				"text": "ISBN\n123\nonly a value\nonly a key"
+			},
+			{
+				"path": "/keyed",
+				"weight": "D",
+				"text": "alpha\nfirst\nzeta\nlast\n😀\nastral\n�\nbmp"
+			},
+			{
+				"path": "/lines/l1/sku",
+				"weight": "B",
+				"text": "SKU-1"
+			},
+			{
+				"path": "/content/h1/title",
+				"weight": "A",
+				"text": "Chapter"
+			},
+			{
+				"path": "/address/street",
+				"weight": "D",
+				"text": "Main St"
+			}
+		]
+	}
+}

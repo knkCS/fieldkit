@@ -7,6 +7,15 @@ export { boolean, number, section, select, text } from "./builders";
 // Spec resolution: every Pin → a Resolved Spec envelope (ADR-0020), the same
 // answers as the Go module's Resolve and Pins
 export { CATALOGUE_VERSION } from "./catalogue-version";
+// Edges and Texts over a whole Content: the same answers as the Go module's
+// Edges and Texts (contenthub ADRs 0009, 0019)
+export {
+	type Edge,
+	edges,
+	type FieldText,
+	texts,
+	valueText,
+} from "./content-walk";
 export type { DefineSpecOptions, SpecDefinition } from "./define-spec";
 // Builder API
 export { defineSpec } from "./define-spec";
@@ -108,15 +117,18 @@ export type {
 	ComposeChildrenDefaults,
 	ComposeChildrenSchema,
 	Consumer,
+	EdgeTarget,
 	FieldProps,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	HeldRecord,
 	HeldSpec,
 	MintIdsContext,
 	Position,
 	ReadProps,
 	RenderReadValue,
 	SettingsProps,
+	ValueEdge,
 } from "./plugin";
 // Where a Field may sit (enforced) and which Consumers offer a type (advice),
 // ADR-0022

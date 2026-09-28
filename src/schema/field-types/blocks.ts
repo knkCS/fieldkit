@@ -4,7 +4,7 @@ import { BlocksField } from "../../renderer/fields/blocks-field";
 import { BlocksCell } from "../../table/cells/blocks-cell";
 import { blockTypeSpecs } from "../block-types";
 import type { ComposeChildrenSchema, FieldTypePlugin } from "../plugin";
-import { mintRowIds, RowZodArray, rowIdSchema } from "../row-ids";
+import { mintRowIds, RowZodArray, rowIdSchema, rowRecords } from "../row-ids";
 import type { Field } from "../types";
 
 export interface BlockDefinition {
@@ -116,6 +116,18 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 			context,
 			(block) => allowedBlocks.find((b) => b.type === block._type)?.fields,
 		);
+	},
+
+	// Each Block against the Fields of the Block Type its `_type` names, for
+	// `texts()` and `edges()`; a Block naming none holds nothing to walk.
+	records(field, value) {
+		const allowed = field.settings?.allowed_blocks;
+		const blockTypes = Array.isArray(allowed) ? allowed : [];
+		return rowRecords(value, (block) => {
+			if (typeof block._type !== "string") return undefined;
+			const fields = blockTypes.find((b) => b?.type === block._type)?.fields;
+			return Array.isArray(fields) ? fields : undefined;
+		});
 	},
 
 	// A Block Type needs its `type` — the `_type` a Block names it by — and a

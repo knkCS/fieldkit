@@ -5,6 +5,7 @@ import { EmailField } from "../../renderer/fields/email-field";
 import { EmailCell } from "../../table/cells/email-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { stringText } from "../value-text";
 
 export interface EmailSettings {
 	placeholder?: string;
@@ -31,6 +32,7 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: stringText,
 
 	defaultSettings: { placeholder: "" },
 

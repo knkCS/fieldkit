@@ -1,0 +1,285 @@
+{
+	"description": "A media Field's Assets are media edges at the Field — one per Asset, an Asset listed twice once — at the root, in a group's and a virtual_table's rows by _id, in a Block's Fields and in a resolved Fieldset's record; a hidden media Field yields none",
+	"spec": [
+		{
+			"field_type": "media",
+			"config": {
+				"name": "hero",
+				"api_accessor": "hero",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "secret",
+				"api_accessor": "secret",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "media",
+					"config": {
+						"name": "images",
+						"api_accessor": "images",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "media",
+					"config": {
+						"name": "icon",
+						"api_accessor": "icon",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "figure",
+						"name": "Figure",
+						"fields": [
+							{
+								"field_type": "media",
+								"config": {
+									"name": "image",
+									"api_accessor": "image",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "author",
+				"api_accessor": "author",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-person@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-person@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "media",
+					"config": {
+						"name": "portrait",
+						"api_accessor": "portrait",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"data": {
+		"hero": [
+			"asset-1",
+			"asset-2",
+			"asset-1"
+		],
+		"secret": [
+			"asset-hidden"
+		],
+		"sections": [
+			{
+				"_id": "s1",
+				"heading": "One",
+				"images": [
+					"asset-3"
+				]
+			},
+			{
+				"_id": "s2",
+				"heading": "Two"
+			},
+			{
+				"_id": "s3/x",
+				"images": [
+					"asset-4",
+					"asset-5"
+				]
+			}
+		],
+		"rows": [
+			{
+				"_id": "r1",
+				"icon": [
+					"asset-6"
+				]
+			}
+		],
+		"content": [
+			{
+				"_id": "b1",
+				"_type": "quote",
+				"text": "Hi"
+			},
+			{
+				"_id": "b2",
+				"_type": "figure",
+				"image": [
+					"asset-7"
+				]
+			}
+		],
+		"author": {
+			"name": "Ada",
+			"portrait": [
+				"asset-8"
+			]
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"edges": [
+			{
+				"path": "/hero",
+				"kind": "media",
+				"target": {
+					"asset": "asset-1"
+				}
+			},
+			{
+				"path": "/hero",
+				"kind": "media",
+				"target": {
+					"asset": "asset-2"
+				}
+			},
+			{
+				"path": "/sections/s1/images",
+				"kind": "media",
+				"target": {
+					"asset": "asset-3"
+				}
+			},
+			{
+				"path": "/sections/s3~1x/images",
+				"kind": "media",
+				"target": {
+					"asset": "asset-4"
+				}
+			},
+			{
+				"path": "/sections/s3~1x/images",
+				"kind": "media",
+				"target": {
+					"asset": "asset-5"
+				}
+			},
+			{
+				"path": "/rows/r1/icon",
+				"kind": "media",
+				"target": {
+					"asset": "asset-6"
+				}
+			},
+			{
+				"path": "/content/b2/image",
+				"kind": "media",
+				"target": {
+					"asset": "asset-7"
+				}
+			},
+			{
+				"path": "/author/portrait",
+				"kind": "media",
+				"target": {
+					"asset": "asset-8"
+				}
+			}
+		]
+	}
+}

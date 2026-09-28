@@ -4,6 +4,7 @@ import { TextField } from "../../renderer/fields/text-field";
 import { TextCell } from "../../table/cells/text-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { stringText } from "../value-text";
 
 export interface TextSettings {
 	placeholder?: string;
@@ -55,6 +56,7 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: stringText,
 
 	defaultSettings: { placeholder: "" },
 

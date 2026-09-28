@@ -1,7 +1,11 @@
 // src/schema/row-array.ts
 import { type ZodTypeAny, z } from "zod";
-import type { ComposeChildrenSchema, MintIdsContext } from "./plugin";
-import { mintRowIds, RowZodArray, rowIdSchema } from "./row-ids";
+import type {
+	ComposeChildrenSchema,
+	HeldRecord,
+	MintIdsContext,
+} from "./plugin";
+import { mintRowIds, RowZodArray, rowIdSchema, rowRecords } from "./row-ids";
 import type { Field } from "./types";
 
 /** The two caps every row-array type offers. Named once so a Group and a
@@ -87,4 +91,16 @@ export function mintRowArrayIds(
 	context: MintIdsContext,
 ): unknown {
 	return mintRowIds(value, context, () => field.children ?? undefined);
+}
+
+/**
+ * The `records` of a row-array type: each row, against `children` — none
+ * while a linked Row Spec is unresolved. Shared by `group` and
+ * `virtual_table`.
+ */
+export function rowArrayRecords(
+	field: Field<RowArrayCaps>,
+	value: unknown,
+): HeldRecord[] {
+	return rowRecords(value, () => field.children ?? undefined);
 }
