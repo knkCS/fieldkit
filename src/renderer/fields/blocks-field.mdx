@@ -48,20 +48,25 @@ does `toZodType` called with a Field alone (no composer).
 
 ## Zod Output
 
+Every block carries an `_id` beside its `_type` (ADR-0023), unique within the
+Field's value — see the Group's documentation for how a value loaded without
+ids gets them.
+
 ```ts
-// No allowed_blocks — any block with a _type string
-z.array(z.object({ _type: z.string() }).passthrough())
+// No allowed_blocks — any block with an _id and a _type string
+z.array(z.object({ _id: rowIdSchema, _type: z.string() }).passthrough())
 
 // One allowed type — literal match, since discriminatedUnion needs 2+
-z.array(z.object({ ...headingFields, _type: z.literal("heading") }).passthrough())
+z.array(z.object({ ...headingFields, _id: rowIdSchema, _type: z.literal("heading") }).passthrough())
 
 // Two or more — discriminated on _type, each branch composing its own fields
 z.array(
   z.discriminatedUnion("_type", [
-    z.object({ ...headingFields, _type: z.literal("heading") }).passthrough(),
-    z.object({ ...imageFields, _type: z.literal("image") }).passthrough(),
+    z.object({ ...headingFields, _id: rowIdSchema, _type: z.literal("heading") }).passthrough(),
+    z.object({ ...imageFields, _id: rowIdSchema, _type: z.literal("image") }).passthrough(),
   ]),
 )
+// …and each _id unique within the array (duplicate_id)
 ```
 
 ## Adding a Block
@@ -69,7 +74,8 @@ z.array(
 Choosing a type seeds the new block from the fields that type declares — each
 field's explicit `config.default_value`, or its plugin's `defaultValue` where it
 has one, exactly as `getDefaultValues` seeds the form itself (#38). A `heading`
-of `title` and `pinned` starts `{ _type: "heading", title: "", pinned: false }`.
+of `title` and `pinned` starts
+`{ title: "", pinned: false, _id: "<a fresh UUID>", _type: "heading" }`.
 
 `_type` is written last, so a field declaring that accessor cannot overwrite the
 discriminator that decides which fields render.

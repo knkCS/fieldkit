@@ -80,7 +80,7 @@ The Field renders as anker's `DataTable`:
 
 "Add row" and "edit row" open a drawer that renders the Row Spec through fieldkit's **own renderer**, so every column brings its own control, its own Zod type and its own message — the drawer has no case for any Field Type.
 
-The drawer edits a **draft**: its own form, seeded from the row and validated by the Row Spec's Schema. Saving writes the row into the Field's array value; cancelling writes nothing. Keys a row carries that no column edits — a backend id — survive a save, matching the `passthrough` in the row array's Zod type.
+The drawer edits a **draft**: its own form, seeded from the row and validated by the Row Spec's Schema. Saving writes the row into the Field's array value; cancelling writes nothing. Keys a row carries that no column edits — a backend id — survive a save, matching the `passthrough` in the row array's Zod type. So does the row's `_id` (ADR-0023); a row added through the drawer is given a fresh one.
 
 ## Reordering rows
 

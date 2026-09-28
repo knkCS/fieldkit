@@ -35,16 +35,25 @@ Rows are `passthrough`: a stored row carries more than the spec edits — a
 backend id, most obviously — and validating rows doesn't prune the rest on
 submit. A Group with no children keeps the opaque row it always had.
 
+Every row carries an `_id` (ADR-0023): a non-empty string of at most 64
+characters, unique within the Group's value. It is fieldkit's own key — not
+React Hook Form's `item.id`, which is a render key and never stored. A row
+without one, or repeating one, fails validation. A value loaded without ids —
+stored before rows carried them — has them minted into the form's defaults by
+`SpecForm` (and `EditDrawer`), so opening it does not make the form dirty and
+the next save stores them; `mintMissingIds()` does the same for a Consumer's
+own code, and `copyRows()` copies rows with new ids for paste and duplicate.
+
 ## Zod Output
 
 ```ts
-// No children
-z.array(z.record(z.unknown()))
+// No children — still a row with an _id
+z.array(z.object({ _id: rowIdSchema }).passthrough())
 
 // Children `name` (required) and `role` (optional)
-z.array(z.object({ name: z.string().min(1), role: z.string().optional() }).passthrough())
+z.array(z.object({ name: z.string(), role: z.string().optional(), _id: rowIdSchema }).passthrough())
 
-// With min/max
+// With min/max — and each _id unique within the array (duplicate_id)
 z.array(row).min(1).max(5)
 ```
 
@@ -53,7 +62,7 @@ z.array(row).min(1).max(5)
 "Add item" seeds the new row from its children — each child's explicit
 `config.default_value`, or its plugin's `defaultValue` where it has one, exactly
 as `getDefaultValues` seeds the form itself (#38). A row of `note` and `active`
-starts `{ note: "", active: false }`, not `{}`.
+starts `{ note: "", active: false, _id: "<a fresh UUID>" }`, not `{}`.
 
 This is what makes an added row submittable: zod rejects `undefined` for a
 required boolean but accepts `false`, and nothing a form user can do to an
