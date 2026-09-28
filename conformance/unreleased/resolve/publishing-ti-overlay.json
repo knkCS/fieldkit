@@ -1,0 +1,167 @@
+{
+	"description": "A ti_overlay Field's ti_set pins a Typesetting Instruction Set Release, an opaque part stored once in parts.ti_set however many Fields pin it, the Field keeping its Pin; a Field pinning none fetches nothing",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "ti",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "print",
+				"api_accessor": "print",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "proof",
+				"api_accessor": "proof",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "proof@1"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "draft",
+				"api_accessor": "draft",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"ti_set": {
+			"house@2": {
+				"instructions": [
+					{
+						"code": "np"
+					}
+				]
+			},
+			"proof@1": {
+				"instructions": [
+					{
+						"code": "bn"
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/ti/settings/ti_set",
+				"kind": "ti_set",
+				"release": "house@2"
+			},
+			{
+				"path": "/print/settings/ti_set",
+				"kind": "ti_set",
+				"release": "house@2"
+			},
+			{
+				"path": "/proof/settings/ti_set",
+				"kind": "ti_set",
+				"release": "proof@1"
+			}
+		],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "ti_overlay",
+					"config": {
+						"name": "ti",
+						"api_accessor": "ti",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false,
+					"settings": {
+						"ti_set": "house@2"
+					}
+				},
+				{
+					"field_type": "ti_overlay",
+					"config": {
+						"name": "print",
+						"api_accessor": "print",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false,
+					"settings": {
+						"ti_set": "house@2"
+					}
+				},
+				{
+					"field_type": "ti_overlay",
+					"config": {
+						"name": "proof",
+						"api_accessor": "proof",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false,
+					"settings": {
+						"ti_set": "proof@1"
+					}
+				},
+				{
+					"field_type": "ti_overlay",
+					"config": {
+						"name": "draft",
+						"api_accessor": "draft",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"parts": {
+				"ti_set": {
+					"house@2": {
+						"instructions": [
+							{
+								"code": "np"
+							}
+						]
+					},
+					"proof@1": {
+						"instructions": [
+							{
+								"code": "bn"
+							}
+						]
+					}
+				}
+			}
+		},
+		"validateResolvedSpec": []
+	}
+}

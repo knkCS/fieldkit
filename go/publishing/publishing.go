@@ -35,6 +35,7 @@ var catalogueJSON []byte
 // catalogue.json lists (fieldkit.NewCatalogue refuses anything else).
 var code = map[string]fieldkit.TypeCode{ //nolint:gochecknoglobals
 	"reference_filter": referenceFilter,
+	"ti_overlay":       tiOverlay,
 }
 
 var (

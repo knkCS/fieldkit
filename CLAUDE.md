@@ -18,7 +18,7 @@ Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five la
 4. **`/table`** — Spec-driven data table. `SpecDataTable` extends anker's `DataTable`. Auto-generates columns from spec. `EditDrawer` uses `SpecForm` for row editing.
 5. **`/rich-text-spec`** — Rich text editor specification. `EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`. Configures which TipTap nodes/marks are available.
 
-Beside the five layers, **`/publishing`** is the opt-in publishing package (ADR-0002, amended): `publishingFieldTypes` (`reference_filter` so far), which nothing registers — a Consumer opts in by adding them to the plugins it passes. Its Catalogue section ships as `/publishing/catalogue.json`.
+Beside the five layers, **`/publishing`** is the opt-in publishing package (ADR-0002, amended): `publishingFieldTypes` (`reference_filter` and `ti_overlay` so far), which nothing registers — a Consumer opts in by adding them to the plugins it passes. Its Catalogue section ships as `/publishing/catalogue.json`.
 
 ### Key Technology Choices
 
@@ -191,7 +191,7 @@ an architectural choice.
 5. Nothing to register for the table. `getCellForFieldType()` builds a map from the plugins it is given and resolves `cellComponent` off it at render time, falling back to string rendering where a plugin declares none — so a registered plugin already has its column. (This step used to say "register the cell in `src/table/get-cell-for-type.tsx`"; there has never been anything there to register.)
 6. Only when reading wants more than a cell can give — a cell has neither adapter access nor async and one row of height — add a `readComponent` (`ReadProps`: `field`, `value`, and a `renderChild` that renders a child value the same way). `group`, `reference` and `single_reference` are the built-ins that do.
 
-A **publishing type** (ADR-0002, amended) follows the same steps with other homes: the plugin in `src/publishing/field-types/<name>.ts`, listed in `publishingFieldTypes` (`src/publishing/index.ts`) and never in `builtInFieldTypes`; `npm run catalogue` writes it into `go/publishing/catalogue.json`; its Go half is a `fieldkit.TypeCode` in `go/publishing/<name>.go`, added to `code` in `go/publishing/publishing.go` (the Go values/edges/text/compare hooks all live on `TypeCode`, not in the root package's maps); its fixtures carry `"packages": ["publishing"]` (`conformance/README.md`). Its UI is optional until ported: reuse a built-in component, as `reference_filter` reuses the List's.
+A **publishing type** (ADR-0002, amended) follows the same steps with other homes: the plugin in `src/publishing/field-types/<name>.ts`, listed in `publishingFieldTypes` (`src/publishing/index.ts`) and never in `builtInFieldTypes`; `npm run catalogue` writes it into `go/publishing/catalogue.json`; its Go half is a `fieldkit.TypeCode` in `go/publishing/<name>.go`, added to `code` in `go/publishing/publishing.go` (the Go values/edges/text/compare hooks all live on `TypeCode`, not in the root package's maps); its fixtures carry `"packages": ["publishing"]` (`conformance/README.md`). Its UI is optional until ported: reuse a built-in component, as `reference_filter` reuses the List's and `ti_overlay` the Fieldset's and Group's over its entries' keys.
 
 There is no manual renderer registration: `FieldComponent` resolves `plugin.fieldComponent` through the registry at render time.
 

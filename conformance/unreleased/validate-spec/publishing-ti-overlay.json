@@ -1,0 +1,113 @@
+{
+	"description": "ti_overlay sits at the root, and a Group's children sit where it does, but not in a Reference Spec; its one setting, ti_set, is a Release id, and any other key is unknown",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "ti",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "draft",
+				"api_accessor": "draft",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "ti_overlay",
+					"config": {
+						"name": "in_row",
+						"api_accessor": "in_row",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false,
+					"settings": {
+						"ti_set": "house@2"
+					}
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "ti_overlay",
+						"config": {
+							"name": "ti",
+							"api_accessor": "ti",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false,
+						"settings": {
+							"ti_set": "house@2"
+						}
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "bad",
+				"api_accessor": "bad",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": 2,
+				"label": "x"
+			}
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/related/settings/spec/ti",
+				"code": "position"
+			},
+			{
+				"path": "/bad/settings/ti_set",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad/settings/label",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

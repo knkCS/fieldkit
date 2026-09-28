@@ -1,0 +1,170 @@
+{
+	"description": "Against the Resolved Spec, each ti_overlay entry's command must be a code of the TI Set its Field pins (unknown_command at the command); a Field pinning none checks no command, and a TI Set that is not {instructions: [{code}]} is invalid_ti_set at the Field. Go only: TS never reads a TI Set",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "ti",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "unpinned",
+				"api_accessor": "unpinned",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "broken",
+				"api_accessor": "broken",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "broken@1"
+			}
+		}
+	],
+	"data": {
+		"ti": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e2",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "bn",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e3",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "zz",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"unpinned": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "zz",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"broken": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		}
+	},
+	"releases": {
+		"ti_set": {
+			"house@2": {
+				"name": "House",
+				"instructions": [
+					{
+						"code": "np",
+						"directive": "<?oas [np?>"
+					},
+					{
+						"code": "bn",
+						"directive": "<?oas [bn?>"
+					}
+				]
+			},
+			"broken@1": {
+				"codes": [
+					"np"
+				]
+			}
+		}
+	},
+	"goOnly": [
+		"validateValue"
+	],
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/ti/entries/e3/command",
+				"code": "unknown_command"
+			},
+			{
+				"path": "/broken",
+				"code": "invalid_ti_set"
+			}
+		]
+	}
+}

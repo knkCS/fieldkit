@@ -105,7 +105,7 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 |---|---|---|
 | `title_data` | 0 (used in `migration/legal_norm/`) | `blueprint`, `title_blueprint`, `allow_default` |
 | `title_scope` | 0 (used in `boorberg_conware_erfassung`) | `target_fields`, `text_type` |
-| `ti_overlay` | 0 (whole `typesetting_instructions` track) | — |
+| `ti_overlay` | 0 (whole `typesetting_instructions` track) | — (since 0.18.0 fieldkit's publishing package: `ti_set`, see below) |
 | `outline_tree` | 0 | `levels`, `text_type_id` |
 | `manipulation_tree` | 0 | `blueprints`, `replacement_blueprints`, `always_latest`, `max_items`, plus frontend-only `enable_validity_filtering`, `latest_release_strategy`, `max_items_per_page` |
 | `toc_reference` | 0 | none the backend interprets, and no config UI — core addresses the type *by id* to expand a publication subtree |
@@ -113,6 +113,15 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 **None has derivation-level demand.** All six are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
 
 `toc_reference` joined this list on 2026-08-04, and is the corollary's first user: core mints it with `createReferencePlugin({ id: "toc_reference", name: …, maxPerSpec: 1, availableIn: ["blueprint"] })` (since 0.18.0 `consumers: ["blueprint"]`, ADR-0022) and gets fieldkit's Reference Tree, browse drawer, count cell, settings editor and Zod schema. The other five still have to be written by hand.
+
+`ti_overlay` has since left this list for fieldkit's opt-in publishing package (ADR-0002, amended; #221), with a value that is **not core's**. Per contenthub ADR 0012 typesetting instructions are ordinary Title saves, so the value is flat: `{entries: [{_id, anchor, command, params?, source, notes?}]}`, and the Field pins a Typesetting Instruction Set Release in `settings.ti_set`, carried in the Resolved Spec's `parts.ti_set`. Migration notes for core's stored data (0.18.0):
+
+- **Removed keys.** `published`, `drafts`, and each revision's `label`, `base_revision_id`, `oasys_response`, `created_at`, `created_by` are gone, and so is each entry's stored `status` (active / unresolved / orphaned is found by resolving the anchor when reading). The value is a strict object, as is each entry: a leftover key is `invalid_value`. Keep the entries of `published`; drafts are Revisions on the Title's Branch, not part of the value.
+- **`id` is `_id`.** An entry's id is its row `_id` (ADR-0023) — unique within the value, at most 64 UTF-16 code units — and there is no second id. Rename core's `id` to `_id`.
+- **The anchor is knkeditor's inline anchor** `{node, offset, before?, after?}`: `node` the innermost text block's id, `offset` in Unicode code points, `before`/`after` at most 20 code points each and absent when empty (ADR-0021 — a host handing an anchor to knkeditor, whose decoder wants both strings, supplies `""`). Core's `{kind, content_id, block_id, char_offset_in_block, fingerprint, …}` is converted at the Cutover (knkcms/knkeditor#587); fieldkit validates the shape only, and resolving an anchor is knkeditor's.
+- **`params`** is a record of strings, **`source`** `editor` or `oasys`, **`notes`** a string; empty ones are stored absent.
+- **Commands** are codes of the pinned TI Set. Go's `ValidateResolvedValue` reports a code the Set does not offer as `unknown_command`; fieldkit reads only `instructions[].code` of a TI Set (`invalid_ti_set` otherwise), and whether a command's `params` fit it is left to the TI Set's owner.
+- **No edges, no text.** contenthub ADR 0012 has each entry be a Content Graph edge to the Content it anchors in, but the anchor names a node, not a Content, so fieldkit yields none.
 
 ## D. fieldkit-only
 

@@ -1,0 +1,274 @@
+{
+	"description": "A ti_overlay value merges per entry and per key by _id, as a Group's rows do: different entries, or different keys of one entry, edited on each side merge cleanly; one key of one entry changed on both sides differently is a Conflict at entries/<_id>/<key>",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "ti",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "clash",
+				"api_accessor": "clash",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		}
+	],
+	"releases": {
+		"ti_set": {
+			"house@2": {
+				"instructions": [
+					{
+						"code": "np"
+					},
+					{
+						"code": "bn"
+					}
+				]
+			}
+		}
+	},
+	"revisions": {
+		"base": {
+			"ti": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					},
+					{
+						"_id": "e2",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "bn",
+						"source": "editor"
+					}
+				]
+			},
+			"clash": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					}
+				]
+			}
+		},
+		"ours": {
+			"ti": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "ours"
+					},
+					{
+						"_id": "e2",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "bn",
+						"source": "editor"
+					}
+				]
+			},
+			"clash": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "bn",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					}
+				]
+			}
+		},
+		"theirs": {
+			"ti": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "3"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					},
+					{
+						"_id": "e2",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"source": "editor"
+					},
+					{
+						"_id": "e5",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "oasys",
+						"notes": "keep together"
+					}
+				]
+			},
+			"clash": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "zz",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"merge": {
+			"ti": {
+				"merged": {
+					"entries": [
+						{
+							"_id": "e1",
+							"anchor": {
+								"node": "12",
+								"offset": 3,
+								"before": "Kapitel 1",
+								"after": "Absatz"
+							},
+							"command": "np",
+							"params": {
+								"lines": "3"
+							},
+							"source": "editor",
+							"notes": "ours"
+						},
+						{
+							"_id": "e2",
+							"anchor": {
+								"node": "12",
+								"offset": 3,
+								"before": "Kapitel 1",
+								"after": "Absatz"
+							},
+							"command": "np",
+							"source": "editor"
+						},
+						{
+							"_id": "e5",
+							"anchor": {
+								"node": "12",
+								"offset": 3,
+								"before": "Kapitel 1",
+								"after": "Absatz"
+							},
+							"command": "np",
+							"params": {
+								"lines": "2"
+							},
+							"source": "oasys",
+							"notes": "keep together"
+						}
+					]
+				}
+			},
+			"clash": {
+				"conflicts": [
+					"entries/e1/command"
+				]
+			}
+		}
+	}
+}

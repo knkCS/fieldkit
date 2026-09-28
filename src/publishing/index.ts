@@ -10,12 +10,30 @@
 
 import type { FieldTypePlugin } from "../schema/plugin";
 import { referenceFilterPlugin } from "./field-types/reference-filter";
+import { tiOverlayPlugin } from "./field-types/ti-overlay";
 
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
+export type {
+	InlineAnchor,
+	TiOverlayEntry,
+	TiOverlaySettings,
+	TiOverlayValue,
+} from "./field-types/ti-overlay";
+export {
+	INLINE_ANCHOR_WINDOW,
+	inlineAnchorSchema,
+	TI_SET_KIND,
+	TI_SET_PIN,
+	TiOverlayCell,
+	TiOverlayField,
+	tiOverlayEntrySchema,
+	tiOverlayPlugin,
+} from "./field-types/ti-overlay";
 export { referenceFilterPlugin };
 
 /** Every publishing type: the publishing Catalogue section's plugins. */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const publishingFieldTypes: FieldTypePlugin<any>[] = [
 	referenceFilterPlugin,
+	tiOverlayPlugin,
 ];
