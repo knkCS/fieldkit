@@ -1,0 +1,104 @@
+{
+	"description": "A reorder alone is a change: the rows that moved are marked moved and nothing else, and a row removed at the start of a is listed first",
+	"spec": [
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Qty",
+						"api_accessor": "qty",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"revisions": {
+		"a": {
+			"rows": [
+				{
+					"_id": "r0",
+					"cell": "w"
+				},
+				{
+					"_id": "r1",
+					"cell": "x"
+				},
+				{
+					"_id": "r2",
+					"cell": "y"
+				},
+				{
+					"_id": "r3",
+					"cell": "z"
+				}
+			]
+		},
+		"b": {
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x"
+				},
+				{
+					"_id": "r3",
+					"cell": "z"
+				},
+				{
+					"_id": "r2",
+					"cell": "y"
+				}
+			]
+		}
+	},
+	"expect": {
+		"compare": {
+			"rows": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "r0",
+							"status": "removed"
+						},
+						{
+							"_id": "r1",
+							"status": "unchanged"
+						},
+						{
+							"_id": "r3",
+							"status": "unchanged",
+							"moved": true
+						},
+						{
+							"_id": "r2",
+							"status": "unchanged"
+						}
+					]
+				}
+			}
+		}
+	}
+}

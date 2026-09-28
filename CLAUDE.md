@@ -124,6 +124,8 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)
 ├── value_containers.go  # group/virtual_table/blocks/fieldset value rules, the rows' `_id`s (missing_id, duplicate_id) and itemSegments — the `_id` path grammar (ADR-0023)
 ├── mint.go              # MintIDs — deterministic UUIDv5 `_id`s for importers, from a seed and each row's place; nothing else mints
+├── schemas.go           # SchemaFields — the versionkit adapter: Settings = the whole resolved Field + its pinned parts, Type = Comparer/Merger, versionkit's interfaces by shape, never imported (docs/compare-and-merge.md)
+├── compare.go           # Compare/Merge composer (ADR-0023): whole values by equality; rows by `_id` (detail, per-child merge, `_order`), a Fieldset per child — finerRuleFor is where trees and rich_text plug in
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md

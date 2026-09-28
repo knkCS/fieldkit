@@ -29,6 +29,12 @@ const OPERATIONS = [
 	"validateResolvedSpec",
 ];
 
+/** The operations only Go implements: versionkit's Compare and Merge (#213),
+ * which no TS code performs. This runner recognises them, so a fixture holding
+ * them is not unknown, and runs nothing for them — the one deliberate
+ * exception to "no fixture is skipped by one runner alone". */
+const GO_ONLY_OPERATIONS = ["compare", "merge"];
+
 interface ExpectedError {
 	path: string;
 	code: string;
@@ -160,14 +166,18 @@ describe("conformance fixtures", () => {
 			const operations = Object.keys(fixture.expect ?? {});
 			expect(operations.length, "expects nothing").toBeGreaterThan(0);
 			for (const operation of operations) {
-				expect(OPERATIONS, `unknown operation ${operation}`).toContain(
-					operation,
-				);
+				expect(
+					[...OPERATIONS, ...GO_ONLY_OPERATIONS],
+					`unknown operation ${operation}`,
+				).toContain(operation);
 			}
-			const bound = operations.filter((operation) =>
-				binds(version, operation, fixture.expect[operation]),
+			const bound = operations.filter(
+				(operation) =>
+					!GO_ONLY_OPERATIONS.includes(operation) &&
+					binds(version, operation, fixture.expect[operation]),
 			);
-			// A released invalid case: kept as history, binding nothing.
+			// A released invalid case, kept as history, or a fixture of Go-only
+			// operations: nothing binds here.
 			if (bound.length === 0) ctx.skip();
 
 			if (bound.includes("validateSpec")) {

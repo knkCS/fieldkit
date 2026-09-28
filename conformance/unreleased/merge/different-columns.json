@@ -1,0 +1,334 @@
+{
+	"description": "Two sides editing different columns of one row, different children of one Fieldset and different rows merge cleanly, per row and per child Field; a row one side removed and the other left alone is removed; rows inside a row merge by their own _id",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Books",
+						"api_accessor": "books",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Title",
+								"api_accessor": "title",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "By",
+									"api_accessor": "by",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Qty",
+						"api_accessor": "qty",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "City",
+						"api_accessor": "city",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Zip",
+						"api_accessor": "zip",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"revisions": {
+		"base": {
+			"authors": [
+				{
+					"_id": "a1",
+					"name": "Ada",
+					"born": 1815
+				},
+				{
+					"_id": "a2",
+					"name": "Grace",
+					"born": 1906
+				},
+				{
+					"_id": "a3",
+					"name": "Alan",
+					"born": 1912
+				},
+				{
+					"_id": "a4",
+					"name": "Edsger",
+					"books": [
+						{
+							"_id": "k1",
+							"title": "Notes"
+						}
+					]
+				}
+			],
+			"address": {
+				"street": "Main St",
+				"city": "Berlin"
+			}
+		},
+		"ours": {
+			"authors": [
+				{
+					"_id": "a1",
+					"name": "Ada Lovelace",
+					"born": 1815
+				},
+				{
+					"_id": "a2",
+					"name": "Grace",
+					"born": 1906
+				},
+				{
+					"_id": "a4",
+					"name": "Edsger",
+					"books": [
+						{
+							"_id": "k1",
+							"title": "Notes"
+						},
+						{
+							"_id": "k2",
+							"title": "Essays"
+						}
+					]
+				}
+			],
+			"address": {
+				"street": "Main Street",
+				"city": "Berlin"
+			}
+		},
+		"theirs": {
+			"authors": [
+				{
+					"_id": "a1",
+					"name": "Ada",
+					"born": 1816
+				},
+				{
+					"_id": "a2",
+					"name": "Grace Hopper",
+					"born": 1906
+				},
+				{
+					"_id": "a3",
+					"name": "Alan",
+					"born": 1912
+				},
+				{
+					"_id": "a4",
+					"name": "Edsger",
+					"books": [
+						{
+							"_id": "k1",
+							"title": "Notes, revised"
+						}
+					]
+				}
+			],
+			"address": {
+				"street": "Main St",
+				"city": "Hamburg"
+			}
+		}
+	},
+	"expect": {
+		"merge": {
+			"authors": {
+				"merged": [
+					{
+						"_id": "a1",
+						"name": "Ada Lovelace",
+						"born": 1816
+					},
+					{
+						"_id": "a2",
+						"name": "Grace Hopper",
+						"born": 1906
+					},
+					{
+						"_id": "a4",
+						"name": "Edsger",
+						"books": [
+							{
+								"_id": "k1",
+								"title": "Notes, revised"
+							},
+							{
+								"_id": "k2",
+								"title": "Essays"
+							}
+						]
+					}
+				]
+			},
+			"address": {
+				"merged": {
+					"street": "Main Street",
+					"city": "Hamburg"
+				}
+			}
+		}
+	}
+}

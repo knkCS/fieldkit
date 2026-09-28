@@ -1,0 +1,425 @@
+{
+	"description": "Rows compare by _id: every row of b in b's order with a's removed rows after the row they followed, each row's status, moved beside it, and each changed child's own detail nested under fields; a Block's _type is compared as a key of its own; a Fieldset compares per child Field; identical rows in another spelling are equal",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Books",
+						"api_accessor": "books",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Title",
+								"api_accessor": "title",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "By",
+									"api_accessor": "by",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Qty",
+						"api_accessor": "qty",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "City",
+						"api_accessor": "city",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Zip",
+						"api_accessor": "zip",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"revisions": {
+		"a": {
+			"authors": [
+				{
+					"_id": "a1",
+					"name": "Ada",
+					"born": 1815,
+					"books": [
+						{
+							"_id": "k1",
+							"title": "Notes"
+						},
+						{
+							"_id": "k2",
+							"title": "Letters"
+						}
+					]
+				},
+				{
+					"_id": "a2",
+					"name": "Grace",
+					"born": 1906
+				},
+				{
+					"_id": "a3",
+					"name": "Alan"
+				},
+				{
+					"_id": "a4",
+					"name": "Edsger"
+				}
+			],
+			"content": [
+				{
+					"_id": "c1",
+					"_type": "heading",
+					"text": "Intro"
+				},
+				{
+					"_id": "c2",
+					"_type": "heading",
+					"text": "Body"
+				}
+			],
+			"address": {
+				"street": "Main St",
+				"city": "Berlin"
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x",
+					"qty": 1
+				},
+				{
+					"_id": "r2",
+					"cell": "y",
+					"qty": 2
+				}
+			]
+		},
+		"b": {
+			"authors": [
+				{
+					"_id": "a2",
+					"name": "Grace",
+					"born": 1906.0
+				},
+				{
+					"_id": "a1",
+					"name": "Ada Lovelace",
+					"born": 1815,
+					"books": [
+						{
+							"_id": "k1",
+							"title": "Notes"
+						},
+						{
+							"_id": "k2",
+							"title": "Letters, revised"
+						},
+						{
+							"_id": "k3",
+							"title": "Poems"
+						}
+					]
+				},
+				{
+					"_id": "a5",
+					"name": "Barbara"
+				},
+				{
+					"_id": "a4",
+					"name": "Edsger"
+				}
+			],
+			"content": [
+				{
+					"_id": "c1",
+					"_type": "quote",
+					"text": "Intro",
+					"by": "Ada"
+				},
+				{
+					"_id": "c2",
+					"_type": "heading",
+					"text": "Body"
+				}
+			],
+			"address": {
+				"street": "Main St",
+				"city": "Hamburg",
+				"zip": "20095"
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"qty": 1,
+					"cell": "x"
+				},
+				{
+					"_id": "r2",
+					"qty": 2.0,
+					"cell": "y"
+				}
+			]
+		}
+	},
+	"expect": {
+		"compare": {
+			"authors": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "a2",
+							"status": "unchanged",
+							"moved": true
+						},
+						{
+							"_id": "a3",
+							"status": "removed"
+						},
+						{
+							"_id": "a1",
+							"status": "changed",
+							"fields": {
+								"name": {
+									"status": "changed"
+								},
+								"books": {
+									"status": "changed",
+									"items": [
+										{
+											"_id": "k1",
+											"status": "unchanged"
+										},
+										{
+											"_id": "k2",
+											"status": "changed",
+											"fields": {
+												"title": {
+													"status": "changed"
+												}
+											}
+										},
+										{
+											"_id": "k3",
+											"status": "added"
+										}
+									]
+								}
+							}
+						},
+						{
+							"_id": "a5",
+							"status": "added"
+						},
+						{
+							"_id": "a4",
+							"status": "unchanged"
+						}
+					]
+				}
+			},
+			"content": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "c1",
+							"status": "changed",
+							"fields": {
+								"_type": {
+									"status": "changed"
+								},
+								"by": {
+									"status": "added"
+								}
+							}
+						},
+						{
+							"_id": "c2",
+							"status": "unchanged"
+						}
+					]
+				}
+			},
+			"address": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"fields": {
+						"city": {
+							"status": "changed"
+						},
+						"zip": {
+							"status": "added"
+						}
+					}
+				}
+			},
+			"rows": {
+				"equal": true
+			}
+		}
+	}
+}

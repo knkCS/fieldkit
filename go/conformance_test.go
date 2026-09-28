@@ -19,7 +19,7 @@ const conformanceDir = "../conformance"
 
 // operations are the operations this runner implements. A fixture expecting
 // another fails, so a fixture is never silently skipped by one runner.
-var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec"} //nolint:gochecknoglobals
+var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec", "compare", "merge"} //nolint:gochecknoglobals
 
 type expectedError struct {
 	Path string `json:"path"`
@@ -30,6 +30,9 @@ type fixture struct {
 	Description string          `json:"description"`
 	Spec        json.RawMessage `json:"spec"`
 	Data        json.RawMessage `json:"data,omitempty"`
+	// Revisions are named versions of the data, for compare (a, b) and merge
+	// (base, ours, theirs).
+	Revisions map[string]map[string]json.RawMessage `json:"revisions,omitempty"`
 	// Releases are what resolving spec fetches: kind → Release id → JSON.
 	Releases map[string]map[string]json.RawMessage `json:"releases,omitempty"`
 	// ResolveOptions override Resolve's caps.
@@ -94,6 +97,10 @@ func TestConformance(t *testing.T) {
 					runPins(t, fx, raw)
 				case "validateResolvedSpec":
 					runValidateResolvedSpec(t, fx, raw)
+				case "compare":
+					runCompare(t, fx, raw)
+				case "merge":
+					runMerge(t, fx, raw)
 				default:
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
@@ -138,6 +145,10 @@ func binds(version, op string, raw json.RawMessage) bool {
 			return true
 		}
 		return want.Error == ""
+	// A Conflict may become a clean merge once a type merges finer; a clean
+	// merge binds, as a Compare does.
+	case "merge":
+		return !mergeConflicts(raw)
 	default:
 		return true
 	}
@@ -161,6 +172,9 @@ func TestBinds(t *testing.T) {
 		{"a released refusal", "0.18.0", "resolve", json.RawMessage(`{"error":"resolve_cycle"}`), false},
 		{"a released invalid Resolved Spec", "0.18.0", "validateResolvedSpec", invalid, false},
 		{"released Pins", "0.18.0", "pins", json.RawMessage(`[]`), true},
+		{"a released Compare", "0.18.0", "compare", json.RawMessage(`{"a":{"equal":true}}`), true},
+		{"a released clean merge", "0.18.0", "merge", json.RawMessage(`{"a":{"merged":[]}}`), true},
+		{"a released conflict", "0.18.0", "merge", json.RawMessage(`{"a":{"conflicts":["x"]}}`), false},
 	}
 	for _, c := range cases {
 		if got := binds(c.version, c.op, c.raw); got != c.want {
