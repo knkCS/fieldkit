@@ -5,6 +5,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CATALOGUE_VERSION } from "../catalogue-version";
+import { type Edge, edges, type FieldText, texts } from "../content-walk";
 import { builtInFieldTypes } from "../field-types";
 import type { FieldTypePlugin } from "../plugin";
 import {
@@ -27,6 +28,8 @@ const OPERATIONS = [
 	"resolve",
 	"pins",
 	"validateResolvedSpec",
+	"edges",
+	"texts",
 ];
 
 /** The operations only Go implements: versionkit's Compare and Merge (#213),
@@ -223,9 +226,32 @@ describe("conformance fixtures", () => {
 				}).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
 			}
+
+			// Both walk the Resolved Spec, in any order.
+			if (bound.includes("edges")) {
+				const want = fixture.expect.edges as Edge[];
+				const resolved = await resolveFixture(fixture);
+				const got = edges(resolved, fixture.data, cataloguePlugins);
+				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
+			}
+
+			if (bound.includes("texts")) {
+				const want = fixture.expect.texts as FieldText[];
+				const resolved = await resolveFixture(fixture);
+				const got = texts(resolved, fixture.data, cataloguePlugins);
+				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
+			}
 		});
 	}
 });
+
+/** A list in one order whatever order it came in, for the walkers' answers. */
+function inAnyOrder<T>(items: T[]): T[] {
+	const key = (item: T) => JSON.stringify(item);
+	return [...items].sort((a, b) =>
+		key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0,
+	);
+}
 
 describe("which fixtures bind (ADR-0019)", () => {
 	it("binds every case of fieldkit as it is now", () => {

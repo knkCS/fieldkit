@@ -205,6 +205,42 @@ export interface MintIdsContext {
 }
 
 /**
+ * What a Content Graph edge points at: exactly one of `content`, `asset` and
+ * `blueprint_release`; `pin` and `anchor` narrow a `content`. Every id is
+ * opaque, and never checked to exist. Go's `Target`.
+ */
+export interface EdgeTarget {
+	/** A Content's id. */
+	content?: string;
+	/** The Release of `content` the edge is pinned to; absent when it
+	 * follows the Release In Force. */
+	pin?: string;
+	/** A node inside `content`'s rich text — an Anchor. */
+	anchor?: string;
+	/** A mediahub Asset's id. */
+	asset?: string;
+	/** A Blueprint Release's id. */
+	blueprint_release?: string;
+}
+
+/** One edge a type's value yields, below the value by `segments`. */
+export interface ValueEdge {
+	/** The edge's kind: `media`, or a kind a later type adds (`reference`,
+	 * `link`, …). */
+	kind: string;
+	target: EdgeTarget;
+	segments?: readonly string[];
+}
+
+/** One record a container's value holds, and the Fields describing it. */
+export interface HeldRecord {
+	fields: Field[];
+	record: Record<string, unknown>;
+	/** Where the record sits below the value: `[rowId]`, or `[]`. */
+	segments: readonly string[];
+}
+
+/**
  * A field type plugin defines everything about a field type:
  * metadata, UI components, Zod validation, and constraints.
  */
@@ -275,6 +311,33 @@ export interface FieldTypePlugin<S = unknown> {
 		value: unknown,
 		context: MintIdsContext,
 	) => unknown;
+	/**
+	 * The plain text a value of this type yields for Delivery Search — Go's
+	 * `ValueText` — `""` for none (contenthub ADR 0019). Declared by exactly
+	 * the types whose `catalogue.hasText` is true; `texts()` weighs it by the
+	 * Field's own `config.search`. The value is canonical and not Unset, but
+	 * not necessarily of the type's shape: yield `""` rather than throw.
+	 * Absent: the type has no text of its own — a container's text is its
+	 * children's, reached through `records`.
+	 */
+	text?: (field: Field<S>, value: unknown) => string;
+	/**
+	 * The Content Graph edges a value of this type yields (contenthub ADR
+	 * 0009), for `edges()`: each a kind and a target, at `segments` below the
+	 * value (absent: the value itself). On the same terms as `text` — a value
+	 * not of the type's shape yields none. Absent: the type points at nothing,
+	 * as a `lookup`'s bare id does not.
+	 */
+	edges?: (field: Field<S>, value: unknown) => ValueEdge[];
+	/**
+	 * The records a value of this type holds, each with the Fields describing
+	 * it — a container's rows, Blocks or embedded record — so `texts()` and
+	 * `edges()` walk into them without learning the type's name (ADR-0007).
+	 * `segments` place each record below the value: a row at its `_id`
+	 * (ADR-0023), a Fieldset's record at the value itself (`[]`). A value not
+	 * of the type's shape holds none.
+	 */
+	records?: (field: Field<S>, value: unknown) => HeldRecord[];
 	maxPerSpec?: number;
 	/**
 	 * The Consumers whose type picker offers this type (ADR-0022). Advice for

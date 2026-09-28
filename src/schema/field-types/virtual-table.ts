@@ -10,6 +10,7 @@ import type { RowArrayCaps } from "../row-array";
 import {
 	mintRowArrayIds,
 	rowArrayCapsSchema,
+	rowArrayRecords,
 	rowArrayZodType,
 } from "../row-array";
 import type { Field } from "../types";
@@ -74,6 +75,9 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	// Every row carries an `_id` (ADR-0023), minted here for loaded rows,
 	// pasted and duplicated ones; its children mint their own.
 	mintIds: mintRowArrayIds,
+
+	// Its rows, each against `children`, for `texts()` and `edges()`.
+	records: rowArrayRecords,
 
 	// Every context (ADR-0017). A Consumer with no blueprint adapter still
 	// gets the embedded Row Spec; only the linked one needs Blueprints.

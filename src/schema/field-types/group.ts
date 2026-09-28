@@ -7,6 +7,7 @@ import type { RowArrayCaps } from "../row-array";
 import {
 	mintRowArrayIds,
 	rowArrayCapsSchema,
+	rowArrayRecords,
 	rowArrayZodType,
 } from "../row-array";
 import type { Field } from "../types";
@@ -46,6 +47,9 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 	// Every row carries an `_id` (ADR-0023), minted here for loaded rows,
 	// pasted and duplicated ones; its children mint their own.
 	mintIds: mintRowArrayIds,
+
+	// Its rows, each against `children`, for `texts()` and `edges()`.
+	records: rowArrayRecords,
 
 	consumers: ["blueprint", "task", "form"],
 	positions: ["root", "block_type"],

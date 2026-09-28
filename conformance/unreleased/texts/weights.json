@@ -1,0 +1,185 @@
+{
+	"description": "Each Field weighs by its own search, inside a row as at the root: Unset is D, off yields no text, A to D are kept; a type without text yields none, and neither does a hidden Field",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": "",
+				"search": "A"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "subtitle",
+				"api_accessor": "subtitle",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "internal_notes",
+				"api_accessor": "internal_notes",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "contact",
+				"api_accessor": "contact",
+				"required": false,
+				"instructions": "",
+				"search": "C"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "secret",
+				"api_accessor": "secret",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "pages",
+				"api_accessor": "pages",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "kind",
+				"api_accessor": "kind",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"novel": "Novel"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": "",
+						"search": "B"
+					},
+					"system": false
+				},
+				{
+					"field_type": "textarea",
+					"config": {
+						"name": "bio",
+						"api_accessor": "bio",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "private_note",
+						"api_accessor": "private_note",
+						"required": false,
+						"instructions": "",
+						"search": "off"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"title": "The Book",
+		"subtitle": "A story",
+		"internal_notes": "do not index",
+		"contact": "ada@example.com",
+		"secret": "hidden",
+		"pages": 300,
+		"kind": "novel",
+		"authors": [
+			{
+				"_id": "a1",
+				"name": "Ada",
+				"bio": "Wrote things",
+				"private_note": "shh"
+			},
+			{
+				"_id": "a2",
+				"name": "Grace"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"texts": [
+			{
+				"path": "/title",
+				"weight": "A",
+				"text": "The Book"
+			},
+			{
+				"path": "/subtitle",
+				"weight": "D",
+				"text": "A story"
+			},
+			{
+				"path": "/contact",
+				"weight": "C",
+				"text": "ada@example.com"
+			},
+			{
+				"path": "/authors/a1/name",
+				"weight": "B",
+				"text": "Ada"
+			},
+			{
+				"path": "/authors/a1/bio",
+				"weight": "D",
+				"text": "Wrote things"
+			},
+			{
+				"path": "/authors/a2/name",
+				"weight": "B",
+				"text": "Grace"
+			}
+		]
+	}
+}

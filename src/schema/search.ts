@@ -2,8 +2,8 @@
 
 /**
  * How a Field's text weighs in Delivery Search: `off`, or a weight from `A`
- * (heaviest) to `D`. Unset means `D` on a type that has text (#203), which is
- * the Consumer's reading to apply; fieldkit only checks the value.
+ * (heaviest) to `D`. Unset means `D` on a type that has text (#203), as
+ * `texts()` — and Go's `Texts` — read it.
  */
 export type SearchWeight = "off" | "A" | "B" | "C" | "D";
 

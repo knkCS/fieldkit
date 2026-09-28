@@ -1,0 +1,108 @@
+{
+	"description": "A lookup's bare id is no edge, at the root or in a row, and neither is any other value that points at nothing: text, a choice, a number, a List",
+	"spec": [
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "country",
+				"api_accessor": "country",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"source": "countries"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "kind",
+				"api_accessor": "kind",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "A"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "count",
+				"api_accessor": "count",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "lookup",
+					"config": {
+						"name": "unit",
+						"api_accessor": "unit",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"source": "units"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"country": "de",
+		"title": "Hello",
+		"kind": "a",
+		"count": 3,
+		"tags": [
+			"x"
+		],
+		"rows": [
+			{
+				"_id": "r1",
+				"unit": "kg"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"edges": []
+	}
+}
