@@ -168,13 +168,28 @@ The knkeditor toolbar uses `requiredExtensions` on each button definition. A but
 
 The `RichTextField` renderer will:
 
-1. Read `field.settings.editor_spec` (a string ID) to look up an `EditorSpec` via an adapter
+1. Read `field.settings.text_type` (a Text Type Release id, a Pin — ADR-0020) and take the resolved Text Type from the Resolved Spec's `parts.text_type`
 2. Convert `EditorSpec.nodes` and `EditorSpec.marks` into a TipTap `Extensions` array
 3. Pass `extensions` to the knkeditor `<Editor>` component
 4. Map `view_mode`: `"full"` → `"default"`, `"compact"` → `"minimal"`
 5. Wire `formField.value` as `content` and `formField.onChange` via `onUpdate`
 
-The `editor_spec` stores only a string ID, implying the actual `EditorSpec` is fetched through an adapter — consistent with fieldkit's adapter pattern.
+`text_type` stores only the Release id; the Text Type itself is fetched once per resolution through `adapters.parts.text_type` (`resolveSpec`) and carried in `parts`. It replaced `editor_spec` in 0.18.0 (#216): a Spec still holding `editor_spec` gets `unknown_setting` from `validateSpec` and is migrated by renaming the key to `text_type` and pointing it at a Text Type Release.
+
+## Validation, edges, text, Compare and Merge (#216)
+
+fieldkit's **Go** module delegates every reading of a `rich_text` value to knkeditor's Go module, `github.com/knkcms/knkeditor/go` (`go/rich_text.go`), under the Text Type in the Resolved Spec's `parts`:
+
+| Operation | knkeditor | fieldkit's answer |
+|---|---|---|
+| `ValidateResolvedValue` | `Validator.Validate`, the stored JSON text scanned for `invalid-json-value` first | `invalid_rich_text` at the Field's path + knkeditor's JSON Pointer, knkeditor's code in `params.code`; `ValidateValue` (no Resolved Spec) validates against the vocabulary alone |
+| `Edges` | `Edges` | `link` (Content, Anchor), `footnote` (Content), `media` (Asset), at the Field |
+| `Texts` | `Text`, with the Text Type's Symbol Set | its reading text |
+| Compare | `Compare` | `equal` is `unchanged`; detail is its `Comparison` unchanged |
+| Merge | `NewMerger(...).MergeJSON` | conflicts are node ids below the Field's path |
+| `Resolve` | `ParseTextType`, `CompareVersions` | a `text_type` part must parse (`resolve_invalid_release`); `vocabulary` is the highest `minimumVocabularyVersion` |
+
+**TS does not** — the npm package has no dependency on `@knkcms/knkeditor-vocabulary`, whose peer is `@tiptap/pm`. TS checks a rich_text value's shape only (an object), yields no text or edges for it, and computes `vocabulary` itself. The shared fixtures that need knkeditor's answers are marked `goOnly` (`conformance/README.md`).
 
 ## Required Peer Dependencies for Consumers
 

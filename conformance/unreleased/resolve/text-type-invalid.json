@@ -1,0 +1,42 @@
+{
+	"description": "A Text Type whose minimumVocabularyVersion is not a semantic version cannot fill in the Resolved Spec's vocabulary: resolve_invalid_release at its Pin",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "broken@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"broken@1": {
+				"minimumVocabularyVersion": "latest",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"expect": {
+		"resolve": {
+			"error": "resolve_invalid_release"
+		}
+	}
+}

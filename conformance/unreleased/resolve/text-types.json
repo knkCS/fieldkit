@@ -1,0 +1,348 @@
+{
+	"description": "A rich_text Field's text_type pins a Text Type Release, an opaque part stored once in parts however many Fields pin it — in a Block Type's Fields too — and the Resolved Spec's vocabulary is the highest minimumVocabularyVersion among its Text Types, one stating none counting for nothing",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "intro",
+				"api_accessor": "intro",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "aside",
+				"api_accessor": "aside",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "legacy@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "draft",
+				"api_accessor": "draft",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "prose",
+						"name": "Prose",
+						"fields": [
+							{
+								"field_type": "rich_text",
+								"config": {
+									"name": "text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"text_type": "plain@1"
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					},
+					"footnote": {
+						"options": {}
+					},
+					"inlineImage": {
+						"options": {}
+					}
+				},
+				"marks": {
+					"contentLink": {
+						"options": {}
+					}
+				}
+			},
+			"plain@1": {
+				"minimumVocabularyVersion": "0.2.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			},
+			"legacy@1": {
+				"minimumVocabularyVersion": null,
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/intro/settings/text_type",
+				"kind": "text_type",
+				"release": "article@3"
+			},
+			{
+				"path": "/body/settings/text_type",
+				"kind": "text_type",
+				"release": "article@3"
+			},
+			{
+				"path": "/notes/settings/text_type",
+				"kind": "text_type",
+				"release": "plain@1"
+			},
+			{
+				"path": "/aside/settings/text_type",
+				"kind": "text_type",
+				"release": "legacy@1"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/text/settings/text_type",
+				"kind": "text_type",
+				"release": "plain@1"
+			}
+		],
+		"resolve": {
+			"vocabulary": "0.2.0",
+			"fields": [
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "intro",
+						"api_accessor": "intro",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "notes",
+						"api_accessor": "notes",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "plain@1"
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "aside",
+						"api_accessor": "aside",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "legacy@1"
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "draft",
+						"api_accessor": "draft",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "blocks",
+					"config": {
+						"name": "content",
+						"api_accessor": "content",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"allowed_blocks": [
+							{
+								"type": "prose",
+								"name": "Prose",
+								"fields": [
+									{
+										"field_type": "rich_text",
+										"config": {
+											"name": "text",
+											"api_accessor": "text",
+											"required": false,
+											"instructions": ""
+										},
+										"settings": {
+											"text_type": "plain@1"
+										},
+										"system": false
+									}
+								]
+							}
+						]
+					},
+					"system": false
+				}
+			],
+			"parts": {
+				"text_type": {
+					"article@3": {
+						"minimumVocabularyVersion": "0.1.0",
+						"nodes": {
+							"doc": {
+								"options": {}
+							},
+							"textWrapper": {
+								"options": {}
+							},
+							"text": {
+								"options": {}
+							},
+							"footnote": {
+								"options": {}
+							},
+							"inlineImage": {
+								"options": {}
+							}
+						},
+						"marks": {
+							"contentLink": {
+								"options": {}
+							}
+						}
+					},
+					"plain@1": {
+						"minimumVocabularyVersion": "0.2.0",
+						"nodes": {
+							"doc": {
+								"options": {}
+							},
+							"textWrapper": {
+								"options": {}
+							},
+							"text": {
+								"options": {}
+							}
+						},
+						"marks": {}
+					},
+					"legacy@1": {
+						"minimumVocabularyVersion": null,
+						"nodes": {
+							"doc": {
+								"options": {}
+							},
+							"textWrapper": {
+								"options": {}
+							},
+							"text": {
+								"options": {}
+							}
+						},
+						"marks": {}
+					}
+				}
+			}
+		},
+		"validateResolvedSpec": []
+	}
+}

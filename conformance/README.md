@@ -36,13 +36,13 @@ conformance/
 
 | Area | Contents |
 |---|---|
-| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022) |
-| [`resolve/`](unreleased/resolve) | `resolve`, `pins` and `validateResolvedSpec` (ADR-0020): Blueprint Releases inlined as children, at any depth and in a Block Type's Fields; each Release fetched once; already-resolved Fields left alone; the refusals (`resolve_cycle`, `resolve_too_deep`, `resolve_too_many_fetches`); a linked Blueprint's Positions checked on the Resolved Spec |
-| [`edges/`](unreleased/edges) | `edges` over the Resolved Spec: `media` edges at the root, in rows by `_id`, in Blocks and a resolved Fieldset; none for a `lookup` or any other type |
-| [`texts/`](unreleased/texts) | `texts` over the Resolved Spec: every type with text, each Field's own `search` weight inside rows as at the root (Unset is `D`, `off` excluded) |
-| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep` |
-| [`compare/`](unreleased/compare) | `compare` through the versionkit adapter (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)): whole values equal whatever their spelling, with no detail; rows by `_id` with each row's status, `moved` and each changed child's detail nested; a Fieldset per child Field. Go only |
-| [`merge/`](unreleased/merge) | `merge` through the versionkit adapter: per row and per child Field, different columns of one row on each side, Conflicts by `_id` path, a reorder on one side taken, reorders on both sides at `_order`, an insert while the other side reorders; Blocks and a Fieldset. Go only |
+| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022); `rich_text`'s `text_type` Pin and its legacy `editor_spec` as an `unknown_setting` |
+| [`resolve/`](unreleased/resolve) | `resolve`, `pins` and `validateResolvedSpec` (ADR-0020): Blueprint Releases inlined as children, at any depth and in a Block Type's Fields; each Release fetched once; already-resolved Fields left alone; the refusals (`resolve_cycle`, `resolve_too_deep`, `resolve_too_many_fetches`); a linked Blueprint's Positions checked on the Resolved Spec; Text Types stored once in `parts` and the `vocabulary` they need |
+| [`edges/`](unreleased/edges) | `edges` over the Resolved Spec: `media` edges at the root, in rows by `_id`, in Blocks and a resolved Fieldset; none for a `lookup` or any other type; `rich_text`'s `link`, `footnote` and `media` edges (Go only) |
+| [`texts/`](unreleased/texts) | `texts` over the Resolved Spec: every type with text, each Field's own `search` weight inside rows as at the root (Unset is `D`, `off` excluded); `rich_text`'s reading text (Go only) |
+| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value — rich text against its Text Type (Go only past its shape): Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep` |
+| [`compare/`](unreleased/compare) | `compare` through the versionkit adapter (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)): whole values equal whatever their spelling, with no detail; rows by `_id` with each row's status, `moved` and each changed child's detail nested; a Fieldset per child Field; `rich_text` by knkeditor, its detail nested unchanged. Go only |
+| [`merge/`](unreleased/merge) | `merge` through the versionkit adapter: per row and per child Field, different columns of one row on each side, Conflicts by `_id` path, a reorder on one side taken, reorders on both sides at `_order`, an insert while the other side reorders; Blocks and a Fieldset; `rich_text` by knkeditor's Merger, Conflicts by node id. Go only |
 
 ## Fixture format
 
@@ -69,13 +69,18 @@ conformance/
   Release: a `blueprint` Release is its Fields (a Spec); any other kind is an
   opaque part. The resolve operations read it, and `edges` and `texts`, which walk the Resolved Spec. A Release it does not
   hold fails the fetch.
+- `goOnly` — operations of this fixture only the Go runner runs, each also
+  in `expect`: what it holds is rich text, which Go reads through knkeditor
+  and TS cannot (#216). The TS runner skips them as it skips `compare` and
+  `merge`; everything else in the fixture binds both.
 - `resolveOptions` — `{ maxFetches, maxDepth }`, overriding the caps
   (TS `RESOLVE_CAPS`, Go `DefaultMaxFetches` / `DefaultMaxDepth`) so a cap is
   testable without hundreds of Releases.
 - `expect` — the expected result of each operation, keyed by name. A runner
   fails a fixture that expects an operation it does not implement, so no
   fixture is ever skipped by one side alone — save `compare` and `merge`,
-  which only Go implements and the TS runner recognises and skips.
+  which only Go implements and the TS runner recognises and skips, and a
+  fixture's `goOnly` operations.
 
 ### Operations
 
@@ -113,7 +118,12 @@ conformance/
   is `invalid_type` or `too_big` at the `_id`. A Block whose `_type` names none
   of several Block Types is `invalid_value` at `_type` and checked no further;
   with exactly one Block Type the Block is checked against it whatever its
-  `_type`. **Go does not validate the types outside the Catalogue yet**, and
+  `_type`. A `rich_text` value is an object in both; past that, knkeditor
+  checks it in Go — against the Text Type its Field pins when the fixture has
+  `releases` (the Go runner then validates against the Resolved Spec,
+  `ValidateResolvedValue`), the vocabulary alone otherwise — and each error it
+  reports is `invalid_rich_text`, which TS never reports: a fixture expecting
+  one marks `validateValue` `goOnly`. **Go does not validate the types outside the Catalogue yet**, and
   skips them; TS validates them. The fixtures stay clear of them until Go
   does. Two approximations the fixtures stay clear of too: Go reads a
   `validation.pattern` as RE2 where TS reads it as a JS `RegExp` — a pattern
@@ -127,7 +137,11 @@ conformance/
   through today.
 
 - **`resolve`** — the Resolved Spec `spec` resolves to against `releases`:
-  `{ vocabulary, fields, parts }`, compared as JSON, or `{ "error": code }`
+  `{ vocabulary, fields, parts }`, compared as JSON, or `{ "error": code }`.
+  `vocabulary` is the highest `minimumVocabularyVersion` among the
+  `text_type` parts, `""` when none states one; a Text Type whose minimum is
+  not a semantic version is `resolve_invalid_release` (Go also refuses one
+  knkeditor's `ParseTextType` cannot read, which TS resolves)
   for a refusal, whose code alone is compared (which Pin a concurrent TS
   resolution trips a cap at first is not fixed). `catalogue` is left out: the
   runners check it is the running Catalogue's version, which a released
@@ -147,14 +161,18 @@ conformance/
   validation skips them. Only `media` yields edges yet — one `media` edge per
   Asset, at the Field itself (the value is one whole, never addressed by
   index), an Asset listed twice once; a `lookup`'s bare id is no edge.
-  `reference`, `single_reference` (#215) and `rich_text` (#216) add theirs.
+  `rich_text` yields knkeditor's `link`, `footnote` and `media` edges, at the
+  Field, in Go only (`goOnly`). `reference` and `single_reference` (#215) add
+  theirs.
 - **`texts`** — the plain text each Field of `data` yields for Delivery Search
   (contenthub ADR 0019), `{path, weight, text}`, in any order: TS `texts`, Go
   `Texts`, over the Resolved Spec as for `edges`. Exactly the types the
   Catalogue marks `has_text` yield text (TS `text` on the plugin, Go
   `ValueText`): a string type the string itself; a List its Entries, one per
   line; an Array its keys and values, one per line, pair by pair — keyed, key
-  by key in UTF-16 order. Each Field weighs by its own `config.search`, inside
+  by key in UTF-16 order; `rich_text` knkeditor's reading text, in Go only
+  (TS yields none for it, so such a fixture marks `texts` `goOnly`). Each
+  Field weighs by its own `config.search`, inside
   a row as at the root: `off` yields nothing, Unset weighs `D`. A text is
   never `""`.
 
@@ -250,12 +268,13 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_value` | *(value)* Any other rule a type's `toZodType` states: a Block whose `_type` is not its Block Type's. |
 | `missing_id` | *(value)* A row of a `group`, `virtual_table` or `blocks` value without an `_id` (ADR-0023). At the row. |
 | `duplicate_id` | *(value)* A row repeating an `_id` an earlier row of the same array holds. At each repeat, by its index. |
+| `invalid_rich_text` | *(value)* A `rich_text` value knkeditor's Validate refuses under the Field's Text Type: at the Field's path followed by knkeditor's JSON Pointer into the document, knkeditor's own code (`node-not-enabled`, `invalid-json-value`, …) in `params.code`; or, at the Field, a Text Type the Resolved Spec does not hold or knkeditor cannot use. **Go only**: TS has no knkeditor validator (#216). |
 | `too_deep` | *(value)* An array or object nested more than 32 levels below the data's root (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`), the root being level 0. At the first such container; nothing inside it is checked, and, like the other caps, nothing else in the data. Distinct from `resolve_too_deep`. |
 | `resolve_cycle` | *(resolve)* A Pin in a Blueprint Release that pins, however indirectly, that same Release. At the Pin closing the cycle. |
 | `resolve_too_many_fetches` | *(resolve)* More distinct Releases to fetch than the cap (256). A Release pinned again is not fetched again and does not count. |
 | `resolve_too_deep` | *(resolve)* A Pin nested deeper in pinned Releases than the cap (8); a Pin in the Spec is at depth 1. Distinct from a value's depth cap. |
 | `resolve_fetch_failed` | *(resolve)* A Release the fetcher (TS: the adapter) could not return; its error is wrapped. |
-| `resolve_invalid_release` | *(resolve)* A fetched Blueprint Release that is not a list of Fields (Go: not a strictly decoded Spec; not JSON). |
+| `resolve_invalid_release` | *(resolve)* A fetched Blueprint Release that is not a list of Fields (Go: not a strictly decoded Spec; not JSON); a Text Type whose `minimumVocabularyVersion` is not a semantic version (Go: or one knkeditor's `ParseTextType` refuses). |
 
 A resolve error's path is the Pin's setting, through the Releases inlined above
 it: `/owner/children/home/settings/blueprint`.

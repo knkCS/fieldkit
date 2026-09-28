@@ -138,9 +138,8 @@ func TestValidateValueSkipsWhatItDoesNotImplement(t *testing.T) {
 	spec := Spec{
 		group,
 		valueField("reference", "related", ""),
-		valueField("rich_text", "body", ""),
 	}
-	data := json.RawMessage(`{"authors": [{"_id": "a", "related": 5}], "related": "x", "body": 1}`)
+	data := json.RawMessage(`{"authors": [{"_id": "a", "related": 5}], "related": "x"}`)
 	if errs := ValidateValue(spec, data); errs != nil {
 		t.Errorf("got %v, want nil", errs)
 	}

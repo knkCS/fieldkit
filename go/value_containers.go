@@ -30,6 +30,9 @@ func containerRuleFor(fieldType string) (containerRule, bool) {
 		return blocksValue, true
 	case "fieldset":
 		return fieldsetValue, true
+	case "rich_text":
+		// No container, but checked with its absolute path (rich_text.go).
+		return richTextValue, true
 	}
 	return nil, false
 }

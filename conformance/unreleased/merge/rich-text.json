@@ -1,0 +1,417 @@
+{
+	"description": "rich_text merges by knkeditor's Merger under the Field's Text Type, top-level node by node id: different nodes changed on each side merge cleanly, at the top of the Field and inside a Virtual Table row; one node both sides changed differently is a Conflict at its node id, below the row's _id and the column",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "clash",
+				"api_accessor": "clash",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "plain@1"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"plain@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"revisions": {
+		"base": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"clash": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x",
+					"body": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "a"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Eins."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "b"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Zwei."
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		"ours": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins, geändert."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"clash": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins, geändert."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "y",
+					"body": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "a"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Eins, geändert."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "b"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Zwei."
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		"theirs": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei, geändert."
+							}
+						]
+					}
+				]
+			},
+			"clash": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins, anders."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x",
+					"body": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "a"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Eins, anders."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "b"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Zwei."
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"body": {
+				"merged": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Eins, geändert."
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "b"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Zwei, geändert."
+								}
+							]
+						}
+					]
+				}
+			},
+			"clash": {
+				"conflicts": [
+					"a"
+				]
+			},
+			"rows": {
+				"conflicts": [
+					"r1/body/a"
+				]
+			}
+		}
+	}
+}

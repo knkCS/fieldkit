@@ -17,18 +17,20 @@ Use **Rich Text** when you need structured, formatted content with a WYSIWYG edi
 
 | Setting       | Type                   | Default  | Description                                    |
 |---------------|------------------------|----------|------------------------------------------------|
-| `editor_spec` | `string`               | —        | ID of the editor specification to use (currently unused) |
+| `text_type`   | `string`               | —        | The Text Type Release the rich text is written in: a Pin (ADR-0020), resolved into the Resolved Spec's `parts.text_type`. The editor picks it from `adapters.textType.listEditorSpecs()` |
 | `view_mode`   | `"full" \| "compact"`  | `"full"` | Display mode for the editor (currently unused)  |
+
+The settings are strict: the legacy `editor_spec` is an `unknown_setting` since 0.18.0 (#216). Migrate a Spec holding it by renaming the key to `text_type` and pointing it at a Text Type Release.
 
 ## Validation
 
-The Zod schema uses `z.any()`, providing zero validation. Any value (string, object, null) is accepted.
+The Zod schema accepts any object (a ProseMirror document); anything else is refused. What the document may hold is knkeditor's to say under the Field's Text Type, which fieldkit's Go module checks (`invalid_rich_text`); TS has no knkeditor validator.
 
 ## Zod Output
 
 ```ts
 // Always
-z.any()
+z.record(z.unknown())
 ```
 
 ## Table Cell
@@ -38,10 +40,10 @@ Renders a plain-text extraction via `RichTextCell`. Attempts to extract text fro
 ## Known Limitations
 
 - **No actual rich text editor.** Renders a JSON textarea placeholder. Real TipTap integration depends on `@knkcms/knkeditor` (optional peer dep) but no conditional rendering exists.
-- `editor_spec` setting is defined but unused
+- `text_type` is not read by the renderer yet (the Text Type is resolved into `parts`, which the field component does not see)
 - `view_mode` setting is defined but unused
-- `z.any()` provides zero validation
-- No adapter integration (`textType` adapter is unused)
+- The `textType` adapter is used only by the settings editor's Text Type picker
+- TS validates only that the value is an object; knkeditor's validation, edges, text, Compare and Merge run in fieldkit's Go module (`docs/knkeditor-reference.md`)
 - JSON editing UX is unusable for end users
 
 ## Examples

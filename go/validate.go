@@ -36,7 +36,7 @@ import (
 //
 // The Catalogue lists only the types that already declare a settings schema.
 // Until every built-in type does, a Spec using one that does not yet —
-// reference, single_reference, rich_text — is valid in TS and reports
+// reference, single_reference — is valid in TS and reports
 // unknown_field_type here. A type the Catalogue does not list has no
 // Positions and no text, so it is never reported as CodePosition (it is
 // unknown already), and a Reference Spec — which lives in a reference

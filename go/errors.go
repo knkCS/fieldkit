@@ -100,6 +100,14 @@ const (
 	CodeDuplicateID = "duplicate_id"
 	// CodeTooDeep is an array or object nested deeper than MaxDepth.
 	CodeTooDeep = "too_deep"
+	// CodeInvalidRichText is a rich_text value knkeditor's Validate refuses
+	// under the Field's Text Type (fieldkit#216): at the Field's path followed
+	// by knkeditor's JSON Pointer into the document, with knkeditor's own
+	// code — "unknown-node", "invalid-json-value", … — as params.code. Also a
+	// Text Type the Resolved Spec does not hold or knkeditor cannot use, at
+	// the Field, params.code "text-type". Go only: TS has no knkeditor
+	// validator.
+	CodeInvalidRichText = "invalid_rich_text"
 )
 
 // Error is one validation error, in the shape TS reports it: where, which
