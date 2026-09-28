@@ -31,15 +31,18 @@ type ResolvedSpec struct {
 	// Catalogue is the version of the Catalogue it was resolved against —
 	// the fieldkit version a reader must know.
 	Catalogue string `json:"catalogue"`
-	// Vocabulary is the knkeditor vocabulary version its rich text needs, ""
-	// when it pins no rich-text part. No Field Type pins one yet.
+	// Vocabulary is the knkeditor vocabulary version its rich text needs: the
+	// highest minimumVocabularyVersion among the Text Types it pins, "" when
+	// it pins none that states one. contenthub compares it with the
+	// vocabulary it runs (knkeditor's VocabularyVersion).
 	Vocabulary string `json:"vocabulary"`
 	// Fields are the Spec with every pinned Blueprint Release inlined as the
 	// pinning Field's children. The Field keeps its Pin.
 	Fields Spec `json:"fields"`
 	// Parts are the opaque parts it pins, each stored once however many
 	// Fields pin it, by kind and then Release id. The Field keeps its Pin, and
-	// fieldkit never looks inside a part.
+	// fieldkit never looks inside a part: a Text Type ("text_type") is read
+	// by knkeditor alone.
 	Parts map[string]map[string]json.RawMessage `json:"parts"`
 }
 
@@ -75,8 +78,10 @@ func DecodeResolvedSpec(data []byte) (*ResolvedSpec, error) {
 // not a list of objects with a config object, so a stray property is
 // CodeResolveInvalidRelease here and nothing in TS — the gap DecodeSpec has
 // with TS everywhere. For any other kind the part itself, which Resolve stores in
-// Parts unread. An error fails Resolve with CodeResolveFetchFailed, wrapping
-// it.
+// Parts unread — save a "text_type" part, a resolved Text Type, which must be
+// one knkeditor's ParseTextType reads and whose minimumVocabularyVersion, when
+// set, is a semantic version (CodeResolveInvalidRelease otherwise). An error
+// fails Resolve with CodeResolveFetchFailed, wrapping it.
 type Fetcher interface {
 	Fetch(ctx context.Context, kind, release string) (json.RawMessage, error)
 }
@@ -191,7 +196,9 @@ func (c *Catalogue) collectPins(fields []Field, list string, pins *[]Pin) {
 //     children is resolved already — or, for a Virtual Table, embeds its Row
 //     Spec — and is left alone, so resolving a Resolved Spec's Fields
 //     fetches no Blueprint again;
-//   - any other Pin names an opaque part, stored once in Parts;
+//   - any other Pin names an opaque part, stored once in Parts; the
+//     Resolved Spec's Vocabulary is the highest minimumVocabularyVersion
+//     among the Text Types in them;
 //   - each Release is fetched once, however many Fields pin it.
 //
 // It walks every Spec a Field holds, a Block Type's Fields included. A Pin
@@ -231,7 +238,7 @@ func (c *Catalogue) Resolve(ctx context.Context, spec Spec, fetcher Fetcher, opt
 	}
 	return &ResolvedSpec{
 		Catalogue:  c.Version,
-		Vocabulary: "",
+		Vocabulary: r.vocabulary,
 		Fields:     fields,
 		Parts:      r.parts,
 	}, nil
@@ -248,6 +255,9 @@ type resolver struct {
 	// fetched holds each Release fetched so far.
 	fetched map[pinKey]json.RawMessage
 	parts   map[string]map[string]json.RawMessage
+	// vocabulary is the highest minimumVocabularyVersion of the Text Types
+	// fetched so far.
+	vocabulary string
 }
 
 // fields resolves a list of Fields at list, inside the Blueprint Releases in
@@ -288,6 +298,15 @@ func (r *resolver) field(f Field, path string, chain []pinKey) (Field, bool, err
 				raw, err := r.fetch(pin, chain)
 				if err != nil {
 					return f, false, err
+				}
+				if p.Kind == pinKindTextType {
+					textType, err := parseTextTypePart(raw)
+					if err != nil {
+						return f, false, &ResolveError{Code: CodeResolveInvalidRelease, Pin: pin, Err: err}
+					}
+					if v := textType.MinimumVocabularyVersion; v != nil {
+						r.vocabulary = higherVocabulary(r.vocabulary, *v)
+					}
 				}
 				if r.parts[p.Kind] == nil {
 					r.parts[p.Kind] = map[string]json.RawMessage{}

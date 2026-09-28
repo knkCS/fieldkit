@@ -29,7 +29,7 @@ const withJSONContentField: Field = {
 		instructions: "ProseMirror document structure as JSON",
 	},
 	settings: {
-		editor_spec: "default",
+		text_type: "article@3",
 		view_mode: "full",
 	},
 	children: null,

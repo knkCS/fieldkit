@@ -95,7 +95,9 @@ Pin a `v*` tag. Importing one package never drags in another's machinery: a serv
 
 **Snippets that turn out to be useful across repos belong in commons**, not copied between services.
 
-**This repo:** the TS package has no Go and nothing from this list applies to it. The Go module (`github.com/knkcs/fieldkit/go`, ADR-0018) is a library, not a service, so most of commons is still not its business. The one overlap is `commons/fieldspec`, which stays in commons on raw JSON, merges System Fields and knows nothing of types; fieldkit's `ValidateSpec` enforces the card-marker rule it relies on, so the two cannot disagree about a valid Spec (ADR-0018, ADR-0020).
+**This repo:** the Go module's one external dependency is knkeditor's Go module, `github.com/knkcms/knkeditor/go` (#216), which `rich_text` delegates to. It is private and in the **knkcms** org, so building or testing the module — here, and in every service that imports it — needs `GOPRIVATE` to cover `github.com/knkcms/*` as well as `github.com/knkcs/*`, and git credentials that can read `knkcms/knkeditor` (an ssh `insteadOf` locally, `CI_TOKEN` in CI). The shared `configure-private-modules` action sets `GOPRIVATE` for knkcs only; `ci.yml` adds knkcms after it, and `go.yml` waits on the action.
+
+The TS package has no Go and nothing from this list applies to it. The Go module (`github.com/knkcs/fieldkit/go`, ADR-0018) is a library, not a service, so most of commons is still not its business. The one overlap is `commons/fieldspec`, which stays in commons on raw JSON, merges System Fields and knows nothing of types; fieldkit's `ValidateSpec` enforces the card-marker rule it relies on, so the two cannot disagree about a valid Spec (ADR-0018, ADR-0020).
 
 ---
 

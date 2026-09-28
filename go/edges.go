@@ -5,14 +5,20 @@ import (
 	"fmt"
 )
 
-// The Content Graph's edge kinds a Field Type yields (contenthub ADR 0009).
-// Only media exists yet: reference (#215) and link, footnote and media from
-// rich text (#216) plug in beside it. The graph's other kinds — toc,
-// include, exclude, replace, annotate, blueprint — are the Consumer's, or
-// the publishing package's.
+// The Content Graph's edge kinds a Field Type yields (contenthub ADR 0009):
+// media from a media Field, and link, footnote and media from rich text,
+// which knkeditor reads (#216). reference (#215) plugs in beside them. The
+// graph's other kinds — toc, include, exclude, replace, annotate, blueprint —
+// are the Consumer's, or the publishing package's.
 const (
-	// EdgeMedia points at an Asset a media Field holds.
+	// EdgeMedia points at an Asset a media Field or an image in rich text
+	// holds.
 	EdgeMedia = "media"
+	// EdgeLink points at a Content a content link in rich text names, and at
+	// an Anchor in it when the link names one.
+	EdgeLink = "link"
+	// EdgeFootnote points at the Content holding a footnote's body.
+	EdgeFootnote = "footnote"
 )
 
 // Edge is one edge of the Content Graph a Content's data holds: what it
@@ -58,7 +64,8 @@ type edgeRule func(f Field, settings map[string]any, value any) []Edge
 // here yields no edge — a lookup's bare id among them: it names a row of
 // another service, never a Content (contenthub ADR 0010).
 var edgeRules = map[string]edgeRule{ //nolint:gochecknoglobals
-	"media": mediaEdges,
+	"media":     mediaEdges,
+	"rich_text": richTextEdges,
 }
 
 // mediaEdges are a media Field's Assets, one edge each, at the Field: its

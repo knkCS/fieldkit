@@ -1,0 +1,58 @@
+{
+	"description": "A rich_text value is an object: anything else is invalid_type at the Field, and a required one left Unset is required, in TS and Go alike",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": "plain string",
+		"tags": [
+			1,
+			2
+		]
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/body",
+				"code": "required"
+			},
+			{
+				"path": "/title",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/tags",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

@@ -1,0 +1,275 @@
+{
+	"description": "rich_text compares by knkeditor: the same document is equal however it is spelled, and a changed one's detail is knkeditor's Comparison {status, nodes} nested unchanged — at the top of the Field, and as the detail of a rich_text column inside a Virtual Table row's detail (Compare checks no Positions: a Row Spec may not hold rich_text, so the fixture shows the nesting any row does)",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "same",
+				"api_accessor": "same",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "plain@1"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"plain@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"revisions": {
+		"a": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"same": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x",
+					"body": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "a"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Eins."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "b"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Zwei."
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		"b": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "a"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Eins, geändert."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "b"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Zwei."
+							}
+						]
+					}
+				]
+			},
+			"same": {"content": [{"type": "textWrapper", "attrs": {"id": "a"}, "content": [{"type": "text", "text": "Eins."}]}, {"type": "textWrapper", "attrs": {"id": "b"}, "content": [{"type": "text", "text": "Zwei."}]}], "type": "doc"},
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "x",
+					"body": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "a"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Eins, geändert."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "b"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Zwei."
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		}
+	},
+	"expect": {
+		"compare": {
+			"body": {
+				"equal": false,
+				"detail": {"status": "changed", "nodes": [{"status": "changed", "id": "a", "type": "textWrapper", "a": 0, "b": 0, "content": true}, {"status": "unchanged", "id": "b", "type": "textWrapper", "a": 1, "b": 1}]}
+			},
+			"same": {
+				"equal": true
+			},
+			"rows": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "r1",
+							"status": "changed",
+							"fields": {
+								"body": {"status": "changed", "nodes": [{"status": "changed", "id": "a", "type": "textWrapper", "a": 0, "b": 0, "content": true}, {"status": "unchanged", "id": "b", "type": "textWrapper", "a": 1, "b": 1}]}
+							}
+						}
+					]
+				}
+			}
+		}
+	}
+}

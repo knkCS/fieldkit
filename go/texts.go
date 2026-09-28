@@ -34,8 +34,10 @@ type FieldText struct {
 }
 
 // textRule is the plain text a type's value yields, already canonical and
-// not Unset; "" for none. A value not of the type's shape yields none.
-type textRule func(f Field, settings map[string]any, value any) string
+// not Unset; "" for none. A value not of the type's shape yields none. parts
+// are the Resolved Spec's (nil without one), for a type whose text reads a
+// part: rich_text's custom symbols come from its Text Type's Symbol Set.
+type textRule func(f Field, settings map[string]any, value any, parts map[string]map[string]json.RawMessage) string
 
 // textRules are the types that have text — exactly the types the Catalogue
 // marks has_text, which a test holds them to. A type missing here yields no
@@ -51,16 +53,18 @@ var textRules = map[string]textRule{ //nolint:gochecknoglobals
 	"markdown": stringText,
 	"list":     listText,
 	"array":    arrayText,
+	// knkeditor's reading text (#216).
+	"rich_text": richTextText,
 }
 
 // stringText is a string value itself.
-func stringText(_ Field, _ map[string]any, value any) string {
+func stringText(_ Field, _ map[string]any, value any, _ map[string]map[string]json.RawMessage) string {
 	s, _ := value.(string)
 	return s
 }
 
 // listText is a List's Entries, one per line; a blank Entry adds no line.
-func listText(_ Field, _ map[string]any, value any) string {
+func listText(_ Field, _ map[string]any, value any, _ map[string]map[string]json.RawMessage) string {
 	items, _ := value.([]any)
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
@@ -75,7 +79,7 @@ func listText(_ Field, _ map[string]any, value any) string {
 // by pair in a list, and in a keyed Array key by key, the keys sorted by
 // UTF-16 code units as JS sorts strings (an object's keys have no order a
 // JSON reader keeps).
-func arrayText(_ Field, settings map[string]any, value any) string {
+func arrayText(_ Field, settings map[string]any, value any, _ map[string]map[string]json.RawMessage) string {
 	var lines []string
 	add := func(v any) {
 		if s, ok := v.(string); ok && s != "" {
@@ -114,7 +118,8 @@ func compareUTF16(a, b string) int {
 // contenthub ADR 0010 — "" for a type without text, an Unset value, or a
 // value not of the type's shape. f is the resolved Field; value is its
 // value, not the whole Content's data. A container yields none of its own:
-// Texts reads its children.
+// Texts reads its children. It has no Resolved Spec, so a rich_text Field's
+// custom symbols read as nothing: Texts reads them through its Text Type.
 func ValueText(f Field, value json.RawMessage) string {
 	rule, ok := textRules[f.FieldType]
 	if !ok || len(bytes.TrimSpace(value)) == 0 {
@@ -135,7 +140,7 @@ func ValueText(f Field, value json.RawMessage) string {
 	if settingsObj == nil {
 		settingsObj = map[string]any{}
 	}
-	return rule(f, settingsObj, decoded)
+	return rule(f, settingsObj, decoded, nil)
 }
 
 // Texts are the plain texts a Content's data yields for Delivery Search,
@@ -165,7 +170,7 @@ func Texts(resolved *ResolvedSpec, data json.RawMessage) ([]FieldText, error) {
 		case "":
 			weight = SearchD
 		}
-		if text := rule(f, settings, value); text != "" {
+		if text := rule(f, settings, value, resolved.Parts); text != "" {
 			texts = append(texts, FieldText{Path: path, Weight: weight, Text: text})
 		}
 	})
