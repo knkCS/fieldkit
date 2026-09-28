@@ -30,5 +30,12 @@ function FieldRendererInner({ schema, readOnly, loading }: FieldRendererProps) {
 	);
 }
 
+/**
+ * A flat list of Fields over the Consumer's form. Unlike `SpecForm`, it does
+ * not mint `_id`s into rows loaded without them (ADR-0023) — it also renders
+ * a row's own Fields, where there is no whole value to normalise — so a
+ * Consumer using it directly passes its values through `mintMissingIds()`
+ * before handing them to the form.
+ */
 export const FieldRenderer = memo(FieldRendererInner);
 (FieldRenderer as { displayName?: string }).displayName = "FieldRenderer";

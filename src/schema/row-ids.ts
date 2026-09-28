@@ -158,9 +158,9 @@ export class RowZodArray<T extends ZodTypeAny> extends ZodArray<T> {
 }
 
 /**
- * Mints `_id`s into every row of a Field's value, at every depth, through the
- * types' own `mintIds` — a container reaches its children through `context`
- * and shared code never learns a type's name (ADR-0007).
+ * The context minting runs in: every row of a value is reached through the
+ * types' own `mintIds`, a container reaching its children through
+ * `mintChildren`, so shared code never learns a type's name (ADR-0007).
  *
  * `fresh: false` — loading: a row keeps a well-formed `_id` no earlier row of
  * its array holds, and gets a new one otherwise. `fresh: true` — paste and

@@ -319,6 +319,18 @@ function DragRemeasurer({
 }
 DragRemeasurer.displayName = "DragRemeasurer";
 
+/**
+ * The scratch form's defaults as the reset guard compares them. Rows in a
+ * `default_value` get fresh `_id`s on every `getDefaultValues` call
+ * (ADR-0023); compared with them, every draft edit would look like new
+ * defaults and reset the scratch form, so they are left out.
+ */
+export function serializeDefaults(defaults: Record<string, unknown>): string {
+	return JSON.stringify(defaults, (key, value) =>
+		key === "_id" ? undefined : value,
+	);
+}
+
 export function EditorCanvas({
 	spec,
 	plugins,
@@ -426,7 +438,7 @@ export function EditorCanvas({
 	// three call sites actually needed a fresh value on any given render.
 	const { defaults, serialized: serializedDefaults } = useMemo(() => {
 		const next = getDefaultValues(draft, plugins);
-		return { defaults: next, serialized: JSON.stringify(next) };
+		return { defaults: next, serialized: serializeDefaults(next) };
 	}, [draft, plugins]);
 
 	// Scratch form so real field components render authentic defaults.
