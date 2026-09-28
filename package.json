@@ -54,8 +54,10 @@
     "test:gate": "vitest run --testTimeout=30000 --retry=1",
     "catalogue": "tsx scripts/catalogue.ts",
     "catalogue:check": "tsx scripts/catalogue.ts --check",
+    "catalogue:compat": "tsx scripts/catalogue-compat.ts",
+    "release": "tsx scripts/release.ts",
     "verify:go": "bash scripts/verify-go.sh",
-    "verify": "npm run lint && npm run typecheck && npm run catalogue:check && npm run build && npm run verify-exports && npm run test:gate && npm run verify:go",
+    "verify": "npm run lint && npm run typecheck && npm run catalogue:check && npm run catalogue:compat && npm run build && npm run verify-exports && npm run test:gate && npm run verify:go",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {

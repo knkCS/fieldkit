@@ -19,6 +19,10 @@ export const booleanPlugin: FieldTypePlugin<null> = {
 		return z.boolean();
 	},
 
+	settingsSchema: z.object({}).strict(),
+
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultValue: () => false,
 
 	availableIn: ["blueprint", "task", "form", "attribute"],

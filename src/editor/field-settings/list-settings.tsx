@@ -23,7 +23,8 @@ export function ListSettingsEditor({
 
 	function handleMaxItemsPerPage(e: ChangeEvent<HTMLInputElement>) {
 		const raw = e.target.value;
-		const parsed = raw === "" ? 0 : Number(raw);
+		// Whole entries only: the setting's schema refuses a fraction.
+		const parsed = raw === "" ? 0 : Math.floor(Number(raw));
 		onChange({
 			...settings,
 			max_items_per_page: Number.isFinite(parsed) && parsed > 0 ? parsed : 0,

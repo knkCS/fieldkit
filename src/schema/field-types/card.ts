@@ -24,6 +24,12 @@ export const cardPlugin: FieldTypePlugin = {
 		return z.never();
 	},
 
+	settingsSchema: z.object({}).strict(),
+
+	// Markers are checked for their settings and nothing else: they hold no
+	// value, so they yield no text. A card carries no settings at all.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: {},
 	availableIn: ["blueprint", "task", "form"],
 };

@@ -22,11 +22,12 @@ package fieldkit
 // conformance fixtures stay clear of them.
 //
 // The Catalogue lists only the types that already declare a settings schema.
-// Until every built-in type does, a Spec using another built-in type — select,
-// reference, … — is valid in TS and reports unknown_field_type here, and a
-// Row Spec holding one reports virtual_table_row_field_type here, since a type
-// the Catalogue does not list has no "row" Position. The conformance fixtures
-// stay inside the Catalogue, where the two agree.
+// Until every built-in type does, a Spec using one that does not yet —
+// reference, single_reference, rich_text — is valid in TS and reports
+// unknown_field_type here, and a Row Spec holding a single_reference reports
+// virtual_table_row_field_type here, since a type the Catalogue does not list
+// has no "row" Position. The conformance fixtures stay inside the Catalogue,
+// where the two agree.
 func ValidateSpec(spec Spec) []Error {
 	return DefaultCatalogue().ValidateSpec(spec)
 }

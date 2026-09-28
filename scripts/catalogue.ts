@@ -25,6 +25,8 @@ const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
 /**
  * The fieldkit version this Catalogue ships in. It moves with the release
  * that first ships a change to the Catalogue, never back (ADR-0019).
+ * `npm run catalogue:compat` and `npm run release` hold it to that
+ * (docs/releasing.md, "The Catalogue version").
  */
 const CATALOGUE_VERSION = "0.18.0";
 
@@ -78,8 +80,12 @@ function toJsonSchema(plugin: FieldTypePlugin): JsonSchema {
 }
 
 function assertSupported(schema: JsonSchema, typeId: string, at: string) {
-	// Strict at every level: an unknown key is an error, never dropped.
-	if (schema.type === "object" && schema.additionalProperties !== false) {
+	// Strict at every level: an unknown key is an error, never dropped. A
+	// record (`z.record()`) is strict too — it declares no keys, and every
+	// value it holds is checked against its `additionalProperties` schema.
+	const additional = schema.additionalProperties;
+	const isRecord = typeof additional === "object" && additional !== null;
+	if (schema.type === "object" && additional !== false && !isRecord) {
 		throw new Error(
 			`${typeId}: settings schema object at "${at || "/"}" is not strict — declare it with .strict()`,
 		);

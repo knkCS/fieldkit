@@ -2,6 +2,40 @@
 	"version": "0.18.0",
 	"types": [
 		{
+			"id": "array",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"mode": {
+						"type": "string",
+						"enum": [
+							"dynamic",
+							"keyed"
+						]
+					},
+					"keys": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
 			"id": "blocks",
 			"since": "0.18.0",
 			"settings_schema": {
@@ -43,6 +77,179 @@
 			],
 			"pins": [],
 			"has_text": false
+		},
+		{
+			"id": "boolean",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "card",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "checkboxes",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"options": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						}
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "code",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"language": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
+			"id": "color",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"default_color": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "date",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"enable_range": {
+						"type": "boolean"
+					},
+					"min_date": {
+						"type": "string"
+					},
+					"max_date": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "email",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"placeholder": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
 		},
 		{
 			"id": "fieldset",
@@ -104,6 +311,113 @@
 			"has_text": false
 		},
 		{
+			"id": "list",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"max_items_per_page": {
+						"type": "integer",
+						"minimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
+			"id": "lookup",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"source": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "markdown",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"placeholder": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
+			"id": "media",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"accept": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"max_items": {
+						"type": "integer",
+						"minimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
 			"id": "number",
 			"since": "0.18.0",
 			"settings_schema": {
@@ -142,6 +456,117 @@
 			"has_text": false
 		},
 		{
+			"id": "radio",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"options": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						}
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "section",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"orientation": {
+						"type": "string",
+						"enum": [
+							"horizontal",
+							"vertical"
+						]
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "select",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"options": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						}
+					},
+					"multiple": {
+						"type": "boolean"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "slug",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"source_field": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
 			"id": "text",
 			"since": "0.18.0",
 			"settings_schema": {
@@ -154,6 +579,81 @@
 						"type": "string"
 					},
 					"append": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
+			"id": "textarea",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"placeholder": {
+						"type": "string"
+					},
+					"rows": {
+						"type": "integer",
+						"exclusiveMinimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		},
+		{
+			"id": "time",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "url",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"placeholder": {
 						"type": "string"
 					}
 				},

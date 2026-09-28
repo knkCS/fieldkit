@@ -31,6 +31,14 @@ export const slugPlugin: FieldTypePlugin<SlugSettings> = {
 			);
 	},
 
+	settingsSchema: z
+		.object({
+			source_field: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: {},
 
 	defaultValue: () => "",

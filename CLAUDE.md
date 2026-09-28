@@ -113,8 +113,11 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── settings.go          # ValidateSettings — generic over the Catalogue's JSON Schemas
 └── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec, blocks' Block Types)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md
-└── unreleased/<area>/*.json
+├── unreleased/<area>/*.json
+└── <X.Y.Z>/             # A release's frozen fixtures + catalogue.json — never edited; only its valid cases bind (ADR-0019)
 scripts/catalogue.ts     # Generates go/catalogue.json from every plugin's settingsSchema; --check fails when stale
+scripts/catalogue-compat.ts # The Catalogue may only grow: compares it with the last release's frozen one
+scripts/release.ts       # The release train (docs/releasing.md); prints tag commands, never pushes
 scripts/verify-go.sh     # gofmt, go vet, go test — the Go half of `npm run verify`
 ```
 
@@ -174,7 +177,7 @@ Backend-dependent features (reference lookup, media upload, blueprint data, text
 
 The org's shared ground is in [docs/conventions.md](./docs/conventions.md), with fieldkit's deviations marked **This repo**. These bind every change:
 
-- **Conventional Commits, always**: `type(scope): subject`. Commit types decide the next version and the changelog; fieldkit has no `release-please` yet, so a person reads them for a `chore(release)` commit and a `v*` tag (`publish-fieldkit.yml` publishes to npm) — a mislabelled commit still ships a wrong version. The shared commitlint workflow (`.github/workflows/commitlint.yml`) gates it once Actions run again; until then, review does.
+- **Conventional Commits, always**: `type(scope): subject`. Commit types decide the next version and the changelog; fieldkit has no `release-please` yet, so a person reads them for a `chore(release)` commit and its `vX.Y.Z` + `go/vX.Y.Z` tags (`docs/releasing.md`; `publish-fieldkit.yml` publishes to npm) — a mislabelled commit still ships a wrong version. The shared commitlint workflow (`.github/workflows/commitlint.yml`) gates it once Actions run again; until then, review does.
   - **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
   - **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
   - Keep the subject line under 72 characters, in the imperative mood ("add feature" not "added feature")
@@ -217,9 +220,11 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 | `npm run test` | Run tests once (Vitest, jsdom environment) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run verify-exports` | Check tsup entries match built `.d.ts` exports |
-| `npm run verify` | **The local gate**: lint, typecheck, the Catalogue staleness check, build, verify-exports, the full test suite and the Go checks, as `ci.yml` runs them |
+| `npm run verify` | **The local gate**: lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, the full test suite and the Go checks, as `ci.yml` runs them |
 | `npm run catalogue` | Regenerate `go/catalogue.json` from the plugins' `settingsSchema`s |
 | `npm run catalogue:check` | Fail when the committed Catalogue is stale |
+| `npm run catalogue:compat` | Fail when the Catalogue breaks the last released one — it may only grow (ADR-0019); passes before the first release |
+| `npm run release -- prepare <X.Y.Z[-rc.N]>` / `-- tags` | The release train (`docs/releasing.md`): prepare bumps the version and freezes a final release's fixtures; tags checks the release commit and **prints** the `vX.Y.Z` + `go/vX.Y.Z` tag-push commands — it never pushes |
 | `npm run verify:go` | The Go module's checks: gofmt, `go vet`, `go test` (with `GOWORK=off`, so a workspace above the checkout cannot take the module over) |
 | `npm run test:gate` | The full suite as the gate runs it: 30s per test and one retry |
 

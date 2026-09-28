@@ -76,6 +76,15 @@ export const lookupPlugin: FieldTypePlugin<LookupSettings> = {
 	// Empty, not a guess: only the Consumer knows what it registered, and a
 	// Field pointed at a Source nobody registered is the one thing the control
 	// has to say out loud.
+	settingsSchema: z
+		.object({
+			source: z.string().optional(),
+		})
+		.strict(),
+
+	// No text: the value is an opaque id into a Source.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { source: "" },
 
 	// `null`, not `undefined`: "nothing picked" is a value the control renders

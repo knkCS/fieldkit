@@ -13,6 +13,7 @@ Both run in `npm run verify`.
 ```
 conformance/
   <version>/          one folder per released version, and unreleased/
+    catalogue.json    a released version's frozen Catalogue (not a fixture)
     <area>/           one folder per operation or rule family
       <name>.json     a fixture (format below)
 ```
@@ -22,8 +23,12 @@ conformance/
 - A released version's folder is never edited or deleted (ADR-0018). Only an
   earlier release's **valid** cases bind later ones: a value once rejected may
   become valid, so a validation bug can be fixed by loosening (ADR-0019).
-  Copying `unreleased/` to a version folder at release time arrives with the
-  release train (#206); until then `unreleased/` is the only folder.
+  Both runners replay a released folder's valid cases only (`binds` in each
+  runner) and skip its invalid ones.
+- A final release copies `unreleased/` to its version folder, together with
+  the Catalogue as `<version>/catalogue.json` — the baseline
+  `npm run catalogue:compat` compares against (`npm run release`, see
+  [docs/releasing.md](../docs/releasing.md)).
 - A fixture is a `.json` file directly inside an area folder. Both runners
   glob `*/*/*.json`, so a new area or version needs no runner change.
 

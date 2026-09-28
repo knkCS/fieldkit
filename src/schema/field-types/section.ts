@@ -23,6 +23,16 @@ export const sectionPlugin: FieldTypePlugin<SectionSettings> = {
 		return z.never();
 	},
 
+	settingsSchema: z
+		.object({
+			orientation: z.enum(["horizontal", "vertical"]).optional(),
+		})
+		.strict(),
+
+	// Markers are checked for their settings and nothing else: they hold no
+	// value, so they yield no text.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: {},
 	availableIn: ["blueprint", "task", "form"],
 };
