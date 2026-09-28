@@ -16,7 +16,7 @@ the fixtures are `conformance/unreleased/compare/` and `merge/`.
 | `Accessor` | the Field's `api_accessor` |
 | `TypeID` | its `field_type` |
 | `Settings` | `{"field": <the whole resolved Field>, "parts": {<kind>: {<release>: <part>}}}` — `parts` only the opaque parts the Field pins, at any depth, and absent when it pins none (`SchemaSettings`, `DecodeSchemaSettings`) |
-| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset` and `rich_text` |
+| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` |
 
 fieldkit never imports versionkit (versionkit ADR 0002). `Comparer` and
 `Merger` have exactly versionkit's `FieldType` and `FieldMerger` method sets,
@@ -44,14 +44,14 @@ included: a reorder alone is a change.
 
 ## Detail
 
-Every type but the four below and `rich_text` compares as a whole value:
-`equal` only, and **no detail**. The four answer with detail when not equal,
+Every type but the six below and `rich_text` compares as a whole value:
+`equal` only, and **no detail**. The six answer with detail when not equal,
 and `rich_text` with knkeditor's (see [Rich text](#rich-text)):
 
 ```ts
-// group, virtual_table, blocks
+// group, virtual_table, blocks — and reference, over every node of the tree
 type RowsDetail = { status: "changed"; items: Item[] };
-// fieldset
+// fieldset — and single_reference, when both sides hold the same node
 type RecordDetail = { status: "changed"; fields: Record<string, ChildDetail> };
 
 type Item = {
@@ -85,6 +85,26 @@ type ChildDetail =
   Compare only for a Field both sides hold, reads no detail when equal, and
   reports `added` and `removed` Fields itself.
 
+### Reference trees
+
+A `reference` value is compared **per node, by `_id`, at every level** — a
+flat list of items over the whole tree:
+
+- **`items`** lists every node of `b` in `b`'s document order (a node before
+  its branch), each node only `a` holds after the node it followed in `a`'s.
+- A node's **fields** are `id`, `pin`, `values` — a record detail, per Field
+  of the Reference Spec — and **`_parent`**, its parent's `_id` (absent for a
+  root): a node moved to another parent is `changed` with `_parent` changed.
+- **`moved`** is a node whose place among the siblings both sides hold under
+  the same parent changed.
+- A Field that links a Reference Spec per Blueprint compares `values` key by
+  key as whole values: which Reference Spec a node follows needs its target's
+  Blueprint, which Compare is not told.
+
+A `single_reference` holding the same node on both sides — one `_id` —
+compares per field as a tree's node does, as a record detail; a different
+node is a whole value.
+
 ```json
 {
 	"status": "changed",
@@ -109,7 +129,7 @@ type ChildDetail =
 ## Merge
 
 Whole-value types have no `Merge`: versionkit merges them itself. `rich_text`
-merges by knkeditor (see [Rich text](#rich-text)). The four
+merges by knkeditor (see [Rich text](#rich-text)). The six
 types above merge finer, and Merge is called only when both sides changed a
 Field:
 
@@ -125,6 +145,16 @@ Field:
   disagree on the order of the rows all three hold are a Conflict at
   `_order`. A row the side whose order was not taken added lands after the
   row it followed on that side (the nearest one the merge keeps), or first.
+- **Trees.** A `reference` merges **per node, by `_id`**, whatever level a
+  node sits at, a node's parent and position counting as its fields: a move
+  on one side and a values edit on the other merge cleanly, and so do a
+  reorder on one side and a new child on the other. Moves of one node to
+  different parents on both sides are a Conflict at `<_id>/_parent`, as is a
+  node whose merged parent the merge removed, or whose merged parents make a
+  cycle. Each parent's children merge in order as a row array does, their
+  order Conflict at `_order` for the roots and `<_id>/children/_order` for a
+  node's. A `single_reference` holding one node on all three sides merges per
+  field; a different node on a side is a Conflict at the Field.
 - **Canonical.** A key whose merged value is Unset is dropped (ADR-0021). A
   top-level row array the merge empties is `[]`, since Merge cannot answer
   "absent": versionkit's `Validate` then reports it `not_canonical`, and the
@@ -145,6 +175,9 @@ base, ours and theirs.
 | a Fieldset's child `city` | `city` |
 | the rows' order, reordered differently on both sides | `_order` |
 | the order of row `a1`'s `items` | `a1/items/_order` |
+| node `n3` of a tree, moved to different parents on both sides | `n3/_parent` |
+| the order of node `n1`'s children | `n1/children/_order` |
+| the page in node `n2`'s values, changed differently | `n2/values/page` |
 
 ## Failures
 
@@ -154,6 +187,9 @@ not an object, text that is not one JSON value — and Settings that do not
 decode as a `SchemaSettings` are an `err`, never a difference or a Conflict:
 stored data is validated (`ValidateValue`), so they mean the wrong thing was
 handed in. versionkit aborts the call on one.
+
+A tree whose nodes are not objects each with a well-formed `_id` no other node
+at any level holds, or whose `children` are not a list, is an `err` too.
 
 ## Rich text
 
@@ -182,10 +218,3 @@ handed in. versionkit aborts the call on one.
   below the Field's path (`body/a`, `r1/body/a` in a row), a JSON Pointer
   into the merged document for an invalid merge outside such a node, or the
   Field itself.
-
-## Still to come
-
-`reference` and `single_reference` trees (#215) plug into the same composer
-(`finerRuleFor` in `go/compare.go`): a tree's nodes compare and merge by
-`_id` with their parent and position as fields. Until then they compare and
-merge as whole values.

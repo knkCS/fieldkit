@@ -10,17 +10,41 @@ import type {
 	FieldTypePlugin,
 	Position,
 } from "../plugin";
-import type { PinMode } from "../reference";
+import type { ReferenceSpecSettings } from "../reference";
 import { referenceTreeSchemaWith } from "../reference";
-import { attributeFields, attributesZodType } from "../reference-attributes";
-import { countReferences, referencesPastDepth } from "../reference-tree";
+import {
+	mintReferenceTree,
+	REFERENCE_SPEC_PIN,
+	ReferenceTreeZodArray,
+	referenceHeldSpecs,
+	referenceSettingsRules,
+	referenceSpecSettingsShape,
+	referenceTreeEdges,
+	referenceTreeRecords,
+	referenceValuesSchema,
+} from "../reference-plugin";
 import type { Field } from "../types";
 
-export interface ReferenceSettings {
-	/** The Blueprints this Field may point at. Empty or absent means the
-	 * Adapter decides — fieldkit has no notion of a Blueprint kind
-	 * (ADR-0002). */
-	blueprints?: string[];
+/**
+ * A Reference Field's settings (ADR-0008, amended): `blueprints`, the Reference
+ * Spec and `pin_mode` are every reference-shaped type's
+ * ({@link ReferenceSpecSettings}); the two caps are the tree's.
+ *
+ * - `blueprints` — the Blueprints this Field may point at, each with an
+ *   optional `spec_blueprint`: a Blueprint Release whose Fields **replace** the
+ *   embedded `spec` for References to that Blueprint, never merged with it.
+ *   Empty or absent means the Adapter decides (ADR-0002).
+ * - `spec` — the embedded Reference Spec: the Fields every Reference fills in
+ *   about the pointing itself — the page a citation appears on, the role a
+ *   credit names — stored in its `values`, keyed by Accessor. It lives here
+ *   rather than in `children`, following the Blocks precedent, and inherits
+ *   ADR-0007's boundary (`src/schema/reference-spec.ts`).
+ * - `pin_mode` — `"release"` fixes each Reference to a Release of its target;
+ *   absent reads as `"none"`, the Release In Force. What the Pin *points at* is
+ *   settled here and nowhere else — the value stores a bare Release id — which
+ *   is why changing this invalidates every stored Pin at once.
+ */
+export interface ReferenceSettings extends ReferenceSpecSettings {
 	/**
 	 * At most this many References, counted over the **flattened** tree — every
 	 * Reference at every level, since a nested child is as real as a root.
@@ -50,31 +74,6 @@ export interface ReferenceSettings {
 	 * Absent is no ceiling, and the tree nests as far as an Author drags it.
 	 */
 	max_depth?: number;
-	/**
-	 * Whether this Field fixes its References to a Release, to a Version, or
-	 * tracks the newest Version.
-	 *
-	 * Absent reads as `"none"`, so a Spec authored before pinning existed keeps
-	 * behaving as it did. What the Pin *points at* is settled here and nowhere
-	 * else — the value stores a bare target id (ADR-0008) — which is why
-	 * changing this invalidates every stored Pin at once instead of leaving
-	 * some of them stale.
-	 */
-	pin_mode?: PinMode;
-	/**
-	 * The Attribute Spec: the Fields every Reference this Field holds carries
-	 * about the pointing itself — the page a citation appears on, the role a
-	 * credit names.
-	 *
-	 * Ordinary Fields, so "page" can be a number and "role" a select and either
-	 * can be required, and the values are stored keyed by Accessor rather than
-	 * positionally as knkCMS core does it.
-	 *
-	 * It lives here rather than in `children`, following the Blocks precedent —
-	 * and it inherits ADR-0007's boundary verbatim. `src/schema/reference-
-	 * attributes.ts` is where that boundary and what it costs are written down.
-	 */
-	attributes?: Field[];
 }
 
 /**
@@ -126,11 +125,6 @@ export function referenceDepthCeiling(
 ): number | undefined {
 	const levels = storedCap(settings?.max_depth);
 	return levels === undefined ? undefined : levels - 1;
-}
-
-/** English for a count, so one Reference is not "1 references". */
-function plural(count: number, one: string, many: string): string {
-	return `${count} ${count === 1 ? one : many}`;
 }
 
 /**
@@ -226,73 +220,88 @@ export function createReferencePlugin({
 		// tree.
 		readComponent: ReferenceReadValue,
 
-		// The Attribute Spec is composed here rather than by the shared builder,
+		// The Reference Spec is composed here rather than by the shared builder,
 		// which is the whole of ADR-0007: a plugin reaches into its own settings
 		// and nothing else does. `validateSpec()` walks it only because this
-		// plugin names it (`heldSpecs` below); no Fieldset resolution reaches an
-		// Attribute Field. See `../reference-attributes.ts`.
+		// plugin names it (`heldSpecs` below). See `../reference-spec.ts`.
 		//
-		// Both caps are checked here too, and for the same reason the Attributes
+		// Both caps, and every `_id` being unique across the whole tree
+		// (ADR-0023), are checked here too, and for the same reason the values
 		// are: only this plugin knows what its own settings mean. Minted types
 		// get all of it, which is the factory's whole promise — a Consumer's
 		// reference-shaped type cannot drift from `reference` without the drift
 		// being deliberate.
-		toZodType(field: Field<ReferenceSettings>, composeChildren) {
+		toZodType(field: Field<ReferenceSettings>, composeChildren, context) {
 			const label = field.config.name;
-			const array = z.array(
-				referenceTreeSchemaWith(
-					attributesZodType(field.settings?.attributes, composeChildren),
-				),
+			const node = referenceTreeSchemaWith(
+				referenceValuesSchema(field.settings, composeChildren, context),
 			);
-			const tree = field.config.required
-				? array.min(1, `${label} is required`)
-				: array;
+			const array = field.config.required
+				? z.array(node).min(1, `${label} is required`)
+				: z.array(node);
 
 			// Neither cap goes through `.max()`, because neither is a fact about
 			// the array: `max_items` counts the whole flattened tree, and
-			// `max_depth` has to name *which* Reference broke it. Stored data is
-			// held to exactly these rules — a Spec whose caps were never enforced
-			// can therefore start blocking submit on data that saved fine before,
-			// which is the point. Nothing is ever truncated or re-nested to fit:
-			// the value is reported, never repaired.
-			return tree.superRefine((references, ctx) => {
-				const items = referenceItemCap(field.settings);
-				if (items !== undefined && countReferences(references) > items) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						// No path of its own: an over-full tree is the Field's
-						// problem, not any one Reference's, and the Field's own path
-						// is where a form can show it.
-						message: `${label} holds at most ${plural(items, "reference", "references")}`,
-					});
-				}
-
-				const ceiling = referenceDepthCeiling(field.settings);
-				if (ceiling === undefined) return;
-				const levels = ceiling + 1;
-				for (const path of referencesPastDepth(references, ceiling)) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path,
-						message: `${label} nests at most ${plural(levels, "level", "levels")} deep`,
-					});
-				}
+			// `max_depth` has to name *which* Reference broke it. Both are checked
+			// on the raw value whatever else a node gets wrong, as Go checks them.
+			// Stored data is held to exactly these rules — a Spec whose caps were
+			// never enforced can therefore start blocking submit on data that
+			// saved fine before, which is the point. Nothing is ever truncated or
+			// re-nested to fit: the value is reported, never repaired.
+			return ReferenceTreeZodArray.with(array, {
+				label,
+				maxItems: referenceItemCap(field.settings),
+				depthCeiling: referenceDepthCeiling(field.settings),
 			});
 		},
 
-		// A new Field tracks the newest Version: pinning is a deliberate choice
-		// an Author makes, and it costs a second step every time a Reference is
-		// added. It declares no Attributes either — a Reference that carries
-		// nothing about the pointing is the ordinary case. Built per mint, so two
-		// types minted with no `blueprints` of their own never share the empty
-		// array. (A Consumer that hands the same array to two mints shares it, as
-		// it would with any object it passes.)
+		// A new Field tracks the Release In Force: pinning is a deliberate
+		// choice an Author makes, and it costs a second step every time a
+		// Reference is added. Its Reference Spec is empty too — a Reference
+		// that carries nothing about the pointing is the ordinary case. Built
+		// per mint, so two types minted with no `blueprints` of their own never
+		// share the empty array. (A Consumer that hands the same array to two
+		// mints shares it, as it would with any object it passes.)
 		defaultSettings: {
 			blueprints: [],
 			pin_mode: "none",
-			attributes: [],
+			spec: [],
 			...defaultSettings,
 		},
+
+		// The settings every reference-shaped type declares, and the tree's two
+		// caps. Minted types declare them too, so `validateSpec()` checks a
+		// Consumer's type as it checks `reference`; only the built-in ones are
+		// in the Catalogue (`scripts/catalogue.ts` reads the built-ins).
+		settingsSchema: z
+			.object({
+				...referenceSpecSettingsShape,
+				max_items: z.number().int().nonnegative().optional(),
+				max_depth: z.number().int().nonnegative().optional(),
+			})
+			.strict(),
+
+		// A Reference's text is its values', read against its Reference Spec;
+		// the Field yields none of its own. Each `blueprints` entry's linked
+		// Reference Spec is a Blueprint Pin, resolved into that entry's `spec`.
+		catalogue: { since: "0.18.0", hasText: false, pins: [REFERENCE_SPEC_PIN] },
+
+		// Every node carries an `_id` (ADR-0023), minted for loaded, pasted and
+		// duplicated trees — and a legacy node is brought into the current
+		// shape on the way (`normalizeReference`), so a stored value converges
+		// on the next save without making the form dirty.
+		mintIds: mintReferenceTree,
+
+		// One `reference` edge per node, carrying its target and Pin.
+		edges: (_field, value) => referenceTreeEdges(value),
+
+		// Each node's `values`, against its Reference Spec, for `texts()` and
+		// `edges()`.
+		records: referenceTreeRecords,
+
+		// Two `blueprints` entries naming one Blueprint, and a Reference Spec
+		// that is not a list of Fields.
+		settingsRules: referenceSettingsRules,
 
 		// A fresh array per call — an empty list is what the control renders, and
 		// a shared one would be mutated across forms.
@@ -302,23 +311,11 @@ export function createReferencePlugin({
 		consumers,
 		positions,
 
-		// The Reference Spec is a Spec in `reference_spec` Position, so
-		// `validateSpec()` walks it as it walks `children`, and every rule — the
-		// Position check among them — reaches an Attribute Field (ADR-0022).
-		// See `../reference-attributes.ts`.
-		heldSpecs: (field) => {
-			const spec = field.settings?.attributes;
-			const fields = Array.isArray(spec) ? attributeFields(spec) : [];
-			return fields.length === 0
-				? []
-				: [
-						{
-							segments: ["settings", "attributes"],
-							fields,
-							position: "reference_spec" as const,
-						},
-					];
-		},
+		// The Reference Spec — embedded, and each linked one once resolved — is
+		// a Spec in `reference_spec` Position, so `validateSpec()` walks it as
+		// it walks `children`, and every rule — the Position check among them —
+		// reaches its Fields (ADR-0022). See `../reference-spec.ts`.
+		heldSpecs: referenceHeldSpecs,
 	};
 }
 

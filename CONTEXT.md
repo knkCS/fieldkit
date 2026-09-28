@@ -101,7 +101,7 @@ _Avoid_: field type (that's the kind of a Field; a Block Type is a shape within 
 ## References
 
 **Reference**:
-A pointer from the Content being edited to another Content. A Reference is a value, not a Field.
+A pointer from the Content being edited to another Content. A Reference is a value, not a Field: its target's id, an optional Pin, an `_id` of its own and its values — never a label, never the target's Blueprint.
 _Avoid_: link, relation, item
 
 **Reference Field**:
@@ -117,7 +117,7 @@ The nested arrangement of References a Reference Field holds — each Reference 
 _Avoid_: hierarchy, outline, structure
 
 **Reference Spec**:
-The Fields a Reference Field declares for every Reference it holds, whose values describe the pointing itself, not either Content — the page a citation appears on, the role a credit names. Embedded in the Field once, and replaced — never merged — by a linked Blueprint Release where the Field names one for the target's Blueprint, so every Reference has exactly one. The values belong to the pointing Content's Revision. The term is contenthub's.
+The Fields a Reference Field declares for every Reference it holds, whose values describe the pointing itself, not either Content — the page a citation appears on, the role a credit names. Embedded in the Field once, and replaced — never merged — by a linked Blueprint Release where the Field names one for the target's Blueprint, so every Reference has exactly one. The values, a Reference's `values` keyed by Accessor, belong to the pointing Content's Revision. The term is contenthub's.
 _Avoid_: attributes, attribute spec, reference attributes, title data, edge data
 
 **Adoption**:

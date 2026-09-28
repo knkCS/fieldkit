@@ -50,7 +50,7 @@ function stored(): unknown {
 
 function renderField({
 	value = [],
-	settings = { blueprints: ["article"] },
+	settings = { blueprints: [{ blueprint: "article" }] },
 	readOnly = false,
 	adapters,
 }: {
@@ -140,7 +140,7 @@ describe("the add drawer's steps", () => {
 	it("shows both steps, the first of them active, when the Field pins", async () => {
 		const user = userEvent.setup();
 		renderField({
-			settings: { blueprints: ["article"], pin_mode: "release" },
+			settings: { blueprints: [{ blueprint: "article" }], pin_mode: "release" },
 		});
 
 		await openThroughAdd(user);
@@ -154,7 +154,7 @@ describe("the add drawer's steps", () => {
 	it("moves the mark to the second step once a Content is chosen", async () => {
 		const user = userEvent.setup();
 		renderField({
-			settings: { blueprints: ["article"], pin_mode: "version" },
+			settings: { blueprints: [{ blueprint: "article" }], pin_mode: "release" },
 		});
 
 		await openThroughAdd(user);
@@ -166,14 +166,14 @@ describe("the add drawer's steps", () => {
 		// component, and the whole of what a screen reader is told.
 		expect(steps()).toEqual([
 			["Choose content", false],
-			["Choose a version", true],
+			["Choose a release", true],
 		]);
 	});
 
 	it("shows the one step it has when the Field does not pin", async () => {
 		const user = userEvent.setup();
 		renderField({
-			settings: { blueprints: ["article"], pin_mode: "none" },
+			settings: { blueprints: [{ blueprint: "article" }], pin_mode: "none" },
 		});
 
 		await openThroughAdd(user);
@@ -188,7 +188,7 @@ describe("the add drawer's steps", () => {
 		// A Spec written before pinning existed says nothing about it, which is
 		// not pinning — and so is one step, exactly as picking a Content in it
 		// stores and closes.
-		renderField({ settings: { blueprints: ["article"] } });
+		renderField({ settings: { blueprints: [{ blueprint: "article" }] } });
 
 		await openThroughAdd(user);
 
@@ -198,7 +198,7 @@ describe("the add drawer's steps", () => {
 	it("goes back to the first step with Back", async () => {
 		const user = userEvent.setup();
 		renderField({
-			settings: { blueprints: ["article"], pin_mode: "release" },
+			settings: { blueprints: [{ blueprint: "article" }], pin_mode: "release" },
 		});
 
 		await openThroughAdd(user);
@@ -269,7 +269,7 @@ describe("where the Reference will land", () => {
 		const user = userEvent.setup();
 		renderField({
 			value: branchedTree,
-			settings: { blueprints: ["article"], pin_mode: "release" },
+			settings: { blueprints: [{ blueprint: "article" }], pin_mode: "release" },
 		});
 		await screen.findByText("Content 1");
 
@@ -303,6 +303,7 @@ describe("where the Reference will land", () => {
 		expect(stored()).toEqual([
 			{ id: "article-1" },
 			{
+				_id: expect.any(String),
 				id: "article-5",
 				children: [{ id: "article-2" }, { id: "article-3" }],
 			},
@@ -337,6 +338,7 @@ describe("where the Reference will land", () => {
 		expect(stored()).toEqual([
 			{ id: "article-1" },
 			{
+				_id: expect.any(String),
 				id: "article-5",
 				children: [{ id: "article-2", children: [{ id: "article-3" }] }],
 			},

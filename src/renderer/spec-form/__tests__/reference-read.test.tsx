@@ -29,7 +29,7 @@ import { ReferenceTree } from "../../fields/reference-tree";
 import { FieldKitProvider } from "../../provider";
 import { SpecForm } from "../spec-form";
 
-const attribute = (accessor: string, name: string): Field => ({
+const specField = (accessor: string, name: string): Field => ({
 	field_type: "text",
 	config: { name, api_accessor: accessor, required: false, instructions: "" },
 	settings: null,
@@ -37,10 +37,14 @@ const attribute = (accessor: string, name: string): Field => ({
 	system: false,
 });
 
-/** A Field that declares one Attribute — the case most of these tests want. */
+/** The Blueprints every Field here points at. */
+const ARTICLE = [{ blueprint: "article" }];
+
+/** A Field whose Reference Spec holds one Field — the case most of these
+ * tests want. */
 const WITH_PAGE: ReferenceSettings = {
-	blueprints: ["article"],
-	attributes: [attribute("page", "Page")],
+	blueprints: ARTICLE,
+	spec: [specField("page", "Page")],
 };
 
 function referenceField(
@@ -79,7 +83,12 @@ function renderRead(
 
 describe("SpecForm — read mode, reference tree", () => {
 	it("bypasses the count cell and renders the tree", async () => {
-		renderRead({ related: [{ id: "article-1" }, { id: "article-2" }] });
+		renderRead({
+			related: [
+				{ _id: "r1", id: "article-1" },
+				{ _id: "r2", id: "article-2" },
+			],
+		});
 
 		expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
 		expect(screen.getByText("Dogs of the world")).toBeInTheDocument();
@@ -91,7 +100,11 @@ describe("SpecForm — read mode, reference tree", () => {
 		const adapter = createFakeReferenceAdapter();
 		adapter.rename("article-1", "Cats of the whole world");
 
-		renderRead({ related: [{ id: "article-1" }] }, referenceField(), adapter);
+		renderRead(
+			{ related: [{ _id: "r1", id: "article-1" }] },
+			referenceField(),
+			adapter,
+		);
 
 		expect(
 			await screen.findByText("Cats of the whole world"),
@@ -99,7 +112,7 @@ describe("SpecForm — read mode, reference tree", () => {
 	});
 
 	it("keeps the id of a Content it cannot resolve on screen", async () => {
-		renderRead({ related: [{ id: "deleted-42" }] });
+		renderRead({ related: [{ _id: "r1", id: "deleted-42" }] });
 
 		expect(await screen.findByText("deleted-42")).toBeInTheDocument();
 	});
@@ -108,8 +121,15 @@ describe("SpecForm — read mode, reference tree", () => {
 		renderRead({
 			related: [
 				{
+					_id: "r1",
 					id: "article-1",
-					children: [{ id: "article-2", children: [{ id: "article-3" }] }],
+					children: [
+						{
+							_id: "r2",
+							id: "article-2",
+							children: [{ _id: "r3", id: "article-3" }],
+						},
+					],
 				},
 			],
 		});
@@ -125,18 +145,24 @@ describe("SpecForm — read mode, reference tree", () => {
 
 	it("shows every Reference in the tree, nested ones included", async () => {
 		renderRead({
-			related: [{ id: "article-1", children: [{ id: "author-1" }] }],
+			related: [
+				{
+					_id: "r1",
+					id: "article-1",
+					children: [{ _id: "r2", id: "author-1" }],
+				},
+			],
 		});
 
 		expect(await screen.findByText("Cats of the world")).toBeInTheDocument();
 		expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
 	});
 
-	it("shows each Reference's Attribute values against it", async () => {
+	it("shows each Reference's values against it", async () => {
 		renderRead({
 			related: [
-				{ id: "article-1", attributes: { page: "12" } },
-				{ id: "article-2", attributes: { page: "88" } },
+				{ _id: "r1", id: "article-1", values: { page: "12" } },
+				{ _id: "r2", id: "article-2", values: { page: "88" } },
 			],
 		});
 
@@ -147,15 +173,19 @@ describe("SpecForm — read mode, reference tree", () => {
 		expect(rows[1]).toHaveTextContent("88");
 		// Each value sits under the Reference it belongs to, not pooled.
 		expect(rows[0]).not.toHaveTextContent("88");
+		expect(within(rows[0]).getAllByTestId("reference-read-value")).toHaveLength(
+			1,
+		);
 	});
 
-	it("shows a nested Reference's Attributes on the nested Reference", async () => {
+	it("shows a nested Reference's values on the nested Reference", async () => {
 		renderRead({
 			related: [
 				{
+					_id: "r1",
 					id: "article-1",
-					attributes: { page: "12" },
-					children: [{ id: "article-2", attributes: { page: "88" } }],
+					values: { page: "12" },
+					children: [{ _id: "r2", id: "article-2", values: { page: "88" } }],
 				},
 			],
 		});
@@ -166,17 +196,17 @@ describe("SpecForm — read mode, reference tree", () => {
 		expect(rows[1]).toHaveTextContent("88");
 	});
 
-	it("renders an em dash for an Attribute nobody filled in", async () => {
-		renderRead({ related: [{ id: "article-1" }] });
+	it("renders an em dash for a value nobody filled in", async () => {
+		renderRead({ related: [{ _id: "r1", id: "article-1" }] });
 
 		await screen.findByText("Cats of the world");
 		expect(screen.getByTestId("reference-read-row")).toHaveTextContent("—");
 	});
 
-	it("renders no Attribute rows when the Field declares none", async () => {
+	it("renders no value rows when the Reference Spec is empty", async () => {
 		renderRead(
-			{ related: [{ id: "article-1", attributes: { page: "12" } }] },
-			referenceField({ blueprints: ["article"] }),
+			{ related: [{ _id: "r1", id: "article-1", values: { page: "12" } }] },
+			referenceField({ blueprints: ARTICLE }),
 		);
 
 		await screen.findByText("Cats of the world");
@@ -207,8 +237,8 @@ describe("SpecForm — read mode, reference tree", () => {
 		});
 
 		renderRead(
-			{ related: [{ id: "article-1" }] },
-			referenceField({ blueprints: ["article"] }, "toc_reference"),
+			{ related: [{ _id: "r1", id: "article-1" }] },
+			referenceField({ blueprints: ARTICLE }, "toc_reference"),
 			createFakeReferenceAdapter(),
 			[...builtInFieldTypes, tocReference],
 		);
@@ -288,7 +318,13 @@ describe("SpecForm — read mode, folding the tree", () => {
 
 	it("opens and closes a fold while reading, because reading a folded branch is reading", async () => {
 		renderRead({
-			related: [{ id: "article-1", children: [{ id: "article-2" }] }],
+			related: [
+				{
+					_id: "r1",
+					id: "article-1",
+					children: [{ _id: "r2", id: "article-2" }],
+				},
+			],
 		});
 		await screen.findByText("Cats of the world");
 
@@ -304,7 +340,7 @@ describe("SpecForm — read mode, folding the tree", () => {
 	});
 
 	it("puts no fold control on a Reference with nothing under it", async () => {
-		renderRead({ related: [{ id: "article-1" }] });
+		renderRead({ related: [{ _id: "r1", id: "article-1" }] });
 
 		await screen.findByText("Cats of the world");
 		// A control claiming to collapse a leaf would claim it hides something.
@@ -314,7 +350,13 @@ describe("SpecForm — read mode, folding the tree", () => {
 	});
 
 	it("keeps a fold out of the value it was handed", async () => {
-		const value = [{ id: "article-1", children: [{ id: "article-2" }] }];
+		const value = [
+			{
+				_id: "r1",
+				id: "article-1",
+				children: [{ _id: "r2", id: "article-2" }],
+			},
+		];
 		const before = structuredClone(value);
 		renderRead({ related: value });
 		await screen.findByText("Cats of the world");
@@ -794,18 +836,21 @@ describe("SpecForm — read mode, Collapse all", () => {
 	});
 });
 
-describe("SpecForm — read mode, reference tree with Attributes", () => {
-	it("labels each Attribute with its Field's name", async () => {
+describe("SpecForm — read mode, reference tree with a Reference Spec", () => {
+	it("labels each value with its Field's name", async () => {
 		renderRead(
-			{ related: [{ id: "article-1", attributes: { role: "Author" } }] },
+			{ related: [{ _id: "r1", id: "article-1", values: { role: "Author" } }] },
 			referenceField({
-				blueprints: ["article"],
-				attributes: [attribute("role", "Role")],
+				blueprints: ARTICLE,
+				spec: [specField("role", "Role")],
 			}),
 		);
 
 		await screen.findByText("Cats of the world");
 		expect(screen.getByText("Role")).toBeInTheDocument();
 		expect(screen.getByText("Author")).toBeInTheDocument();
+		expect(screen.getByTestId("reference-read-value")).toHaveTextContent(
+			"Author",
+		);
 	});
 });

@@ -153,12 +153,16 @@ func ValueText(f Field, value json.RawMessage) string {
 // Field whose search is SearchOff yields nothing, and an Unset one weighs
 // SearchD. A Field whose value yields no text yields nothing.
 //
+// opts are ValidateValue's: WithTargetBlueprints says which Reference Spec a
+// Reference's values follow, and without it the values of a Reference Field
+// that links one yield none.
+//
 // It reads data ValidateValue accepted, and checks nothing; markers and
 // hidden Fields yield none, as ValidateValue skips them. Data that is not a
 // JSON object is an error; empty data is {}.
-func Texts(resolved *ResolvedSpec, data json.RawMessage) ([]FieldText, error) {
+func Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
 	texts := []FieldText{}
-	err := walkData(resolved, data, func(f Field, settings map[string]any, value any, path string) {
+	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
 		rule, ok := textRules[f.FieldType]
 		if !ok {
 			return

@@ -4,7 +4,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { ReadProps } from "../../schema/plugin";
-import { declaredAttributes } from "../../schema/reference-attributes";
+import { referenceSpecFor } from "../../schema/reference";
+import { declaredReferenceFields } from "../../schema/reference-spec";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
 	foldsToReveal,
@@ -78,18 +79,32 @@ export function ReferenceReadValue({
 	// Names, and how far they can be relied on — read mode resolves the same way
 	// the editable Field does, and its Find is entitled to say exactly as much
 	// about an absence (#152).
-	const { names, nameState } = useResolvedContentNames(
+	const { names, blueprints, nameState } = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		field.config.api_accessor,
 	);
 
-	// The Attributes someone filling in the form was actually asked for — the
-	// same skip the drawer and the row count make, so a read-mode row cannot
-	// show an Attribute no drawer offers.
-	const attributes = useMemo(
-		() => declaredAttributes(field.settings?.attributes ?? []),
-		[field.settings?.attributes],
-	);
+	// The Fields someone filling in the form was actually asked for, per
+	// Reference — its Reference Spec is the embedded one, or the one linked for
+	// its target's Blueprint (ADR-0008, amended) — with the same skip the drawer
+	// and the row count make, so a read-mode row cannot show a value no drawer
+	// offers.
+	const settings = field.settings;
+	const askedFor = useMemo(() => {
+		const cache = new Map<string, Field[]>();
+		return (id: string): Field[] => {
+			const blueprint = blueprints[id];
+			const key = blueprint ?? "";
+			let fields = cache.get(key);
+			if (!fields) {
+				fields = declaredReferenceFields(
+					referenceSpecFor(settings, blueprint) ?? [],
+				);
+				cache.set(key, fields);
+			}
+			return fields;
+		};
+	}, [settings, blueprints]);
 
 	// Seeded once, from the tree as it first arrived, and by the same function
 	// the editable tree seeds from — one threshold, and one answer to what a
@@ -303,7 +318,7 @@ export function ReferenceReadValue({
 					folded={folded.has(row.key)}
 					revealed={row.key === revealed}
 					onToggle={toggle}
-					attributes={attributes}
+					specFields={askedFor(row.reference.id)}
 					renderChild={renderChild}
 				/>
 			))}
@@ -311,7 +326,7 @@ export function ReferenceReadValue({
 			{/* A Reveal moves focus onto a row that is a row rather than a
 			    control, so what a screen reader announces on arrival is whatever
 			    the row happens to contain — and in read mode that is a name and
-			    some Attribute values, with nothing to say which of them was
+			    some values, with nothing to say which of them was
 			    asked for. This says it outright, and only once a Reveal has
 			    actually landed; the mark on the row is what says it to everyone
 			    else. */}
@@ -338,9 +353,9 @@ interface ReferenceReadRowProps {
 	/** Whether the last Reveal landed here — marked until the next one. */
 	revealed: boolean;
 	onToggle: (key: string) => void;
-	/** The Attributes the Field declares, already filtered to the ones an
-	 * Author was asked for. */
-	attributes: Field[];
+	/** The Fields of this Reference's Reference Spec, already filtered to the
+	 * ones an Author was asked for. */
+	specFields: Field[];
 	renderChild: ReadProps<ReferenceSettings>["renderChild"];
 }
 
@@ -353,7 +368,7 @@ function ReferenceReadRow({
 	folded,
 	revealed,
 	onToggle,
-	attributes,
+	specFields,
 	renderChild,
 }: ReferenceReadRowProps) {
 	// One stable callback rather than a fresh closure per render: React detaches
@@ -423,26 +438,26 @@ function ReferenceReadRow({
 					{name}
 				</Text>
 			</Box>
-			{attributes.map((attribute) => (
+			{specFields.map((specField) => (
 				<Box
-					key={attribute.config.api_accessor}
+					key={specField.config.api_accessor}
 					as="span"
 					display="flex"
 					gap="2"
 					alignItems="baseline"
-					data-testid="reference-read-attribute"
+					data-testid="reference-read-value"
 				>
 					<Text as="span" fontSize="sm" color="fg.muted" flexShrink={0}>
-						{attribute.config.name}
+						{specField.config.name}
 					</Text>
-					{/* An Attribute is an ordinary Field, so its value reads the
-					    way any Field's value reads — a number Attribute through the
+					{/* A Reference Spec's Field is an ordinary Field, so its value
+					    reads the way any Field's value reads — a number through the
 					    number plugin's cell, a boolean as Yes or No. Nothing here
 					    has a case for either. */}
 					<Box as="span" display="block" minWidth="0">
 						{renderChild(
-							attribute,
-							row.reference.attributes?.[attribute.config.api_accessor],
+							specField,
+							row.reference.values?.[specField.config.api_accessor],
 						)}
 					</Box>
 				</Box>

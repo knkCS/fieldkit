@@ -35,6 +35,10 @@ export type SpecFieldErrorCode =
 	/** A Block Type of a Blocks Field repeating the `type` an earlier one
 	 * declared — reported at each repeat's `type`. */
 	| "duplicate_block_type"
+	/** A Reference Field's `blueprints` entry naming a Blueprint an earlier
+	 * entry already names — two Reference Specs for one target. At each
+	 * repeat's `blueprint`. */
+	| "duplicate_blueprint"
 	/** A Field whose `field_type` no plugin in the map registers. Its
 	 * settings are not checked — there is nothing to check them against. */
 	| "unknown_field_type"
@@ -154,6 +158,7 @@ export function validateSpec(
 	);
 	checkTypesAndSettings(fields, [], plugins, fieldErrors);
 	checkBlockTypes(fields, [], plugins, fieldErrors);
+	checkSettingsRules(fields, [], plugins, fieldErrors);
 	checkFields(fields, [], "root", plugins, options.policy, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
@@ -176,7 +181,8 @@ interface NestedSpec {
  * in the Position its type names for them (`childrenPosition`) or else its
  * own, and each Spec its type holds in settings (`heldSpecs`) — a Block Type's
  * Fields at `…/settings/allowed_blocks/<i>/fields`, a Reference Spec at
- * `…/settings/attributes`. A Field in a list sits at the list's segments plus
+ * `…/settings/spec` (and a resolved linked one at `…/settings/blueprints/<i>/spec`).
+ * A Field in a list sits at the list's segments plus
  * its Accessor: the path grammar `conformance/README.md` states and Go's
  * `ValidateSpec` shares.
  *
@@ -465,6 +471,37 @@ function checkBlockTypes(
 		}
 		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
 			checkBlockTypes(nested.fields, nested.list, plugins, fieldErrors);
+		}
+	}
+}
+
+/**
+ * The rules across a Field's settings its type states through its plugin's
+ * `settingsRules` — a Reference Field's `blueprints` entries naming one
+ * Blueprint twice, a Reference Spec that is not a list of Fields — each at
+ * the Field's path plus the rule's segments. Walks every nested Spec, as the
+ * other checks do.
+ */
+function checkSettingsRules(
+	fields: Field[],
+	list: Segments,
+	plugins: Map<string, FieldTypePlugin>,
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		const accessor = field.config.api_accessor;
+		const segments = [...list, accessor];
+		const plugin = plugins.get(field.field_type);
+		for (const error of plugin?.settingsRules?.(field) ?? []) {
+			fieldErrors.push({
+				accessor,
+				code: error.code,
+				message: error.message,
+				path: toPath([...segments, ...error.segments]),
+			});
+		}
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
+			checkSettingsRules(nested.fields, nested.list, plugins, fieldErrors);
 		}
 	}
 }

@@ -20,7 +20,7 @@ function makeField(overrides: Partial<Field["config"]> = {}): Field {
 			instructions: "Search the catalogue and pick one article",
 			...overrides,
 		},
-		settings: { blueprints: ["article"] },
+		settings: { blueprints: [{ blueprint: "article" }] },
 		children: null,
 		system: false,
 	};
@@ -50,7 +50,7 @@ export const WithAStoredReference: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ primary_article: { id: "article-2" } }}
+			defaultValues={{ primary_article: { _id: "r1", id: "article-2" } }}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -61,7 +61,7 @@ export const UnresolvableReference: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ primary_article: { id: "deleted-42" } }}
+			defaultValues={{ primary_article: { _id: "r1", id: "deleted-42" } }}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -85,29 +85,36 @@ export const PinnedToARelease: Story = {
 			fields={[
 				{
 					...makeField(),
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				},
 			]}
 			defaultValues={{
-				primary_article: { id: "article-1", pin: "article-1-r2" },
+				primary_article: { _id: "r1", id: "article-1", pin: "article-1-r2" },
 			}}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
 };
 
-/** Pinning, with no target chosen: the second select reads "Newest version",
- * which is not a hint but the state itself — an absent Pin already means it. */
+/** Pinning to a Release, with none chosen: the second select shows its
+ * placeholder, which is not a hint but the state itself — an absent Pin already
+ * means the Release in force. */
 export const PinningWithNoTargetChosen: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[
 				{
 					...makeField(),
-					settings: { blueprints: ["article"], pin_mode: "version" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				},
 			]}
-			defaultValues={{ primary_article: { id: "article-2" } }}
+			defaultValues={{ primary_article: { _id: "r1", id: "article-2" } }}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -142,7 +149,7 @@ export const ReadOnly: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ primary_article: { id: "article-1" } }}
+			defaultValues={{ primary_article: { _id: "r1", id: "article-1" } }}
 			adapters={{ reference: referenceAdapter }}
 			readOnly
 		/>

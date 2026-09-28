@@ -128,6 +128,8 @@ export type {
 	ReadProps,
 	RenderReadValue,
 	SettingsProps,
+	SettingsRuleError,
+	ValueContext,
 	ValueEdge,
 } from "./plugin";
 // Where a Field may sit (enforced) and which Consumers offer a type (advice),
@@ -140,12 +142,17 @@ export {
 	POSITIONS,
 	positionsOf,
 } from "./positions";
-// The Reference value shape
+// The Reference value shape, and which Reference Spec a Reference follows
 export {
 	asReference,
 	type PinMode,
 	type PinningMode,
 	type Reference,
+	type ReferenceBlueprint,
+	type ReferenceSpecSettings,
+	referenceBlueprintIds,
+	referenceSpecFor,
+	type TargetBlueprint,
 	withPin,
 } from "./reference";
 // The Reference Tree model — only the parts a Consumer assembling its own

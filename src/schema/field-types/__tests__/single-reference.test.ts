@@ -37,43 +37,68 @@ describe("singleReferencePlugin", () => {
 	it("accepts one Reference or nothing, never an array", () => {
 		const zodType = singleReferencePlugin.toZodType(singleReferenceField());
 
-		expect(zodType.safeParse({ id: "article-1" }).success).toBe(true);
+		expect(
+			zodType.safeParse({ _id: "n-article-1", id: "article-1" }).success,
+		).toBe(true);
 		expect(zodType.safeParse(null).success).toBe(true);
-		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(false);
+		expect(
+			zodType.safeParse([{ _id: "n-article-1", id: "article-1" }]).success,
+		).toBe(false);
 		expect(zodType.safeParse([]).success).toBe(false);
 		expect(zodType.safeParse("article-1").success).toBe(false);
-		expect(zodType.safeParse({ id: "" }).success).toBe(false);
+		expect(zodType.safeParse({ _id: "n-empty", id: "" }).success).toBe(false);
 	});
 
 	it("carries the Reference shape later tickets fill in", () => {
 		const zodType = singleReferencePlugin.toZodType(singleReferenceField());
 
-		// #68 sets `pin`, #64 sets `attributes` — a value already carrying
-		// them must parse today, so a Spec saved by a later fieldkit still
-		// loads here.
+		// A Pin and the Reference Spec's values ride on the one node.
 		expect(
-			zodType.safeParse({ id: "article-1", pin: "release-3" }).success,
+			zodType.safeParse({
+				_id: "n-article-1",
+				id: "article-1",
+				pin: "release-3",
+			}).success,
 		).toBe(true);
-		expect(zodType.safeParse({ id: "article-1", pin: null }).success).toBe(
-			true,
-		);
 		expect(
-			zodType.safeParse({ id: "article-1", attributes: { role: "lead" } })
+			zodType.safeParse({
+				_id: "n-article-1",
+				id: "article-1",
+				values: { role: "lead" },
+			}).success,
+		).toBe(true);
+		// An Unset Pin is stored as absent (ADR-0021), never as `null`.
+		expect(
+			zodType.safeParse({ _id: "n-article-1", id: "article-1", pin: null })
 				.success,
-		).toBe(true);
+		).toBe(false);
+	});
+
+	it("requires an _id on its node", () => {
+		const zodType = singleReferencePlugin.toZodType(singleReferenceField());
+
+		expect(zodType.safeParse({ id: "article-1" }).success).toBe(false);
+		expect(zodType.safeParse({ _id: "", id: "article-1" }).success).toBe(false);
+		expect(
+			zodType.safeParse({ _id: "x".repeat(65), id: "article-1" }).success,
+		).toBe(false);
 	});
 
 	it("rejects a nested Reference — children belong to the tree type", () => {
 		const zodType = singleReferencePlugin.toZodType(singleReferenceField());
 
 		const parsed = zodType.safeParse({
+			_id: "n-article-1",
 			id: "article-1",
-			children: [{ id: "article-2" }],
+			children: [{ _id: "n-article-2", id: "article-2" }],
 		});
 		expect(parsed.success).toBe(true);
 		// Stripped rather than rejected: a Single Reference holds exactly one
 		// Reference, so a stray branch is dropped, not blocked.
-		expect(parsed.success && parsed.data).toEqual({ id: "article-1" });
+		expect(parsed.success && parsed.data).toEqual({
+			_id: "n-article-1",
+			id: "article-1",
+		});
 	});
 
 	it("blocks submit at its own path when required and empty", () => {
@@ -91,9 +116,9 @@ describe("singleReferencePlugin", () => {
 			parsed.success === false && parsed.error.issues[0].message,
 		).toContain("Primary article");
 
-		expect(schema.safeParse({ primary_article: { id: "a" } }).success).toBe(
-			true,
-		);
+		expect(
+			schema.safeParse({ primary_article: { _id: "n-a", id: "a" } }).success,
+		).toBe(true);
 	});
 
 	it("reports the same way when the key is missing altogether", () => {
@@ -146,6 +171,7 @@ describe("singleReferencePlugin", () => {
 		expect(singleReferencePlugin.defaultSettings).toEqual({
 			blueprints: [],
 			pin_mode: "none",
+			spec: [],
 		});
 	});
 
@@ -153,5 +179,91 @@ describe("singleReferencePlugin", () => {
 		expect(singleReferencePlugin.defaultSettings).not.toHaveProperty(
 			"always_latest",
 		);
+	});
+});
+
+describe("singleReferencePlugin.mintIds — loading a stored value", () => {
+	const load = (settings: SingleReferenceSettings, value: unknown) =>
+		singleReferencePlugin.mintIds?.(singleReferenceField({ settings }), value, {
+			fresh: false,
+			mintChildren: (_children, record) => record,
+		});
+
+	it("brings a legacy node into the current shape", () => {
+		expect(
+			load(
+				{ pin_mode: "none" },
+				{
+					id: "a",
+					label: "Stale name",
+					pin: "r-1",
+					attributes: { role: "lead" },
+				},
+			),
+		).toEqual({ _id: expect.any(String), id: "a", values: { role: "lead" } });
+	});
+
+	it("keeps a Pin when the Field pins Releases", () => {
+		expect(
+			load({ pin_mode: "release" }, { _id: "n-a", id: "a", pin: "r-1" }),
+		).toEqual({ _id: "n-a", id: "a", pin: "r-1" });
+	});
+
+	it("returns a value already in shape by identity, and null as null", () => {
+		const value = { _id: "n-a", id: "a", values: { role: "lead" } };
+
+		expect(load({ pin_mode: "none" }, value)).toBe(value);
+		expect(load({}, null)).toBeNull();
+	});
+});
+
+describe("a Single Reference's linked Reference Spec", () => {
+	const leaf = (field_type: string, name: string, accessor: string): Field => ({
+		field_type,
+		config: { name, api_accessor: accessor, required: true, instructions: "" },
+		settings: null,
+		children: null,
+		system: false,
+	});
+	const compose = (children: Field[]) =>
+		specToZodSchema(children, builtInFieldTypes);
+	const zodType = singleReferencePlugin.toZodType(
+		singleReferenceField({
+			settings: {
+				spec: [leaf("number", "Page", "page")],
+				blueprints: [
+					{
+						blueprint: "person",
+						spec_blueprint: "rel-1",
+						spec: [leaf("text", "Role", "role")],
+					},
+				],
+			},
+		}),
+		compose,
+		{ targetBlueprint: (id) => (id === "ada" ? "person" : "article") },
+	);
+
+	it("replaces the embedded one for a target of its Blueprint", () => {
+		expect(
+			zodType.safeParse({ _id: "n-1", id: "ada", values: { role: "Author" } })
+				.success,
+		).toBe(true);
+		const parsed = zodType.safeParse({
+			_id: "n-1",
+			id: "ada",
+			values: { page: 3 },
+		});
+		expect(parsed.success).toBe(false);
+		expect(!parsed.success && parsed.error.issues.map((i) => i.path)).toEqual([
+			["values", "role"],
+		]);
+	});
+
+	it("leaves the embedded one for a target of any other Blueprint", () => {
+		expect(
+			zodType.safeParse({ _id: "n-1", id: "post", values: { page: 3 } })
+				.success,
+		).toBe(true);
 	});
 });

@@ -1,0 +1,280 @@
+{
+	"description": "Reference values (ADR-0008, amended): nodes {_id, id, pin?, values?, children?} at every level, each _id unique across the tree; values against the node's Reference Spec — the embedded one, or for a target whose Blueprint links one the linked one instead, never merged (a book's page is no Field of it and is ignored, a film's chapter the same); a Single Reference's one node",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Chapter",
+									"api_accessor": "chapter",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Quote",
+									"api_accessor": "quote",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"blueprint": "film"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Plain",
+				"api_accessor": "plain",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				],
+				"max_items": 3,
+				"max_depth": 2
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "select",
+						"config": {
+							"name": "Role",
+							"api_accessor": "role",
+							"required": false,
+							"instructions": ""
+						},
+						"settings": {
+							"options": {
+								"author": "Author"
+							}
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Cited",
+				"api_accessor": "cited",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Chapter",
+									"api_accessor": "chapter",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Quote",
+									"api_accessor": "quote",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"blueprint": "film"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		}
+	],
+	"targets": {
+		"c-book": "book",
+		"c-book-2": "book",
+		"c-film": "film",
+		"c-other": "comic"
+	},
+	"data": {
+		"related": [
+			{
+				"_id": "n1",
+				"id": "c-book",
+				"pin": "rel-3",
+				"values": {
+					"chapter": 4,
+					"quote": "…",
+					"page": "not a number"
+				}
+			},
+			{
+				"_id": "n2",
+				"id": "c-film",
+				"values": {
+					"page": 12,
+					"chapter": "not a number"
+				},
+				"children": [
+					{
+						"_id": "n3",
+						"id": "c-other",
+						"values": {
+							"note": "nested"
+						}
+					},
+					{
+						"_id": "n4",
+						"id": "c-book-2",
+						"values": {
+							"chapter": 1
+						},
+						"children": [
+							{
+								"_id": "n5",
+								"id": "c-film"
+							}
+						]
+					}
+				]
+			}
+		],
+		"plain": [
+			{
+				"_id": "p1",
+				"id": "x",
+				"children": [
+					{
+						"_id": "p2",
+						"id": "y",
+						"values": {
+							"page": 1
+						}
+					}
+				]
+			},
+			{
+				"_id": "p3",
+				"id": "x"
+			}
+		],
+		"primary": {
+			"_id": "s1",
+			"id": "c-book",
+			"values": {
+				"role": "author"
+			}
+		},
+		"cited": {
+			"_id": "s2",
+			"id": "c-book",
+			"values": {
+				"chapter": 2
+			}
+		}
+	},
+	"expect": {
+		"validateValue": []
+	}
+}

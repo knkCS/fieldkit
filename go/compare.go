@@ -28,8 +28,10 @@ const OrderSegment = "_order"
 // Field is described by inside it.
 //
 //   - A row array — group, virtual_table, blocks — is
-//     {status, items: [...]}, one CompareItem per row of either value.
-//   - A record — fieldset — is {status, fields: {...}}.
+//     {status, items: [...]}, one CompareItem per row of either value; a
+//     reference tree the same, one per node at every level.
+//   - A record — fieldset, and a single_reference holding one node on both
+//     sides — is {status, fields: {...}}.
 //   - rich_text is knkeditor's Comparison, {status, nodes: [...]}, as it
 //     comes (rich_text.go).
 //   - A child Field of any other type is {status} alone.
@@ -64,8 +66,8 @@ type CompareItem struct {
 
 // finerRule is a type's Compare and Merge finer than a whole value. It hands
 // what it holds to the composer, so it never learns its children's types
-// (ADR-0007): a reference tree (#215) plugs in here, as rich_text did
-// (rich_text.go), which delegates to knkeditor.
+// (ADR-0007): the reference types' (reference_compare.go) are here, and
+// rich_text (rich_text.go), which delegates to knkeditor.
 type finerRule struct {
 	compare func(c *composer, f *Field, a, b any) (bool, *CompareDetail, error)
 	merge   func(c *composer, f *Field, base, ours, theirs any, path string) (any, error)
@@ -81,6 +83,10 @@ func finerRuleFor(fieldType string) (finerRule, bool) {
 		return finerRule{compare: compareRowsOf(blockFieldsOf), merge: mergeRowsOf(blockFieldsOf)}, true
 	case "fieldset":
 		return finerRule{compare: compareFieldset, merge: mergeFieldset}, true
+	case "reference":
+		return finerRule{compare: compareReferenceTree, merge: mergeReferenceTree}, true
+	case "single_reference":
+		return finerRule{compare: compareSingleReference, merge: mergeSingleReference}, true
 	case "rich_text":
 		return richTextRule, true
 	}
@@ -367,6 +373,11 @@ func movedIDs(a, b []string) map[string]bool {
 		if inA[id] {
 			cb = append(cb, id)
 		}
+	}
+	// Nothing moved: no table to build — the usual case, a row or node edited
+	// in place, costs linear time and memory.
+	if slices.Equal(ca, cb) {
+		return map[string]bool{}
 	}
 	kept := longestCommonSubsequence(ca, cb)
 	moved := map[string]bool{}

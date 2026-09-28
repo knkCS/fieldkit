@@ -29,7 +29,6 @@ const PAGE_SIZE = 10;
  */
 const PIN_STEP_TITLES: Record<PinningMode, string> = {
 	release: "Choose a release",
-	version: "Choose a version",
 };
 
 /**

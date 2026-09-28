@@ -131,13 +131,13 @@ func TestValidateValueValidIsNil(t *testing.T) {
 }
 
 func TestValidateValueSkipsWhatItDoesNotImplement(t *testing.T) {
-	// The types outside the Catalogue are TS's alone for now: skipped, not
-	// refused — in a row too.
+	// A type outside the Catalogue — a Consumer's own — is skipped, not
+	// refused, in a row too.
 	group := valueField("group", "authors", "")
-	group.Children = []Field{valueField("reference", "related", "")}
+	group.Children = []Field{valueField("legacy", "related", "")}
 	spec := Spec{
 		group,
-		valueField("reference", "related", ""),
+		valueField("legacy", "related", ""),
 	}
 	data := json.RawMessage(`{"authors": [{"_id": "a", "related": 5}], "related": "x"}`)
 	if errs := ValidateValue(spec, data); errs != nil {

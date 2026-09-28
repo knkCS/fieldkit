@@ -45,7 +45,9 @@ type CatalogueType struct {
 }
 
 // CataloguePin is one setting that holds a Pin, and the kind of Release it
-// pins.
+// pins. Key is a /-separated settings path in which * stands for every item
+// of a list: "blueprint" is one setting, "blueprints/*/spec_blueprint" one per
+// blueprints entry (a Reference Field's linked Reference Specs).
 type CataloguePin struct {
 	Key  string `json:"key"`
 	Kind string `json:"kind"`

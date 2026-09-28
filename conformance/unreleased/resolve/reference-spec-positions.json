@@ -1,0 +1,84 @@
+{
+	"description": "A linked Reference Spec's Fields sit in the reference_spec Position once resolved: a group or a Reference Field in the Blueprint Release it links is a position error on the Resolved Spec, and none on the authored Spec, which cannot know what the Release holds",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-bad@1"
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-bad@1": [
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Rows",
+						"api_accessor": "rows",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Cell",
+								"api_accessor": "cell",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "reference",
+					"config": {
+						"name": "Again",
+						"api_accessor": "again",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Fine",
+						"api_accessor": "fine",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/related/settings/blueprints/0/spec/rows",
+				"code": "position"
+			},
+			{
+				"path": "/related/settings/blueprints/0/spec/again",
+				"code": "position"
+			}
+		]
+	}
+}

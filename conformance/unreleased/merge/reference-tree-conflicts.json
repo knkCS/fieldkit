@@ -1,0 +1,215 @@
+{
+	"description": "Moves of one node to different parents on both sides conflict at its _parent; reorders of one sibling list that disagree conflict at its _order (the roots' is _order, a node's <_id>/children/_order); a node one side removed and the other changed conflicts at the node; a Single Reference pointing at different Content on both sides conflicts whole",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"children": [
+						{
+							"_id": "k1",
+							"id": "d1"
+						},
+						{
+							"_id": "k2",
+							"id": "d2"
+						},
+						{
+							"_id": "k3",
+							"id": "d3"
+						}
+					]
+				},
+				{
+					"_id": "n2",
+					"id": "c2"
+				},
+				{
+					"_id": "n3",
+					"id": "c3"
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				},
+				{
+					"_id": "n5",
+					"id": "c5"
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1"
+			}
+		},
+		"ours": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"children": [
+						{
+							"_id": "k2",
+							"id": "d2"
+						},
+						{
+							"_id": "k1",
+							"id": "d1"
+						},
+						{
+							"_id": "k3",
+							"id": "d3"
+						}
+					]
+				},
+				{
+					"_id": "n2",
+					"id": "c2",
+					"children": [
+						{
+							"_id": "n3",
+							"id": "c3"
+						}
+					]
+				},
+				{
+					"_id": "n5",
+					"id": "c5"
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				}
+			],
+			"primary": {
+				"_id": "s2",
+				"id": "c2"
+			}
+		},
+		"theirs": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"children": [
+						{
+							"_id": "k3",
+							"id": "d3"
+						},
+						{
+							"_id": "k1",
+							"id": "d1"
+						},
+						{
+							"_id": "k2",
+							"id": "d2"
+						}
+					]
+				},
+				{
+					"_id": "n4",
+					"id": "c4",
+					"children": [
+						{
+							"_id": "n3",
+							"id": "c3"
+						}
+					]
+				},
+				{
+					"_id": "n2",
+					"id": "c2",
+					"pin": "r1"
+				},
+				{
+					"_id": "n5",
+					"id": "c5",
+					"pin": "r5"
+				}
+			],
+			"primary": {
+				"_id": "s3",
+				"id": "c3"
+			}
+		}
+	},
+	"expect": {
+		"merge": {
+			"related": {
+				"conflicts": [
+					"n3/_parent",
+					"_order",
+					"n1/children/_order"
+				]
+			},
+			"primary": {
+				"conflicts": [
+					""
+				]
+			}
+		}
+	}
+}

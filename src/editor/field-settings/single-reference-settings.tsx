@@ -2,8 +2,9 @@
 import { Stack } from "@chakra-ui/react";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { SettingsProps } from "../../schema/plugin";
-import { BlueprintPicker } from "./blueprint-picker";
 import { PinModePicker } from "./pin-mode-picker";
+import { ReferenceBlueprintsEditor } from "./reference-blueprints-editor";
+import { ReferenceSpecEditor } from "./reference-spec-editor";
 
 /**
  * Type-settings editor for `single_reference`, mounted by the config panel's
@@ -19,19 +20,15 @@ export function SingleReferenceSettingsEditor({
 	settings,
 	field,
 	onChange,
+	onDrillIn,
+	plugins,
 }: SettingsProps<SingleReferenceSettings>) {
 	return (
 		<Stack gap="4">
-			<BlueprintPicker
+			<ReferenceBlueprintsEditor
 				fieldId={field?.config.api_accessor ?? "single_reference"}
-				settingsKey="blueprints"
-				label="Blueprints"
-				helperText="The blueprints this field may point at. Leave empty to allow any."
-				multiple
-				value={settings?.blueprints ?? []}
+				value={settings?.blueprints}
 				onChange={(blueprints) => onChange({ ...settings, blueprints })}
-				selectPlaceholder="Any blueprint"
-				idInputPlaceholder="Blueprint ids, comma separated"
 				idInputTestId="single-reference-blueprints-input"
 			/>
 			<PinModePicker
@@ -39,6 +36,12 @@ export function SingleReferenceSettingsEditor({
 				label="Pin the reference to"
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
+			/>
+			<ReferenceSpecEditor
+				referenceSpec={settings?.spec ?? []}
+				onChange={(spec) => onChange({ ...settings, spec })}
+				plugins={plugins}
+				onDrillIn={onDrillIn}
 			/>
 		</Stack>
 	);

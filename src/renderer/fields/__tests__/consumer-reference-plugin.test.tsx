@@ -52,7 +52,7 @@ function makeField(
 			required: overrides.required ?? false,
 			instructions: "",
 		},
-		settings: { blueprints: ["article"] },
+		settings: { blueprints: [{ blueprint: "article" }] },
 		children: null,
 		system: false,
 	};
@@ -135,7 +135,7 @@ describe("a Consumer-registered reference-shaped plugin, in the renderer", () =>
 		await screen.findByTestId("reference-picker");
 		await user.click(await screen.findByText("Dogs of the world"));
 
-		expect(stored()).toEqual([{ id: "article-2" }]);
+		expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 	});
 
 	it("blocks submit when required and empty, and submits the tree when filled", async () => {
@@ -152,7 +152,7 @@ describe("a Consumer-registered reference-shaped plugin, in the renderer", () =>
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		expect(submitted).toHaveBeenCalledWith({
-			[ACCESSOR]: [{ id: "article-1" }],
+			[ACCESSOR]: [{ _id: expect.any(String), id: "article-1" }],
 		});
 	});
 });

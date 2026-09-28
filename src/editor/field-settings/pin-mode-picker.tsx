@@ -15,15 +15,13 @@ interface PinModeOption {
 /**
  * What each mode is called where an Author reads it.
  *
- * The two pinning modes are named after the things they pin to; not pinning is
- * named after what it gets you, because "none" says nothing about the
- * behaviour. Fieldkit names the two kinds — the setting already does — without
- * modelling either of them (ADR-0002).
+ * Pinning is named after what it pins to — a Release, the only thing a Pin may
+ * name (ADR-0008, amended); not pinning is named after what it gets you,
+ * because "none" says nothing about the behaviour.
  */
 const PIN_MODE_OPTIONS: PinModeOption[] = [
-	{ id: "none", label: "The newest version" },
+	{ id: "none", label: "The release in force" },
 	{ id: "release", label: "A chosen release" },
-	{ id: "version", label: "A chosen version" },
 ];
 
 export interface PinModePickerProps {
@@ -113,7 +111,7 @@ export function PinModePicker({
 			) : (
 				<Text fontSize="xs" color="fg.muted" mt="1">
 					Changing this strands every pin already saved — those references fall
-					back to the newest version.
+					back to the release in force.
 				</Text>
 			)}
 		</Box>

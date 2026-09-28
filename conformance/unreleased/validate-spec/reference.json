@@ -1,0 +1,303 @@
+{
+	"description": "Reference and Single Reference settings (ADR-0008, amended): Blueprints each with an optional linked Reference Spec, an embedded Reference Spec in the reference_spec Position, pin_mode none or release and the tree's caps — valid; and each thing refused: an unknown setting, the removed version pin_mode, a Blueprint as a bare string, a Blueprint listed twice, an entry's spec without a spec_blueprint, a Reference Spec that is not Fields, and a Field in a Reference Spec that may not sit there",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1"
+					},
+					{
+						"blueprint": "film"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release",
+				"max_items": 20,
+				"max_depth": 3
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "select",
+						"config": {
+							"name": "Role",
+							"api_accessor": "role",
+							"required": false,
+							"instructions": ""
+						},
+						"settings": {
+							"options": {
+								"author": "Author"
+							}
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "none"
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Legacy",
+				"api_accessor": "legacy",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					"book"
+				],
+				"attributes": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "version"
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Twice",
+				"api_accessor": "twice",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book"
+					},
+					{
+						"blueprint": "film"
+					},
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1"
+					},
+					{
+						"blueprint": "comic",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Page",
+									"api_accessor": "page",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				],
+				"spec": [
+					"page"
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Misplaced",
+				"api_accessor": "misplaced",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "group",
+						"config": {
+							"name": "Group",
+							"api_accessor": "group",
+							"required": false,
+							"instructions": ""
+						},
+						"children": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						],
+						"system": false
+					},
+					{
+						"field_type": "reference",
+						"config": {
+							"name": "Nested",
+							"api_accessor": "nested",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "section",
+						"config": {
+							"name": "Tab",
+							"api_accessor": "tab",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "_hidden",
+							"api_accessor": "_hidden",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "single_reference",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "reference",
+					"config": {
+						"name": "Cells",
+						"api_accessor": "cells",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/legacy/settings/blueprints/0",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/legacy/settings/attributes",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/pin_mode",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/twice/settings/blueprints/2/blueprint",
+				"code": "duplicate_blueprint"
+			},
+			{
+				"path": "/twice/settings/blueprints/3/spec",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/twice/settings/spec",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/misplaced/settings/spec/group",
+				"code": "position"
+			},
+			{
+				"path": "/misplaced/settings/spec/nested",
+				"code": "position"
+			},
+			{
+				"path": "/misplaced/settings/spec/tab",
+				"code": "position"
+			},
+			{
+				"path": "/misplaced/settings/spec/_hidden",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/rows/children/cells",
+				"code": "position"
+			}
+		]
+	}
+}

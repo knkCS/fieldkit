@@ -27,7 +27,7 @@ const field: Field<ReferenceSettings> = {
 		required: false,
 		instructions: "",
 	},
-	settings: { blueprints: ["article"] },
+	settings: { blueprints: [{ blueprint: "article" }] },
 	children: null,
 	system: false,
 };
@@ -355,7 +355,7 @@ describe("the depth an insertion strip offers", () => {
 			// A tree well within a two-level cap, so the ceiling is the only
 			// thing that can bind.
 			value: [{ id: "article-1", children: [{ id: "article-2" }] }],
-			settings: { blueprints: ["article"], max_depth: 2 },
+			settings: { blueprints: [{ blueprint: "article" }], max_depth: 2 },
 		});
 		await screen.findByText("Content 1");
 
@@ -367,7 +367,7 @@ describe("the depth an insertion strip offers", () => {
 	it("offers the deeper level once max_depth allows it", async () => {
 		renderTree({
 			value: [{ id: "article-1", children: [{ id: "article-2" }] }],
-			settings: { blueprints: ["article"], max_depth: 3 },
+			settings: { blueprints: [{ blueprint: "article" }], max_depth: 3 },
 		});
 		await screen.findByText("Content 1");
 
@@ -462,7 +462,7 @@ describe("inserting through a strip", () => {
 				children: [
 					{ id: "article-2" },
 					{ id: "article-3" },
-					{ id: "article-5" },
+					{ _id: expect.any(String), id: "article-5" },
 				],
 			},
 			{ id: "article-4" },
@@ -482,6 +482,7 @@ describe("inserting through a strip", () => {
 		expect(stored()).toEqual([
 			{ id: "article-1" },
 			{
+				_id: expect.any(String),
 				id: "article-5",
 				children: [{ id: "article-2" }, { id: "article-3" }],
 			},
@@ -524,7 +525,10 @@ describe("inserting through a strip", () => {
 		expect(stored()).toEqual([
 			{
 				id: "article-1",
-				children: [{ id: "article-2" }, { id: "article-5" }],
+				children: [
+					{ id: "article-2" },
+					{ _id: expect.any(String), id: "article-5" },
+				],
 			},
 			{ id: "article-3" },
 		]);
@@ -579,7 +583,10 @@ describe("inserting through a strip", () => {
 		const picker = await screen.findByTestId("reference-picker");
 		await user.click(await within(picker).findByText("Content 5"));
 
-		expect(stored()).toEqual([...branchedTree, { id: "article-5" }]);
+		expect(stored()).toEqual([
+			...branchedTree,
+			{ _id: expect.any(String), id: "article-5" },
+		]);
 	});
 });
 
@@ -680,7 +687,7 @@ describe("reaching an insertion strip without a pointer", () => {
 		const user = userEvent.setup();
 		renderTree({
 			value: branchedTree,
-			settings: { blueprints: ["article"], max_items: 4 },
+			settings: { blueprints: [{ blueprint: "article" }], max_items: 4 },
 		});
 		await screen.findByText("Content 1");
 
@@ -743,7 +750,7 @@ describe("choosing the depth from the keyboard", () => {
 		const user = userEvent.setup();
 		renderTree({
 			value: [{ id: "article-1", children: [{ id: "article-2" }] }],
-			settings: { blueprints: ["article"], max_depth: 2 },
+			settings: { blueprints: [{ blueprint: "article" }], max_depth: 2 },
 		});
 		await screen.findByText("Content 1");
 
@@ -891,7 +898,7 @@ describe("the two ways off an insertion strip", () => {
 				children: [
 					{ id: "article-2" },
 					{ id: "article-3" },
-					{ id: "article-5" },
+					{ _id: expect.any(String), id: "article-5" },
 				],
 			},
 			{ id: "article-4" },
@@ -903,7 +910,7 @@ describe("when the strips stand down", () => {
 	it("disables them at max_items", async () => {
 		renderTree({
 			value: branchedTree,
-			settings: { blueprints: ["article"], max_items: 4 },
+			settings: { blueprints: [{ blueprint: "article" }], max_items: 4 },
 		});
 		await screen.findByText("Content 1");
 
@@ -917,7 +924,7 @@ describe("when the strips stand down", () => {
 	it("leaves them alone below the cap, and with no cap set at all", async () => {
 		const capped = renderTree({
 			value: branchedTree,
-			settings: { blueprints: ["article"], max_items: 5 },
+			settings: { blueprints: [{ blueprint: "article" }], max_items: 5 },
 		});
 		await screen.findByText("Content 1");
 		for (const strip of strips()) expect(strip).not.toBeDisabled();

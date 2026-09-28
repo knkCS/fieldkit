@@ -35,7 +35,7 @@ function makeField(
 			required: overrides.required ?? false,
 			instructions: "",
 		},
-		settings: overrides.settings ?? { blueprints: ["article"] },
+		settings: overrides.settings ?? { blueprints: [{ blueprint: "article" }] },
 		children: null,
 		system: false,
 	};
@@ -146,7 +146,7 @@ describe("SingleReferenceField", () => {
 		await user.click(control());
 		await user.click(await screen.findByText("Cats of the world"));
 
-		expect(stored()).toEqual({ id: "article-1" });
+		expect(stored()).toEqual({ _id: expect.any(String), id: "article-1" });
 	});
 
 	it("offers only Contents matching the Field's Blueprints", async () => {
@@ -252,7 +252,10 @@ describe("SingleReferenceField", () => {
 			contents: fakeCatalogue(50),
 			ignoreExcludeIds: true,
 		});
-		const { control } = renderField({ value: { id: "article-1" }, adapter });
+		const { control } = renderField({
+			value: { _id: "r1", id: "article-1" },
+			adapter,
+		});
 
 		await user.click(control());
 		expect(await screen.findByText("Content 2")).toBeInTheDocument();
@@ -283,7 +286,10 @@ describe("SingleReferenceField", () => {
 		// page one already showed as its fiftieth — a duplicate option, and a
 		// duplicate React key.
 		const adapter = createFakeReferenceAdapter({ contents: fakeCatalogue(60) });
-		const { control } = renderField({ value: { id: "article-1" }, adapter });
+		const { control } = renderField({
+			value: { _id: "r1", id: "article-1" },
+			adapter,
+		});
 
 		await screen.findByText("Content 1");
 		await user.click(control());
@@ -310,7 +316,7 @@ describe("SingleReferenceField", () => {
 	});
 
 	it("shows the stored Content's current name, resolved on load", async () => {
-		renderField({ value: { id: "article-2" } });
+		renderField({ value: { _id: "r1", id: "article-2" } });
 
 		expect(await screen.findByText("Dogs of the world")).toBeInTheDocument();
 	});
@@ -319,7 +325,7 @@ describe("SingleReferenceField", () => {
 		const adapter = createFakeReferenceAdapter();
 		adapter.rename("article-2", "Dogs of the whole world");
 
-		renderField({ value: { id: "article-2" }, adapter });
+		renderField({ value: { _id: "r1", id: "article-2" }, adapter });
 
 		expect(
 			await screen.findByText("Dogs of the whole world"),
@@ -327,12 +333,12 @@ describe("SingleReferenceField", () => {
 	});
 
 	it("still renders a Content it cannot resolve, showing its id", async () => {
-		renderField({ value: { id: "deleted-42" } });
+		renderField({ value: { _id: "r1", id: "deleted-42" } });
 
 		expect(await screen.findByText("deleted-42")).toBeInTheDocument();
 		// And the value is left exactly as it was — an unresolvable Content is
 		// not silently dropped from the form data.
-		expect(stored()).toEqual({ id: "deleted-42" });
+		expect(stored()).toEqual({ _id: "r1", id: "deleted-42" });
 	});
 
 	it("reads a blank id as no Reference, not as a Content with no name", async () => {
@@ -342,12 +348,12 @@ describe("SingleReferenceField", () => {
 		// of all. Handed to the select as a bare id it would render an option
 		// with a blank label: placeholder suppressed, clear button offered,
 		// reading as a Reference whose name failed to load.
-		renderField({ value: { id: "" }, adapter });
+		renderField({ value: { _id: "r1", id: "" }, adapter });
 
 		expect(await screen.findByText("Search content...")).toBeInTheDocument();
 		// And the value is left exactly as it was: reading a stored value is
 		// never an occasion to rewrite it.
-		expect(stored()).toEqual({ id: "" });
+		expect(stored()).toEqual({ _id: "r1", id: "" });
 	});
 
 	it("still renders the stored Content when resolution fails", async () => {
@@ -356,7 +362,7 @@ describe("SingleReferenceField", () => {
 			failFetch: new Error("gateway down"),
 		});
 
-		renderField({ value: { id: "article-2" }, adapter, onError });
+		renderField({ value: { _id: "r1", id: "article-2" }, adapter, onError });
 
 		expect(await screen.findByText("article-2")).toBeInTheDocument();
 		await waitFor(() =>
@@ -366,7 +372,7 @@ describe("SingleReferenceField", () => {
 
 	it("clears back to no Reference", async () => {
 		const user = userEvent.setup();
-		const { control } = renderField({ value: { id: "article-1" } });
+		const { control } = renderField({ value: { _id: "r1", id: "article-1" } });
 
 		await screen.findByText("Cats of the world");
 		await user.click(control());
@@ -377,13 +383,15 @@ describe("SingleReferenceField", () => {
 
 	it("replaces the stored Reference when another Content is picked", async () => {
 		const user = userEvent.setup();
-		const { control } = renderField({ value: { id: "article-1" } });
+		const { control } = renderField({ value: { _id: "r1", id: "article-1" } });
 
 		await user.click(control());
 		await user.click(await screen.findByText("Dogs of the world"));
 
-		// One Reference or none — never an array.
-		expect(stored()).toEqual({ id: "article-2" });
+		// One Reference or none — never an array. A different Content is a new
+		// Reference, so it gets a new `_id` (ADR-0023).
+		expect(stored()).toEqual({ _id: expect.any(String), id: "article-2" });
+		expect(stored()).not.toMatchObject({ _id: "r1" });
 	});
 
 	describe("the Content it already holds", () => {
@@ -397,7 +405,9 @@ describe("SingleReferenceField", () => {
 
 		it("is not offered as a change", async () => {
 			const user = userEvent.setup();
-			const { control } = renderField({ value: { id: "article-1" } });
+			const { control } = renderField({
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			await screen.findByText("Cats of the world");
 			await user.click(control());
@@ -412,7 +422,9 @@ describe("SingleReferenceField", () => {
 
 		it("is still shown in the control, though it is not on offer", async () => {
 			const user = userEvent.setup();
-			const { control } = renderField({ value: { id: "article-1" } });
+			const { control } = renderField({
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			await user.click(control());
 
@@ -424,7 +436,10 @@ describe("SingleReferenceField", () => {
 		it("tells the Adapter which Content it already references", async () => {
 			const user = userEvent.setup();
 			const adapter = createFakeReferenceAdapter();
-			const { control } = renderField({ value: { id: "article-1" }, adapter });
+			const { control } = renderField({
+				value: { _id: "r1", id: "article-1" },
+				adapter,
+			});
 
 			await user.click(control());
 
@@ -447,7 +462,10 @@ describe("SingleReferenceField", () => {
 		it("stays out of the menu even when the Adapter ignores the field", async () => {
 			const user = userEvent.setup();
 			const adapter = createFakeReferenceAdapter({ ignoreExcludeIds: true });
-			const { control } = renderField({ value: { id: "article-1" }, adapter });
+			const { control } = renderField({
+				value: { _id: "r1", id: "article-1" },
+				adapter,
+			});
 
 			await screen.findByText("Cats of the world");
 			await user.click(control());
@@ -462,7 +480,9 @@ describe("SingleReferenceField", () => {
 
 		it("is offered again once the Reference is cleared", async () => {
 			const user = userEvent.setup();
-			const { control } = renderField({ value: { id: "article-1" } });
+			const { control } = renderField({
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			await screen.findByText("Cats of the world");
 			await user.click(control());
@@ -505,7 +525,7 @@ describe("SingleReferenceField", () => {
 
 		await waitFor(() =>
 			expect(submitted).toHaveBeenCalledWith({
-				[ACCESSOR]: { id: "article-1" },
+				[ACCESSOR]: { _id: expect.any(String), id: "article-1" },
 			}),
 		);
 	});
@@ -554,7 +574,7 @@ describe("SingleReferenceField", () => {
 						adapters={{ reference: adapter }}
 						onError={onError}
 					>
-						<StrictModeForm value={{ id: "article-2" }} />
+						<StrictModeForm value={{ _id: "r1", id: "article-2" }} />
 					</FieldKitProvider>
 				</ChakraProvider>
 			</StrictMode>,
@@ -569,7 +589,7 @@ describe("SingleReferenceField", () => {
 
 	it("cannot be changed in read-only mode", async () => {
 		const { control } = renderField({
-			value: { id: "article-1" },
+			value: { _id: "r1", id: "article-1" },
 			readOnly: true,
 		});
 
@@ -578,9 +598,9 @@ describe("SingleReferenceField", () => {
 	});
 
 	describe("pinning", () => {
-		function pinningField(pinMode: "release" | "version" = "release") {
+		function pinningField(pinMode: "release" = "release") {
 			return makeField({
-				settings: { blueprints: ["article"], pin_mode: pinMode },
+				settings: { blueprints: [{ blueprint: "article" }], pin_mode: pinMode },
 			});
 		}
 
@@ -592,7 +612,10 @@ describe("SingleReferenceField", () => {
 		it("renders no second select when the Field does not pin", () => {
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "none" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "none",
+					},
 				}),
 			});
 
@@ -607,7 +630,10 @@ describe("SingleReferenceField", () => {
 		});
 
 		it("renders a second select beside the Content select when it pins", async () => {
-			renderField({ field: pinningField(), value: { id: "article-1" } });
+			renderField({
+				field: pinningField(),
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			// Both on screen at once: one Content and its Release chosen without
 			// a drawer in sight.
@@ -619,41 +645,53 @@ describe("SingleReferenceField", () => {
 			const user = userEvent.setup();
 			const adapter = createFakeReferenceAdapter();
 			renderField({
-				field: pinningField("version"),
-				value: { id: "article-1" },
+				field: pinningField(),
+				value: { _id: "r1", id: "article-1" },
 				adapter,
 			});
 
-			await user.click(pinControl(/Version/));
+			await user.click(pinControl());
 
-			expect(await screen.findByText("Version 3")).toBeInTheDocument();
-			expect(screen.queryByText("Spring release")).not.toBeInTheDocument();
+			// The fake words each kind so it cannot be mistaken for another: a
+			// Release on screen, and no Version, proves `pin_mode` chose it.
+			expect(await screen.findByText("Spring release")).toBeInTheDocument();
+			expect(screen.queryByText("Version 3")).not.toBeInTheDocument();
 			await waitFor(() =>
 				expect(adapter.pinTargetQueries).toContainEqual({
 					contentId: "article-1",
-					mode: "version",
+					mode: "release",
 				}),
 			);
 		});
 
 		it("stores only the target id", async () => {
 			const user = userEvent.setup();
-			renderField({ field: pinningField(), value: { id: "article-1" } });
+			renderField({
+				field: pinningField(),
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			await user.click(pinControl());
 			await user.click(await screen.findByText("Spring release"));
 
 			// Which kind of target it is is never written down — the Field's
 			// `pin_mode` is the only thing that says (ADR-0008).
-			expect(stored()).toEqual({ id: "article-1", pin: "article-1-r2" });
+			expect(stored()).toEqual({
+				_id: "r1",
+				id: "article-1",
+				pin: "article-1-r2",
+			});
 		});
 
 		it("stores no Pin at all until one is chosen", async () => {
-			renderField({ field: pinningField(), value: { id: "article-1" } });
+			renderField({
+				field: pinningField(),
+				value: { _id: "r1", id: "article-1" },
+			});
 
 			// A Reference with no Pin resolves to the newest Version, and the
 			// control says so where a chosen target would otherwise read.
-			expect(stored()).toEqual({ id: "article-1" });
+			expect(stored()).toEqual({ _id: "r1", id: "article-1" });
 			expect(await screen.findByText("Newest version")).toBeInTheDocument();
 		});
 
@@ -661,20 +699,20 @@ describe("SingleReferenceField", () => {
 			const user = userEvent.setup();
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "article-1-r2" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-r2" },
 			});
 
 			await screen.findByText("Spring release");
 			await user.click(pinControl());
 			await user.keyboard("{Backspace}");
 
-			expect(stored()).toEqual({ id: "article-1" });
+			expect(stored()).toEqual({ _id: "r1", id: "article-1" });
 		});
 
 		it("shows a stored Pin under its current label", async () => {
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "article-1-r1" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-r1" },
 			});
 
 			expect(await screen.findByText("Launch")).toBeInTheDocument();
@@ -685,20 +723,24 @@ describe("SingleReferenceField", () => {
 				field: pinningField(),
 				// What a `pin_mode` change leaves behind: an id that no longer
 				// names anything this Field offers.
-				value: { id: "article-1", pin: "article-1-v2" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-v2" },
 			});
 
 			expect(await screen.findByText("article-1-v2")).toBeInTheDocument();
 			// And the stored value is left exactly as it was — nulling a stranded
 			// Pin is the Consumer's upgrade to do, not this control's.
-			expect(stored()).toEqual({ id: "article-1", pin: "article-1-v2" });
+			expect(stored()).toEqual({
+				_id: "r1",
+				id: "article-1",
+				pin: "article-1-v2",
+			});
 		});
 
 		it("clears the Pin when the Content changes", async () => {
 			const user = userEvent.setup();
 			const { control } = renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "article-1-r2" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-r2" },
 			});
 
 			await screen.findByText("Spring release");
@@ -706,7 +748,7 @@ describe("SingleReferenceField", () => {
 			await user.click(await screen.findByText("Dogs of the world"));
 
 			// A Pin can never point at a Release of a different Content.
-			expect(stored()).toEqual({ id: "article-2" });
+			expect(stored()).toEqual({ _id: expect.any(String), id: "article-2" });
 		});
 
 		it("never offers the previous Content's targets after a change", async () => {
@@ -729,7 +771,7 @@ describe("SingleReferenceField", () => {
 			});
 			const { control } = renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "r-cats" },
+				value: { _id: "r1", id: "article-1", pin: "r-cats" },
 				adapter,
 			});
 
@@ -750,7 +792,7 @@ describe("SingleReferenceField", () => {
 			const user = userEvent.setup();
 			const { control } = renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "article-1-r2" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-r2" },
 			});
 
 			await screen.findByText("Cats of the world");
@@ -773,7 +815,7 @@ describe("SingleReferenceField", () => {
 			});
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1" },
+				value: { _id: "r1", id: "article-1" },
 				adapter,
 				onError,
 			});
@@ -782,13 +824,13 @@ describe("SingleReferenceField", () => {
 				expect(onError).toHaveBeenCalledWith(expect.any(Error), ACCESSOR),
 			);
 			expect(pinControl()).toBeInTheDocument();
-			expect(stored()).toEqual({ id: "article-1" });
+			expect(stored()).toEqual({ _id: "r1", id: "article-1" });
 		});
 
 		it("cannot be changed in read-only mode", async () => {
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1", pin: "article-1-r2" },
+				value: { _id: "r1", id: "article-1", pin: "article-1-r2" },
 				readOnly: true,
 			});
 
@@ -803,7 +845,7 @@ describe("SingleReferenceField", () => {
 			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1" },
+				value: { _id: "r1", id: "article-1" },
 				adapter,
 				onError,
 			});
@@ -811,7 +853,7 @@ describe("SingleReferenceField", () => {
 			await screen.findByText("Cats of the world");
 			expect(await screen.findByText("Newest version")).toBeInTheDocument();
 			expect(pinControl()).toBeInTheDocument();
-			expect(stored()).toEqual({ id: "article-1" });
+			expect(stored()).toEqual({ _id: "r1", id: "article-1" });
 		});
 
 		it("does not report the omission through onError", async () => {
@@ -819,7 +861,7 @@ describe("SingleReferenceField", () => {
 			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
 			renderField({
 				field: pinningField(),
-				value: { id: "article-1" },
+				value: { _id: "r1", id: "article-1" },
 				adapter,
 				onError,
 			});

@@ -1,0 +1,345 @@
+{
+	"description": "Reference values refused: a node without an _id (missing_id, by index), an _id repeated at another level (duplicate_id), a missing or non-string id, a non-string Pin, values that are not a record or break their Reference Spec — the linked one for a book, whose required chapter is required even with no values at all, the embedded one for a film — children that are not a list, max_items over every level (too_many_items at the Field) and max_depth at the shallowest node past it (invalid_value); a Single Reference the same",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Chapter",
+									"api_accessor": "chapter",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Quote",
+									"api_accessor": "quote",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"blueprint": "film"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Capped",
+				"api_accessor": "capped",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"max_items": 2,
+				"max_depth": 1
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "select",
+						"config": {
+							"name": "Role",
+							"api_accessor": "role",
+							"required": false,
+							"instructions": ""
+						},
+						"settings": {
+							"options": {
+								"author": "Author"
+							}
+						},
+						"system": false
+					},
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Rank",
+							"api_accessor": "rank",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Cited",
+				"api_accessor": "cited",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Chapter",
+									"api_accessor": "chapter",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Quote",
+									"api_accessor": "quote",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"blueprint": "film"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		}
+	],
+	"targets": {
+		"c-book": "book",
+		"c-book-2": "book",
+		"c-film": "film",
+		"c-other": "comic"
+	},
+	"data": {
+		"related": [
+			{
+				"id": "c-film"
+			},
+			{
+				"_id": "n1",
+				"id": "c-book",
+				"values": {
+					"quote": "no chapter"
+				}
+			},
+			{
+				"_id": "n2",
+				"id": "c-book"
+			},
+			{
+				"_id": "n3",
+				"id": "c-film",
+				"values": {
+					"page": "twelve"
+				},
+				"children": [
+					{
+						"_id": "n1",
+						"id": "c-film"
+					},
+					{
+						"_id": "n4",
+						"pin": 7
+					},
+					{
+						"_id": "n5",
+						"id": 5,
+						"values": {
+							"chapter": "x"
+						}
+					}
+				]
+			},
+			{
+				"_id": "n6",
+				"id": "c-film",
+				"values": "a string",
+				"children": "not a list"
+			}
+		],
+		"capped": [
+			{
+				"_id": "a",
+				"id": "x",
+				"children": [
+					{
+						"_id": "b",
+						"id": "y",
+						"children": [
+							{
+								"_id": "c",
+								"id": "z"
+							}
+						]
+					}
+				]
+			}
+		],
+		"primary": {
+			"id": "c-book",
+			"values": {
+				"role": 3
+			}
+		},
+		"cited": {
+			"_id": "s2",
+			"id": "c-book",
+			"values": {
+				"page": 3
+			}
+		}
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/related/0",
+				"code": "missing_id"
+			},
+			{
+				"path": "/related/n1/values/chapter",
+				"code": "required"
+			},
+			{
+				"path": "/related/n2/values/chapter",
+				"code": "required"
+			},
+			{
+				"path": "/related/n3/values/page",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n3/children/n1",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/related/n3/children/n4/id",
+				"code": "required"
+			},
+			{
+				"path": "/related/n3/children/n4/pin",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n3/children/n5/id",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n6/values",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n6/children",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/capped",
+				"code": "too_many_items"
+			},
+			{
+				"path": "/capped/a/children/b",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/primary",
+				"code": "missing_id"
+			},
+			{
+				"path": "/primary/values/role",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/primary/values/rank",
+				"code": "required"
+			},
+			{
+				"path": "/cited/values/chapter",
+				"code": "required"
+			}
+		]
+	}
+}

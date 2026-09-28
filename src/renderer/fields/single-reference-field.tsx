@@ -13,7 +13,7 @@ import { useWatch } from "react-hook-form";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { FieldProps } from "../../schema/plugin";
 import type { PinningMode, Reference } from "../../schema/reference";
-import { withPin } from "../../schema/reference";
+import { referenceBlueprintIds, withPin } from "../../schema/reference";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { usePinTargets } from "../hooks/use-pin-targets";
 import { useStableValue } from "../hooks/use-stable-value";
@@ -46,7 +46,6 @@ const MENU_PAGE_SIZE = 50;
  */
 const PIN_LABELS: Record<PinningMode, string> = {
 	release: "Release",
-	version: "Version",
 };
 
 /**
@@ -94,7 +93,7 @@ export function SingleReferenceField({
 
 	// A Consumer's settings object is a fresh literal on every render, and the
 	// search callback's deps must not churn with it.
-	const blueprints = useStableValue(settings?.blueprints ?? []);
+	const blueprints = useStableValue(referenceBlueprintIds(settings));
 
 	// Absent reads as "does not pin", so a Spec authored before pinning existed
 	// keeps its single select.
@@ -352,8 +351,8 @@ export function SingleReferenceField({
 								// A different Content is a different Reference, so the Pin
 								// goes with it: a Pin can never point at a Release of
 								// another Content. One Reference or none — never an
-								// array, and never a name.
-								formField.onChange({ id: option.id });
+								// array, and never a name — and a new `_id` (ADR-0023).
+								formField.onChange(withPin(null, option.id, null));
 							}}
 							placeholder="Search content..."
 							emptyMessage="No content matches"

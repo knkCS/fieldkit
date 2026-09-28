@@ -185,6 +185,9 @@ type valueContext struct {
 	scanned  bool
 	invalid  []string
 	richText *richTextContext
+	// targetBlueprint is WithTargetBlueprints', nil when not given: which
+	// Reference Spec a Reference's values follow (reference.go).
+	targetBlueprint func(contentID string) string
 }
 
 // invalidJSONWithin are the paths, /-separated with each row as its _id, of

@@ -53,9 +53,10 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // The containers dispatch what they hold to its own types (ADR-0007): a
 // group's or virtual_table's rows and a resolved fieldset's record are
 // checked against their children, a block against its Block Type's Fields,
-// at every depth. Every row carries an _id (ADR-0023) — a row without one is
-// CodeMissingID at the row, a repeat within its array CodeDuplicateID at the
-// repeat.
+// a Reference's values against its Reference Spec, at every depth. Every row
+// and Reference node carries an _id (ADR-0023) — a row without one is
+// CodeMissingID at the row, a repeat within its array (for a Reference Tree,
+// anywhere in the tree) CodeDuplicateID at the repeat.
 //
 // Paths are /-separated from the data's root: a Field is its Accessor, an
 // object entry its key, and an array item its _id where it holds a
@@ -72,26 +73,28 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // against knkeditor's vocabulary alone: ValidateResolvedValue checks it
 // against the Text Type its Field pins.
 //
-// Not yet implemented, and skipped: the types the Catalogue does not list
-// (reference, single_reference). TS validates them; the conformance fixtures
-// stay clear of them until Go does.
-func ValidateValue(spec Spec, data json.RawMessage) []Error {
-	return validateValue(spec, data, &richTextContext{})
+// A Reference's value carries no Blueprint id (ADR-0008, amended), so a
+// Reference Field that links a Reference Spec for some Blueprints needs to be
+// told whose Blueprint each target is (WithTargetBlueprints) to check its
+// References' values; without it those values are an opaque record.
+func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
+	return validateValue(spec, data, &richTextContext{}, valueOptionsOf(opts))
 }
 
 // ValidateResolvedValue is ValidateValue against a Resolved Spec (ADR-0020):
 // its Fields, and — for each rich_text Field — the Text Type its text_type
 // setting pins, from the Resolved Spec's parts. A Text Type the parts do not
 // hold, or one knkeditor cannot use, is one CodeInvalidRichText at the Field.
-// A nil Resolved Spec has no Fields.
-func ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage) []Error {
+// A nil Resolved Spec has no Fields. opts are ValidateValue's.
+func ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) []Error {
+	o := valueOptionsOf(opts)
 	if resolved == nil {
-		return validateValue(nil, data, &richTextContext{strict: true})
+		return validateValue(nil, data, &richTextContext{strict: true}, o)
 	}
-	return validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true})
+	return validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true}, o)
 }
 
-func validateValue(spec Spec, data json.RawMessage, richText *richTextContext) []Error {
+func validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o valueOptions) []Error {
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(data))
@@ -108,7 +111,7 @@ func validateValue(spec Spec, data json.RawMessage, richText *richTextContext) [
 
 	// The caps come first and cover the whole document, keys the Spec does
 	// not name included: nothing else walks a document beyond them.
-	errs := &valueErrors{ctx: &valueContext{data: bytes.TrimSpace(data), decoded: obj, richText: richText}}
+	errs := &valueErrors{ctx: &valueContext{data: bytes.TrimSpace(data), decoded: obj, richText: richText, targetBlueprint: o.targetBlueprint}}
 	if capErrors(obj, "", errs) {
 		return errs.list
 	}
@@ -161,7 +164,31 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 	}
 }
 
-// valueErrors collects errors, each {path, code} once, as TS does.
+// ValueOption configures ValidateValue, Edges and Texts.
+type ValueOption func(*valueOptions)
+
+type valueOptions struct {
+	targetBlueprint func(contentID string) string
+}
+
+// WithTargetBlueprints says whose Blueprint each referenced Content is — ""
+// when not known — so a Reference Field that links a Reference Spec checks
+// and walks each Reference's values against the Reference Spec its target's
+// Blueprint has (ADR-0008, amended). TS's ValueContext.targetBlueprint.
+func WithTargetBlueprints(blueprintOf func(contentID string) string) ValueOption {
+	return func(o *valueOptions) { o.targetBlueprint = blueprintOf }
+}
+
+func valueOptionsOf(opts []ValueOption) valueOptions {
+	var o valueOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+// valueErrors collects errors, each {path, code} once, as TS does, and
+// carries what the value rules are told beside the Spec (ValueOption).
 type valueErrors struct {
 	list []Error
 	seen map[string]bool

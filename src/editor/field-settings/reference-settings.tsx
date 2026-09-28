@@ -2,10 +2,10 @@
 import { Stack } from "@chakra-ui/react";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import type { SettingsProps } from "../../schema/plugin";
-import { AttributeSpecEditor } from "./attribute-spec-editor";
-import { BlueprintPicker } from "./blueprint-picker";
 import { CapInput } from "./cap-input";
 import { PinModePicker } from "./pin-mode-picker";
+import { ReferenceBlueprintsEditor } from "./reference-blueprints-editor";
+import { ReferenceSpecEditor } from "./reference-spec-editor";
 
 /**
  * Type-settings editor for `reference`, mounted by the config panel's Type
@@ -41,16 +41,10 @@ export function ReferenceSettingsEditor({
 
 	return (
 		<Stack gap="4">
-			<BlueprintPicker
+			<ReferenceBlueprintsEditor
 				fieldId={field?.config.api_accessor ?? "reference"}
-				settingsKey="blueprints"
-				label="Blueprints"
-				helperText="The blueprints this field may point at. Leave empty to allow any."
-				multiple
-				value={settings?.blueprints ?? []}
+				value={settings?.blueprints}
 				onChange={(blueprints) => onChange({ ...settings, blueprints })}
-				selectPlaceholder="Any blueprint"
-				idInputPlaceholder="Blueprint ids, comma separated"
 				idInputTestId="reference-blueprints-input"
 			/>
 			<CapInput
@@ -91,9 +85,9 @@ export function ReferenceSettingsEditor({
 				value={settings?.pin_mode ?? "none"}
 				onChange={(pin_mode) => onChange({ ...settings, pin_mode })}
 			/>
-			<AttributeSpecEditor
-				attributeSpec={settings?.attributes ?? []}
-				onChange={(attributes) => onChange({ ...settings, attributes })}
+			<ReferenceSpecEditor
+				referenceSpec={settings?.spec ?? []}
+				onChange={(spec) => onChange({ ...settings, spec })}
 				plugins={plugins}
 				onDrillIn={onDrillIn}
 			/>

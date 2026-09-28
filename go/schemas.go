@@ -24,15 +24,16 @@ type Comparer interface {
 }
 
 // Merger is a Comparer that merges finer than a whole value: versionkit's
-// FieldMerger, structurally. The types that hold rows or a record — group,
-// virtual_table, blocks, fieldset — are Mergers, and so is rich_text, which
-// knkeditor merges node by node; every other type is a Comparer only, and
-// versionkit merges it as a whole value.
+// FieldMerger, structurally. The types that hold rows, nodes or a record —
+// group, virtual_table, blocks, fieldset, reference, single_reference — are
+// Mergers, and so is rich_text, which knkeditor merges node by node; every
+// other type is a Comparer only, and versionkit merges it as a whole value.
 //
 // Merge three-way merges three present values of the Field. It returns the
 // merged value when clean, or the conflicting paths within the value when not
 // (merged is then nil): /-separated, without a leading /, each segment an
-// Accessor, a row's _id, or _order for the order of a row array; inside a
+// Accessor, a row's or node's _id, _parent for a tree node's parent, or
+// _order for the order of a row array or a node's children; inside a
 // rich_text value, a top-level node's id (or knkeditor's JSON Pointer) —
 // versionkit prefixes the Field's Accessor. err is a failure, never a
 // Conflict.

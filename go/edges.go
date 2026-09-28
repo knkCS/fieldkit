@@ -6,10 +6,10 @@ import (
 )
 
 // The Content Graph's edge kinds a Field Type yields (contenthub ADR 0009):
-// media from a media Field, and link, footnote and media from rich text,
-// which knkeditor reads (#216). reference (#215) plugs in beside them. The
-// graph's other kinds — toc, include, exclude, replace, annotate, blueprint —
-// are the Consumer's, or the publishing package's.
+// media from a media Field, reference from a Reference (EdgeReference, in
+// reference.go), and link, footnote and media from rich text, which knkeditor
+// reads. The graph's other kinds — toc, include, exclude, replace, annotate,
+// blueprint — are the Consumer's, or the publishing package's.
 const (
 	// EdgeMedia points at an Asset a media Field or an image in rich text
 	// holds.
@@ -64,8 +64,10 @@ type edgeRule func(f Field, settings map[string]any, value any) []Edge
 // here yields no edge — a lookup's bare id among them: it names a row of
 // another service, never a Content (contenthub ADR 0010).
 var edgeRules = map[string]edgeRule{ //nolint:gochecknoglobals
-	"media":     mediaEdges,
-	"rich_text": richTextEdges,
+	"media":            mediaEdges,
+	"reference":        referenceTreeEdges,
+	"rich_text":        richTextEdges,
+	"single_reference": singleReferenceEdges,
 }
 
 // mediaEdges are a media Field's Assets, one edge each, at the Field: its
@@ -88,15 +90,17 @@ func mediaEdges(_ Field, _ map[string]any, value any) []Edge {
 // Edges are every Content Graph edge a Content's data holds, against the
 // Resolved Spec it was validated with: each Field's own, through every
 // container at every depth — a group's and a virtual_table's rows, a Block's
-// Fields, a resolved fieldset's record — in Spec order, then row order.
+// Fields, a resolved fieldset's record, a Reference's values — in Spec order,
+// then row order. opts are ValidateValue's: WithTargetBlueprints says which
+// Reference Spec a Reference's values follow.
 //
 // It reads data ValidateValue accepted, and checks nothing: a value of the
 // wrong shape yields no edge rather than an error, and markers and hidden
 // Fields yield none, as ValidateValue skips them. A lookup yields none. Data
 // that is not a JSON object is an error; empty data is {}.
-func Edges(resolved *ResolvedSpec, data json.RawMessage) ([]Edge, error) {
+func Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]Edge, error) {
 	edges := []Edge{}
-	err := walkData(resolved, data, func(f Field, settings map[string]any, value any, path string) {
+	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
 		rule, ok := edgeRules[f.FieldType]
 		if !ok {
 			return

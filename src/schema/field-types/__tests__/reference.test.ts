@@ -39,9 +39,13 @@ describe("referencePlugin", () => {
 	it("holds an array of References, never a bare id", () => {
 		const zodType = referencePlugin.toZodType(makeField());
 
-		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+		expect(
+			zodType.safeParse([{ _id: "n-article-1", id: "article-1" }]).success,
+		).toBe(true);
 		expect(zodType.safeParse(["article-1"]).success).toBe(false);
-		expect(zodType.safeParse({ id: "article-1" }).success).toBe(false);
+		expect(
+			zodType.safeParse({ _id: "n-article-1", id: "article-1" }).success,
+		).toBe(false);
 	});
 
 	it("accepts the parts of a Reference later tickets fill in", () => {
@@ -49,7 +53,12 @@ describe("referencePlugin", () => {
 
 		expect(
 			zodType.safeParse([
-				{ id: "article-1", pin: "v3", attributes: { page: "12" } },
+				{
+					_id: "n-article-1",
+					id: "article-1",
+					pin: "v3",
+					values: { page: "12" },
+				},
 			]).success,
 		).toBe(true);
 	});
@@ -60,8 +69,14 @@ describe("referencePlugin", () => {
 		// Reference on screen and submit a flat list.
 		const zodType = referencePlugin.toZodType(makeField());
 		const tree = [
-			{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
-			{ id: "b" },
+			{
+				_id: "n-a",
+				id: "a",
+				children: [
+					{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+				],
+			},
+			{ _id: "n-b", id: "b" },
 		];
 
 		const parsed = zodType.safeParse(tree);
@@ -73,11 +88,13 @@ describe("referencePlugin", () => {
 		const zodType = referencePlugin.toZodType(makeField());
 
 		expect(
-			zodType.safeParse([{ id: "a", children: [{ id: "" }] }]).success,
+			zodType.safeParse([
+				{ _id: "n-a", id: "a", children: [{ _id: "n-empty", id: "" }] },
+			]).success,
 		).toBe(false);
-		expect(zodType.safeParse([{ id: "a", children: ["a1"] }]).success).toBe(
-			false,
-		);
+		expect(
+			zodType.safeParse([{ _id: "n-a", id: "a", children: ["a1"] }]).success,
+		).toBe(false);
 	});
 
 	it("keeps its array shape whatever max_items says", () => {
@@ -88,14 +105,18 @@ describe("referencePlugin", () => {
 			makeField({ settings: { max_items: 1 } }),
 		);
 
-		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+		expect(
+			zodType.safeParse([{ _id: "n-article-1", id: "article-1" }]).success,
+		).toBe(true);
 		expect(zodType.safeParse("article-1").success).toBe(false);
 	});
 
 	it("treats an empty list as empty when required", () => {
 		const zodType = referencePlugin.toZodType(makeField({ required: true }));
 
-		expect(zodType.safeParse([{ id: "article-1" }]).success).toBe(true);
+		expect(
+			zodType.safeParse([{ _id: "n-article-1", id: "article-1" }]).success,
+		).toBe(true);
 
 		const empty = zodType.safeParse([]);
 		expect(empty.success).toBe(false);
@@ -113,7 +134,7 @@ describe("referencePlugin", () => {
 	it("rejects a Reference with no id", () => {
 		const zodType = referencePlugin.toZodType(makeField());
 
-		expect(zodType.safeParse([{ id: "" }]).success).toBe(false);
+		expect(zodType.safeParse([{ _id: "n-empty", id: "" }]).success).toBe(false);
 		expect(zodType.safeParse([{}]).success).toBe(false);
 	});
 
@@ -129,9 +150,9 @@ describe("referencePlugin", () => {
 		expect(referencePlugin.defaultSettings).toEqual({
 			blueprints: [],
 			pin_mode: "none",
-			// And declaring no Attributes: a Reference that carries nothing about
+			// And an empty Reference Spec: a Reference that carries nothing about
 			// the pointing is the ordinary case.
-			attributes: [],
+			spec: [],
 		});
 	});
 
@@ -146,10 +167,158 @@ describe("referencePlugin", () => {
 
 		// Nothing about which *kind* of target it is: only the Field's
 		// `pin_mode` says (ADR-0008).
-		expect(zodType.safeParse([{ id: "a", pin: "r-1" }]).success).toBe(true);
-		// And no Pin at all is just as valid — that is the newest Version.
-		expect(zodType.safeParse([{ id: "a" }]).success).toBe(true);
-		expect(zodType.safeParse([{ id: "a", pin: null }]).success).toBe(true);
+		expect(
+			zodType.safeParse([{ _id: "n-a", id: "a", pin: "r-1" }]).success,
+		).toBe(true);
+		// And no Pin at all is just as valid — that is the Release In Force.
+		expect(zodType.safeParse([{ _id: "n-a", id: "a" }]).success).toBe(true);
+		// An Unset Pin is stored as absent (ADR-0021), never as `null`.
+		expect(
+			zodType.safeParse([{ _id: "n-a", id: "a", pin: null }]).success,
+		).toBe(false);
+	});
+
+	it("requires an _id on every node, at every level", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+
+		expect(zodType.safeParse([{ id: "a" }]).success).toBe(false);
+		expect(
+			zodType.safeParse([{ _id: "n-a", id: "a", children: [{ id: "a1" }] }])
+				.success,
+		).toBe(false);
+		expect(zodType.safeParse([{ _id: "", id: "a" }]).success).toBe(false);
+	});
+
+	it("refuses one _id held twice, even across levels", () => {
+		const zodType = referencePlugin.toZodType(makeField());
+		const parsed = zodType.safeParse([
+			{ _id: "dup", id: "a", children: [{ _id: "dup", id: "a1" }] },
+		]);
+
+		expect(parsed.success).toBe(false);
+		const issue = !parsed.success ? parsed.error.issues[0] : undefined;
+		expect(issue?.path).toEqual([0, "children", 0]);
+		expect(issue?.code).toBe("custom");
+		expect(issue && "params" in issue ? issue.params?.code : undefined).toBe(
+			"duplicate_id",
+		);
+	});
+});
+
+describe("referencePlugin.mintIds — loading a stored tree", () => {
+	const load = (settings: ReferenceSettings, value: unknown) =>
+		referencePlugin.mintIds?.(makeField({ settings }), value, {
+			fresh: false,
+			mintChildren: (_children, record) => record,
+		});
+
+	it("brings a legacy node into the current shape", () => {
+		const loaded = load({ pin_mode: "none" }, [
+			{
+				id: "a",
+				label: "Stale name",
+				pin: "r-1",
+				attributes: { page: "12" },
+				children: [{ id: "a1", attributes: { page: "3" } }],
+			},
+		]) as Record<string, unknown>[];
+
+		expect(loaded).toEqual([
+			{
+				_id: expect.any(String),
+				id: "a",
+				values: { page: "12" },
+				children: [
+					{ _id: expect.any(String), id: "a1", values: { page: "3" } },
+				],
+			},
+		]);
+		const [root] = loaded;
+		const [child] = root.children as Record<string, unknown>[];
+		expect(root._id).not.toBe(child._id);
+	});
+
+	it("keeps a Pin when the Field pins Releases", () => {
+		expect(
+			load({ pin_mode: "release" }, [{ _id: "n-a", id: "a", pin: "r-1" }]),
+		).toEqual([{ _id: "n-a", id: "a", pin: "r-1" }]);
+	});
+
+	it("returns a value already in shape by identity", () => {
+		const value = [
+			{ _id: "n-a", id: "a", values: { page: "1" }, children: [] },
+			{ _id: "n-b", id: "b" },
+		];
+
+		expect(load({ pin_mode: "none" }, value)).toBe(value);
+	});
+
+	it("mints a new _id for a repeated one, keeping the first", () => {
+		const loaded = load({}, [
+			{ _id: "dup", id: "a", children: [{ _id: "dup", id: "a1" }] },
+		]) as { _id: string; children: { _id: string }[] }[];
+
+		expect(loaded[0]._id).toBe("dup");
+		expect(loaded[0].children[0]._id).not.toBe("dup");
+	});
+});
+
+describe("a linked Reference Spec", () => {
+	const leaf = (field_type: string, name: string, accessor: string): Field => ({
+		field_type,
+		config: { name, api_accessor: accessor, required: true, instructions: "" },
+		settings: null,
+		children: null,
+		system: false,
+	});
+	const compose = (children: Field[]) =>
+		specToZodSchema(children, builtInFieldTypes);
+	const field = makeField({
+		settings: {
+			spec: [leaf("number", "Page", "page")],
+			blueprints: [
+				{
+					blueprint: "person",
+					spec_blueprint: "rel-1",
+					spec: [leaf("text", "Role", "role")],
+				},
+				{ blueprint: "article" },
+			],
+		},
+	});
+	const blueprintOf: Record<string, string> = {
+		ada: "person",
+		post: "article",
+	};
+	const zodType = referencePlugin.toZodType(field, compose, {
+		targetBlueprint: (id) => blueprintOf[id],
+	});
+
+	it("replaces the embedded one for References to its Blueprint", () => {
+		expect(
+			zodType.safeParse([{ _id: "n-1", id: "ada", values: { role: "Author" } }])
+				.success,
+		).toBe(true);
+		// Never merged: the embedded `page` is not asked of a person, and the
+		// linked `role` is.
+		const missingRole = zodType.safeParse([
+			{ _id: "n-1", id: "ada", values: { page: 3 } },
+		]);
+		expect(missingRole.success).toBe(false);
+		expect(
+			!missingRole.success && missingRole.error.issues.map((i) => i.path),
+		).toEqual([[0, "values", "role"]]);
+	});
+
+	it("leaves the embedded one for every other Blueprint", () => {
+		expect(
+			zodType.safeParse([{ _id: "n-1", id: "post", values: { page: 3 } }])
+				.success,
+		).toBe(true);
+		expect(
+			zodType.safeParse([{ _id: "n-1", id: "post", values: { role: "x" } }])
+				.success,
+		).toBe(false);
 	});
 });
 
@@ -230,7 +399,10 @@ describe("the max_items cap in the Schema", () => {
 		// Two roots and one child is three References, which is one past a cap
 		// of two even though only two of them are roots.
 		expect(
-			issues(capped(2), [{ id: "a", children: [{ id: "a1" }] }, { id: "b" }]),
+			issues(capped(2), [
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+				{ _id: "n-b", id: "b" },
+			]),
 		).toEqual([
 			{ path: [], message: "Related articles holds at most 2 references" },
 		]);
@@ -238,13 +410,20 @@ describe("the max_items cap in the Schema", () => {
 
 	it("allows a tree that sits exactly on the cap", () => {
 		expect(
-			capped(3).safeParse([{ id: "a", children: [{ id: "a1" }] }, { id: "b" }])
-				.success,
+			capped(3).safeParse([
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+				{ _id: "n-b", id: "b" },
+			]).success,
 		).toBe(true);
 	});
 
 	it("reports at the Field's own path, so the form can show it on the Field", () => {
-		expect(issues(capped(1), [{ id: "a" }, { id: "b" }])[0].path).toEqual([]);
+		expect(
+			issues(capped(1), [
+				{ _id: "n-a", id: "a" },
+				{ _id: "n-b", id: "b" },
+			])[0].path,
+		).toEqual([]);
 	});
 
 	it("caps nothing when max_items is unset", () => {
@@ -252,21 +431,30 @@ describe("the max_items cap in the Schema", () => {
 		const uncapped = referencePlugin.toZodType(makeField({ settings: {} }));
 		expect(
 			uncapped.safeParse([
-				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
-				{ id: "b" },
+				{
+					_id: "n-a",
+					id: "a",
+					children: [
+						{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+					],
+				},
+				{ _id: "n-b", id: "b" },
 			]).success,
 		).toBe(true);
 	});
 
 	it("caps at zero when max_items is zero, which unset never does", () => {
-		expect(capped(0).safeParse([{ id: "a" }]).success).toBe(false);
+		expect(capped(0).safeParse([{ _id: "n-a", id: "a" }]).success).toBe(false);
 		expect(capped(0).safeParse([]).success).toBe(true);
 	});
 
 	it("names one reference in the singular", () => {
-		expect(issues(capped(1), [{ id: "a" }, { id: "b" }])[0].message).toBe(
-			"Related articles holds at most 1 reference",
-		);
+		expect(
+			issues(capped(1), [
+				{ _id: "n-a", id: "a" },
+				{ _id: "n-b", id: "b" },
+			])[0].message,
+		).toBe("Related articles holds at most 1 reference");
 	});
 });
 
@@ -277,19 +465,34 @@ describe("the max_depth cap in the Schema", () => {
 	it("forbids nesting entirely at max_depth 1, roots being the one level", () => {
 		// The boundary, spelled out: `max_depth` counts levels, so one level is
 		// a flat list. This is the assertion the whole dialect turns on.
-		expect(nested(1).safeParse([{ id: "a" }, { id: "b" }]).success).toBe(true);
 		expect(
-			nested(1).safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+			nested(1).safeParse([
+				{ _id: "n-a", id: "a" },
+				{ _id: "n-b", id: "b" },
+			]).success,
+		).toBe(true);
+		expect(
+			nested(1).safeParse([
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+			]).success,
 		).toBe(false);
 	});
 
 	it("permits exactly one level of nesting at max_depth 2", () => {
 		expect(
-			nested(2).safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+			nested(2).safeParse([
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+			]).success,
 		).toBe(true);
 		expect(
 			nested(2).safeParse([
-				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+				{
+					_id: "n-a",
+					id: "a",
+					children: [
+						{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+					],
+				},
 			]).success,
 		).toBe(false);
 	});
@@ -297,7 +500,13 @@ describe("the max_depth cap in the Schema", () => {
 	it("reports at the path of the offending Reference", () => {
 		expect(
 			issues(nested(2), [
-				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+				{
+					_id: "n-a",
+					id: "a",
+					children: [
+						{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+					],
+				},
 			]),
 		).toEqual([
 			{
@@ -310,8 +519,12 @@ describe("the max_depth cap in the Schema", () => {
 	it("reports the Reference that broke the cap, not every one under it", () => {
 		const reported = issues(nested(1), [
 			{
+				_id: "n-a",
 				id: "a",
-				children: [{ id: "a1", children: [{ id: "a1x" }] }, { id: "a2" }],
+				children: [
+					{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+					{ _id: "n-a2", id: "a2" },
+				],
 			},
 		]);
 
@@ -324,19 +537,27 @@ describe("the max_depth cap in the Schema", () => {
 	it("nests as far as an Author drags it when max_depth is unset", () => {
 		expect(
 			nested(undefined).safeParse([
-				{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+				{
+					_id: "n-a",
+					id: "a",
+					children: [
+						{ _id: "n-a1", id: "a1", children: [{ _id: "n-a1x", id: "a1x" }] },
+					],
+				},
 			]).success,
 		).toBe(true);
 	});
 
 	it("allows no Reference at all at max_depth 0, which unset never does", () => {
-		expect(nested(0).safeParse([{ id: "a" }]).success).toBe(false);
+		expect(nested(0).safeParse([{ _id: "n-a", id: "a" }]).success).toBe(false);
 		expect(nested(0).safeParse([]).success).toBe(true);
 	});
 
 	it("names one level in the singular", () => {
 		expect(
-			issues(nested(1), [{ id: "a", children: [{ id: "a1" }] }])[0].message,
+			issues(nested(1), [
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+			])[0].message,
 		).toBe("Related articles nests at most 1 level deep");
 	});
 });
@@ -348,10 +569,10 @@ describe("both caps at once", () => {
 		);
 
 		expect(
-			issues(zodType, [{ id: "a", children: [{ id: "a1" }] }]).map(
-				(issue) => issue.path,
-			),
-		).toEqual([[], [0, "children", 0]]);
+			issues(zodType, [
+				{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+			]).map((issue) => issue.path),
+		).toEqual([[0, "children", 0], []]);
 	});
 
 	it("still blocks an empty required tree while a cap is set", () => {
@@ -370,11 +591,17 @@ describe("both caps at once", () => {
 		const zodType = referencePlugin.toZodType(
 			makeField({ settings: { max_items: 1 } }),
 		);
-		const value = [{ id: "a" }, { id: "b" }];
+		const value = [
+			{ _id: "n-a", id: "a" },
+			{ _id: "n-b", id: "b" },
+		];
 
 		const parsed = zodType.safeParse(value);
 		expect(parsed.success).toBe(false);
-		expect(value).toEqual([{ id: "a" }, { id: "b" }]);
+		expect(value).toEqual([
+			{ _id: "n-a", id: "a" },
+			{ _id: "n-b", id: "b" },
+		]);
 	});
 });
 
@@ -432,7 +659,10 @@ describe("createReferencePlugin", () => {
 		});
 
 		it("needs nothing but an id and a name", () => {
-			const plugin = createReferencePlugin({ id: "custom", name: "Custom" });
+			const plugin = createReferencePlugin({
+				id: "custom",
+				name: "Custom",
+			});
 
 			expect(plugin.category).toBe("reference");
 			expect(plugin.description).not.toBe("");
@@ -450,14 +680,17 @@ describe("createReferencePlugin", () => {
 			expect(plugin.defaultSettings).toEqual({
 				blueprints: [],
 				pin_mode: "none",
-				attributes: [],
+				spec: [],
 				max_depth: 3,
 			});
 		});
 
 		it("gives every minted plugin its own settings object", () => {
 			const one = tocReference();
-			const other = createReferencePlugin({ id: "other", name: "Other" });
+			const other = createReferencePlugin({
+				id: "other",
+				name: "Other",
+			});
 
 			expect(one.defaultSettings).not.toBe(other.defaultSettings);
 			expect(one.defaultSettings?.blueprints).not.toBe(
@@ -478,7 +711,13 @@ describe("createReferencePlugin", () => {
 		it("generates the Reference Tree Schema, nested branches included", () => {
 			const plugin = tocReference();
 			const value = [
-				{ id: "a", children: [{ id: "b", children: [{ id: "c" }] }] },
+				{
+					_id: "n-a",
+					id: "a",
+					children: [
+						{ _id: "n-b", id: "b", children: [{ _id: "n-c", id: "c" }] },
+					],
+				},
 			];
 
 			expect(plugin.toZodType(mintedField(plugin)).parse(value)).toEqual(value);
@@ -497,7 +736,9 @@ describe("createReferencePlugin", () => {
 			const schema = plugin.toZodType(mintedField(plugin, { required: true }));
 
 			expect(() => schema.parse([])).toThrow(/Table of contents is required/);
-			expect(schema.parse([{ id: "a" }])).toEqual([{ id: "a" }]);
+			expect(schema.parse([{ _id: "n-a", id: "a" }])).toEqual([
+				{ _id: "n-a", id: "a" },
+			]);
 		});
 
 		it("enforces both caps, so a Consumer's type cannot drift from reference", () => {
@@ -509,8 +750,10 @@ describe("createReferencePlugin", () => {
 				settings: { max_items: 2 },
 			});
 			expect(
-				capped.safeParse([{ id: "a", children: [{ id: "a1" }] }, { id: "b" }])
-					.success,
+				capped.safeParse([
+					{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+					{ _id: "n-b", id: "b" },
+				]).success,
 			).toBe(false);
 
 			const shallow = plugin.toZodType({
@@ -518,9 +761,16 @@ describe("createReferencePlugin", () => {
 				settings: { max_depth: 1 },
 			});
 			expect(
-				shallow.safeParse([{ id: "a", children: [{ id: "a1" }] }]).success,
+				shallow.safeParse([
+					{ _id: "n-a", id: "a", children: [{ _id: "n-a1", id: "a1" }] },
+				]).success,
 			).toBe(false);
-			expect(shallow.safeParse([{ id: "a" }, { id: "b" }]).success).toBe(true);
+			expect(
+				shallow.safeParse([
+					{ _id: "n-a", id: "a" },
+					{ _id: "n-b", id: "b" },
+				]).success,
+			).toBe(true);
 		});
 
 		it("carries a cap the Consumer defaulted into every new Field", () => {
@@ -534,7 +784,17 @@ describe("createReferencePlugin", () => {
 						settings: plugin.defaultSettings ?? null,
 					})
 					.safeParse([
-						{ id: "a", children: [{ id: "a1", children: [{ id: "a1x" }] }] },
+						{
+							_id: "n-a",
+							id: "a",
+							children: [
+								{
+									_id: "n-a1",
+									id: "a1",
+									children: [{ _id: "n-a1x", id: "a1x" }],
+								},
+							],
+						},
 					]).success,
 			).toBe(false);
 		});
@@ -546,7 +806,7 @@ describe("createReferencePlugin", () => {
 			const plugin = tocReference();
 			const field = mintedField(plugin);
 			field.settings = {
-				attributes: [
+				spec: [
 					{
 						field_type: "number",
 						config: {
@@ -563,10 +823,13 @@ describe("createReferencePlugin", () => {
 			};
 			const schema = specToZodSchema([field], [...builtInFieldTypes, plugin]);
 
-			expect(schema.safeParse({ toc: [{ id: "a" }] }).success).toBe(false);
+			expect(schema.safeParse({ toc: [{ _id: "n-a", id: "a" }] }).success).toBe(
+				false,
+			);
 			expect(
-				schema.safeParse({ toc: [{ id: "a", attributes: { page: 3 } }] })
-					.success,
+				schema.safeParse({
+					toc: [{ _id: "n-a", id: "a", values: { page: 3 } }],
+				}).success,
 			).toBe(true);
 		});
 

@@ -109,13 +109,15 @@ describe("ReferenceSettingsEditor", () => {
 		await user.click(await screen.findByLabelText(/Blueprints/));
 		await user.click(await screen.findByText("Article"));
 
-		expect(onChange).toHaveBeenLastCalledWith({ blueprints: ["article"] });
+		expect(onChange).toHaveBeenLastCalledWith({
+			blueprints: [{ blueprint: "article" }],
+		});
 
 		await user.click(blueprints());
 		await user.click(await screen.findByText("Author"));
 
 		expect(onChange).toHaveBeenLastCalledWith({
-			blueprints: ["article", "author"],
+			blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
 		});
 	});
 
@@ -131,40 +133,41 @@ describe("ReferenceSettingsEditor", () => {
 
 		expect(onChange).toHaveBeenLastCalledWith({
 			max_items: 3,
-			blueprints: ["article"],
+			blueprints: [{ blueprint: "article" }],
 		});
 	});
 
 	it("shows stored blueprints by name, not by id", async () => {
 		renderEditor({
-			initial: { blueprints: ["author"] },
+			initial: { blueprints: [{ blueprint: "author" }] },
 			adapters: listingAdapter(),
 		});
 
 		expect(await screen.findByText("Author")).toBeInTheDocument();
 	});
 
-	it("offers a pin mode of none, release or version", async () => {
+	it("offers a pin mode of none or release — never a version", async () => {
 		const user = userEvent.setup();
 		const { pinMode } = renderEditor();
 
 		await user.click(pinMode());
 
 		// Read off the open menu by the words an Author sees: not pinning is
-		// named after what it gets you, the other two after what they pin to.
+		// named after what it gets you, pinning after what it pins to — a
+		// Release, the only thing a Pin may name (ADR-0008, amended).
 		// The options, not `getByText` — the chosen one is also rendered as the
 		// select's own value.
 		expect(
 			(await screen.findAllByRole("option")).map((option) =>
 				option.textContent?.trim(),
 			),
-		).toEqual(["The newest version", "A chosen release", "A chosen version"]);
+		).toEqual(["The release in force", "A chosen release"]);
 	});
 
-	it("starts a Field on the newest version", () => {
+	it("starts a Field on the release in force", () => {
 		renderEditor();
 
-		expect(screen.getByText("The newest version")).toBeInTheDocument();
+		expect(screen.getByText("The release in force")).toBeInTheDocument();
 	});
 
 	it("stores the pin mode the Author chooses", async () => {
@@ -180,22 +183,22 @@ describe("ReferenceSettingsEditor", () => {
 	it("leaves the Field's other settings alone when the pin mode changes", async () => {
 		const user = userEvent.setup();
 		const { onChange, pinMode } = renderEditor({
-			initial: { blueprints: ["article"] },
+			initial: { blueprints: [{ blueprint: "article" }] },
 		});
 
 		await user.click(pinMode());
-		await user.click(await screen.findByText("A chosen version"));
+		await user.click(await screen.findByText("A chosen release"));
 
 		expect(onChange).toHaveBeenLastCalledWith({
-			blueprints: ["article"],
-			pin_mode: "version",
+			blueprints: [{ blueprint: "article" }],
+			pin_mode: "release",
 		});
 	});
 
 	it("shows a Spec written before pinning existed as not pinning", () => {
-		renderEditor({ initial: { blueprints: ["article"] } });
+		renderEditor({ initial: { blueprints: [{ blueprint: "article" }] } });
 
-		expect(screen.getByText("The newest version")).toBeInTheDocument();
+		expect(screen.getByText("The release in force")).toBeInTheDocument();
 	});
 
 	it("warns that changing the pin mode strands the pins already saved", () => {
@@ -289,13 +292,16 @@ describe("ReferenceSettingsEditor", () => {
 		it("leaves the Field's other settings alone", async () => {
 			const user = userEvent.setup();
 			const { onChange, maxDepth } = renderEditor({
-				initial: { blueprints: ["article"], pin_mode: "release" },
+				initial: {
+					blueprints: [{ blueprint: "article" }],
+					pin_mode: "release",
+				},
 			});
 
 			await user.type(maxDepth(), "2");
 
 			expect(onChange).toHaveBeenLastCalledWith({
-				blueprints: ["article"],
+				blueprints: [{ blueprint: "article" }],
 				pin_mode: "release",
 				max_depth: 2,
 			});
@@ -320,7 +326,118 @@ describe("ReferenceSettingsEditor", () => {
 		await user.type(blueprints(), "article, author");
 
 		expect(onChange).toHaveBeenLastCalledWith({
-			blueprints: ["article", "author"],
+			blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
+		});
+	});
+
+	describe("a linked Reference Spec per Blueprint", () => {
+		const LINKED_FIELD: Field = {
+			field_type: "text",
+			config: {
+				name: "Caption",
+				api_accessor: "caption",
+				required: false,
+				instructions: "",
+			},
+			settings: {},
+			system: false,
+		};
+
+		it("offers one picker for each Blueprint the Field may point at", async () => {
+			renderEditor({
+				initial: {
+					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
+				},
+				adapters: listingAdapter(),
+			});
+
+			expect(
+				await screen.findByLabelText("Reference Spec for article"),
+			).toBeInTheDocument();
+			expect(
+				screen.getByLabelText("Reference Spec for author"),
+			).toBeInTheDocument();
+		});
+
+		it("stores the Blueprint Release an Author links to an entry", async () => {
+			const user = userEvent.setup();
+			const { onChange } = renderEditor({
+				initial: {
+					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
+				},
+				adapters: schemaOnlyAdapter(),
+			});
+
+			await user.type(
+				screen.getByTestId("reference-blueprints-input-spec-article"),
+				"article-attrs",
+			);
+
+			// Only the entry it names — the neighbour keeps using the embedded
+			// Reference Spec.
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: [
+					{ blueprint: "article", spec_blueprint: "article-attrs" },
+					{ blueprint: "author" },
+				],
+			});
+		});
+
+		it("drops the link and what was resolved from it when cleared", async () => {
+			const user = userEvent.setup();
+			const { onChange } = renderEditor({
+				initial: {
+					blueprints: [
+						{
+							blueprint: "article",
+							spec_blueprint: "article-attrs",
+							spec: [LINKED_FIELD],
+						},
+					],
+					max_items: 3,
+				},
+				adapters: schemaOnlyAdapter(),
+			});
+
+			await user.clear(
+				screen.getByTestId("reference-blueprints-input-spec-article"),
+			);
+
+			// The resolved `spec` belongs to the Release no longer named, so it
+			// goes too — a stale inlined Spec would still replace the embedded one.
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: [{ blueprint: "article" }],
+				max_items: 3,
+			});
+		});
+
+		it("keeps an entry's link when the Blueprint list changes", async () => {
+			const user = userEvent.setup();
+			const { onChange, blueprints } = renderEditor({
+				initial: {
+					blueprints: [
+						{
+							blueprint: "article",
+							spec_blueprint: "article-attrs",
+							spec: [LINKED_FIELD],
+						},
+					],
+				},
+				adapters: schemaOnlyAdapter(),
+			});
+
+			await user.type(blueprints(), ", author");
+
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: [
+					{
+						blueprint: "article",
+						spec_blueprint: "article-attrs",
+						spec: [LINKED_FIELD],
+					},
+					{ blueprint: "author" },
+				],
+			});
 		});
 	});
 });
