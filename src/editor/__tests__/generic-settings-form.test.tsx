@@ -197,6 +197,26 @@ describe("GenericSettingsForm in the config panel", () => {
 		expect(panelSettings()).toEqual({});
 	});
 
+	it("takes negative and fractional numbers, typed a keystroke at a time", async () => {
+		const user = userEvent.setup();
+		renderPanel(ratingField(), {
+			...ratingPlugin,
+			settingsSchema: z
+				.object({
+					offset: z.number().optional(),
+					steps: z.array(z.number()).optional(),
+				})
+				.strict(),
+		});
+		await openTypeSettings(user);
+
+		await user.type(screen.getByLabelText("Offset"), "-1.5");
+		await user.click(screen.getByTestId("generic-setting-steps-add"));
+		await user.type(screen.getByLabelText("Steps 1"), "-0.25");
+
+		expect(panelSettings()).toEqual({ offset: -1.5, steps: [-0.25] });
+	});
+
 	it("keeps a blank list row out of the stored list until it is filled in", async () => {
 		const user = userEvent.setup();
 		renderPanel(ratingField({ captions: ["Low"] }));
