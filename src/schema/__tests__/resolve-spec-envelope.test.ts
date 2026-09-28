@@ -180,7 +180,7 @@ describe("resolveSpec — the Resolved Spec envelope", () => {
 		// Fields are validated.
 		const zod = specToZodSchema(resolved.fields, builtInFieldTypes);
 		const block = (street: unknown) => ({
-			content: [{ _type: "contact", address: { street } }],
+			content: [{ _id: "b1", _type: "contact", address: { street } }],
 		});
 		expect(zod.safeParse(block("12 Bridge Lane")).success).toBe(true);
 		expect(zod.safeParse(block(42)).success).toBe(false);
