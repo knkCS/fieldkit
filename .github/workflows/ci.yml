@@ -19,6 +19,9 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run catalogue:check
+      # The Catalogue may only grow (ADR-0019): compared with the one the last
+      # release froze under conformance/<version>/.
+      - run: npm run catalogue:compat
       - run: npm run build
       - run: npm run verify-exports
       - run: npm run test

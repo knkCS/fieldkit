@@ -25,6 +25,8 @@ const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
 /**
  * The fieldkit version this Catalogue ships in. It moves with the release
  * that first ships a change to the Catalogue, never back (ADR-0019).
+ * `npm run catalogue:compat` and `npm run release` hold it to that
+ * (docs/releasing.md, "The Catalogue version").
  */
 const CATALOGUE_VERSION = "0.18.0";
 

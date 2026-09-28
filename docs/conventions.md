@@ -18,7 +18,7 @@ This is not style. It is load-bearing:
 **This repo:**
 
 - **Scopes are fieldkit's layers:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or no scope for a cross-cutting change (a docs or tooling change is usually `docs:` / `chore:` with no scope). A release commit is `chore(release): X.Y.Z — <what it ships>`.
-- **No `release-please` yet.** A release is a hand-written `chore(release)` commit that bumps `package.json`, followed by a `vX.Y.Z` tag that the user pushes; the tag runs [`publish-fieldkit.yml`](../.github/workflows/publish-fieldkit.yml), which publishes to npmjs.org and GitHub Packages. The version is chosen by a person reading the commits since the last tag, so the types still decide it — just not mechanically.
+- **No `release-please` yet.** A release is a `chore(release)` commit prepared by `npm run release -- prepare <version>` (which bumps `package.json` and, for a final release, freezes `conformance/<version>/`), then the `vX.Y.Z` and `go/vX.Y.Z` tags on that one commit, which `npm run release -- tags` prints and a person pushes; a release candidate `X.Y.Z-rc.N` goes first. The `v` tag runs [`publish-fieldkit.yml`](../.github/workflows/publish-fieldkit.yml), which publishes to npmjs.org and GitHub Packages. The full procedure is [`releasing.md`](./releasing.md). The version is chosen by a person reading the commits since the last tag, so the types still decide it — just not mechanically.
 - **The API stays on 0.x** (ADR-0019): a breaking change to the TS API bumps the *minor*, as npm's caret ranges expect on 0.x. The **data contract** — Field JSON, settings, value shapes, error codes — only ever grows, whatever the version says (ADR-0019). Once the Go module exists, one release carries one version for both: `vX.Y.Z` and `go/vX.Y.Z` from the same commit (ADR-0018).
 
 ## GitHub Actions: reuse, don't rewrite
@@ -42,7 +42,7 @@ Composite actions: `configure-private-modules` (GOPRIVATE + git `insteadOf`), `s
 
 | Workflow | What it does |
 |---|---|
-| [`ci.yml`](../.github/workflows/ci.yml) | lint, typecheck, the Catalogue staleness check, build, verify-exports, tests on Node 22 and the Go module's checks — the same steps as `npm run verify` |
+| [`ci.yml`](../.github/workflows/ci.yml) | lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, tests on Node 22 and the Go module's checks — the same steps as `npm run verify` |
 | [`publish-fieldkit.yml`](../.github/workflows/publish-fieldkit.yml) | on a `v*` tag: checks the tag against `package.json`, runs the same gate, publishes to npmjs.org (with provenance) and GitHub Packages |
 | [`storybook.yml`](../.github/workflows/storybook.yml) | deploys Storybook to GitHub Pages on every push to `main` |
 
@@ -60,7 +60,7 @@ They are a known deviation from "reuse, don't rewrite", not a precedent: a new w
 
 **Actions in the org have been blocked by a billing issue** (as recorded in legalcitationhub). `commitlint.yml` is committed here anyway, so the gate is in place the moment Actions run again, as are `go.yml`, `ci.yml`, `publish-fieldkit.yml` and `storybook.yml`.
 
-**This repo: until then, the merge bar is `npm run verify`, run locally.** It runs what `ci.yml` runs — lint, typecheck, the Catalogue staleness check, build, verify-exports, the full suite (`test:gate`, which allows 30s per test and one retry, because the jsdom suite is load-sensitive) and the Go module's gofmt, `go vet` and `go test` (`verify:go`). A PR's checks stay pending for ever and are not a gate; a PR merges only when `npm run verify` is green at the merge commit. Nothing runs commitlint locally, so commit messages are checked by review until Actions return. `CLAUDE.md` holds the full rule; update both when Actions run again.
+**This repo: until then, the merge bar is `npm run verify`, run locally.** It runs what `ci.yml` runs — lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, the full suite (`test:gate`, which allows 30s per test and one retry, because the jsdom suite is load-sensitive) and the Go module's gofmt, `go vet` and `go test` (`verify:go`). A PR's checks stay pending for ever and are not a gate; a PR merges only when `npm run verify` is green at the merge commit. Nothing runs commitlint locally, so commit messages are checked by review until Actions return. `CLAUDE.md` holds the full rule; update both when Actions run again.
 
 ## Shared code: `knkCS/commons`
 
