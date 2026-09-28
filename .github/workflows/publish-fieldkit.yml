@@ -1,5 +1,8 @@
 name: Publish @knkcs/fieldkit
 
+# A release tags one commit twice (docs/releasing.md): `vX.Y.Z` runs this
+# workflow, and `go/vX.Y.Z` — which `v*` does not match — only gives the Go
+# module its version; the Go proxy needs no workflow.
 on:
   push:
     tags:
@@ -42,6 +45,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Catalogue is current and only grew (ADR-0019)
+        run: |
+          npm run catalogue:check
+          npm run catalogue:compat
+
       - name: Build
         run: npm run build
 
@@ -51,10 +59,21 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Choose the npm dist-tag
+        id: dist
+        # A release candidate (vX.Y.Z-rc.N, docs/releasing.md) goes out under
+        # "next": npm would otherwise move "latest" to it, and every
+        # `npm install @knkcs/fieldkit` would pick up the candidate.
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-rc.*) echo "tag=next" >> "$GITHUB_OUTPUT" ;;
+            *) echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Publish to npmjs.org
         # --ignore-scripts: skip the prepublishOnly rebuild so we publish the exact
         # dist/ that lint/typecheck/verify-exports/test validated above (not a fresh build).
-        run: npm publish --provenance --access public --ignore-scripts
+        run: npm publish --provenance --access public --ignore-scripts --tag ${{ steps.dist.outputs.tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -66,6 +85,6 @@ jobs:
 
       - name: Publish to GitHub Packages
         # --ignore-scripts: same dist/ as the npmjs publish above; no rebuild.
-        run: npm publish --ignore-scripts
+        run: npm publish --ignore-scripts --tag ${{ steps.dist.outputs.tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

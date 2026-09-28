@@ -68,7 +68,13 @@ func TestConformance(t *testing.T) {
 			if len(fx.Expect) == 0 {
 				t.Fatal("fixture expects nothing")
 			}
+			version := strings.SplitN(filepath.ToSlash(name), "/", 2)[0]
+			bound := 0
 			for op, raw := range fx.Expect {
+				if !binds(version, op, raw) {
+					continue
+				}
+				bound++
 				switch op {
 				case "validateSpec":
 					runValidateSpec(t, fx, raw)
@@ -76,7 +82,57 @@ func TestConformance(t *testing.T) {
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
 			}
+			if bound == 0 {
+				t.Skip("an invalid case of a released version: kept as history, binding nothing (ADR-0019)")
+			}
 		})
+	}
+}
+
+// unreleased is the folder of fieldkit as it is now; every other folder is a
+// released version.
+const unreleased = "unreleased"
+
+// binds reports whether a fixture's expectation for one operation binds the
+// current code. Everything in unreleased/ does. In a released version's folder
+// only the valid cases do (ADR-0019): what a release accepted stays accepted,
+// but what it rejected may since have become valid — a validation bug is
+// fixed by loosening. An operation this runner does not know binds, so it
+// still fails as unknown rather than being skipped. The TS runner has the
+// same rule.
+func binds(version, op string, raw json.RawMessage) bool {
+	if version == unreleased {
+		return true
+	}
+	switch op {
+	case "validateSpec":
+		var want []json.RawMessage
+		if err := json.Unmarshal(raw, &want); err != nil {
+			return true // malformed: let the run report it
+		}
+		return len(want) == 0
+	default:
+		return true
+	}
+}
+
+func TestBinds(t *testing.T) {
+	invalid := json.RawMessage(`[{"path":"/a","code":"unknown_setting"}]`)
+	cases := []struct {
+		name, version, op string
+		raw               json.RawMessage
+		want              bool
+	}{
+		{"an unreleased valid case", unreleased, "validateSpec", json.RawMessage(`[]`), true},
+		{"an unreleased invalid case", unreleased, "validateSpec", invalid, true},
+		{"a released valid case", "0.18.0", "validateSpec", json.RawMessage(`[]`), true},
+		{"a released invalid case", "0.18.0", "validateSpec", invalid, false},
+		{"an operation the runner does not know", "0.18.0", "somethingNew", invalid, true},
+	}
+	for _, c := range cases {
+		if got := binds(c.version, c.op, c.raw); got != c.want {
+			t.Errorf("%s: binds = %v, want %v", c.name, got, c.want)
+		}
 	}
 }
 
