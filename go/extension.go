@@ -69,7 +69,9 @@ type TypeCode struct {
 // TypeEnv is what a TypeCode hook is told beside the Field and its value.
 type TypeEnv struct {
 	// Parts are the Resolved Spec's parts, by kind and Release: what the
-	// Field pins. Nil without a Resolved Spec (ValidateValue, ValueText).
+	// Field pins. Nil without a Resolved Spec (ValidateValue, ValueText), and
+	// never nil with one — empty when it pins nothing — so a hook can tell a
+	// part the Resolved Spec lacks from having no Resolved Spec at all.
 	Parts map[string]map[string]json.RawMessage
 	// ValidateFields is the composer (ADR-0007), for Value: it checks a
 	// record the value holds against the Fields that describe it, each by
@@ -247,6 +249,11 @@ func (c *Catalogue) valueRule(fieldType string) (valueRule, bool) {
 		}}
 		if errs.ctx != nil && errs.ctx.richText != nil {
 			env.Parts = errs.ctx.richText.parts
+			// A Resolved Spec's parts are never nil to a hook, even when it
+			// pins nothing: nil is what says there is no Resolved Spec.
+			if env.Parts == nil && errs.ctx.richText.strict {
+				env.Parts = map[string]map[string]json.RawMessage{}
+			}
 		}
 		for _, e := range tc.Value(f, settings, value, env) {
 			errs.add(e.Path, e.Code, e.Params)

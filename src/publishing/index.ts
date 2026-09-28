@@ -12,6 +12,7 @@ import type { FieldTypePlugin } from "../schema/plugin";
 import { outlineTreePlugin } from "./field-types/outline-tree";
 import { referenceFilterPlugin } from "./field-types/reference-filter";
 import { templateTextPlugin } from "./field-types/template-text";
+import { tiOverlayPlugin } from "./field-types/ti-overlay";
 
 export type {
 	OutlineNode,
@@ -19,6 +20,22 @@ export type {
 } from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
 export type { TemplateTextSettings } from "./field-types/template-text";
+export type {
+	InlineAnchor,
+	TiOverlayEntry,
+	TiOverlaySettings,
+	TiOverlayValue,
+} from "./field-types/ti-overlay";
+export {
+	INLINE_ANCHOR_WINDOW,
+	inlineAnchorSchema,
+	TI_SET_KIND,
+	TI_SET_PIN,
+	TiOverlayCell,
+	TiOverlayField,
+	tiOverlayEntrySchema,
+	tiOverlayPlugin,
+} from "./field-types/ti-overlay";
 export { OutlineTreeCell, OutlineTreeField } from "./fields/outline-tree-view";
 export { outlineTreePlugin, referenceFilterPlugin, templateTextPlugin };
 
@@ -28,4 +45,5 @@ export const publishingFieldTypes: FieldTypePlugin<any>[] = [
 	referenceFilterPlugin,
 	outlineTreePlugin,
 	templateTextPlugin,
+	tiOverlayPlugin,
 ];

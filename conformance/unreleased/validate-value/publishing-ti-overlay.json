@@ -1,0 +1,486 @@
+{
+	"description": "ti_overlay's value is the flattened {entries}: each entry a row with its _id, knkeditor's inline anchor {node, offset, before, after} — offset an integer from 0, before and after at most 20 code points and absent when empty — a command, string params, a source (editor or oasys) and notes; core's published, drafts, label, base_revision_id, oasys_response and an entry's stored status are refused as unknown keys, invalid_value at the object holding them, as is the old anchor shape",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "valid",
+				"api_accessor": "valid",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "at_start",
+				"api_accessor": "at_start",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "removed",
+				"api_accessor": "removed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "status",
+				"api_accessor": "status",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "old_anchor",
+				"api_accessor": "old_anchor",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "window",
+				"api_accessor": "window",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "offsets",
+				"api_accessor": "offsets",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "entry_keys",
+				"api_accessor": "entry_keys",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		},
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "required",
+				"api_accessor": "required",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		}
+	],
+	"data": {
+		"valid": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e2",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "bn",
+					"source": "oasys"
+				}
+			]
+		},
+		"at_start": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "7",
+						"offset": 0,
+						"after": "Erster Satz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"removed": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			],
+			"published": {
+				"label": "Satz 1",
+				"base_revision_id": "r1"
+			},
+			"drafts": [
+				{
+					"label": "OASYS"
+				}
+			],
+			"oasys_response": "<xml/>"
+		},
+		"status": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together",
+					"status": "active"
+				}
+			]
+		},
+		"old_anchor": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"kind": "inline",
+						"blockId": "b1",
+						"charOffsetInBlock": 4,
+						"fingerprint": {
+							"before": "a",
+							"after": "b"
+						}
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"window": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "1",
+						"offset": 20,
+						"before": "𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞",
+						"after": "ääääääääääääääääääää"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e2",
+					"anchor": {
+						"node": "1",
+						"offset": 21,
+						"before": "xxxxxxxxxxxxxxxxxxxxx",
+						"after": "𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞𝄞"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"offsets": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "1",
+						"offset": 1.5
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e2",
+					"anchor": {
+						"node": "1",
+						"offset": -1
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e3",
+					"anchor": {
+						"node": 2,
+						"offset": "3",
+						"before": 4
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				}
+			]
+		},
+		"rows": {
+			"entries": [
+				{
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"params": {
+						"lines": "2"
+					},
+					"source": "editor",
+					"notes": "keep together"
+				},
+				"np"
+			]
+		},
+		"entry_keys": {
+			"entries": [
+				{
+					"_id": "e1",
+					"anchor": {
+						"node": "1",
+						"offset": 0
+					},
+					"params": {
+						"lines": 2
+					},
+					"source": "import",
+					"notes": 7
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/removed",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/status/entries/e1",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/old_anchor/entries/e1/anchor",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/old_anchor/entries/e1/anchor/node",
+				"code": "required"
+			},
+			{
+				"path": "/old_anchor/entries/e1/anchor/offset",
+				"code": "required"
+			},
+			{
+				"path": "/window/entries/e2/anchor/before",
+				"code": "too_big"
+			},
+			{
+				"path": "/window/entries/e2/anchor/after",
+				"code": "too_big"
+			},
+			{
+				"path": "/offsets/entries/e1/anchor/offset",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/offsets/entries/e2/anchor/offset",
+				"code": "too_small"
+			},
+			{
+				"path": "/offsets/entries/e3/anchor/node",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/offsets/entries/e3/anchor/offset",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/offsets/entries/e3/anchor/before",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/rows/entries/0",
+				"code": "missing_id"
+			},
+			{
+				"path": "/rows/entries/2",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/rows/entries/3",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/entry_keys/entries/e1/command",
+				"code": "required"
+			},
+			{
+				"path": "/entry_keys/entries/e1/params/lines",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/entry_keys/entries/e1/source",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/entry_keys/entries/e1/notes",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/required",
+				"code": "required"
+			}
+		]
+	}
+}
