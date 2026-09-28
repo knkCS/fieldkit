@@ -1,0 +1,86 @@
+{
+	"description": "A settings key the type does not declare is unknown_setting at the key, at every depth, one error per key",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placehodler": "A title",
+				"placeholder": "ok"
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Price",
+				"api_accessor": "price",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"minimum": 1,
+				"maximum": 2
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"columns": 2,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"multiline": true
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/title/settings/placehodler",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/price/settings/minimum",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/price/settings/maximum",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/authors/settings/columns",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/authors/children/name/settings/multiline",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

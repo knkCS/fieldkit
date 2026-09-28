@@ -13,6 +13,19 @@ export interface RowArrayCaps {
 }
 
 /**
+ * The settings schema of {@link RowArrayCaps}: a cap is a whole number of
+ * rows, zero or more. Strict, so a type whose settings are the caps alone —
+ * a Group's — can use it as its `settingsSchema` as it stands; a type with
+ * more settings `.extend()`s it.
+ */
+export const rowArrayCapsSchema = z
+	.object({
+		min_items: z.number().int().nonnegative().optional(),
+		max_items: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+/**
  * The Zod type shared by every Field that holds **an array of rows all shaped
  * alike** — `group` and `virtual_table`. The two differ in how a row is
  * *edited* (stacked forms against a table) and in where the row's Fields may

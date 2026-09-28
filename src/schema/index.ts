@@ -99,6 +99,8 @@ export {
 } from "./partition-cards";
 // Plugin types
 export type {
+	CatalogueFacts,
+	CataloguePin,
 	CellProps,
 	ComposeChildrenDefaults,
 	ComposeChildrenSchema,

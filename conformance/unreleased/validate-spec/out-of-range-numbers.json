@@ -1,0 +1,22 @@
+{
+	"description": "A number beyond float64's range reads as JS reads it, ±Infinity: a number setting accepts it, a whole-number setting refuses it at the key",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": { "name": "Price", "api_accessor": "price", "required": false, "instructions": "" },
+			"settings": { "min": -1e400, "max": 1e400 },
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": { "name": "Rows", "api_accessor": "rows", "required": false, "instructions": "" },
+			"settings": { "max_items": 1e400 },
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{ "path": "/rows/settings/max_items", "code": "invalid_setting" }
+		]
+	}
+}

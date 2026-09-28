@@ -1,0 +1,53 @@
+{
+	"description": "A path segment holding / or ~ is escaped as in RFC 6901: ~ as ~0, / as ~1",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "A/B",
+				"api_accessor": "a/b",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"x~y": 1
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "C~D",
+				"api_accessor": "c~d",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"children": [
+				{
+					"field_type": "editor_schema",
+					"config": {
+						"name": "E/F",
+						"api_accessor": "e/f",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/a~1b/settings/x~0y",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/c~0d/children/e~1f",
+				"code": "unknown_field_type"
+			}
+		]
+	}
+}

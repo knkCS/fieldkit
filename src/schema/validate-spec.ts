@@ -2,6 +2,7 @@ import { partitionSchemaBySections } from "./partition";
 import { partitionTabByCards } from "./partition-cards";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
+import { toPath, validateSettings } from "./validate-settings";
 import {
 	isVirtualTableRowFieldType,
 	virtualTableRowSpecKind,
@@ -19,12 +20,31 @@ export type SpecFieldErrorCode =
 	| "virtual_table_row_spec_missing"
 	/** A Field a Row Spec may not hold — a Marker, a container, or any type
 	 * outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
-	| "virtual_table_row_field_type";
+	| "virtual_table_row_field_type"
+	/** A Field whose `field_type` no plugin in the map registers. Its
+	 * settings are not checked — there is nothing to check them against. */
+	| "unknown_field_type"
+	/** A settings key the type's `settingsSchema` does not declare. */
+	| "unknown_setting"
+	/** A declared setting whose value the type's `settingsSchema` refuses. */
+	| "invalid_setting";
 
 export interface SpecFieldError {
 	accessor: string;
 	code: SpecFieldErrorCode;
 	message: string;
+	/**
+	 * Where in the Spec the error is, `/`-separated: the Accessor of each
+	 * Field from the root, with `children` between a Field and the Fields it
+	 * holds, then — for a settings error — `settings` and the key:
+	 * `/authors/children/name/settings/placeholder`. A segment holding `/` or
+	 * `~` is escaped as in RFC 6901. The grammar is shared with the Go
+	 * module's `ValidateSpec` (`conformance/README.md`).
+	 */
+	path: string;
+	/** Detail a message may interpolate, keyed by name — `field_type` for
+	 * `unknown_field_type`. Absent when the code says everything. */
+	params?: Record<string, unknown>;
 }
 
 export interface SpecValidationResult {
@@ -72,9 +92,10 @@ export function validateSpec(
 	// composing is not walking, so none of the checks below see them and a
 	// duplicate accessor among a block type's fields goes unreported.
 	// ADR-0007 states the boundary and what it costs.
-	checkAccessors(fields, fieldErrors);
+	checkAccessors(fields, [], fieldErrors);
 	checkCardLayout(fields, fieldErrors);
-	checkVirtualTables(fields, fieldErrors);
+	checkVirtualTables(fields, [], fieldErrors);
+	checkTypesAndSettings(fields, [], plugins, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -82,10 +103,21 @@ export function validateSpec(
 	return { valid: errors.length === 0, errors, fieldErrors };
 }
 
-function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
+/** The path segments of a Field in a list held by the Field at `parent`
+ * (`[]` for the root list). */
+function fieldSegments(parent: readonly string[], accessor: string): string[] {
+	return parent.length === 0 ? [accessor] : [...parent, "children", accessor];
+}
+
+function checkAccessors(
+	fields: Field[],
+	parent: readonly string[],
+	fieldErrors: SpecFieldError[],
+): void {
 	const seen = new Map<string, number>();
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
+		const path = toPath(fieldSegments(parent, accessor));
 		// Card markers are exempt from the empty-name rule: a card's title is
 		// OPTIONAL (empty = untitled, card-layout Decision 3). Accessor rules
 		// below apply to them unchanged.
@@ -94,6 +126,7 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				accessor,
 				code: "empty_name",
 				message: "Name must not be empty",
+				path,
 			});
 		}
 		if (!accessor.trim()) {
@@ -101,12 +134,17 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				accessor,
 				code: "empty_accessor",
 				message: "Accessor must not be empty",
+				path,
 			});
 		} else {
 			seen.set(accessor, (seen.get(accessor) ?? 0) + 1);
 		}
 		if (field.children && field.children.length > 0) {
-			checkAccessors(field.children, fieldErrors);
+			checkAccessors(
+				field.children,
+				fieldSegments(parent, accessor),
+				fieldErrors,
+			);
 		}
 	}
 	for (const [accessor, count] of seen) {
@@ -115,6 +153,7 @@ function checkAccessors(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				accessor,
 				code: "duplicate_accessor",
 				message: `Duplicate accessor "${accessor}"`,
+				path: toPath(fieldSegments(parent, accessor)),
 			});
 		}
 	}
@@ -143,6 +182,7 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
 				accessor: loose.config.api_accessor,
 				code: "loose_field_in_carded_tab",
 				message: `Field "${loose.config.api_accessor}" must be inside a card`,
+				path: toPath([loose.config.api_accessor]),
 			});
 		}
 	}
@@ -173,20 +213,27 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  */
 function checkVirtualTables(
 	fields: Field[],
+	parent: readonly string[],
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
+		const segments = fieldSegments(parent, field.config.api_accessor);
 		if (field.field_type === "virtual_table") {
-			checkVirtualTable(field, fieldErrors);
+			checkVirtualTable(field, segments, fieldErrors);
 		}
 		if (field.children?.length) {
-			checkVirtualTables(field.children, fieldErrors);
+			checkVirtualTables(field.children, segments, fieldErrors);
 		}
 	}
 }
 
-function checkVirtualTable(field: Field, fieldErrors: SpecFieldError[]): void {
+function checkVirtualTable(
+	field: Field,
+	segments: readonly string[],
+	fieldErrors: SpecFieldError[],
+): void {
 	const accessor = field.config.api_accessor;
+	const path = toPath(segments);
 	const kind = virtualTableRowSpecKind(field);
 
 	if (kind === "both") {
@@ -194,12 +241,14 @@ function checkVirtualTable(field: Field, fieldErrors: SpecFieldError[]): void {
 			accessor,
 			code: "virtual_table_row_spec_ambiguous",
 			message: `Virtual Table "${accessor}" has both a linked and an embedded Row Spec; it must have exactly one`,
+			path,
 		});
 	} else if (kind === "neither") {
 		fieldErrors.push({
 			accessor,
 			code: "virtual_table_row_spec_missing",
 			message: `Virtual Table "${accessor}" has no Row Spec: link a Blueprint or declare its Fields`,
+			path,
 		});
 	}
 
@@ -213,6 +262,59 @@ function checkVirtualTable(field: Field, fieldErrors: SpecFieldError[]): void {
 			accessor: rowField.config.api_accessor,
 			code: "virtual_table_row_field_type",
 			message: `Field "${rowField.config.api_accessor}" of type "${rowField.field_type}" is not allowed in a Row Spec`,
+			path: toPath(fieldSegments(segments, rowField.config.api_accessor)),
 		});
+	}
+}
+
+/**
+ * ADR-0018: every Field names a registered type, and its `settings` are what
+ * that type's `settingsSchema` declares — nothing more, and each of the right
+ * shape. The same rule, over the same schemas, is the Go module's
+ * `ValidateSpec`; the shared conformance fixtures hold the two to one answer.
+ *
+ * A type without a `settingsSchema` accepts any settings, as every type did
+ * before the Catalogue. A Field of an unknown type is reported once and its
+ * settings are left alone; its children are still walked, as every check here
+ * walks `children` whatever holds them.
+ */
+function checkTypesAndSettings(
+	fields: Field[],
+	parent: readonly string[],
+	plugins: Map<string, FieldTypePlugin>,
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		const accessor = field.config.api_accessor;
+		const segments = fieldSegments(parent, accessor);
+		const plugin = plugins.get(field.field_type);
+		if (!plugin) {
+			fieldErrors.push({
+				accessor,
+				code: "unknown_field_type",
+				message: `Field "${accessor}" has an unknown type "${field.field_type}"`,
+				path: toPath(segments),
+				params: { field_type: field.field_type },
+			});
+		} else if (plugin.settingsSchema) {
+			const settingsPath = toPath([...segments, "settings"]);
+			for (const error of validateSettings(
+				plugin.settingsSchema,
+				field.settings,
+			)) {
+				fieldErrors.push({
+					accessor,
+					code: error.code,
+					message:
+						error.code === "unknown_setting"
+							? `Field "${accessor}" has an unknown setting "${error.path}"`
+							: `Field "${accessor}" has an invalid setting "${error.path}"`,
+					path: settingsPath + error.path,
+				});
+			}
+		}
+		if (field.children?.length) {
+			checkTypesAndSettings(field.children, segments, plugins, fieldErrors);
+		}
 	}
 }

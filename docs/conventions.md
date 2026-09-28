@@ -38,11 +38,11 @@ All CI comes from **[`knkCS/workflows`](https://github.com/knkCS/workflows)**, t
 
 Composite actions: `configure-private-modules` (GOPRIVATE + git `insteadOf`), `setup-go-node` (setup-go, optional setup-node, caching).
 
-**This repo:** only `commitlint.yml` is a caller of the shared workflows. fieldkit's other three workflows predate this baseline and are its own:
+**This repo:** `commitlint.yml` and `go.yml` are callers of the shared workflows. `go.yml` calls `go-service-ci.yml` for the Go module in `go/` — and cannot pass yet: the shared workflow runs at the repository root and has no `working-directory` input, while the module's `go.mod` is in `go/` (the file's header says more). fieldkit's other three workflows predate this baseline and are its own:
 
 | Workflow | What it does |
 |---|---|
-| [`ci.yml`](../.github/workflows/ci.yml) | lint, typecheck, build, verify-exports and tests on Node 22 — the same steps as `npm run verify` |
+| [`ci.yml`](../.github/workflows/ci.yml) | lint, typecheck, the Catalogue staleness check, build, verify-exports, tests on Node 22 and the Go module's checks — the same steps as `npm run verify` |
 | [`publish-fieldkit.yml`](../.github/workflows/publish-fieldkit.yml) | on a `v*` tag: checks the tag against `package.json`, runs the same gate, publishes to npmjs.org (with provenance) and GitHub Packages |
 | [`storybook.yml`](../.github/workflows/storybook.yml) | deploys Storybook to GitHub Pages on every push to `main` |
 
@@ -58,9 +58,9 @@ They are a known deviation from "reuse, don't rewrite", not a precedent: a new w
 
 ### Current state
 
-**Actions in the org have been blocked by a billing issue** (as recorded in legalcitationhub). `commitlint.yml` is committed here anyway, so the gate is in place the moment Actions run again, as are `ci.yml`, `publish-fieldkit.yml` and `storybook.yml`.
+**Actions in the org have been blocked by a billing issue** (as recorded in legalcitationhub). `commitlint.yml` is committed here anyway, so the gate is in place the moment Actions run again, as are `go.yml`, `ci.yml`, `publish-fieldkit.yml` and `storybook.yml`.
 
-**This repo: until then, the merge bar is `npm run verify`, run locally.** It runs what `ci.yml` runs — lint, typecheck, build, verify-exports and the full suite (`test:gate`, which allows 30s per test and one retry, because the jsdom suite is load-sensitive). A PR's checks stay pending for ever and are not a gate; a PR merges only when `npm run verify` is green at the merge commit. Nothing runs commitlint locally, so commit messages are checked by review until Actions return. `CLAUDE.md` holds the full rule; update both when Actions run again.
+**This repo: until then, the merge bar is `npm run verify`, run locally.** It runs what `ci.yml` runs — lint, typecheck, the Catalogue staleness check, build, verify-exports, the full suite (`test:gate`, which allows 30s per test and one retry, because the jsdom suite is load-sensitive) and the Go module's gofmt, `go vet` and `go test` (`verify:go`). A PR's checks stay pending for ever and are not a gate; a PR merges only when `npm run verify` is green at the merge commit. Nothing runs commitlint locally, so commit messages are checked by review until Actions return. `CLAUDE.md` holds the full rule; update both when Actions run again.
 
 ## Shared code: `knkCS/commons`
 

@@ -34,10 +34,12 @@
       "types": "./dist/rich-text-spec/index.d.ts",
       "import": "./dist/rich-text-spec/index.js",
       "default": "./dist/rich-text-spec/index.js"
-    }
+    },
+    "./catalogue.json": "./go/catalogue.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "go/catalogue.json"
   ],
   "scripts": {
     "dev": "storybook dev -p 6007",
@@ -49,8 +51,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify-exports": "tsx scripts/verify-exports.ts",
-		"test:gate": "vitest run --testTimeout=30000 --retry=1",
-		"verify": "npm run lint && npm run typecheck && npm run build && npm run verify-exports && npm run test:gate",
+    "test:gate": "vitest run --testTimeout=30000 --retry=1",
+    "catalogue": "tsx scripts/catalogue.ts",
+    "catalogue:check": "tsx scripts/catalogue.ts --check",
+    "verify:go": "bash scripts/verify-go.sh",
+    "verify": "npm run lint && npm run typecheck && npm run catalogue:check && npm run build && npm run verify-exports && npm run test:gate && npm run verify:go",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
@@ -101,6 +106,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
   }
 }

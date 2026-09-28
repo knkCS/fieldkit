@@ -223,4 +223,51 @@ export interface FieldTypePlugin<S = unknown> {
 	) => unknown;
 	maxPerSpec?: number;
 	availableIn?: FieldContext[];
+
+	/**
+	 * The settings this type accepts, as a **strict** Zod object: a key it
+	 * does not declare is an error, never dropped (ADR-0018).
+	 *
+	 * Declaring one does two things. `validateSpec()` checks a Field's
+	 * `settings` against it — reporting `unknown_setting` and
+	 * `invalid_setting` at the exact path — and the type enters the
+	 * **Catalogue**, the JSON both the npm package and the Go module embed,
+	 * so Go's `ValidateSpec` checks the same settings the same way.
+	 *
+	 * A setting whose value is Unset (absent, `null`, `""`, `[]` or `{}`) is
+	 * treated as absent before the schema sees it (ADR-0021), so every key
+	 * is declared optional.
+	 *
+	 * Optional while the built-in types move over one ticket at a time; a
+	 * type without one accepts any settings, as every type did before, and is
+	 * not in the Catalogue.
+	 */
+	settingsSchema?: ZodTypeAny;
+	/**
+	 * The Catalogue facts about this type that are not its settings. Required
+	 * by the Catalogue generator of every plugin that declares a
+	 * `settingsSchema`, and read by nothing else.
+	 */
+	catalogue?: CatalogueFacts;
+}
+
+/**
+ * What the Catalogue records about a Field Type besides its settings.
+ */
+export interface CatalogueFacts {
+	/** The fieldkit version whose Catalogue first listed this type. Never
+	 * changes once released (ADR-0019). */
+	since: string;
+	/** Whether a value of this type yields text — the types a `search`
+	 * setting is valid on. */
+	hasText: boolean;
+	/** The settings keys that hold a Pin, each with the kind of Release it
+	 * pins (ADR-0020). Empty for a type that pins nothing. */
+	pins: readonly CataloguePin[];
+}
+
+/** One setting that holds a Pin, and what it pins. */
+export interface CataloguePin {
+	key: string;
+	kind: string;
 }

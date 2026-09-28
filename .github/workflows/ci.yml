@@ -18,6 +18,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run catalogue:check
       - run: npm run build
       - run: npm run verify-exports
       - run: npm run test
+      # The Go module's checks, as `npm run verify` runs them. go.yml calls the
+      # org's go-service-ci for the same module; this step keeps ci.yml equal
+      # to the local gate.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+      - run: npm run verify:go

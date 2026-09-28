@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { builtInFieldTypes } from "../field-types";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { validateSpec } from "../validate-spec";
@@ -72,7 +73,10 @@ describe("validateSpec", () => {
 });
 
 describe("validateSpec — accessor checks", () => {
-	const plugins = new Map([["text", mockPlugin("text")]]);
+	const plugins = new Map([
+		["text", mockPlugin("text")],
+		["group", mockPlugin("group")],
+	]);
 
 	function f(accessor: string, name = accessor): Field {
 		return {
@@ -96,6 +100,7 @@ describe("validateSpec — accessor checks", () => {
 			accessor: "a",
 			code: "duplicate_accessor",
 			message: 'Duplicate accessor "a"',
+			path: "/a",
 		});
 	});
 
@@ -134,6 +139,7 @@ describe("validateSpec — accessor checks", () => {
 			accessor: "item_name",
 			code: "empty_name",
 			message: "Name must not be empty",
+			path: "/items/children/item_name",
 		});
 	});
 
@@ -147,6 +153,7 @@ describe("validateSpec — accessor checks", () => {
 			accessor: "dup",
 			code: "duplicate_accessor",
 			message: 'Duplicate accessor "dup"',
+			path: "/items/children/dup",
 		});
 	});
 
@@ -232,11 +239,13 @@ describe("validateSpec — card layout", () => {
 			accessor: "a",
 			code: "loose_field_in_carded_tab",
 			message: 'Field "a" must be inside a card',
+			path: "/a",
 		});
 		expect(result.fieldErrors).toContainEqual({
 			accessor: "b",
 			code: "loose_field_in_carded_tab",
 			message: 'Field "b" must be inside a card',
+			path: "/b",
 		});
 		// The field AFTER the marker is inside the card — not flagged.
 		expect(result.fieldErrors.filter((e) => e.accessor === "x")).toEqual([]);
@@ -279,11 +288,75 @@ describe("validateSpec — card layout", () => {
 			accessor: "",
 			code: "empty_accessor",
 			message: "Accessor must not be empty",
+			path: "/",
 		});
 
 		const dup = validateSpec([card("dup"), field("dup")], plugins);
 		expect(dup.fieldErrors.some((e) => e.code === "duplicate_accessor")).toBe(
 			true,
 		);
+	});
+});
+
+// ADR-0018: a type's settings are what its `settingsSchema` declares. The
+// shared conformance fixtures pin the answers against Go; these pin what only
+// TS has — the full built-in map, where types without a schema still live.
+describe("validateSpec — Field Types and settings", () => {
+	const builtIns = new Map(builtInFieldTypes.map((p) => [p.id, p]));
+
+	function field(type: string, accessor: string, settings?: unknown): Field {
+		return { ...mockField(type, accessor), settings } as Field;
+	}
+
+	it("reports unknown_setting at the exact path, nested in a Group", () => {
+		const group = {
+			...field("group", "authors", { max_items: 2 }),
+			children: [field("text", "name", { placehodler: "x" })],
+		};
+		const result = validateSpec([group], builtIns);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors).toEqual([
+			expect.objectContaining({
+				accessor: "name",
+				code: "unknown_setting",
+				path: "/authors/children/name/settings/placehodler",
+			}),
+		]);
+	});
+
+	it("reports invalid_setting and unknown_field_type", () => {
+		const result = validateSpec(
+			[field("number", "price", { step: 0 }), field("editor_schema", "x")],
+			builtIns,
+		);
+		expect(
+			result.fieldErrors.map(({ path, code, params }) => ({
+				path,
+				code,
+				params,
+			})),
+		).toEqual([
+			{ path: "/price/settings/step", code: "invalid_setting" },
+			{
+				path: "/x",
+				code: "unknown_field_type",
+				params: { field_type: "editor_schema" },
+			},
+		]);
+	});
+
+	it("leaves the settings of a type without a settingsSchema alone", () => {
+		const result = validateSpec(
+			[field("select", "colour", { anything: true, options: [] })],
+			builtIns,
+		);
+		expect(result.fieldErrors).toEqual([]);
+	});
+
+	it("accepts every built-in type's defaultSettings", () => {
+		const fields = builtInFieldTypes
+			.filter((p) => p.settingsSchema)
+			.map((p) => field(p.id, p.id, p.defaultSettings));
+		expect(validateSpec(fields, builtIns).fieldErrors).toEqual([]);
 	});
 });

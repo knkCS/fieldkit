@@ -1,0 +1,186 @@
+{
+	"description": "Unset (absent, null, \"\", [] or {}) is one state: an Unset setting is treated as absent, known key or not, at every depth, and Unset settings are {}. 0 and false are values",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Absent",
+				"api_accessor": "absent",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Null Settings",
+				"api_accessor": "null_settings",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": null,
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Empty String Settings",
+				"api_accessor": "empty_string_settings",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": "",
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Empty List Settings",
+				"api_accessor": "empty_list_settings",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": [],
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Empty Settings",
+				"api_accessor": "empty_settings",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Unset Values",
+				"api_accessor": "unset_values",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placeholder": null,
+				"prepend": "",
+				"legacy": [],
+				"other": {},
+				"nested": {
+					"a": null,
+					"b": {
+						"c": ""
+					}
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Zero",
+				"api_accessor": "zero",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 0
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Zero Rows",
+				"api_accessor": "zero_rows",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 0,
+				"max_items": 0
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Zero Unknown",
+				"api_accessor": "zero_unknown",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"legacy": 0
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "False Unknown",
+				"api_accessor": "false_unknown",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"legacy": false
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Kept Unknown",
+				"api_accessor": "kept_unknown",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"legacy": {
+					"a": null,
+					"b": 1
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "List Of Unset",
+				"api_accessor": "list_of_unset",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"legacy": [
+					null
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/zero_unknown/settings/legacy",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/false_unknown/settings/legacy",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/kept_unknown/settings/legacy",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/list_of_unset/settings/legacy",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

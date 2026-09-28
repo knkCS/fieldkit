@@ -1,0 +1,89 @@
+{
+	"description": "A field_type the Catalogue does not list is unknown_field_type at the Field; its settings are not checked, and its children still are",
+	"spec": [
+		{
+			"field_type": "editor_schema",
+			"config": {
+				"name": "Legacy",
+				"api_accessor": "legacy",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"anything": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "",
+			"config": {
+				"name": "Untyped",
+				"api_accessor": "untyped",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"children": [
+				{
+					"field_type": "title_data",
+					"config": {
+						"name": "Inner",
+						"api_accessor": "inner",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"x": 1
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Deep",
+								"api_accessor": "deep",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"nope": 1
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/legacy",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/untyped",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/rows/children/inner",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/rows/children/inner/children/deep/settings/nope",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

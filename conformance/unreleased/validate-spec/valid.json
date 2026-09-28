@@ -1,0 +1,105 @@
+{
+	"description": "A valid Spec of every type the Catalogue lists, each setting set, nested in a Group: no errors",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placeholder": "A title",
+				"prepend": "»",
+				"append": "«"
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Price",
+				"api_accessor": "price",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": -10,
+				"max": 99.5,
+				"step": 0.5,
+				"prepend": "€",
+				"append": "net"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 0,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"placeholder": "Name"
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Age",
+						"api_accessor": "age",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Addresses",
+						"api_accessor": "addresses",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min_items": 1
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Street",
+								"api_accessor": "street",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": []
+	}
+}
