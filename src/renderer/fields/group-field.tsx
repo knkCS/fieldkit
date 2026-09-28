@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { GroupSettings } from "../../schema/field-types/group";
 import type { FieldProps } from "../../schema/plugin";
+import { mintId } from "../../schema/row-ids";
 import { getDefaultValues } from "../../schema/zod-builder";
 import { useFieldKit } from "../provider";
 import { NestedItemFields } from "./item-fields";
@@ -34,8 +35,11 @@ export function GroupField({ field, readOnly }: FieldProps<GroupSettings>) {
 	//
 	// Computed per click rather than memoised: a fresh object each time, so no
 	// two rows share one, and there is nothing to keep in sync with `children`.
+	// Every row carries its own `_id` (ADR-0023) — fieldkit's, not
+	// react-hook-form's `item.id`, which is a render key and never stored.
 	const addItem = useCallback(
-		() => append(getDefaultValues(children, getAllPlugins())),
+		() =>
+			append({ ...getDefaultValues(children, getAllPlugins()), _id: mintId() }),
 		[append, children, getAllPlugins],
 	);
 

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { builtInFieldTypes } from "../../schema/field-types";
 import type {
 	CellProps,
 	FieldProps,
@@ -344,5 +345,68 @@ describe("SpecDataTable", () => {
 
 	it("should have displayName", () => {
 		expect(SpecDataTable.displayName).toBe("SpecDataTable");
+	});
+});
+
+describe("SpecDataTable on rows stored without _id (ADR-0023)", () => {
+	it("edits a legacy row and hands it back with ids", async () => {
+		const groupSchema: Schema = [
+			{
+				field_type: "text",
+				config: {
+					name: "Title",
+					api_accessor: "title",
+					required: false,
+					instructions: "",
+				},
+				system: false,
+			},
+			{
+				field_type: "group",
+				config: {
+					name: "Authors",
+					api_accessor: "authors",
+					required: false,
+					instructions: "",
+				},
+				children: [
+					{
+						field_type: "text",
+						config: {
+							name: "Name",
+							api_accessor: "name",
+							required: false,
+							instructions: "",
+						},
+						system: false,
+					},
+				],
+				system: false,
+			},
+		];
+		const onRowSave = vi.fn();
+		render(
+			<SpecDataTable
+				schema={groupSchema}
+				data={[{ title: "Book", authors: [{ name: "Ada" }] }]}
+				plugins={builtInFieldTypes}
+				editable
+				onRowSave={onRowSave}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: /Book/ }));
+		await waitFor(() => {
+			expect(screen.getByTestId("edit-drawer")).toBeInTheDocument();
+		});
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => {
+			expect(onRowSave).toHaveBeenCalledWith(0, {
+				title: "Book",
+				authors: [{ _id: expect.any(String), name: "Ada" }],
+			});
+		});
 	});
 });

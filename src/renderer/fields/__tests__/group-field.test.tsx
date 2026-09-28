@@ -278,7 +278,7 @@ describe("GroupField", () => {
 		// The seeded "" is Unset, and a submit is canonical (ADR-0021): the
 		// note is absent, the false stays.
 		expect(onSubmit.mock.calls[0][0]).toStrictEqual({
-			items: [{ active: false }],
+			items: [{ active: false, _id: expect.any(String) }],
 		});
 	});
 

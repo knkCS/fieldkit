@@ -227,7 +227,9 @@ describe("BlocksField", () => {
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 		expect(onSubmit.mock.calls[0][0]).toEqual({
-			blocks: [{ _type: "heading", title: "", pinned: false }],
+			blocks: [
+				{ _id: expect.any(String), _type: "heading", title: "", pinned: false },
+			],
 		});
 	});
 

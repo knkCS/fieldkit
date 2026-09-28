@@ -19,6 +19,7 @@ import {
 import { linkedBlueprintId } from "../../schema/blueprint-link";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { FieldProps } from "../../schema/plugin";
+import { mintId } from "../../schema/row-ids";
 import type { Field as FieldDef } from "../../schema/types";
 import { getCellForFieldType } from "../../table/get-cell-for-type";
 import { useFieldKit } from "../provider";
@@ -248,7 +249,10 @@ function VirtualTableEditor({
 	const saveDraft = useCallback(
 		(values: Record<string, unknown>) => {
 			if (draft?.index == null) {
-				append(values);
+				// A new row gets its `_id` here (ADR-0023): the drawer edits the
+				// Row Spec's columns, and `_id` is none of them. An edited row
+				// keeps the one it came with — the drawer saves over it.
+				append({ ...values, _id: mintId() });
 				// A row appended to a full page lands on the next one. Following
 				// it there is the difference between adding a row and watching a
 				// table not change.

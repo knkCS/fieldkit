@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { builtInFieldTypes } from "../../schema/field-types";
 import type { FieldProps, FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
 import { EditDrawer } from "../edit-drawer";
@@ -324,5 +325,56 @@ describe("EditDrawer", () => {
 		);
 
 		expect(screen.getByText("Save")).toBeInTheDocument();
+	});
+});
+
+describe("EditDrawer on rows stored without _id (ADR-0023)", () => {
+	const groupSchema: Schema = [
+		makeField({
+			field_type: "group",
+			config: {
+				name: "Authors",
+				api_accessor: "authors",
+				required: false,
+				instructions: "",
+			},
+			children: [
+				makeField({
+					field_type: "text",
+					config: {
+						name: "Name",
+						api_accessor: "name",
+						required: false,
+						instructions: "",
+					},
+				}),
+			],
+		}),
+	];
+
+	it("accepts the legacy rows and saves them with ids", async () => {
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={groupSchema}
+				plugins={builtInFieldTypes}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{ id: 7, authors: [{ name: "Ada" }, { name: "Grace" }] }}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+		const saved = onSave.mock.calls[0][0];
+		expect(saved.id).toBe(7);
+		expect(saved.authors).toEqual([
+			{ _id: expect.any(String), name: "Ada" },
+			{ _id: expect.any(String), name: "Grace" },
+		]);
+		expect(saved.authors[0]._id).not.toBe(saved.authors[1]._id);
 	});
 });
