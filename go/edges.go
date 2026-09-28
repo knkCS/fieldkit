@@ -48,7 +48,8 @@ type Target struct {
 }
 
 // edgeRule is the edges a type's value yields, already canonical and not
-// Unset. Paths are relative to the value ("" is the value itself). A value
+// Unset. Paths are relative to the value ("" is the value itself), built
+// with joinPath so each segment is escaped as TS's toPath escapes it. A value
 // not of the type's shape yields none: the walk reads what ValidateValue
 // accepted.
 type edgeRule func(f Field, settings map[string]any, value any) []Edge

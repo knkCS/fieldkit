@@ -38,7 +38,10 @@ func heldRecords(f Field, settings map[string]any, value any, path string) []hel
 	case "blocks":
 		types := blockTypes(settings)
 		return rowRecords(value, path, func(block map[string]any) []Field {
-			typ, _ := block["_type"].(string)
+			typ, ok := block["_type"].(string)
+			if !ok {
+				return nil
+			}
 			for _, bt := range types {
 				if bt.typed && bt.typ == typ {
 					return bt.fields
