@@ -181,6 +181,25 @@ describe("compareCatalogues — what fails", () => {
 		]);
 	});
 
+	it("fails a type where there was none, and passes one dropped", () => {
+		const untyped = catalogue([
+			withSettings((s) => {
+				delete s.properties.placeholder.type;
+			}),
+		]);
+		expect(
+			compareCatalogues(untyped, catalogue([type()], "0.19.0")),
+		).toEqual([
+			'text: settings /placeholder changed type from undefined to "string"',
+		]);
+		expect(
+			compareCatalogues(released, {
+				...untyped,
+				version: "0.19.0",
+			}),
+		).toEqual([]);
+	});
+
 	it("fails a tightened bound", () => {
 		expect(
 			breaks(

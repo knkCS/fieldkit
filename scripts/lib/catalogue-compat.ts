@@ -144,12 +144,14 @@ function schemaBreaks(old: JsonSchema, now: JsonSchema, at: string): string[] {
 	const breaks: string[] = [];
 
 	// Type: the set of allowed types may grow ("string" → ["string", "null"]),
-	// never lose one. integer → number would be a loosening too, but it is
-	// rare enough to be judged by a person as a new type id instead.
+	// never lose one. An absent `type` allows every type, so dropping it is a
+	// loosening and adding one a tightening. integer → number would be a
+	// loosening too, but it is rare enough to be judged by a person as a new
+	// type id instead.
 	if (!sameJson(old.type, now.type)) {
 		const before = typeSet(old.type);
 		const after = typeSet(now.type);
-		if (before && (!after || before.some((t) => !after.includes(t)))) {
+		if (after && (!before || before.some((t) => !after.includes(t)))) {
 			breaks.push(
 				`${where} changed type from ${JSON.stringify(old.type)} to ${JSON.stringify(now.type)}`,
 			);
