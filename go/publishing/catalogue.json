@@ -149,6 +149,32 @@
 			],
 			"pins": [],
 			"has_text": false
+		},
+		{
+			"id": "ti_overlay",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"ti_set": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint"
+			],
+			"pins": [
+				{
+					"key": "ti_set",
+					"kind": "ti_set"
+				}
+			],
+			"has_text": false
 		}
 	]
 }

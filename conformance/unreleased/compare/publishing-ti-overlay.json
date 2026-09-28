@@ -1,0 +1,173 @@
+{
+	"description": "A ti_overlay value compares per entry by _id, as a Group's rows do, nested under its entries: an entry moved, one changed key by key — an anchor, notes — one added, one removed",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "ti",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"settings": {
+				"ti_set": "house@2"
+			}
+		}
+	],
+	"releases": {
+		"ti_set": {
+			"house@2": {
+				"instructions": [
+					{
+						"code": "np"
+					},
+					{
+						"code": "bn"
+					}
+				]
+			}
+		}
+	},
+	"revisions": {
+		"a": {
+			"ti": {
+				"entries": [
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					},
+					{
+						"_id": "e2",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "bn",
+						"source": "editor"
+					},
+					{
+						"_id": "e3",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "keep together"
+					}
+				]
+			}
+		},
+		"b": {
+			"ti": {
+				"entries": [
+					{
+						"_id": "e2",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "bn",
+						"source": "editor"
+					},
+					{
+						"_id": "e1",
+						"anchor": {
+							"node": "12",
+							"offset": 4,
+							"before": "Kapitel 1 ",
+							"after": "bsatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "editor",
+						"notes": "moved"
+					},
+					{
+						"_id": "e4",
+						"anchor": {
+							"node": "12",
+							"offset": 3,
+							"before": "Kapitel 1",
+							"after": "Absatz"
+						},
+						"command": "np",
+						"params": {
+							"lines": "2"
+						},
+						"source": "oasys",
+						"notes": "keep together"
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"compare": {
+			"ti": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"fields": {
+						"entries": {
+							"status": "changed",
+							"items": [
+								{
+									"_id": "e2",
+									"status": "unchanged",
+									"moved": true
+								},
+								{
+									"_id": "e3",
+									"status": "removed"
+								},
+								{
+									"_id": "e1",
+									"status": "changed",
+									"fields": {
+										"anchor": {
+											"status": "changed"
+										},
+										"notes": {
+											"status": "changed"
+										}
+									}
+								},
+								{
+									"_id": "e4",
+									"status": "added"
+								}
+							]
+						}
+					}
+				}
+			}
+		}
+	}
+}

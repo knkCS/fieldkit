@@ -38,6 +38,7 @@ var code = map[string]fieldkit.TypeCode{ //nolint:gochecknoglobals
 	"outline_tree":      outlineTree,
 	"reference_filter":  referenceFilter,
 	"template_text":     templateText,
+	"ti_overlay":        tiOverlay,
 }
 
 var (
