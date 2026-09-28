@@ -1,0 +1,139 @@
+{
+	"description": "Unknown and invalid settings of fieldset, virtual_table and blocks, down to a Block Type's own keys; core's inline `fields` on a virtual_table is unknown",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": 42,
+				"collapsable": true,
+				"collapsible": "yes"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Prices",
+				"api_accessor": "prices",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-price",
+				"fields": [
+					{
+						"name": "Amount"
+					}
+				],
+				"max_records_per_page": 0,
+				"always_latest": "no",
+				"min_items": 1.5
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Strip",
+				"api_accessor": "strip",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": "heading"
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "",
+						"name": "Untyped",
+						"label": "x"
+					},
+					{
+						"type": "quote",
+						"fields": "none"
+					},
+					"divider"
+				],
+				"max_blocks": 3
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/address/settings/blueprint",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/address/settings/collapsable",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/address/settings/collapsible",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/prices/settings/fields",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/prices/settings/max_records_per_page",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/prices/settings/always_latest",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/prices/settings/min_items",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/strip/settings/allowed_blocks",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/type",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/label",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/1/name",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/1/fields",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/2",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/max_blocks",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

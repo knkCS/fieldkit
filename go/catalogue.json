@@ -2,6 +2,80 @@
 	"version": "0.18.0",
 	"types": [
 		{
+			"id": "blocks",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"allowed_blocks": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"type": {
+									"type": "string"
+								},
+								"name": {
+									"type": "string"
+								},
+								"fields": {
+									"type": "array",
+									"items": {}
+								}
+							},
+							"required": [
+								"type",
+								"name"
+							],
+							"additionalProperties": false
+						}
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "fieldset",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"blueprint": {
+						"type": "string"
+					},
+					"collapsible": {
+						"type": "boolean"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [
+				{
+					"key": "blueprint",
+					"kind": "blueprint"
+				}
+			],
+			"has_text": false
+		},
+		{
 			"id": "group",
 			"since": "0.18.0",
 			"settings_schema": {
@@ -97,6 +171,49 @@
 			],
 			"pins": [],
 			"has_text": true
+		},
+		{
+			"id": "virtual_table",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"min_items": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"max_items": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"blueprint": {
+						"type": "string"
+					},
+					"always_latest": {
+						"type": "boolean"
+					},
+					"max_records_per_page": {
+						"type": "integer",
+						"minimum": 1
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [
+				{
+					"key": "blueprint",
+					"kind": "blueprint"
+				}
+			],
+			"has_text": false
 		}
 	]
 }

@@ -57,15 +57,13 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 	//
 	// A block type's fields live in `settings.allowed_blocks[].fields` rather
 	// than in `children`, and composing them does not move the line shared
-	// traversal draws: `resolveSpec()`, `validateSpec()` and
-	// `resolveMarkerConvention()` still walk `Field.children` only, so only the
-	// plugin that owns the settings reaches into them. What a Consumer meets,
-	// spelled out in ADR-0007 and in blocks-field.mdx: a Fieldset declared
-	// inside a block type is never resolved, and composes as the opaque record
-	// any unresolved Fieldset does; and no check `validateSpec` runs reaches
-	// these fields, so a duplicate Accessor between two of them goes unreported
-	// with the later one silently winning the composed shape, as do an empty
-	// name and an empty Accessor.
+	// traversal draws: `resolveSpec()` and `resolveMarkerConvention()` still
+	// walk `Field.children` only. What a Consumer meets, spelled out in
+	// ADR-0007 and in blocks-field.mdx: a Fieldset declared inside a block type
+	// is never resolved, and composes as the opaque record any unresolved
+	// Fieldset does. `validateSpec()` does reach these fields since #208,
+	// through `block-types.ts`, so a duplicate Accessor between two of them is
+	// reported rather than silently winning the composed shape.
 	toZodType(field: Field<BlocksSettings>, composeChildren) {
 		const allowedBlocks = field.settings?.allowed_blocks ?? [];
 
@@ -94,6 +92,32 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 			),
 		);
 	},
+
+	// A Block Type needs its `type` — the `_type` a Block names it by — and a
+	// name to be offered under, so those two are required inside each entry
+	// (an Unset one is missing). Its `fields` are a Spec, and a Spec is not a
+	// settings value: the schema only says they are a list, and
+	// `validateSpec()` walks them as Fields, each against its own type, and
+	// refuses Block Types sharing a `type` (`block-types.ts`).
+	settingsSchema: z
+		.object({
+			allowed_blocks: z
+				.array(
+					z
+						.object({
+							type: z.string(),
+							name: z.string(),
+							fields: z.array(z.unknown()).optional(),
+						})
+						.strict(),
+				)
+				.optional(),
+		})
+		.strict(),
+
+	// A Block's text is its Block Type's Fields'; the Field yields none of its
+	// own.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
 	defaultSettings: { allowed_blocks: [] },
 

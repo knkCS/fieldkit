@@ -1,5 +1,23 @@
 // src/schema/blueprint-link.ts
+import type { CataloguePin } from "./plugin";
 import type { Field } from "./types";
+
+/**
+ * The setting that links a Blueprint, as the Catalogue records it: the key a
+ * Fieldset and a Virtual Table both hold their link under, and the kind of
+ * Release it pins — a Blueprint's (ADR-0020). Both plugins declare this one
+ * object as their Pin and `linkedBlueprintId()` reads the same key, so the
+ * Catalogue cannot name a key the validator, the resolver and the renderer do
+ * not read.
+ *
+ * The value is still a Blueprint *id* today. ADR-0020 makes it name a
+ * Blueprint Release; that is resolution's change to make (#212), and the key
+ * and its kind stay.
+ */
+export const BLUEPRINT_PIN: CataloguePin = {
+	key: "blueprint",
+	kind: "blueprint",
+};
 
 /**
  * The Blueprint a Field links to, or undefined for one that links none.
@@ -20,8 +38,8 @@ import type { Field } from "./types";
  */
 export function linkedBlueprintId(field: Field): string | undefined {
 	const blueprint = (
-		field.settings as { blueprint?: unknown } | null | undefined
-	)?.blueprint;
+		field.settings as Record<string, unknown> | null | undefined
+	)?.[BLUEPRINT_PIN.key];
 	if (typeof blueprint !== "string") return undefined;
 	const trimmed = blueprint.trim();
 	return trimmed === "" ? undefined : trimmed;

@@ -92,6 +92,10 @@ func (a additionalProperties) MarshalJSON() ([]byte, error) {
 //
 // An unknown field type is one CodeUnknownFieldType at "". Settings that are
 // not JSON are one CodeInvalidSetting at "".
+//
+// Besides the schema, a type may have rules across its settings that no
+// schema states — Block Types sharing a type, for blocks. Those run here too
+// (see rules.go), after the schema and whatever it reported.
 func ValidateSettings(fieldType string, settings json.RawMessage) []Error {
 	return DefaultCatalogue().ValidateSettings(fieldType, settings)
 }
@@ -103,12 +107,29 @@ func (c *Catalogue) ValidateSettings(fieldType string, settings json.RawMessage)
 	if !ok {
 		return []Error{{Path: "", Code: CodeUnknownFieldType, Params: map[string]any{"field_type": fieldType}}}
 	}
+	value, ok := canonicalSettings(settings)
+	if !ok {
+		return []Error{{Path: "", Code: CodeInvalidSetting}}
+	}
+	v := &settingsValidator{}
+	v.check(t.SettingsSchema, value, "")
+	if r := rulesFor(fieldType); r.settings != nil {
+		v.errors = append(v.errors, r.settings(value)...)
+	}
+	return v.errors
+}
+
+// canonicalSettings decodes settings as JS reads them — numbers as float64,
+// beyond its range ±Inf — and strips every Unset value (ADR-0021). Unset
+// settings as a whole are {}. It reports false for settings that are not one
+// JSON value.
+func canonicalSettings(settings json.RawMessage) (any, bool) {
 	var value any = map[string]any{}
 	if len(bytes.TrimSpace(settings)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(settings))
 		dec.UseNumber()
 		if err := dec.Decode(&value); err != nil || dec.More() {
-			return []Error{{Path: "", Code: CodeInvalidSetting}}
+			return nil, false
 		}
 		value = toFloats(value)
 	}
@@ -116,9 +137,7 @@ func (c *Catalogue) ValidateSettings(fieldType string, settings json.RawMessage)
 	if isUnset(value) {
 		value = map[string]any{}
 	}
-	v := &settingsValidator{}
-	v.check(t.SettingsSchema, value, "")
-	return v.errors
+	return value, true
 }
 
 type settingsValidator struct {

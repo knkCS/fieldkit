@@ -1,3 +1,4 @@
+import { blockTypeSpecs, duplicateBlockTypes } from "./block-types";
 import { partitionSchemaBySections } from "./partition";
 import { partitionTabByCards } from "./partition-cards";
 import type { FieldTypePlugin } from "./plugin";
@@ -21,6 +22,9 @@ export type SpecFieldErrorCode =
 	/** A Field a Row Spec may not hold — a Marker, a container, or any type
 	 * outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
 	| "virtual_table_row_field_type"
+	/** A Block Type of a Blocks Field repeating the `type` an earlier one
+	 * declared — reported at each repeat's `type`. */
+	| "duplicate_block_type"
 	/** A Field whose `field_type` no plugin in the map registers. Its
 	 * settings are not checked — there is nothing to check them against. */
 	| "unknown_field_type"
@@ -79,23 +83,23 @@ export function validateSpec(
 		}
 	}
 
-	// Check accessor constraints: empty name, empty accessor, duplicates.
-	// Recurses into group children (F5) — each field list (top-level, or one
-	// group's children) is its OWN duplicate-accessor namespace: the same
-	// accessor reused in a sibling group, or at a different nesting level, is
-	// NOT a collision, so `seen` must not be shared across recursive calls.
-	// Fields nested inside blocks/array settings are NOT traversed — they
-	// live in `settings` (e.g. allowed_blocks[].fields), not
-	// `Field.children`. Documented-by-design; resolveMarkerConvention and
-	// resolveSpec share the same boundary (see their docstrings). Those
-	// Fields DO reach a Schema, composed by the plugin that owns them —
-	// composing is not walking, so none of the checks below see them and a
-	// duplicate accessor among a block type's fields goes unreported.
-	// ADR-0007 states the boundary and what it costs.
+	// Every check below but the card-layout rule walks every Spec a Field
+	// holds (`nestedSpecs`): a Group's or a Virtual Table's `children`, and
+	// the Fields of each Block Type of a Blocks Field, which live in its
+	// settings (`allowed_blocks[].fields`) rather than in `children`. Each
+	// field list is its OWN duplicate-accessor namespace: the same accessor
+	// reused in a sibling group, in a Block Type, or at a different nesting
+	// level is NOT a collision, so `seen` is never shared across lists.
+	//
+	// Walking Block Types moves the line ADR-0007 drew for this function,
+	// which walked `children` only and so left a duplicate accessor among a
+	// Block Type's Fields unreported (#208). The settings' shape is still read
+	// by the Blocks Field's own module (`block-types.ts`), never here.
 	checkAccessors(fields, [], fieldErrors);
 	checkCardLayout(fields, fieldErrors);
 	checkVirtualTables(fields, [], fieldErrors);
 	checkTypesAndSettings(fields, [], plugins, fieldErrors);
+	checkBlockTypes(fields, [], fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -103,21 +107,39 @@ export function validateSpec(
 	return { valid: errors.length === 0, errors, fieldErrors };
 }
 
-/** The path segments of a Field in a list held by the Field at `parent`
- * (`[]` for the root list). */
-function fieldSegments(parent: readonly string[], accessor: string): string[] {
-	return parent.length === 0 ? [accessor] : [...parent, "children", accessor];
+type Segments = readonly (string | number)[];
+
+/**
+ * The field lists a Field holds, each with the path segments of the list
+ * itself: its `children` at `…/children`, and — for a Blocks Field — each
+ * Block Type's Fields at `…/settings/allowed_blocks/<i>/fields`. A Field in a
+ * list sits at the list's segments plus its Accessor: the path grammar
+ * `conformance/README.md` states and Go's `ValidateSpec` shares.
+ */
+function nestedSpecs(
+	field: Field,
+	segments: Segments,
+): { list: Segments; fields: Field[] }[] {
+	const lists: { list: Segments; fields: Field[] }[] = [];
+	if (field.children?.length) {
+		lists.push({ list: [...segments, "children"], fields: field.children });
+	}
+	for (const spec of blockTypeSpecs(field).specs) {
+		lists.push({ list: [...segments, ...spec.segments], fields: spec.fields });
+	}
+	return lists;
 }
 
 function checkAccessors(
 	fields: Field[],
-	parent: readonly string[],
+	list: Segments,
 	fieldErrors: SpecFieldError[],
 ): void {
 	const seen = new Map<string, number>();
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
-		const path = toPath(fieldSegments(parent, accessor));
+		const segments = [...list, accessor];
+		const path = toPath(segments);
 		// Card markers are exempt from the empty-name rule: a card's title is
 		// OPTIONAL (empty = untitled, card-layout Decision 3). Accessor rules
 		// below apply to them unchanged.
@@ -139,12 +161,8 @@ function checkAccessors(
 		} else {
 			seen.set(accessor, (seen.get(accessor) ?? 0) + 1);
 		}
-		if (field.children && field.children.length > 0) {
-			checkAccessors(
-				field.children,
-				fieldSegments(parent, accessor),
-				fieldErrors,
-			);
+		for (const nested of nestedSpecs(field, segments)) {
+			checkAccessors(nested.fields, nested.list, fieldErrors);
 		}
 	}
 	for (const [accessor, count] of seen) {
@@ -153,7 +171,7 @@ function checkAccessors(
 				accessor,
 				code: "duplicate_accessor",
 				message: `Duplicate accessor "${accessor}"`,
-				path: toPath(fieldSegments(parent, accessor)),
+				path: toPath([...list, accessor]),
 			});
 		}
 	}
@@ -198,9 +216,8 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  * must fix before saving, not a value to reject at submit: the editor shows
  * these against the offending Field the way it shows a duplicate Accessor.
  *
- * Walks `children` like the accessor check, so a Virtual Table inside a Group
- * is checked too — and, on the same ADR-0007 boundary, one declared inside a
- * Block Type's settings Fields is not.
+ * Walks every nested Spec like the accessor check, so a Virtual Table inside a
+ * Group, or declared among a Block Type's Fields, is checked too.
  *
  * **Takes an authored Spec**, as every check here does. `resolveSpec()` puts a
  * linked Row Spec into `children` (ADR-0004), so a *Resolved* linked Virtual
@@ -213,23 +230,23 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  */
 function checkVirtualTables(
 	fields: Field[],
-	parent: readonly string[],
+	list: Segments,
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
-		const segments = fieldSegments(parent, field.config.api_accessor);
+		const segments = [...list, field.config.api_accessor];
 		if (field.field_type === "virtual_table") {
 			checkVirtualTable(field, segments, fieldErrors);
 		}
-		if (field.children?.length) {
-			checkVirtualTables(field.children, segments, fieldErrors);
+		for (const nested of nestedSpecs(field, segments)) {
+			checkVirtualTables(nested.fields, nested.list, fieldErrors);
 		}
 	}
 }
 
 function checkVirtualTable(
 	field: Field,
-	segments: readonly string[],
+	segments: Segments,
 	fieldErrors: SpecFieldError[],
 ): void {
 	const accessor = field.config.api_accessor;
@@ -262,7 +279,7 @@ function checkVirtualTable(
 			accessor: rowField.config.api_accessor,
 			code: "virtual_table_row_field_type",
 			message: `Field "${rowField.config.api_accessor}" of type "${rowField.field_type}" is not allowed in a Row Spec`,
-			path: toPath(fieldSegments(segments, rowField.config.api_accessor)),
+			path: toPath([...segments, "children", rowField.config.api_accessor]),
 		});
 	}
 }
@@ -276,17 +293,18 @@ function checkVirtualTable(
  * A type without a `settingsSchema` accepts any settings, as every type did
  * before the Catalogue. A Field of an unknown type is reported once and its
  * settings are left alone; its children are still walked, as every check here
- * walks `children` whatever holds them.
+ * walks `children` whatever holds them. A Block Type's Fields are walked the
+ * same way, each against its own type.
  */
 function checkTypesAndSettings(
 	fields: Field[],
-	parent: readonly string[],
+	list: Segments,
 	plugins: Map<string, FieldTypePlugin>,
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
 		const accessor = field.config.api_accessor;
-		const segments = fieldSegments(parent, accessor);
+		const segments = [...list, accessor];
 		const plugin = plugins.get(field.field_type);
 		if (!plugin) {
 			fieldErrors.push({
@@ -313,8 +331,51 @@ function checkTypesAndSettings(
 				});
 			}
 		}
-		if (field.children?.length) {
-			checkTypesAndSettings(field.children, segments, plugins, fieldErrors);
+		for (const nested of nestedSpecs(field, segments)) {
+			checkTypesAndSettings(nested.fields, nested.list, plugins, fieldErrors);
+		}
+	}
+}
+
+/**
+ * The rules across a Blocks Field's settings that its settings schema cannot
+ * state: no two Block Types share a `type`, and a Block Type's `fields` is a
+ * list of Fields — one that is not cannot be walked, and is one
+ * `invalid_setting` rather than half a Spec. Go's `ValidateSpec` runs the same
+ * rules as the `blocks` type's hook.
+ */
+function checkBlockTypes(
+	fields: Field[],
+	list: Segments,
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		const accessor = field.config.api_accessor;
+		const segments = [...list, accessor];
+		for (const index of duplicateBlockTypes(field)) {
+			fieldErrors.push({
+				accessor,
+				code: "duplicate_block_type",
+				message: `Field "${accessor}" has Block Types sharing one type`,
+				path: toPath([
+					...segments,
+					"settings",
+					"allowed_blocks",
+					index,
+					"type",
+				]),
+			});
+		}
+		for (const invalid of blockTypeSpecs(field).invalid) {
+			fieldErrors.push({
+				accessor,
+				code: "invalid_setting",
+				message: `Field "${accessor}" has an invalid setting "${toPath(invalid.slice(1))}"`,
+				path: toPath([...segments, ...invalid]),
+			});
+		}
+		for (const nested of nestedSpecs(field, segments)) {
+			checkBlockTypes(nested.fields, nested.list, fieldErrors);
 		}
 	}
 }

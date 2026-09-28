@@ -1,11 +1,13 @@
 import { Table2 } from "lucide-react";
+import { z } from "zod";
 import { VirtualTableSettingsEditor } from "../../editor/field-settings/virtual-table-settings";
 import { VirtualTableField } from "../../renderer/fields/virtual-table-field";
 import { DEFAULT_MAX_RECORDS_PER_PAGE } from "../../renderer/fields/virtual-table-rows";
 import { VirtualTableCell } from "../../table/cells/virtual-table-cell";
+import { BLUEPRINT_PIN } from "../blueprint-link";
 import type { FieldTypePlugin } from "../plugin";
 import type { RowArrayCaps } from "../row-array";
-import { rowArrayZodType } from "../row-array";
+import { rowArrayCapsSchema, rowArrayZodType } from "../row-array";
 import type { Field } from "../types";
 
 export interface VirtualTableSettings extends RowArrayCaps {
@@ -42,6 +44,24 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	toZodType(field: Field<VirtualTableSettings>, composeChildren) {
 		return rowArrayZodType(field, composeChildren);
 	},
+
+	// The caps a Group offers, plus the link and the paging. `fields`, the
+	// inline row schema core's Go struct carried, is not a key: ADR-0017 put
+	// an embedded Row Spec in `children`. Whether a Field declares its Row Spec
+	// both ways or neither is a rule across settings and children, so
+	// `validateSpec()` checks it, not this schema.
+	settingsSchema: rowArrayCapsSchema
+		.extend({
+			blueprint: z.string().optional(),
+			always_latest: z.boolean().optional(),
+			// The editor floors it at one row, as the renderer pages it.
+			max_records_per_page: z.number().int().min(1).optional(),
+		})
+		.strict(),
+
+	// A row's text is its Row Spec's Fields'; the table itself yields none.
+	// A linked Row Spec's Blueprint is a Pin.
+	catalogue: { since: "0.18.0", hasText: false, pins: [BLUEPRINT_PIN] },
 
 	// The same constant the renderer pages by, so a Field saved without the
 	// setting and a Field saved with its default page identically.

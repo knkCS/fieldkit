@@ -13,7 +13,7 @@ export type MarkerConvention = "asterisk" | "optional-text";
  * children are recursed into like validateSpec's accessor walk — but
  * unlike that walk, section/hidden fields are dropped from the count.
  * Fields nested inside `blocks`/`array` settings are NOT counted (they
- * live outside `Field.children`, mirroring validateSpec's limitation).
+ * live outside `Field.children`, the boundary ADR-0007 draws).
  * A STRICT majority of required fields (required > optional) selects
  * "optional-text"; ties, empty schemas, and required-minorities select
  * "asterisk" (the conventional default).

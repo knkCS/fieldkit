@@ -93,7 +93,7 @@ One item in a Blocks Field, identified by the `_type` of the Block Type it was a
 _Avoid_: card, section, component
 
 **Block Type**:
-One shape a Block may take: a `_type`, a name, and the Fields that shape declares. A Block Type's Fields live in the Blocks Field's settings rather than in `children`, so only that plugin reaches them — `resolveSpec()` and `validateSpec()` do not (ADR-0007).
+One shape a Block may take: a `_type`, a name, and the Fields that shape declares. A Block Type's Fields live in the Blocks Field's settings rather than in `children`, so `resolveSpec()` does not reach them (ADR-0007); `validateSpec()` walks them as it walks `children`. No two Block Types of one Blocks Field share a `_type`.
 _Avoid_: field type (that's the kind of a Field; a Block Type is a shape within one Blocks Field)
 
 > The five are distinguished by what they produce: a Card produces no value, a Group produces an array of rows all shaped alike, a Fieldset produces one record, a List produces an array of strings, and Blocks produces an array of records each shaped by its own Block Type.
