@@ -189,8 +189,14 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 | `npm run test` | Run tests once (Vitest, jsdom environment) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run verify-exports` | Check tsup entries match built `.d.ts` exports |
+| `npm run verify` | **The local gate**: lint, typecheck, build, verify-exports and the full test suite, as `ci.yml` runs them |
+| `npm run test:gate` | The full suite as the gate runs it: 30s per test and one retry |
 
-Always run `npm run typecheck` and `npm run lint` before committing. Tests use Vitest with jsdom environment and `@testing-library/react`. Test files are colocated with source in `__tests__/` directories.
+Always run `npm run typecheck` and `npm run lint` before committing.
+
+**The merge bar is `npm run verify`, run locally, while GitHub Actions is blocked.** The org's Actions are blocked by a billing issue, so a PR's checks stay pending for ever and are **not** a gate. A PR merges only when `npm run verify` is green **at the merge commit**: when the base has moved, merge it into the branch first and run the gate again. When the Go module exists, `npm run verify` runs its checks too, so it stays one command. Workflow files are still committed, so the gate moves back to CI the moment Actions run again; update this paragraph then. The gate's suite allows 30s per test and retries a failure once (`test:gate`), because the jsdom suite is load-sensitive: on a busy machine, or with several auto-implement lanes each running it, 5–10 different tests time out per run at the default 5s. A real failure fails twice; a test that only passes on retry is still worth a look. A fresh worktree or checkout runs `npm ci` first, because `node_modules` is not shared and a stale install fails typecheck against the lockfile's anker.
+
+Tests use Vitest with jsdom environment and `@testing-library/react`. Test files are colocated with source in `__tests__/` directories.
 
 ## Peer Dependencies
 

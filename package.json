@@ -49,6 +49,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify-exports": "tsx scripts/verify-exports.ts",
+		"test:gate": "vitest run --testTimeout=30000 --retry=1",
+		"verify": "npm run lint && npm run typecheck && npm run build && npm run verify-exports && npm run test:gate",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
