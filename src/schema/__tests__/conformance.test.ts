@@ -53,6 +53,27 @@ function fixtureFiles(): string[] {
 	return files.sort();
 }
 
+/** The folder of fieldkit as it is now; every other folder is a release. */
+const UNRELEASED = "unreleased";
+
+/**
+ * Whether a fixture's expectation for one operation binds the current code.
+ * Everything in `unreleased/` does. In a released version's folder only the
+ * VALID cases do (ADR-0019): what a release accepted stays accepted, but what
+ * it rejected may since have become valid — a validation bug is fixed by
+ * loosening. An operation this runner does not know binds, so it still fails
+ * as unknown rather than being skipped.
+ */
+function binds(version: string, operation: string, expected: unknown): boolean {
+	if (version === UNRELEASED) return true;
+	switch (operation) {
+		case "validateSpec":
+			return Array.isArray(expected) && expected.length === 0;
+		default:
+			return true;
+	}
+}
+
 function sorted(errors: ExpectedError[]): ExpectedError[] {
 	return errors
 		.map(({ path, code }) => ({ path, code }))
@@ -74,7 +95,8 @@ describe("conformance fixtures", () => {
 
 	for (const file of files) {
 		const name = path.relative(CONFORMANCE, file);
-		it(name, () => {
+		const version = name.split(path.sep)[0];
+		it(name, (ctx) => {
 			const fixture = JSON.parse(readFileSync(file, "utf8")) as Fixture;
 			expect(fixture.description, "description").toBeTruthy();
 			const operations = Object.keys(fixture.expect ?? {});
@@ -84,12 +106,37 @@ describe("conformance fixtures", () => {
 					operation,
 				);
 			}
+			const bound = operations.filter((operation) =>
+				binds(version, operation, fixture.expect[operation]),
+			);
+			// A released invalid case: kept as history, binding nothing.
+			if (bound.length === 0) ctx.skip();
 
-			if ("validateSpec" in fixture.expect) {
+			if (bound.includes("validateSpec")) {
 				const want = fixture.expect.validateSpec as ExpectedError[];
 				const got = validateSpec(fixture.spec, cataloguePlugins).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
 			}
 		});
 	}
+});
+
+describe("which fixtures bind (ADR-0019)", () => {
+	it("binds every case of fieldkit as it is now", () => {
+		expect(binds("unreleased", "validateSpec", [])).toBe(true);
+		expect(
+			binds("unreleased", "validateSpec", [{ path: "/a", code: "x" }]),
+		).toBe(true);
+	});
+
+	it("binds only a released version's valid cases", () => {
+		expect(binds("0.18.0", "validateSpec", [])).toBe(true);
+		expect(binds("0.18.0", "validateSpec", [{ path: "/a", code: "x" }])).toBe(
+			false,
+		);
+	});
+
+	it("binds an operation it does not know, so it fails as unknown", () => {
+		expect(binds("0.18.0", "somethingNew", [{ anything: 1 }])).toBe(true);
+	});
 });
