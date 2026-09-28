@@ -1,0 +1,45 @@
+{
+	"description": "A Blueprint Release with no Fields resolves to empty children, which are kept: children present is what resolved means",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "nothing",
+				"api_accessor": "nothing",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-empty@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-empty@1": []
+		}
+	},
+	"expect": {
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "nothing",
+						"api_accessor": "nothing",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-empty@1"
+					},
+					"children": [],
+					"system": false
+				}
+			],
+			"parts": {}
+		}
+	}
+}

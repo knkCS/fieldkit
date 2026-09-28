@@ -1,0 +1,151 @@
+{
+	"description": "Exactly at both caps resolves: depth 3 under a depth cap of 3, three Releases under a fetch cap of 3",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "root",
+				"api_accessor": "root",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-a@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "again",
+				"api_accessor": "again",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-b@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-a@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "b",
+						"api_accessor": "b",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-b@1"
+					},
+					"system": false
+				}
+			],
+			"bp-b@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "c",
+						"api_accessor": "c",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-c@1"
+					},
+					"system": false
+				}
+			],
+			"bp-c@1": []
+		}
+	},
+	"resolveOptions": {
+		"maxDepth": 3,
+		"maxFetches": 3
+	},
+	"expect": {
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "root",
+						"api_accessor": "root",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-a@1"
+					},
+					"children": [
+						{
+							"field_type": "fieldset",
+							"config": {
+								"name": "b",
+								"api_accessor": "b",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"blueprint": "bp-b@1"
+							},
+							"children": [
+								{
+									"field_type": "fieldset",
+									"config": {
+										"name": "c",
+										"api_accessor": "c",
+										"required": false,
+										"instructions": ""
+									},
+									"settings": {
+										"blueprint": "bp-c@1"
+									},
+									"children": [],
+									"system": false
+								}
+							],
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "again",
+						"api_accessor": "again",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-b@1"
+					},
+					"children": [
+						{
+							"field_type": "fieldset",
+							"config": {
+								"name": "c",
+								"api_accessor": "c",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"blueprint": "bp-c@1"
+							},
+							"children": [],
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"parts": {}
+		}
+	}
+}

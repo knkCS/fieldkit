@@ -23,11 +23,12 @@ visual grouping that produces no value, use a Card marker.
 
 | Setting       | Type      | Default | Description                                          |
 |---------------|-----------|---------|------------------------------------------------------|
-| `blueprint`   | `string`  | —       | Id of the Blueprint whose Fields are embedded.       |
+| `blueprint`   | `string`  | —       | Pin: the id of the **Blueprint Release** whose Fields are embedded (ADR-0020) — never a Blueprint id, a Revision or "latest". |
 | `collapsible` | `boolean` | `false` | Lets a form user fold the embedded Fields away.      |
 
-Both keys match knkCMS core's `fieldset` settings, so seeded specs migrate
-without a rewrite.
+Both keys match knkCMS core's `fieldset` settings, but core stored a Blueprint
+id under `blueprint`; since 0.18.0 the value is a Release id, so a migrated Spec
+pins a Release of that Blueprint instead.
 
 The Author picks the Blueprint in the config panel from whatever
 `adapters.blueprint.list()` returns — see
@@ -46,22 +47,24 @@ import type { BlueprintSummary } from "@knkcs/fieldkit/schema";
 
 const adapters = {
   blueprint: {
-    getSchema: (id) => api.blueprintFields(id),
+    // A Blueprint Release id in, that Release's Fields out (ADR-0020).
+    getSchema: (releaseId) => api.blueprintReleaseFields(releaseId),
     getData: (id, query) => api.blueprintRecords(id, query),
     // Optional. Omit it and nothing breaks — the Author types an id instead.
+    // Each entry's `id` is the Release id a Pin stores.
     list: async (): Promise<BlueprintSummary[]> =>
-      api.blueprints().map(({ id, name }) => ({ id, name })),
+      api.blueprintReleases().map(({ id, name }) => ({ id, name })),
   },
 };
 ```
 
 Fieldkit does no filtering of its own — it has no notion of a Blueprint kind
-(ADR-0002). Return exactly the Blueprints this Author may embed; knkCMS core,
-for instance, narrows to its `fieldset` blueprint type on its side.
+(ADR-0002). Return exactly the Blueprint Releases this Author may embed; knkCMS
+core, for instance, narrows to its `fieldset` blueprint type on its side.
 
 What the panel does with the result:
 
-- Picking a Blueprint stores its `id` in `settings.blueprint`; clearing the
+- Picking an entry stores its `id` — a Release id — in `settings.blueprint`; clearing the
   selection removes the setting, and the Field goes back to
   "No blueprint selected".
 - A stored Blueprint the list does not offer — one since deleted, or one this
@@ -111,42 +114,44 @@ import {
   specToZodSchema,
 } from "@knkcs/fieldkit/schema";
 
-const spec = await resolveSpec(authoredSpec, adapters);
-// Both read the Resolved Spec: children the Schema never saw are neither
-// validated nor seeded.
-const schema = specToZodSchema(spec, plugins);
-const defaultValues = getDefaultValues(spec, plugins);
+// A Resolved Spec: { catalogue, vocabulary, fields, parts } (ADR-0020).
+const resolved = await resolveSpec(authoredSpec, adapters, { plugins });
+// Both read the Resolved Spec's fields: children the Schema never saw are
+// neither validated nor seeded. The renderer and the table take them too.
+const schema = specToZodSchema(resolved.fields, plugins);
+const defaultValues = getDefaultValues(resolved.fields, plugins);
 ```
 
 What it guarantees:
 
-- Every Fieldset gets its Blueprint's Fields as `children`, recursing into
-  Fieldsets those Blueprints embed and into Fieldsets nested in a Group's
-  children.
-- One `getSchema` call per Blueprint id per call, however many Fieldsets name
+- Every Fieldset gets its Blueprint Release's Fields as `children`, recursing
+  into Fieldsets those Releases embed, into Fieldsets nested in a Group's
+  children, and into a Block Type's Fields.
+- One `getSchema` call per Release id per call, however many Fieldsets name
   it.
-- A Blueprint that transitively embeds itself **throws**, naming the chain
-  (`Fieldset blueprint cycle detected: person_bp → address_bp → person_bp`)
-  rather than recursing forever.
-- An adapter rejection propagates untouched — it never becomes empty children.
-- A Spec with nothing to resolve comes back as the same array, so calling it on
-  a Fieldset-free Spec costs nothing and changes no identity.
-- Resolving a Resolved Spec is a no-op returning the same array — a Fieldset
-  that has `children` is left alone. A Consumer can resolve from an effect
-  keyed on the Spec without looping.
+- A Release that transitively embeds itself **rejects** with a
+  `ResolveSpecError` whose `code` is `resolve_cycle` and whose `pin.path` says
+  where, rather than recursing forever. Past the caps (`RESOLVE_CAPS`: 256
+  fetches, Pins nested 8 deep) it rejects with `resolve_too_many_fetches` or
+  `resolve_too_deep`.
+- An adapter rejection is never swallowed into empty children: it rejects as
+  `resolve_fetch_failed`, the adapter's error as its `cause`.
+- A Spec with nothing to resolve comes back with the same `fields` array, so
+  calling it on a Fieldset-free Spec costs nothing and changes no identity.
+- Resolving a Resolved Spec's `fields` is a no-op returning the same array — a
+  Fieldset that has `children` is left alone. A Consumer can resolve from an
+  effect keyed on the Spec without looping.
 
 `children` is the resolved/not-resolved signal, and both `resolveSpec()` and
 the component read it the same way: an authored Fieldset has no `children` key
 at all, while a Blueprint with no Fields resolves to `[]` — resolved, and
 displayed as "This blueprint has no fields" rather than fetched again.
 
-Fields nested inside `settings` rather than `children` — a block's
-`allowed_blocks[].fields`, for instance — are not walked, the boundary
-ADR-0007 draws (`validateSpec()` does walk a block type's Fields, but only to
-validate them). Blocks do compose those Fields into the Schema
-themselves (ADR-0007), which does not move that boundary: a Fieldset declared
-inside a block type is never resolved, so it validates as the opaque record
-below while the component still self-resolves it for display.
+Fields nested inside `settings` rather than `children` — a Block Type's
+`allowed_blocks[].fields`, a Reference Spec — are walked as `validateSpec()`
+walks them (the plugin names them through `heldSpecs`), so a Fieldset declared
+inside a Block Type is resolved too, and its resolved list written back where
+it was found (#212).
 
 ## Value Shape
 
@@ -229,8 +234,8 @@ would make both the collapse and its accessible state untestable.
 - **Self-resolved children are not validated.** Only the resolved path reaches
   the Schema — see "Validation" above.
 - **Nothing is deduplicated on the self-resolve path.** Two Fieldsets naming
-  the same Blueprint make two `getSchema` calls. `resolveSpec()` fetches each
-  Blueprint id once.
+  the same Release make two `getSchema` calls. `resolveSpec()` fetches each
+  Release once.
 - **No cycle guard on the self-resolve path.** A Blueprint that transitively
   embeds itself resolves one level per nested render. Cycle detection lives in
   `resolveSpec()`.

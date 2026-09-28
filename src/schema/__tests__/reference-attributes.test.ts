@@ -8,7 +8,7 @@ import {
 	declaredAttributes,
 	isAttributeFilled,
 } from "../reference-attributes";
-import { resolveSpec } from "../resolve-spec";
+import { resolveSpec, specPins } from "../resolve-spec";
 import type { Field } from "../types";
 import { validateSpec } from "../validate-spec";
 import { specToZodSchema } from "../zod-builder";
@@ -260,32 +260,42 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 		]);
 	});
 
-	it("never resolves a Fieldset declared as an Attribute", async () => {
-		// The type picker does not offer one; a hand-written Spec still can, and
-		// what it gets is the opaque record any unresolved Fieldset composes as.
+	it("walks the Reference Spec for Pins, as validateSpec walks it", async () => {
+		// The type picker does not offer a Fieldset here, and validateSpec
+		// reports one as `position`; a hand-written Spec still can hold one,
+		// and resolution walks every Spec a Field holds (#212), so its Pin is
+		// listed and resolved like any other.
 		const fieldset = attribute(
 			"fieldset",
 			"address",
 			"Address",
 			{},
-			{
-				blueprint_id: "address-blueprint",
-			},
+			{ blueprint: "address@1" },
 		);
 		const fetched: string[] = [];
+		const spec = [referenceField([fieldset])];
 
-		const resolved = await resolveSpec(
-			[referenceField([fieldset])],
-			async (id) => {
-				fetched.push(id);
-				return [];
+		expect(specPins(spec)).toEqual([
+			{
+				path: "/related/settings/attributes/address/settings/blueprint",
+				kind: "blueprint",
+				release: "address@1",
 			},
-		);
+		]);
+		const resolved = await resolveSpec(spec, {
+			blueprint: {
+				getSchema: async (id) => {
+					fetched.push(id);
+					return [];
+				},
+			},
+		});
 
-		expect(fetched).toEqual([]);
+		expect(fetched).toEqual(["address@1"]);
 		expect(
-			(resolved[0].settings as ReferenceSettings).attributes?.[0].children,
-		).toBeNull();
+			(resolved.fields[0].settings as ReferenceSettings).attributes?.[0]
+				.children,
+		).toEqual([]);
 	});
 
 	it("drops an entry of the Spec that is not a Field at all", () => {

@@ -25,7 +25,6 @@
 			},
 			"settings": {
 				"blueprint": "bp-price",
-				"always_latest": false,
 				"max_records_per_page": 10,
 				"min_items": 0,
 				"max_items": 50

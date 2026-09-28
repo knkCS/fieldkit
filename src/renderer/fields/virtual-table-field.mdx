@@ -28,8 +28,7 @@ No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`,
 
 | Setting                | Type     | Default | Description                                    |
 |------------------------|----------|---------|------------------------------------------------|
-| `blueprint`            | `string` | —       | Id of the Blueprint holding a **linked** Row Spec. Must not be set together with `children` |
-| `always_latest`        | `boolean`| —       | Always fetch the latest schema version (currently unused) |
+| `blueprint`            | `string` | —       | Pin: the id of the **Blueprint Release** holding a **linked** Row Spec (ADR-0020). Must not be set together with `children` |
 | `max_records_per_page` | `number` | `25`    | Rows shown per page. The table pages over the stored array — nothing is fetched |
 | `min_items`            | `number` | —       | Fewest rows the table accepts (shared with `group` via `RowArrayCaps`) |
 | `max_items`            | `number` | —       | Most rows the table accepts |
@@ -40,7 +39,7 @@ A **linked** Row Spec is resolved through the `blueprint` adapter injected via `
 
 ```ts
 blueprint: {
-  getSchema: (blueprintId: string) => Promise<Field[]>;
+  getSchema: (releaseId: string) => Promise<Field[]>; // a Blueprint Release id (ADR-0020)
   getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
 }
 ```
@@ -139,7 +138,6 @@ Renders a row count via `VirtualTableCell` (e.g. "5 rows", "1 row", "0 rows"). S
 - No sorting and no selection: the table is an editor over an ordered array, and sorting a stored order would lie about it — and would also break reordering, which addresses the unsorted array
 - **The drag handle's label counts the page, the actions column counts the array** — anker labels a handle `Reorder row 2` by visible position, while *edit* and *delete* say `Edit row 4` by position in the array. On page two the two disagree
 - Never fetches data from the adapter (`getData` is unused) — data must be provided as the form value
-- `always_latest` is unused
 - No settings editor yet: the editor offers no control for linking a Blueprint or authoring an embedded Row Spec
 
 ## Examples

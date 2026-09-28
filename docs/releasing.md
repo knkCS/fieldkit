@@ -96,7 +96,7 @@ every later fieldkit (ADR-0019):
 
 ## The Catalogue version
 
-`CATALOGUE_VERSION` in `scripts/catalogue.ts` is set by hand, and is not
+`CATALOGUE_VERSION` in `src/schema/catalogue-version.ts` is set by hand, and is not
 `package.json`'s version: it names **one Catalogue**, and moves only with the
 release that first ships a change to it (a Resolved Spec records it,
 ADR-0019). The checks hold it to that:

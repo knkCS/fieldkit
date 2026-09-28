@@ -285,12 +285,17 @@ export interface FieldKitAdapters {
 	 */
 	lookup?: Record<string, LookupSource>;
 	/** `getSchema` is the schema layer's `BlueprintSchemaAdapter`, so the same
-	 * adapters object serves `resolveSpec()` and the provider alike. */
+	 * adapters object serves `resolveSpec()` and the provider alike. It takes
+	 * a **Blueprint Release id** — what a Fieldset's or a linked Virtual
+	 * Table's `blueprint` setting pins (ADR-0020) — and so does `list()`'s
+	 * `id`. `getData` is keyed as the Consumer sees fit; fieldkit never calls
+	 * it. */
 	blueprint?: BlueprintSchemaAdapter & {
 		getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
 		/**
-		 * The Blueprints an Author may embed, for the Fieldset config panel's
-		 * picker (#52).
+		 * The Blueprint Releases an Author may embed, for the Fieldset config
+		 * panel's picker (#52). Each entry's `id` is the Release id the Pin
+		 * stores (ADR-0020).
 		 *
 		 * **Optional on purpose.** Fetching one Blueprint and enumerating them
 		 * are different capabilities, and a Consumer built against the former

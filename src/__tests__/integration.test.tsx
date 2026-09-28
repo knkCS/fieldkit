@@ -322,7 +322,9 @@ describe("Integration: resolveSpec -> FieldRenderer", () => {
 
 	it("renders a resolved Fieldset's children without fetching them again", async () => {
 		const blueprint = addressBlueprintAdapter();
-		const resolved = await resolveSpec([fieldsetField], { blueprint });
+		const { fields: resolved } = await resolveSpec([fieldsetField], {
+			blueprint,
+		});
 
 		function TestForm() {
 			const methods = useForm({ defaultValues: { address: {} } });
@@ -364,7 +366,9 @@ describe("Integration: resolveSpec -> FieldRenderer", () => {
 			})),
 		};
 
-		const resolved = await resolveSpec([fieldsetField], { blueprint });
+		const { fields: resolved } = await resolveSpec([fieldsetField], {
+			blueprint,
+		});
 		const zodSchema = specToZodSchema(resolved, builtInFieldTypes);
 		const onSubmit = vi.fn();
 
@@ -410,6 +414,24 @@ describe("Integration: resolveSpec -> FieldRenderer", () => {
 		expect(onSubmit.mock.calls[0][0]).toStrictEqual({
 			address: { street: "12 Bridge Lane" },
 		});
+	});
+
+	// The table takes the same `fields` off the Resolved Spec envelope
+	// (ADR-0020) the renderer does, unchanged.
+	it("tabulates a resolved Fieldset from the envelope's fields", async () => {
+		const blueprint = addressBlueprintAdapter();
+		const resolved = await resolveSpec([fieldsetField], { blueprint });
+
+		render(
+			<SpecDataTable
+				schema={resolved.fields}
+				data={[{ address: { street: "12 Bridge Lane", city: "Ely" } }]}
+				plugins={builtInFieldTypes}
+			/>,
+			{ wrapper: ChakraWrapper },
+		);
+
+		expect(screen.getByText("12 Bridge Lane, Ely")).toBeInTheDocument();
 	});
 });
 

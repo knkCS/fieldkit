@@ -1,0 +1,326 @@
+{
+	"description": "Each pinned Blueprint Release is inlined as the pinning Field's children, a Pin inside a Release is resolved in turn, and a Release pinned twice is inlined at both; the Fields keep their Pins, and nothing opaque is pinned so parts is empty",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "billing",
+				"api_accessor": "billing",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address@2"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "shipping",
+				"api_accessor": "shipping",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address@2"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "owner",
+				"api_accessor": "owner",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-person@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "lines",
+				"api_accessor": "lines",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-row@4"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address@2": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "city",
+						"api_accessor": "city",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"bp-person@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "home",
+						"api_accessor": "home",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-address@2"
+					},
+					"system": false
+				}
+			],
+			"bp-row@4": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "sku",
+						"api_accessor": "sku",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "quantity",
+						"api_accessor": "quantity",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/billing/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-address@2"
+			},
+			{
+				"path": "/shipping/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-address@2"
+			},
+			{
+				"path": "/owner/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-person@1"
+			},
+			{
+				"path": "/lines/settings/blueprint",
+				"kind": "blueprint",
+				"release": "bp-row@4"
+			}
+		],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "billing",
+						"api_accessor": "billing",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-address@2"
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "street",
+								"api_accessor": "street",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "text",
+							"config": {
+								"name": "city",
+								"api_accessor": "city",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "shipping",
+						"api_accessor": "shipping",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-address@2"
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "street",
+								"api_accessor": "street",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "text",
+							"config": {
+								"name": "city",
+								"api_accessor": "city",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "owner",
+						"api_accessor": "owner",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-person@1"
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "name",
+								"api_accessor": "name",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "fieldset",
+							"config": {
+								"name": "home",
+								"api_accessor": "home",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"blueprint": "bp-address@2"
+							},
+							"children": [
+								{
+									"field_type": "text",
+									"config": {
+										"name": "street",
+										"api_accessor": "street",
+										"required": false,
+										"instructions": ""
+									},
+									"system": false
+								},
+								{
+									"field_type": "text",
+									"config": {
+										"name": "city",
+										"api_accessor": "city",
+										"required": false,
+										"instructions": ""
+									},
+									"system": false
+								}
+							],
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "virtual_table",
+					"config": {
+						"name": "lines",
+						"api_accessor": "lines",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-row@4"
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "sku",
+								"api_accessor": "sku",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "number",
+							"config": {
+								"name": "quantity",
+								"api_accessor": "quantity",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"parts": {}
+		},
+		"validateResolvedSpec": []
+	}
+}

@@ -17,7 +17,6 @@ export interface VirtualTableSettings extends RowArrayCaps {
 	 * Row Spec. A Field that links a Blueprint must not also carry `children`;
 	 * `validateSpec()` refuses both, and refuses neither. */
 	blueprint?: string;
-	always_latest?: boolean;
 	max_records_per_page?: number;
 }
 
@@ -53,7 +52,6 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	settingsSchema: rowArrayCapsSchema
 		.extend({
 			blueprint: z.string().optional(),
-			always_latest: z.boolean().optional(),
 			// The editor floors it at one row, as the renderer pages it.
 			max_records_per_page: z.number().int().min(1).optional(),
 		})

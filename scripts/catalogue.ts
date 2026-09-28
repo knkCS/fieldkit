@@ -15,20 +15,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
+// The Catalogue's version lives beside the code that stamps it on a Resolved
+// Spec, so the two cannot disagree (ADR-0020).
+import { CATALOGUE_VERSION } from "../src/schema/catalogue-version";
 import { builtInFieldTypes } from "../src/schema/field-types";
 import type { FieldTypePlugin } from "../src/schema/plugin";
 import { POSITIONS } from "../src/schema/positions";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
-
-/**
- * The fieldkit version this Catalogue ships in. It moves with the release
- * that first ships a change to the Catalogue, never back (ADR-0019).
- * `npm run catalogue:compat` and `npm run release` hold it to that
- * (docs/releasing.md, "The Catalogue version").
- */
-const CATALOGUE_VERSION = "0.18.0";
 
 /**
  * The JSON Schema keywords a settings schema may use: exactly those the Go

@@ -1,6 +1,9 @@
 package fieldkit
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // ValidateSpec checks an authored Spec against the embedded Catalogue, with
 // the answers TS's validateSpec gives for the same rules:
@@ -55,7 +58,8 @@ type Policy func(f Field, path, position string) []Error
 type Option func(*options)
 
 type options struct {
-	policy Policy
+	policy   Policy
+	resolved bool
 }
 
 // WithPolicy runs a caller's Policy on every Field.
@@ -72,6 +76,27 @@ func (c *Catalogue) ValidateSpec(spec Spec, opts ...Option) []Error {
 	errs := cardLayout(spec)
 	c.validateFields(spec, "", PositionRoot, &o, &errs)
 	return errs
+}
+
+// ValidateResolvedSpec checks a Resolved Spec against the embedded Catalogue:
+// every rule ValidateSpec checks, now also over the Fields each pinned
+// Blueprint Release was inlined as (ADR-0020). Only here is it known what a
+// linked Blueprint is linked *as*, so only here are its Fields' Positions
+// checked — a group in a Blueprint linked as a Row Spec is CodePosition at
+// "/lines/children/group".
+//
+// blueprinthub runs ValidateSpec when a Revision is saved and this when a
+// Release is cut. A Virtual Table that links a Blueprint and has children is
+// resolved here, not ambiguous: that rule is the authored Spec's
+// (ValidateSpec).
+func ValidateResolvedSpec(resolved *ResolvedSpec, opts ...Option) []Error {
+	return DefaultCatalogue().ValidateResolvedSpec(resolved, opts...)
+}
+
+// ValidateResolvedSpec is the package-level ValidateResolvedSpec against this
+// Catalogue.
+func (c *Catalogue) ValidateResolvedSpec(resolved *ResolvedSpec, opts ...Option) []Error {
+	return c.ValidateSpec(resolved.Fields, append(slices.Clone(opts), func(o *options) { o.resolved = true })...)
 }
 
 // searchWeights are the values config.search accepts.
@@ -119,7 +144,7 @@ func (c *Catalogue) validateFields(fields []Field, list, position string, o *opt
 		rules := rulesFor(f.FieldType)
 		if rules.field != nil {
 			settings, _ := canonicalSettings(f.Settings)
-			for _, e := range rules.field(c, f, settings) {
+			for _, e := range rules.field(c, f, settings, o.resolved) {
 				e.Path = path + e.Path
 				*errs = append(*errs, e)
 			}

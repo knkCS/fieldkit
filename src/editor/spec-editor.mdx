@@ -550,8 +550,8 @@ editing without losing the draft.
 ### Fieldset resolution
 
 Preview is a consumer of the draft like any other, so it runs the two-phase
-load ADR-0004 requires: `resolveSpec(draft, adapters)` first, then the Zod
-schema built from the **resolved** draft. That is what makes a required field
+load ADR-0004 requires: `resolveSpec(draft, adapters, { plugins })` first, then
+the Zod schema built from the Resolved Spec's `fields` (ADR-0020). That is what makes a required field
 inside a Fieldset block the test submit — unresolved, a Fieldset validates as
 an opaque record, and Preview would pass a form the real one rejects.
 

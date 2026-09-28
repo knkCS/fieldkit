@@ -19,7 +19,7 @@ const conformanceDir = "../conformance"
 
 // operations are the operations this runner implements. A fixture expecting
 // another fails, so a fixture is never silently skipped by one runner.
-var operations = []string{"validateSpec", "validateValue"} //nolint:gochecknoglobals
+var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec"} //nolint:gochecknoglobals
 
 type expectedError struct {
 	Path string `json:"path"`
@@ -30,7 +30,14 @@ type fixture struct {
 	Description string                     `json:"description"`
 	Spec        json.RawMessage            `json:"spec"`
 	Data        json.RawMessage            `json:"data,omitempty"`
-	Expect      map[string]json.RawMessage `json:"expect"`
+	// Releases are what resolving spec fetches: kind → Release id → JSON.
+	Releases map[string]map[string]json.RawMessage `json:"releases,omitempty"`
+	// ResolveOptions override Resolve's caps.
+	ResolveOptions *struct {
+		MaxFetches *int `json:"maxFetches,omitempty"`
+		MaxDepth   *int `json:"maxDepth,omitempty"`
+	} `json:"resolveOptions,omitempty"`
+	Expect map[string]json.RawMessage `json:"expect"`
 }
 
 // inRepository skips a test that reads the repository around the module when
@@ -81,6 +88,12 @@ func TestConformance(t *testing.T) {
 					runValidateSpec(t, fx, raw)
 				case "validateValue":
 					runValidateValue(t, fx, raw)
+				case "resolve":
+					runResolve(t, fx, raw)
+				case "pins":
+					runPins(t, fx, raw)
+				case "validateResolvedSpec":
+					runValidateResolvedSpec(t, fx, raw)
 				default:
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
@@ -110,12 +123,21 @@ func binds(version, op string, raw json.RawMessage) bool {
 	switch op {
 	// Both operations answer with a list of errors, and a valid case is an
 	// empty one.
-	case "validateSpec", "validateValue":
+	case "validateSpec", "validateValue", "validateResolvedSpec":
 		var want []json.RawMessage
 		if err := json.Unmarshal(raw, &want); err != nil {
 			return true // malformed: let the run report it
 		}
 		return len(want) == 0
+	// A refusal may loosen, as an invalid case may; an envelope binds.
+	case "resolve":
+		var want struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(raw, &want); err != nil {
+			return true
+		}
+		return want.Error == ""
 	default:
 		return true
 	}
@@ -135,6 +157,10 @@ func TestBinds(t *testing.T) {
 		{"a released valid value", "0.18.0", "validateValue", json.RawMessage(`[]`), true},
 		{"a released invalid value", "0.18.0", "validateValue", invalid, false},
 		{"an operation the runner does not know", "0.18.0", "somethingNew", invalid, true},
+		{"a released envelope", "0.18.0", "resolve", json.RawMessage(`{"vocabulary":"","fields":[],"parts":{}}`), true},
+		{"a released refusal", "0.18.0", "resolve", json.RawMessage(`{"error":"resolve_cycle"}`), false},
+		{"a released invalid Resolved Spec", "0.18.0", "validateResolvedSpec", invalid, false},
+		{"released Pins", "0.18.0", "pins", json.RawMessage(`[]`), true},
 	}
 	for _, c := range cases {
 		if got := binds(c.version, c.op, c.raw); got != c.want {
