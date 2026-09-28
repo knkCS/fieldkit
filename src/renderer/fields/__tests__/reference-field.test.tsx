@@ -249,24 +249,33 @@ describe("ReferenceField", () => {
 		/** Past the batch size *and* past the collapse threshold, so the tree
 		 * opens with every child hidden and no one call could carry it. */
 		const COUNT = REFERENCE_NAME_BATCH_SIZE * 2 + 10;
+		/** The slowest renders in the suite: under the gate's load (several
+		 * auto-implement lanes at once) they outrun even `test:gate`'s 30s.
+		 * A per-test timeout overrides the global one, so this must stay
+		 * above it. */
+		const AT_SIZE_BUDGET_MS = 120_000;
 
-		it("resolves every Reference in the tree, in calls no bigger than the batch size", async () => {
-			const adapter = createFakeReferenceAdapter({
-				contents: fakeCatalogue(COUNT),
-			});
-			renderField({ value: fakeReferenceTree(COUNT), adapter });
+		it(
+			"resolves every Reference in the tree, in calls no bigger than the batch size",
+			async () => {
+				const adapter = createFakeReferenceAdapter({
+					contents: fakeCatalogue(COUNT),
+				});
+				renderField({ value: fakeReferenceTree(COUNT), adapter });
 
-			await screen.findByText("Content 1");
+				await screen.findByText("Content 1");
 
-			// Every level, not the rows on screen: the tree opened collapsed, so
-			// half of these ids belong to References nobody can see yet. Find is
-			// built on their names being resolved anyway (ADR-0013).
-			await waitFor(() => expect(adapter.fetches.flat()).toHaveLength(COUNT));
-			expect(adapter.fetches.flat()).toContain("article-2");
-			expect(adapter.fetches.length).toBeGreaterThan(1);
-			const biggest = Math.max(...adapter.fetches.map((call) => call.length));
-			expect(biggest).toBeLessThanOrEqual(REFERENCE_NAME_BATCH_SIZE);
-		});
+				// Every level, not the rows on screen: the tree opened collapsed, so
+				// half of these ids belong to References nobody can see yet. Find is
+				// built on their names being resolved anyway (ADR-0013).
+				await waitFor(() => expect(adapter.fetches.flat()).toHaveLength(COUNT));
+				expect(adapter.fetches.flat()).toContain("article-2");
+				expect(adapter.fetches.length).toBeGreaterThan(1);
+				const biggest = Math.max(...adapter.fetches.map((call) => call.length));
+				expect(biggest).toBeLessThanOrEqual(REFERENCE_NAME_BATCH_SIZE);
+			},
+			AT_SIZE_BUDGET_MS,
+		);
 
 		it("shows the names the other batches resolved when one of them fails", async () => {
 			const onError = vi.fn();
@@ -293,25 +302,29 @@ describe("ReferenceField", () => {
 			expect(screen.getByText(`article-${String(lost)}`)).toBeInTheDocument();
 		});
 
-		it("shows a name for a Reference nested inside a collapsed branch", async () => {
-			const user = userEvent.setup();
-			const adapter = createFakeReferenceAdapter({
-				contents: fakeCatalogue(COUNT),
-			});
-			renderField({ value: fakeReferenceTree(COUNT), adapter });
+		it(
+			"shows a name for a Reference nested inside a collapsed branch",
+			async () => {
+				const user = userEvent.setup();
+				const adapter = createFakeReferenceAdapter({
+					contents: fakeCatalogue(COUNT),
+				});
+				renderField({ value: fakeReferenceTree(COUNT), adapter });
 
-			await screen.findByText("Content 1");
-			// Nothing under a root is on screen until the fold opens.
-			expect(screen.queryByText("Content 2")).not.toBeInTheDocument();
+				await screen.findByText("Content 1");
+				// Nothing under a root is on screen until the fold opens.
+				expect(screen.queryByText("Content 2")).not.toBeInTheDocument();
 
-			await user.click(
-				screen.getByRole("button", { name: "Expand Content 1" }),
-			);
+				await user.click(
+					screen.getByRole("button", { name: "Expand Content 1" }),
+				);
 
-			// Its name was already resolved, so the row arrives named rather than
-			// showing an id until something fetches it.
-			expect(screen.getByText("Content 2")).toBeInTheDocument();
-		});
+				// Its name was already resolved, so the row arrives named rather than
+				// showing an id until something fetches it.
+				expect(screen.getByText("Content 2")).toBeInTheDocument();
+			},
+			AT_SIZE_BUDGET_MS,
+		);
 	});
 
 	describe("the browse drawer", () => {
