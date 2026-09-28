@@ -36,6 +36,7 @@ func TestBlockTypeFieldsThatAreNotASpec(t *testing.T) {
 		// No config, as TS refuses it too.
 		"/content/settings/allowed_blocks/1/fields": CodeInvalidSetting,
 		// A property the Field model lacks: refused as DecodeSpec refuses it.
+		// TS has no strict Field decoder and walks it (conformance/README.md).
 		"/content/settings/allowed_blocks/2/fields": CodeInvalidSetting,
 	}
 	if len(got) != len(want) {

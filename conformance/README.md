@@ -61,8 +61,12 @@ conformance/
   Catalogue is `unknown_field_type` on both sides. TS's `validateSpec` also
   checks rules Go does not implement yet (empty names, duplicate Accessors,
   the card-layout rule); a fixture must not break those until both sides do.
-  The Fields in a Block Type's `fields` are decoded as strictly as the Spec,
-  so they too may only use properties the Field model declares.
+  The Fields in a Block Type's `fields` are decoded by Go as strictly as the
+  Spec, so they too may only use properties the Field model declares: TS
+  refuses a list whose items are not objects with a `config` object, as Go
+  does, but has no strict Field decoder, so a stray property is one
+  `invalid_setting` at the list in Go and nothing in TS — the same gap the
+  top-level Spec has, where Go refuses to decode it at all.
 
 ## Paths
 
