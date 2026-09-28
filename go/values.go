@@ -171,7 +171,7 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 			container(f, settingsObj, value, at, errs)
 			continue
 		}
-		sub := &valueErrors{ctx: errs.ctx}
+		sub := &valueErrors{ctx: errs.ctx, base: at}
 		rule(f, settingsObj, value, sub)
 		for _, e := range sub.list {
 			errs.add(at+e.Path, e.Code, e.Params)
@@ -210,6 +210,10 @@ type valueErrors struct {
 	// ctx is what the whole run shares, for the rules that need more than
 	// their value: rich_text's (rich_text.go).
 	ctx *valueContext
+	// base is the absolute path of the value a valueRule checks, whose own
+	// paths are relative to it: what a section type's TypeEnv hands the
+	// composer, so a child it validates is checked at its real place.
+	base string
 }
 
 // catalogue is the Catalogue the run checks against, nil when none was

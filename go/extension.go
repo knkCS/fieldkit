@@ -50,13 +50,266 @@ type TypeCode struct {
 	// it such a value is one Conflict at the Field. Only a type with Compare
 	// merges finer.
 	Merge func(f Field, base, ours, theirs any, env TypeEnv) (merged any, conflicts []string, err error)
+
+	// The container hooks: for a type whose value holds records its own
+	// settings describe — or whose settings hold a Spec — the Go twins of a
+	// TS plugin's records, mintIds and heldSpecs (ADR-0007). A container
+	// hands what it holds back through them and TypeEnv, and never learns
+	// the types of its children.
+
+	// Records are the records the value holds, each with the Fields that
+	// describe it, so Edges and Texts walk into them: heldRecords' answers
+	// for a section type. Paths are relative to the value.
+	Records func(f Field, settings map[string]any, value any, env TypeEnv) []HeldRecord
+	// MintIDs gives every row or node the value holds an _id where it has
+	// none, as MintIDs does for the built-in types, through env's MintTree
+	// and MintRecord, and returns the value.
+	MintIDs func(f Field, value any, env TypeEnv) any
+	// HeldSpecs are the Specs the Field holds in its settings rather than in
+	// children, each in its own Position, so ValidateSpec, Resolve and Pins
+	// walk them as they walk children. A setting that should hold a Spec but
+	// does not decode as one (DecodeFieldList) is an error at that setting,
+	// its path relative to the Field, and is not walked.
+	HeldSpecs func(f Field) ([]HeldSpec, []Error)
 }
 
-// TypeEnv is what a TypeCode hook is told beside the Field and its value.
+// HeldRecord is one record a value holds — a row, a node's values — and the
+// Fields that describe it. Path is the record's, relative to the value.
+type HeldRecord struct {
+	Fields []Field
+	Record map[string]any
+	Path   string
+}
+
+// HeldSpec is one Spec a Field holds in its settings, and where: At is the
+// list's segments inside the settings ({"spec"}, {"blueprints", "0",
+// "spec"}), Position the Position its Fields sit in.
+type HeldSpec struct {
+	At       []string
+	Fields   []Field
+	Position string
+}
+
+// TypeEnv is what a TypeCode hook is told beside the Field and its value, and
+// the shared machinery it may hand what its value holds back to: the
+// composer (ADR-0007), the rules a Reference Tree follows, and minting. Each
+// method is for the hook it names.
 type TypeEnv struct {
 	// Parts are the Resolved Spec's parts, by kind and Release: what the
 	// Field pins. Nil without a Resolved Spec (ValidateValue, ValueText).
 	Parts map[string]map[string]json.RawMessage
+
+	catalogue *Catalogue
+	// errs is the Value run's, its base the value's absolute path.
+	errs *valueErrors
+	// targets is WithTargetBlueprints', nil when not given.
+	targets func(contentID string) string
+	// composer is the Compare or Merge run's.
+	composer *composer
+	// mint is the MintIDs run's.
+	mint *mintEnv
+}
+
+// mintEnv is a MintIDs hook's place in the run: the minter, and the value's
+// absolute path, which every id is derived from.
+type mintEnv struct {
+	minter minter
+	path   string
+}
+
+// valueRun is a run a Value hook's composer calls join: the hook's own
+// context, or a fresh one when the hook runs outside ValidateValue.
+func (e TypeEnv) valueRun() *valueErrors {
+	if e.errs != nil && e.errs.ctx != nil {
+		return &valueErrors{ctx: e.errs.ctx}
+	}
+	return &valueErrors{ctx: &valueContext{catalogue: e.catalogue, richText: &richTextContext{}, targetBlueprint: e.targets}}
+}
+
+// base is the absolute path of the value a Value hook checks.
+func (e TypeEnv) base() string {
+	if e.errs != nil {
+		return e.errs.base
+	}
+	return ""
+}
+
+// relative returns a run's errors relative to the value, as a Value hook
+// returns its own.
+func (e TypeEnv) relative(run *valueErrors) []Error {
+	base := e.base()
+	out := make([]Error, 0, len(run.list))
+	for _, err := range run.list {
+		err.Path = strings.TrimPrefix(err.Path, base)
+		out = append(out, err)
+	}
+	return out
+}
+
+// ValidateFields checks a record the value holds — a node's values — against
+// the Fields that describe it, each by its own type's rule, at path relative
+// to the value: the composer every container hands its children to
+// (ADR-0007). A required Field missing from record is CodeRequired. For a
+// Value hook.
+func (e TypeEnv) ValidateFields(fields []Field, record map[string]any, path string) []Error {
+	run := e.valueRun()
+	validateFields(fields, record, e.base()+path, run)
+	return e.relative(run)
+}
+
+// ValidateTree checks a tree value by the rules a Reference Tree follows
+// (ADR-0023): an array of nodes, each an object (CodeInvalidType) with an
+// _id as a row's (CodeMissingID, CodeInvalidType, CodeTooBig) unique across
+// every level (CodeDuplicateID at each repeat), its branch, if any, a list
+// in children (CodeInvalidType); settings.max_items counting every node at
+// every level (CodeTooManyItems at the value) and settings.max_depth the
+// levels (CodeInvalidValue at each shallowest node past it). node checks each
+// node's own keys, at the node's path relative to the value. For a Value
+// hook.
+func (e TypeEnv) ValidateTree(settings map[string]any, value any, node func(node map[string]any, path string) []Error) []Error {
+	run := e.valueRun()
+	base := e.base()
+	treeValue(settings, value, base, run, func(obj map[string]any, at string, run *valueErrors) {
+		for _, err := range node(obj, strings.TrimPrefix(at, base)) {
+			run.add(base+err.Path, err.Code, err.Params)
+		}
+	})
+	return e.relative(run)
+}
+
+// ReferenceValues checks a Reference node's values, at path plus "values"
+// relative to the value, against its Reference Spec as a Reference Field's
+// are (ReferenceSpecFor): the one its target's Blueprint has, where the
+// settings link one and WithTargetBlueprints says whose the target is; an
+// opaque record where that cannot be known. A missing record is an empty one.
+// For a Value hook.
+func (e TypeEnv) ReferenceValues(settings map[string]any, node map[string]any, path string) []Error {
+	run := e.valueRun()
+	referenceValues(settings, node, e.base()+path, run)
+	return e.relative(run)
+}
+
+// RecordValues checks a node's values, at path plus "values" relative to the
+// value, against fields, as ReferenceValues checks a Reference's against its
+// Reference Spec: a record, whose Fields are checked each by its own type, a
+// missing record an empty one. For a Value hook.
+func (e TypeEnv) RecordValues(fields []Field, node map[string]any, path string) []Error {
+	run := e.valueRun()
+	recordValues(fields, true, node, e.base()+path, run)
+	return e.relative(run)
+}
+
+// TargetBlueprint is the Blueprint of a referenced Content, by its id, as
+// WithTargetBlueprints says — "" when not known or not given.
+func (e TypeEnv) TargetBlueprint(contentID string) string {
+	targets := e.targets
+	if targets == nil && e.errs != nil && e.errs.ctx != nil {
+		targets = e.errs.ctx.targetBlueprint
+	}
+	if targets == nil {
+		return ""
+	}
+	return targets(contentID)
+}
+
+// CompareTree compares two tree values node by node, by _id, as a Reference
+// Tree compares (docs/compare-and-merge.md): one CompareItem per node at
+// every level, a node's parent its _parent field, moved when its place among
+// its siblings changed. fieldsOf describes a node's record, given the node as
+// each side holds it, so its keys compare finer than whole values — its
+// values as a fieldset of the Spec they follow. For a Compare hook.
+func (e TypeEnv) CompareTree(f Field, a, b any, fieldsOf func(nodes ...map[string]any) []Field) (bool, *CompareDetail, error) {
+	c := e.composer
+	if c == nil {
+		c = &composer{catalogue: e.catalogue, parts: e.Parts, richText: &richTextContext{parts: e.Parts}}
+	}
+	return compareTree(c, &f, a, b, fieldsOf)
+}
+
+// MergeTree three-way merges three tree values per node, by _id, as a
+// Reference Tree merges (ADR-0023): per node and per field of it, its parent
+// and its place among its siblings included. Its conflicts are paths
+// relative to the value, as a Merge hook returns them. For a Merge hook.
+func (e TypeEnv) MergeTree(f Field, base, ours, theirs any, fieldsOf func(nodes ...map[string]any) []Field) (any, []string, error) {
+	c := &composer{catalogue: e.catalogue, parts: e.Parts}
+	if e.composer != nil {
+		c.catalogue, c.parts, c.richText = e.composer.catalogue, e.composer.parts, e.composer.richText
+	}
+	if c.richText == nil {
+		c.richText = &richTextContext{parts: c.parts}
+	}
+	merged, err := mergeTree(c, &f, base, ours, theirs, "", fieldsOf)
+	if err != nil {
+		return nil, nil, err
+	}
+	conflicts := make([]string, 0, len(c.conflicts))
+	for _, at := range c.conflicts {
+		conflicts = append(conflicts, "/"+at)
+	}
+	return merged, conflicts, nil
+}
+
+// MintTree gives every node of a tree value, at every level, the _id of its
+// place where it has none — as MintIDs mints a Reference Tree's. For a
+// MintIDs hook.
+func (e TypeEnv) MintTree(value any) {
+	if e.mint != nil {
+		e.mint.minter.nodes(value, e.mint.path)
+	}
+}
+
+// MintRecord mints into the values a record the value holds — at path,
+// relative to the value — keeps for its Fields: their rows, and their rows'
+// Fields'. For a MintIDs hook.
+func (e TypeEnv) MintRecord(fields []Field, record map[string]any, path string) {
+	if e.mint != nil {
+		e.mint.minter.record(fields, record, e.mint.path+path)
+	}
+}
+
+// EachTreeNode visits every node of a tree value that is an object, in
+// document order, at its path relative to the value: its _id segment
+// (ADR-0023) — its index where it has no usable one — through children.
+func EachTreeNode(value any, visit func(node map[string]any, path string)) {
+	eachReferenceNode(value, "", visit)
+}
+
+// ReferenceSpecFor is the Reference Spec of a Reference whose target is of
+// blueprint, read from a Field's canonical settings — blueprints, spec — as
+// every Reference Field reads it (ADR-0008, amended): a linked one replaces
+// the embedded spec, never merged. known is false when it cannot be known:
+// the settings link a Reference Spec and blueprint is "", or the linked Spec
+// is not resolved.
+func ReferenceSpecFor(settings map[string]any, blueprint string) (fields []Field, known bool) {
+	return referenceSpecFor(settings, blueprint)
+}
+
+// ReferenceSettings reports the rules across a Reference Field's settings its
+// schema cannot state, for a type that shares them: a Blueprint two
+// blueprints entries name (CodeDuplicateBlueprint), an entry's spec without a
+// spec_blueprint (CodeInvalidSetting). Paths are relative to the settings.
+func ReferenceSettings(settings any) []Error {
+	return referenceSettings(settings)
+}
+
+// ReferenceSpecs are the Reference Specs a Field holds in its settings — the
+// embedded spec and each blueprints entry's linked one once resolved — in the
+// reference_spec Position, for a type that shares a Reference Field's
+// settings; and CodeInvalidSetting at a list that does not decode as Fields.
+func ReferenceSpecs(f Field) ([]HeldSpec, []Error) {
+	held, errs := referenceSpecs(f.Settings)
+	out := make([]HeldSpec, 0, len(held))
+	for _, h := range held {
+		out = append(out, HeldSpec{At: h.at, Fields: h.fields, Position: h.position})
+	}
+	return out, errs
+}
+
+// DecodeFieldList decodes a list of Fields held in settings strictly, as
+// DecodeSpec decodes a Spec, each item an object with a config object; false
+// when any item is not one.
+func DecodeFieldList(items []json.RawMessage) ([]Field, bool) {
+	return decodeFieldList(items)
 }
 
 // JoinPath appends segments to a /-separated path, escaping each as RFC 6901
@@ -176,7 +429,23 @@ func (c *Catalogue) rulesFor(fieldType string) typeRules {
 		return rules
 	}
 	if tc, ok := c.codeOf(fieldType); ok {
-		return typeRules{settings: tc.Settings}
+		rules := typeRules{settings: tc.Settings}
+		if tc.HeldSpecs != nil {
+			rules.specs = func(raw json.RawMessage) ([]heldSpec, []Error) {
+				held, errs := tc.HeldSpecs(Field{FieldType: fieldType, Settings: raw})
+				out := make([]heldSpec, 0, len(held))
+				for _, h := range held {
+					out = append(out, heldSpec{
+						path:     joinPath("", append([]string{"settings"}, h.At...)...),
+						at:       h.At,
+						fields:   h.Fields,
+						position: h.Position,
+					})
+				}
+				return out, errs
+			}
+		}
+		return rules
 	}
 	return typeRules{}
 }
@@ -192,9 +461,12 @@ func (c *Catalogue) valueRule(fieldType string) (valueRule, bool) {
 		return nil, false
 	}
 	return func(f Field, settings map[string]any, value any, errs *valueErrors) {
-		var env TypeEnv
-		if errs.ctx != nil && errs.ctx.richText != nil {
-			env.Parts = errs.ctx.richText.parts
+		env := TypeEnv{catalogue: c, errs: errs}
+		if errs.ctx != nil {
+			env.targets = errs.ctx.targetBlueprint
+			if errs.ctx.richText != nil {
+				env.Parts = errs.ctx.richText.parts
+			}
 		}
 		for _, e := range tc.Value(f, settings, value, env) {
 			errs.add(e.Path, e.Code, e.Params)
@@ -213,7 +485,7 @@ func (c *Catalogue) edgeRule(fieldType string, parts map[string]map[string]json.
 		return nil, false
 	}
 	return func(f Field, settings map[string]any, value any) []Edge {
-		return tc.Edges(f, settings, value, TypeEnv{Parts: parts})
+		return tc.Edges(f, settings, value, TypeEnv{Parts: parts, catalogue: c})
 	}, true
 }
 
@@ -228,7 +500,7 @@ func (c *Catalogue) textRule(fieldType string) (textRule, bool) {
 		return nil, false
 	}
 	return func(f Field, settings map[string]any, value any, parts map[string]map[string]json.RawMessage) string {
-		return tc.Text(f, settings, value, TypeEnv{Parts: parts})
+		return tc.Text(f, settings, value, TypeEnv{Parts: parts, catalogue: c})
 	}, true
 }
 
@@ -244,14 +516,14 @@ func (c *Catalogue) finerRule(fieldType string) (finerRule, bool) {
 	}
 	return finerRule{
 		compare: func(k *composer, f *Field, a, b any) (bool, *CompareDetail, error) {
-			return tc.Compare(*f, a, b, TypeEnv{Parts: k.parts})
+			return tc.Compare(*f, a, b, TypeEnv{Parts: k.parts, catalogue: c, composer: k})
 		},
 		merge: func(k *composer, f *Field, base, ours, theirs any, path string) (any, error) {
 			if tc.Merge == nil {
 				k.conflict(path)
 				return nil, nil
 			}
-			merged, conflicts, err := tc.Merge(*f, base, ours, theirs, TypeEnv{Parts: k.parts})
+			merged, conflicts, err := tc.Merge(*f, base, ours, theirs, TypeEnv{Parts: k.parts, catalogue: c, composer: k})
 			if err != nil {
 				return nil, err
 			}

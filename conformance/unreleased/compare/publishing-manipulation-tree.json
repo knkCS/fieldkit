@@ -1,0 +1,195 @@
+{
+	"description": "With the publishing package, a manipulation_tree compares per node by _id at every level, as a Reference Tree does: an include's values per Field of the Reference Spec, an annotate's per Field of the node-level one, a changed intent a field of the node, a node moved among its siblings moved, an added node added",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"a": {
+			"title": [
+				{
+					"_id": "i1",
+					"id": "law1",
+					"intent": "include",
+					"values": {
+						"page": 1
+					},
+					"children": [
+						{
+							"_id": "x1",
+							"id": "p1",
+							"intent": "exclude"
+						},
+						{
+							"_id": "a1",
+							"id": "p2",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Alt"
+							}
+						}
+					]
+				},
+				{
+					"_id": "i2",
+					"id": "law2",
+					"intent": "include"
+				}
+			]
+		},
+		"b": {
+			"title": [
+				{
+					"_id": "i1",
+					"id": "law1",
+					"intent": "include",
+					"values": {
+						"page": 2
+					},
+					"children": [
+						{
+							"_id": "a1",
+							"id": "p2",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Neu"
+							}
+						},
+						{
+							"_id": "x1",
+							"id": "p1",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Neu"
+							}
+						}
+					]
+				},
+				{
+					"_id": "i2",
+					"id": "law2",
+					"intent": "include",
+					"children": [
+						{
+							"_id": "r1",
+							"id": "p9",
+							"intent": "replace",
+							"with": {
+								"id": "na1"
+							}
+						}
+					]
+				}
+			]
+		}
+	},
+	"expect": {
+		"compare": {
+			"title": {
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "i1",
+							"status": "changed",
+							"fields": {
+								"values": {
+									"status": "changed",
+									"fields": {
+										"page": {
+											"status": "changed"
+										}
+									}
+								}
+							}
+						},
+						{
+							"_id": "a1",
+							"status": "changed",
+							"moved": true,
+							"fields": {
+								"values": {
+									"status": "changed",
+									"fields": {
+										"redtitel": {
+											"status": "changed"
+										}
+									}
+								}
+							}
+						},
+						{
+							"_id": "x1",
+							"status": "changed",
+							"fields": {
+								"intent": {
+									"status": "changed"
+								},
+								"values": {
+									"status": "added"
+								}
+							}
+						},
+						{
+							"_id": "i2",
+							"status": "unchanged"
+						},
+						{
+							"_id": "r1",
+							"status": "added"
+						}
+					]
+				},
+				"equal": false
+			}
+		}
+	}
+}

@@ -1,0 +1,83 @@
+{
+	"description": "With the publishing package, a manipulation_tree at the root takes a Reference Field's settings — blueprints with a linked Reference Spec, the embedded spec, pin_mode — the tree's caps, replacement_blueprints and the node-level Reference Spec annotation_spec, whose Fields sit in the reference_spec Position (a reference_filter among them)",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "law",
+						"spec_blueprint": "R1"
+					},
+					{
+						"blueprint": "decree"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release",
+				"replacement_blueprints": [
+					"na_note"
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Hide",
+							"api_accessor": "hide",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				],
+				"max_items": 500,
+				"max_depth": 6
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": []
+	}
+}

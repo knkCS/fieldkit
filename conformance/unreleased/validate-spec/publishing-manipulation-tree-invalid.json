@@ -1,0 +1,195 @@
+{
+	"description": "With the publishing package, a manipulation_tree's settings are strict: core's always_latest and frontend-only settings are unknown_setting, a version pin_mode and a negative cap invalid_setting, a Blueprint listed twice duplicate_blueprint, a linked spec without its spec_blueprint and a node-level Reference Spec that is not a list of Fields invalid_setting; a Field of the node-level Reference Spec is checked in the reference_spec Position; and the type sits at the root only, never in a Reference Spec",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Legacy",
+				"api_accessor": "legacy",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"always_latest": true,
+				"enable_validity_filtering": true,
+				"latest_release_strategy": "latest_tag",
+				"max_items_per_page": 20,
+				"pin_mode": "version",
+				"max_items": -1
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Shared",
+				"api_accessor": "shared",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "law"
+					},
+					{
+						"blueprint": "law",
+						"spec": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Kolumnentitel",
+									"api_accessor": "kolumnentitel",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Annotated",
+				"api_accessor": "annotated",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"annotation_spec": [
+					{
+						"field_type": "group",
+						"config": {
+							"name": "Box",
+							"api_accessor": "box",
+							"required": false,
+							"instructions": ""
+						},
+						"children": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Inner",
+									"api_accessor": "inner",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						],
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "_Reserved",
+							"api_accessor": "_reserved",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Stray",
+				"api_accessor": "stray",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"annotation_spec": [
+					"redtitel"
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "manipulation_tree",
+						"config": {
+							"name": "Nested",
+							"api_accessor": "nested",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/legacy/settings/always_latest",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/enable_validity_filtering",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/latest_release_strategy",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/max_items_per_page",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/pin_mode",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/legacy/settings/max_items",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/shared/settings/blueprints/1/blueprint",
+				"code": "duplicate_blueprint"
+			},
+			{
+				"path": "/shared/settings/blueprints/1/spec",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/annotated/settings/annotation_spec/box",
+				"code": "position"
+			},
+			{
+				"path": "/annotated/settings/annotation_spec/_reserved",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/stray/settings/annotation_spec",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/related/settings/spec/nested",
+				"code": "position"
+			}
+		]
+	}
+}

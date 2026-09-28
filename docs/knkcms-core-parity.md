@@ -107,7 +107,7 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 | `title_scope` | 0 (used in `boorberg_conware_erfassung`) | `target_fields`, `text_type` |
 | `ti_overlay` | 0 (whole `typesetting_instructions` track) | — |
 | `outline_tree` | 0 | `levels`, `text_type_id` |
-| `manipulation_tree` | 0 | `blueprints`, `replacement_blueprints`, `always_latest`, `max_items`, plus frontend-only `enable_validity_filtering`, `latest_release_strategy`, `max_items_per_page` |
+| `manipulation_tree` | 0 | `blueprints`, `replacement_blueprints`, `always_latest`, `max_items`, plus frontend-only `enable_validity_filtering`, `latest_release_strategy`, `max_items_per_page` — **no longer core-only:** in fieldkit's opt-in publishing package since 0.18.0 (ADR-0002, amended; #219), as `blueprints: [{blueprint, spec_blueprint?}]`, `spec`, `pin_mode` (was `always_latest`), `replacement_blueprints`, `annotation_spec`, `max_items`, `max_depth`; the frontend-only three are gone. Its value is a Reference Tree whose nodes carry an `intent`, not core's `{includes, manipulations, nodes, events}` |
 | `toc_reference` | 0 | none the backend interprets, and no config UI — core addresses the type *by id* to expand a publication subtree |
 
 **None has derivation-level demand.** All six are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.

@@ -1,0 +1,333 @@
+{
+	"description": "With the publishing package, a manipulation_tree node's intent is required and one of include, exclude, replace, annotate (a node with another is checked no further by intent); a replace needs with, which no other intent holds; exclude and replace hold no values; an include's values follow the Reference Spec — the linked one for its target's Blueprint — and an annotate's the node-level one; _ids are unique across the whole tree and max_items and max_depth are the Reference Tree's",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Capped",
+				"api_accessor": "capped",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"max_items": 2,
+				"max_depth": 1
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Linked",
+				"api_accessor": "linked",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "law",
+						"spec_blueprint": "R1",
+						"spec": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Kolumnentitel",
+									"api_accessor": "kolumnentitel",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"targets": {
+		"law1": "law",
+		"other1": "other"
+	},
+	"data": {
+		"title": [
+			{
+				"_id": "n1",
+				"id": "c1"
+			},
+			{
+				"_id": "n2",
+				"id": "c2",
+				"intent": "move",
+				"values": {
+					"anything": 1
+				},
+				"with": {
+					"id": "c9"
+				}
+			},
+			{
+				"_id": "n3",
+				"id": "c3",
+				"intent": 5
+			},
+			{
+				"_id": "n4",
+				"id": "c4",
+				"intent": "replace"
+			},
+			{
+				"_id": "n5",
+				"id": "c5",
+				"intent": "exclude",
+				"with": {
+					"id": "c9"
+				},
+				"values": {
+					"page": 1
+				}
+			},
+			{
+				"_id": "n6",
+				"id": "c6",
+				"intent": "annotate",
+				"values": {
+					"note": "x"
+				}
+			},
+			{
+				"_id": "n7",
+				"id": "c7",
+				"intent": "annotate"
+			},
+			{
+				"_id": "n8",
+				"id": "c8",
+				"intent": "include",
+				"values": {
+					"page": "three"
+				}
+			},
+			{
+				"_id": "n9",
+				"id": "c9",
+				"intent": "replace",
+				"with": {
+					"pin": "r1"
+				}
+			},
+			{
+				"_id": "n10",
+				"id": "c10",
+				"intent": "replace",
+				"with": "c11"
+			},
+			{
+				"_id": "n11",
+				"intent": "include",
+				"pin": 5,
+				"children": "none"
+			},
+			{
+				"id": "c12",
+				"intent": "exclude"
+			},
+			{
+				"_id": "n12",
+				"id": "c13",
+				"intent": "include",
+				"values": "page 3",
+				"children": [
+					{
+						"_id": "n1",
+						"id": "c14",
+						"intent": "exclude"
+					},
+					{
+						"_id": "n13",
+						"id": "c15",
+						"intent": "annotate",
+						"values": {
+							"redtitel": 7
+						}
+					}
+				]
+			}
+		],
+		"capped": [
+			{
+				"_id": "k1",
+				"id": "c1",
+				"intent": "include",
+				"children": [
+					{
+						"_id": "k2",
+						"id": "c2",
+						"intent": "exclude"
+					}
+				]
+			},
+			{
+				"_id": "k3",
+				"id": "c3",
+				"intent": "include"
+			}
+		],
+		"linked": [
+			{
+				"_id": "l1",
+				"id": "law1",
+				"intent": "include"
+			},
+			{
+				"_id": "l2",
+				"id": "other1",
+				"intent": "include"
+			},
+			{
+				"_id": "l3",
+				"id": "law1",
+				"intent": "annotate"
+			}
+		]
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/title/n1/intent",
+				"code": "required"
+			},
+			{
+				"path": "/title/n2/intent",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/title/n3/intent",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/n4/with",
+				"code": "required"
+			},
+			{
+				"path": "/title/n5/with",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/title/n5/values",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/title/n6/values/redtitel",
+				"code": "required"
+			},
+			{
+				"path": "/title/n7/values/redtitel",
+				"code": "required"
+			},
+			{
+				"path": "/title/n8/values/page",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/n9/with/id",
+				"code": "required"
+			},
+			{
+				"path": "/title/n10/with",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/n11/id",
+				"code": "required"
+			},
+			{
+				"path": "/title/n11/pin",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/n11/children",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/11",
+				"code": "missing_id"
+			},
+			{
+				"path": "/title/n12/values",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/title/n12/children/n1",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/title/n12/children/n13/values/redtitel",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/capped",
+				"code": "too_many_items"
+			},
+			{
+				"path": "/capped/k1/children/k2",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/linked/l1/values/kolumnentitel",
+				"code": "required"
+			}
+		]
+	}
+}

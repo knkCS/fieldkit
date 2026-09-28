@@ -33,9 +33,11 @@ type heldRecord struct {
 //     Blueprint through targets (WithTargetBlueprints) where the Field links
 //     a Reference Spec, and none where that cannot be known.
 //
+// A Catalogue section's type holds what its TypeCode's Records say.
+//
 // A type holding none, or a value not of its type's shape, holds none: the
 // walk reads what ValidateValue accepted and never reports.
-func heldRecords(f Field, settings map[string]any, value any, path string, targets func(string) string) []heldRecord {
+func (c *Catalogue) heldRecords(f Field, settings map[string]any, value any, path string, targets func(string) string) []heldRecord {
 	switch f.FieldType {
 	case "group", "virtual_table":
 		return rowRecords(value, path, func(map[string]any) []Field { return f.Children })
@@ -59,6 +61,13 @@ func heldRecords(f Field, settings map[string]any, value any, path string, targe
 		}
 	case "reference", "single_reference":
 		return referenceRecords(f, settings, value, path, targets)
+	}
+	if tc, ok := c.codeOf(f.FieldType); ok && tc.Records != nil {
+		var records []heldRecord
+		for _, r := range tc.Records(f, settings, value, TypeEnv{catalogue: c, targets: targets}) {
+			records = append(records, heldRecord{fields: r.Fields, record: r.Record, path: path + r.Path})
+		}
+		return records
 	}
 	return nil
 }
@@ -94,7 +103,7 @@ type fieldVisit func(f Field, settings map[string]any, value any, path string)
 // every depth. Markers and hidden Fields are skipped, as ValidateValue skips
 // them: the walk reads exactly what validation checked. A Field whose value
 // is absent is not visited.
-func walkFields(fields []Field, record map[string]any, path string, targets func(string) string, visit fieldVisit) {
+func (c *Catalogue) walkFields(fields []Field, record map[string]any, path string, targets func(string) string, visit fieldVisit) {
 	for _, f := range fields {
 		if markerTypes[f.FieldType] || (f.Config.Hidden != nil && *f.Config.Hidden) {
 			continue
@@ -110,8 +119,8 @@ func walkFields(fields []Field, record map[string]any, path string, targets func
 		}
 		at := joinPath(path, f.Config.APIAccessor)
 		visit(f, settingsObj, value, at)
-		for _, held := range heldRecords(f, settingsObj, value, at, targets) {
-			walkFields(held.fields, held.record, held.path, targets, visit)
+		for _, held := range c.heldRecords(f, settingsObj, value, at, targets) {
+			c.walkFields(held.fields, held.record, held.path, targets, visit)
 		}
 	}
 }
@@ -123,7 +132,7 @@ var errDataNotObject = errors.New("data is not a JSON object") //nolint:gocheckn
 // numbers as JS reads them, Unset stripped at every depth — and walks it
 // against a Resolved Spec's Fields. Empty data is {}. A nil Resolved Spec has
 // no Fields.
-func walkData(resolved *ResolvedSpec, data json.RawMessage, opts []ValueOption, visit fieldVisit) error {
+func (c *Catalogue) walkData(resolved *ResolvedSpec, data json.RawMessage, opts []ValueOption, visit fieldVisit) error {
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(data))
@@ -140,6 +149,6 @@ func walkData(resolved *ResolvedSpec, data json.RawMessage, opts []ValueOption, 
 	if resolved == nil {
 		return nil
 	}
-	walkFields(resolved.Fields, obj, "", valueOptionsOf(opts).targetBlueprint, visit)
+	c.walkFields(resolved.Fields, obj, "", valueOptionsOf(opts).targetBlueprint, visit)
 	return nil
 }

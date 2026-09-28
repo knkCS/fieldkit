@@ -1,0 +1,92 @@
+{
+	"description": "With the publishing package, a manipulation_tree's linked Reference Spec is a Pin like a Reference Field's, resolved into its blueprints entry's spec, where its Fields' Positions are checked (a group is no reference_spec Field)",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "law",
+						"spec_blueprint": "bp-rel@1"
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-rel@1": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Kolumnentitel",
+						"api_accessor": "kolumnentitel",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Box",
+						"api_accessor": "box",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Inner",
+								"api_accessor": "inner",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/title/settings/blueprints/0/spec_blueprint",
+				"kind": "blueprint",
+				"release": "bp-rel@1"
+			}
+		],
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/title/settings/blueprints/0/spec/box",
+				"code": "position"
+			}
+		]
+	}
+}

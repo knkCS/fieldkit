@@ -1,0 +1,344 @@
+{
+	"description": "With the publishing package, a manipulation_tree merges per node by _id, as a Reference Tree does: a move on one side and a values edit on the other are clean, as are an intent change on one side and a Pin change on the other; intents, withs or parents changed differently on both sides conflict at the node's field",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Conflicting",
+				"api_accessor": "conflicting",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"title": [
+				{
+					"_id": "i1",
+					"id": "law1",
+					"intent": "include",
+					"values": {
+						"page": 1
+					},
+					"children": [
+						{
+							"_id": "x1",
+							"id": "p1",
+							"intent": "exclude"
+						},
+						{
+							"_id": "a1",
+							"id": "p2",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Alt"
+							}
+						}
+					]
+				},
+				{
+					"_id": "i2",
+					"id": "law2",
+					"intent": "include"
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "rp",
+					"id": "p1",
+					"intent": "replace",
+					"with": {
+						"id": "na1"
+					}
+				},
+				{
+					"_id": "n1",
+					"id": "p2",
+					"intent": "include"
+				},
+				{
+					"_id": "g1",
+					"id": "p3",
+					"intent": "include"
+				},
+				{
+					"_id": "g2",
+					"id": "p4",
+					"intent": "include"
+				}
+			]
+		},
+		"ours": {
+			"title": [
+				{
+					"_id": "i1",
+					"id": "law1",
+					"intent": "include",
+					"values": {
+						"page": 1
+					},
+					"children": [
+						{
+							"_id": "x1",
+							"id": "p1",
+							"intent": "exclude",
+							"pin": "r5"
+						}
+					]
+				},
+				{
+					"_id": "i2",
+					"id": "law2",
+					"intent": "include",
+					"children": [
+						{
+							"_id": "a1",
+							"id": "p2",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Alt"
+							}
+						}
+					]
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "rp",
+					"id": "p1",
+					"intent": "replace",
+					"with": {
+						"id": "na2"
+					}
+				},
+				{
+					"_id": "n1",
+					"id": "p2",
+					"intent": "exclude"
+				},
+				{
+					"_id": "g1",
+					"id": "p3",
+					"intent": "include",
+					"children": [
+						{
+							"_id": "g2",
+							"id": "p4",
+							"intent": "include"
+						}
+					]
+				}
+			]
+		},
+		"theirs": {
+			"title": [
+				{
+					"_id": "i1",
+					"id": "law1",
+					"intent": "include",
+					"values": {
+						"page": 1,
+						"note": "neu"
+					},
+					"children": [
+						{
+							"_id": "x1",
+							"id": "p1",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Rot"
+							}
+						},
+						{
+							"_id": "a1",
+							"id": "p2",
+							"intent": "annotate",
+							"values": {
+								"redtitel": "Neu"
+							}
+						}
+					]
+				},
+				{
+					"_id": "i2",
+					"id": "law2",
+					"intent": "include"
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "rp",
+					"id": "p1",
+					"intent": "replace",
+					"with": {
+						"id": "na3"
+					}
+				},
+				{
+					"_id": "n1",
+					"id": "p2",
+					"intent": "annotate",
+					"values": {
+						"redtitel": "x"
+					}
+				},
+				{
+					"_id": "g1",
+					"id": "p3",
+					"intent": "include"
+				},
+				{
+					"_id": "n2",
+					"id": "p5",
+					"intent": "include",
+					"children": [
+						{
+							"_id": "g2",
+							"id": "p4",
+							"intent": "include"
+						}
+					]
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"conflicting": {
+				"conflicts": [
+					"rp/with",
+					"n1/intent",
+					"g2/_parent"
+				]
+			},
+			"title": {
+				"merged": [
+					{
+						"_id": "i1",
+						"children": [
+							{
+								"_id": "x1",
+								"id": "p1",
+								"intent": "annotate",
+								"pin": "r5",
+								"values": {
+									"redtitel": "Rot"
+								}
+							}
+						],
+						"id": "law1",
+						"intent": "include",
+						"values": {
+							"note": "neu",
+							"page": 1
+						}
+					},
+					{
+						"_id": "i2",
+						"children": [
+							{
+								"_id": "a1",
+								"id": "p2",
+								"intent": "annotate",
+								"values": {
+									"redtitel": "Neu"
+								}
+							}
+						],
+						"id": "law2",
+						"intent": "include"
+					}
+				]
+			}
+		}
+	}
+}
