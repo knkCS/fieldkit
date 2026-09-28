@@ -1,0 +1,207 @@
+{
+	"description": "With the publishing package, an outline_tree's nodes are checked at every level: an _id repeated anywhere in the tree is duplicate_id, a node without one missing_id, values and children of the wrong shape invalid_type, and each node's values against the node Fields — a node without values still owes its required ones",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Number",
+						"api_accessor": "number",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Flat",
+				"api_accessor": "flat",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Number",
+						"api_accessor": "number",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"outline": [
+			{
+				"_id": "n1",
+				"values": {
+					"kind": 5,
+					"title": "One"
+				},
+				"children": [
+					{
+						"_id": "n2"
+					},
+					{
+						"_id": "n1",
+						"values": {
+							"title": "Again"
+						}
+					},
+					{
+						"_id": "n3",
+						"values": [
+							"title"
+						]
+					}
+				]
+			},
+			{
+				"values": {
+					"title": "No id"
+				}
+			},
+			{
+				"_id": 7,
+				"values": {
+					"title": "Numbered",
+					"number": "seven"
+				}
+			},
+			"n4",
+			{
+				"_id": "n5",
+				"values": {
+					"title": "Branchless"
+				},
+				"children": {
+					"_id": "n6"
+				}
+			}
+		],
+		"flat": {
+			"_id": "f1"
+		}
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/outline/n1/values/kind",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/outline/n1/children/n2/values/title",
+				"code": "required"
+			},
+			{
+				"path": "/outline/n1/children/n1",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/outline/n1/children/n3/values",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/outline/1",
+				"code": "missing_id"
+			},
+			{
+				"path": "/outline/2/_id",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/outline/2/values/number",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/outline/3",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/outline/n5/children",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/flat",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

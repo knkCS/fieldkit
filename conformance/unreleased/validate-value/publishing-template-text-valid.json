@@ -1,0 +1,51 @@
+{
+	"description": "With the publishing package, a template_text holds its template's source as a string, whatever it parses as: parsing is the rendering service's",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Template",
+				"api_accessor": "template",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"context_blueprints": [
+					"bp-1"
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Logic",
+				"api_accessor": "logic",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Stray",
+				"api_accessor": "stray",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"template": "{{ .First.title }} and {{ .Count }} more",
+		"logic": "{{ if .Count }}{{ range .All }}{{ .title }}{{ end }}{{ end }}",
+		"stray": "a }} without {{"
+	},
+	"expect": {
+		"validateValue": []
+	}
+}
