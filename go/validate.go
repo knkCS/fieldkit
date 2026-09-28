@@ -11,10 +11,10 @@ package fieldkit
 // It walks children at every depth, whatever Field holds them. The result is
 // nil for a valid Spec.
 //
-// The Catalogue lists only the types that already declare a settings schema
-// (text, number and group so far). Until every built-in type does, a Spec
-// using another built-in type — select, reference, … — is valid in TS and
-// reports unknown_field_type here. The conformance fixtures stay inside the
+// The Catalogue lists only the types that already declare a settings schema.
+// Until every built-in type does, a Spec using one that does not yet —
+// reference, rich_text, … — is valid in TS and reports unknown_field_type
+// here. The conformance fixtures stay inside the
 // Catalogue, where the two agree.
 func ValidateSpec(spec Spec) []Error {
 	return DefaultCatalogue().ValidateSpec(spec)

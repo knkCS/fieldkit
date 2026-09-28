@@ -24,6 +24,14 @@ export const urlPlugin: FieldTypePlugin<UrlSettings> = {
 		return z.string().url(`${field.config.name} must be a valid URL`);
 	},
 
+	settingsSchema: z
+		.object({
+			placeholder: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { placeholder: "" },
 
 	defaultValue: () => "",
