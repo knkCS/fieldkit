@@ -150,13 +150,19 @@ describe("validateValue beyond the scalar types", () => {
 		expect(
 			validateValue(
 				spec,
-				{ authors: [{ name: "Ada" }, { name: "" }, {}] },
+				{
+					authors: [
+						{ _id: "a", name: "Ada" },
+						{ _id: "b", name: "" },
+						{ _id: "c" },
+					],
+				},
 				builtInFieldTypes,
 			),
 		).toEqual([
-			{ path: "/authors/1/name", code: "not_canonical" },
-			{ path: "/authors/1/name", code: "required" },
-			{ path: "/authors/2/name", code: "required" },
+			{ path: "/authors/b/name", code: "not_canonical" },
+			{ path: "/authors/b/name", code: "required" },
+			{ path: "/authors/c/name", code: "required" },
 		]);
 	});
 

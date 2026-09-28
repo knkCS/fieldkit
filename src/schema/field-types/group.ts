@@ -4,7 +4,11 @@ import { GroupReadValue } from "../../renderer/fields/group-read";
 import { GroupCell } from "../../table/cells/group-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { RowArrayCaps } from "../row-array";
-import { rowArrayCapsSchema, rowArrayZodType } from "../row-array";
+import {
+	mintRowArrayIds,
+	rowArrayCapsSchema,
+	rowArrayZodType,
+} from "../row-array";
 import type { Field } from "../types";
 
 /** A Group's caps are the shared row-array pair, nothing more. */
@@ -38,6 +42,10 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 	defaultSettings: {},
 
 	defaultValue: () => [],
+
+	// Every row carries an `_id` (ADR-0023), minted here for loaded rows,
+	// pasted and duplicated ones; its children mint their own.
+	mintIds: mintRowArrayIds,
 
 	consumers: ["blueprint", "task", "form"],
 	positions: ["root", "block_type"],

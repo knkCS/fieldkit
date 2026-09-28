@@ -189,6 +189,22 @@ export type ComposeChildrenDefaults = (
 ) => Record<string, unknown>;
 
 /**
+ * What a container type's `mintIds` needs from the shared machinery: whether
+ * every `_id` is to be new, and a way into the record its child Fields
+ * describe — the id-minting twin of {@link ComposeChildrenSchema} (ADR-0007,
+ * ADR-0023).
+ */
+export interface MintIdsContext {
+	/** `true` for paste and duplicate — every `_id` new, nested ones too.
+	 * `false` for loading — only a missing, malformed or repeated `_id` is
+	 * replaced. */
+	fresh: boolean;
+	/** Mints ids into a record `children` describe; the record itself when
+	 * none was needed. */
+	mintChildren: (children: Field[], record: unknown) => unknown;
+}
+
+/**
  * A field type plugin defines everything about a field type:
  * metadata, UI components, Zod validation, and constraints.
  */
@@ -246,6 +262,18 @@ export interface FieldTypePlugin<S = unknown> {
 	defaultValue?: (
 		field: Field<S>,
 		composeChildren?: ComposeChildrenDefaults,
+	) => unknown;
+	/**
+	 * Mints `_id`s into a value of this type (ADR-0023), for a type whose
+	 * value holds rows — or holds Fields that might. Returns the value itself
+	 * when nothing was minted, so a caller can tell by `===`. Absent: the
+	 * type's values hold no ids. Called by `mintMissingIds()` and
+	 * `copyRows()`, never by a field component directly.
+	 */
+	mintIds?: (
+		field: Field<S>,
+		value: unknown,
+		context: MintIdsContext,
 	) => unknown;
 	maxPerSpec?: number;
 	/**

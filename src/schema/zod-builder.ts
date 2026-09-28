@@ -9,6 +9,7 @@ import {
 	z,
 } from "zod";
 import type { FieldTypePlugin } from "./plugin";
+import { mintMissingIds } from "./row-ids";
 import type { Field } from "./types";
 import { stripUnset } from "./unset";
 
@@ -133,14 +134,21 @@ function buildObject(
 	return z.object(shape);
 }
 
+/**
+ * The values a form over `fields` starts from: each Field's
+ * `config.default_value`, else its plugin's `defaultValue`.
+ *
+ * With `plugins`, every row in them carries an `_id` (ADR-0023) — a
+ * `default_value` holding rows is minted into, freshly on every call, so two
+ * forms never share a row's id.
+ */
 export function getDefaultValues(
 	fields: Field[],
 	plugins?: FieldTypePlugin[],
 ): Record<string, unknown> {
-	return buildDefaults(
-		fields,
-		plugins ? new Map(plugins.map((p) => [p.id, p])) : undefined,
-	);
+	if (!plugins) return buildDefaults(fields);
+	const pluginMap = new Map(plugins.map((p) => [p.id, p]));
+	return mintMissingIds(fields, buildDefaults(fields, pluginMap), pluginMap);
 }
 
 /** The defaults twin of `buildObject`, recursing on the same terms. */

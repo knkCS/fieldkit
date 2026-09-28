@@ -26,10 +26,12 @@ describe("virtualTablePlugin", () => {
 		};
 		const zodType = virtualTablePlugin.toZodType(field);
 		expect(zodType.safeParse([]).success).toBe(true);
-		expect(zodType.safeParse([{ title: "Hello", count: 42 }]).success).toBe(
+		expect(
+			zodType.safeParse([{ _id: "r46", title: "Hello", count: 42 }]).success,
+		).toBe(true);
+		expect(zodType.safeParse([{ _id: "r47", nested: { a: 1 } }]).success).toBe(
 			true,
 		);
-		expect(zodType.safeParse([{ nested: { a: 1 } }]).success).toBe(true);
 	});
 
 	it("should reject non-array values", () => {
@@ -114,8 +116,8 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 		);
 
 		const result = zodType.safeParse([
-			{ description: "Binding", quantity: 3 },
-			{ description: "Cover", quantity: "three" },
+			{ _id: "r48", description: "Binding", quantity: 3 },
+			{ _id: "r49", description: "Cover", quantity: "three" },
 		]);
 
 		expect(result.success).toBe(false);
@@ -129,7 +131,7 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 			composeChildren,
 		);
 
-		const result = zodType.safeParse([{ quantity: 1 }]);
+		const result = zodType.safeParse([{ _id: "r50", quantity: 1 }]);
 
 		expect(result.success).toBe(false);
 		if (result.success) return;
@@ -143,8 +145,8 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 
 		const result = schema.safeParse({
 			line_items: [
-				{ description: "Binding", quantity: 2 },
-				{ description: "Cover" },
+				{ _id: "r51", description: "Binding", quantity: 2 },
+				{ _id: "r52", description: "Cover" },
 			],
 		});
 
@@ -161,7 +163,7 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 		);
 
 		const result = zodType.safeParse([
-			{ id: "row-1", description: "Binding", quantity: 3 },
+			{ _id: "r53", id: "row-1", description: "Binding", quantity: 3 },
 		]);
 
 		expect(result.success).toBe(true);
@@ -176,12 +178,13 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 		);
 
 		expect(
-			zodType.safeParse([{ description: "Binding", quantity: 1 }]).success,
+			zodType.safeParse([{ _id: "r54", description: "Binding", quantity: 1 }])
+				.success,
 		).toBe(false);
 		expect(
 			zodType.safeParse([
-				{ description: "Binding", quantity: 1 },
-				{ description: "Cover", quantity: 2 },
+				{ _id: "r55", description: "Binding", quantity: 1 },
+				{ _id: "r56", description: "Cover", quantity: 2 },
 			]).success,
 		).toBe(true);
 	});
@@ -194,12 +197,13 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 
 		expect(
 			zodType.safeParse([
-				{ description: "Binding", quantity: 1 },
-				{ description: "Cover", quantity: 2 },
+				{ _id: "r57", description: "Binding", quantity: 1 },
+				{ _id: "r58", description: "Cover", quantity: 2 },
 			]).success,
 		).toBe(false);
 		expect(
-			zodType.safeParse([{ description: "Binding", quantity: 1 }]).success,
+			zodType.safeParse([{ _id: "r59", description: "Binding", quantity: 1 }])
+				.success,
 		).toBe(true);
 	});
 
@@ -212,7 +216,9 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 			composeChildren,
 		);
 
-		expect(zodType.safeParse([{ anything: true }]).success).toBe(true);
+		expect(zodType.safeParse([{ _id: "r60", anything: true }]).success).toBe(
+			true,
+		);
 	});
 
 	it("is offered to every Consumer", () => {
@@ -246,7 +252,9 @@ describe("virtualTablePlugin — an empty Blueprint is still resolved", () => {
 			specToZodSchema(children, builtInFieldTypes),
 		);
 
-		expect(zodType.safeParse([{ anything: true }]).success).toBe(true);
+		expect(zodType.safeParse([{ _id: "r61", anything: true }]).success).toBe(
+			true,
+		);
 		expect(zodType.safeParse("not an array").success).toBe(false);
 	});
 });

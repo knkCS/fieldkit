@@ -50,10 +50,12 @@ describe("blocksPlugin", () => {
 		};
 		const zodType = blocksPlugin.toZodType(field);
 		expect(zodType.safeParse([]).success).toBe(true);
-		expect(zodType.safeParse([{ _type: "hero", title: "Hello" }]).success).toBe(
+		expect(
+			zodType.safeParse([{ _id: "r1", _type: "hero", title: "Hello" }]).success,
+		).toBe(true);
+		expect(zodType.safeParse([{ _id: "r2", _type: "text" }]).success).toBe(
 			true,
 		);
-		expect(zodType.safeParse([{ _type: "text" }]).success).toBe(true);
 		expect(zodType.safeParse("not an array").success).toBe(false);
 	});
 
@@ -72,8 +74,9 @@ describe("blocksPlugin", () => {
 		};
 		const zodType = blocksPlugin.toZodType(field);
 		expect(
-			zodType.safeParse([{ _type: "hero", heading: "test", image: "/img.png" }])
-				.success,
+			zodType.safeParse([
+				{ _id: "r3", _type: "hero", heading: "test", image: "/img.png" },
+			]).success,
 		).toBe(true);
 	});
 
@@ -91,14 +94,18 @@ describe("blocksPlugin", () => {
 
 		// Valid block types
 		expect(
-			schema.safeParse({ blocks: [{ _type: "text" }, { _type: "image" }] })
-				.success,
+			schema.safeParse({
+				blocks: [
+					{ _id: "r4", _type: "text" },
+					{ _id: "r5", _type: "image" },
+				],
+			}).success,
 		).toBe(true);
 
 		// Invalid block type
-		expect(schema.safeParse({ blocks: [{ _type: "video" }] }).success).toBe(
-			false,
-		);
+		expect(
+			schema.safeParse({ blocks: [{ _id: "r6", _type: "video" }] }).success,
+		).toBe(false);
 	});
 
 	describe("per-block-type validation", () => {
@@ -132,8 +139,8 @@ describe("blocksPlugin", () => {
 				{ type: "text", name: "Text", fields: [] },
 			]).safeParse({
 				content: [
-					{ _type: "heading", title: "Chapter one" },
-					{ _type: "heading", title: "" },
+					{ _id: "r7", _type: "heading", title: "Chapter one" },
+					{ _id: "r8", _type: "heading", title: "" },
 				],
 			});
 
@@ -154,11 +161,13 @@ describe("blocksPlugin", () => {
 			]);
 
 			expect(
-				sole.safeParse({ content: [{ _type: "heading", title: "" }] }).success,
+				sole.safeParse({
+					content: [{ _id: "r9", _type: "heading", title: "" }],
+				}).success,
 			).toBe(false);
 			expect(
 				sole.safeParse({
-					content: [{ _type: "heading", title: "Chapter one" }],
+					content: [{ _id: "r10", _type: "heading", title: "Chapter one" }],
 				}).success,
 			).toBe(true);
 		});
@@ -173,7 +182,7 @@ describe("blocksPlugin", () => {
 					fields: [blockField("title", true)],
 				},
 				{ type: "text", name: "Text", fields: [blockField("body", false)] },
-			]).safeParse({ content: [{ _type: "text" }] });
+			]).safeParse({ content: [{ _id: "r11", _type: "text" }] });
 
 			expect(parsed.success).toBe(true);
 		});
@@ -183,7 +192,8 @@ describe("blocksPlugin", () => {
 				schema([
 					{ type: "text", name: "Text", fields: [blockField("body", false)] },
 					{ type: "rule", name: "Rule", fields: [] },
-				]).safeParse({ content: [{ _type: "text", body: "" }] }).success,
+				]).safeParse({ content: [{ _id: "r12", _type: "text", body: "" }] })
+					.success,
 			).toBe(true);
 		});
 
@@ -198,11 +208,15 @@ describe("blocksPlugin", () => {
 				},
 				{ type: "text", name: "Text", fields: [] },
 			]).safeParse({
-				content: [{ _type: "heading", title: "Chapter one", id: 7 }],
+				content: [
+					{ _id: "r13", _type: "heading", title: "Chapter one", id: 7 },
+				],
 			});
 
 			expect(parsed.data).toEqual({
-				content: [{ _type: "heading", title: "Chapter one", id: 7 }],
+				content: [
+					{ _id: "r13", _type: "heading", title: "Chapter one", id: 7 },
+				],
 			});
 		});
 
@@ -210,8 +224,9 @@ describe("blocksPlugin", () => {
 			// The branch that returns before any composing. Covered here through
 			// the Schema path, not just through a bare toZodType call.
 			expect(
-				schema([]).safeParse({ content: [{ _type: "anything", body: 1 }] })
-					.success,
+				schema([]).safeParse({
+					content: [{ _id: "r15", _type: "anything", body: 1 }],
+				}).success,
 			).toBe(true);
 		});
 
@@ -220,7 +235,8 @@ describe("blocksPlugin", () => {
 				schema([
 					{ type: "rule", name: "Rule", fields: [] },
 					{ type: "text", name: "Text", fields: [] },
-				]).safeParse({ content: [{ _type: "rule", anything: 1 }] }).success,
+				]).safeParse({ content: [{ _id: "r16", _type: "rule", anything: 1 }] })
+					.success,
 			).toBe(true);
 		});
 
@@ -238,10 +254,12 @@ describe("blocksPlugin", () => {
 			]);
 
 			expect(
-				declared.safeParse({ content: [{ _type: "heading" }] }).success,
+				declared.safeParse({ content: [{ _id: "r17", _type: "heading" }] })
+					.success,
 			).toBe(true);
 			expect(
-				declared.safeParse({ content: [{ _type: "other" }] }).success,
+				declared.safeParse({ content: [{ _id: "r18", _type: "other" }] })
+					.success,
 			).toBe(false);
 		});
 
@@ -264,7 +282,9 @@ describe("blocksPlugin", () => {
 				}),
 			);
 
-			expect(zodType.safeParse([{ _type: "heading" }]).success).toBe(true);
+			expect(
+				zodType.safeParse([{ _id: "r19", _type: "heading" }]).success,
+			).toBe(true);
 		});
 	});
 
@@ -277,11 +297,11 @@ describe("blocksPlugin", () => {
 		const zodType = blocksPlugin.toZodType(field);
 		const schema = z.object({ blocks: zodType });
 
-		expect(schema.safeParse({ blocks: [{ _type: "text" }] }).success).toBe(
-			true,
-		);
-		expect(schema.safeParse({ blocks: [{ _type: "video" }] }).success).toBe(
-			false,
-		);
+		expect(
+			schema.safeParse({ blocks: [{ _id: "r20", _type: "text" }] }).success,
+		).toBe(true);
+		expect(
+			schema.safeParse({ blocks: [{ _id: "r21", _type: "video" }] }).success,
+		).toBe(false);
 	});
 });

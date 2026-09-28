@@ -109,6 +109,7 @@ export type {
 	FieldTypeCategory,
 	FieldTypePlugin,
 	HeldSpec,
+	MintIdsContext,
 	Position,
 	ReadProps,
 	RenderReadValue,
@@ -154,6 +155,18 @@ export type {
 	ResolveSpecAdapters,
 } from "./resolve-spec";
 export { resolveSpec } from "./resolve-spec";
+// Row `_id`s (ADR-0023): minting them, normalising values loaded without them,
+// copying rows, and the `_id`-based value path
+export {
+	copyRows,
+	isRowId,
+	mintId,
+	mintMissingIds,
+	mintRowIds,
+	ROW_ID_MAX_LENGTH,
+	rowIdSchema,
+	toIdPath,
+} from "./row-ids";
 // `config.search`
 export {
 	isSearchWeight,
