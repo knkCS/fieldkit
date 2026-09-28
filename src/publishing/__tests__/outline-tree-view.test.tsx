@@ -3,7 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 import type { Field } from "../../schema/types";
-import { countOutlineNodes, OutlineTreeCell, OutlineTreeField } from "..";
+import { OutlineTreeCell, OutlineTreeField } from "..";
+import { countOutlineNodes } from "../fields/outline-tree-view";
 
 const outline: Field = {
 	field_type: "outline_tree",

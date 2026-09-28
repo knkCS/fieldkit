@@ -1,0 +1,47 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./outline-tree-field.stories";
+
+<Meta of={Stories} />
+
+# Outline Tree
+
+A publication's outline, from the opt-in publishing package
+(`@knkcs/fieldkit/publishing`, ADR-0002 amended): a tree of nodes, each
+described by one Blueprint Release the Field pins.
+
+## Value
+
+```ts
+interface OutlineNode {
+  _id: string;                       // unique across the whole tree (ADR-0023)
+  values?: Record<string, unknown>;  // the node's Fields, keyed by Accessor
+  children?: OutlineNode[];
+}
+```
+
+A node's `values` are checked against the Field's `children` — the Blueprint
+Release `resolveSpec()` inlines from `settings.blueprint`. Unresolved, they
+are an opaque record.
+
+## Settings
+
+| Setting     | Pin kind    | Description |
+|-------------|-------------|-------------|
+| `blueprint` | `blueprint` | The Blueprint Release declaring every Field a node can carry (a `kind` select among them). Inlined as `children` by Resolve. |
+| `text_type` | `text_type` | The Text Type Release the outline's rich text is stamped with. Stored in the Resolved Spec's `parts`; fieldkit never reads it. |
+
+The node Fields sit in the `reference_spec` Position (ADR-0022): no
+container, no Marker. The outline itself sits at the root of a Blueprint only.
+
+## UI
+
+Not ported yet (#267). The control shows how many nodes the outline holds,
+read-only, and never writes the value; a Consumer that edits outlines attaches
+its own component: `{ ...outlineTreePlugin, fieldComponent: Mine }`.
+
+<Canvas of={Stories.WithNodes} />
+<Canvas of={Stories.Empty} />
+<Canvas of={Stories.Cell} />
+
+Migrating from knkCMS core's `outline_tree` is in
+`docs/knkcms-core-parity.md` ("Migrating core's publishing types").

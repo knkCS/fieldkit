@@ -17,13 +17,10 @@ export function countOutlineNodes(value: unknown): number {
 	return count;
 }
 
-function outlineCountProps(value: unknown) {
-	const count = countOutlineNodes(value);
-	return {
-		value: count === 0 ? null : count,
-		singular: "node",
-		plural: "nodes",
-	} as const;
+/** A count of nodes in words, as anker's `CountCell` words one in a table —
+ * so the control reads like the cell. */
+function outlineCountLabel(count: number): string {
+	return `${count} ${count === 1 ? "node" : "nodes"}`;
 }
 
 /**
@@ -48,9 +45,7 @@ export function OutlineTreeField({ field }: FieldProps<OutlineTreeSettings>) {
 				const count = countOutlineNodes(formField.value);
 				return (
 					<Text color="fg.muted">
-						{count === 0
-							? "No nodes"
-							: `${count} ${count === 1 ? "node" : "nodes"}`}
+						{count === 0 ? "No nodes" : outlineCountLabel(count)}
 					</Text>
 				);
 			}}
@@ -61,6 +56,13 @@ OutlineTreeField.displayName = "OutlineTreeField";
 
 /** An outline at table density: how many nodes, at every level. */
 export function OutlineTreeCell({ value }: CellProps<OutlineTreeSettings>) {
-	return <CountCell {...outlineCountProps(value)} />;
+	const count = countOutlineNodes(value);
+	return (
+		<CountCell
+			value={count === 0 ? null : count}
+			singular="node"
+			plural="nodes"
+		/>
+	);
 }
 OutlineTreeCell.displayName = "OutlineTreeCell";

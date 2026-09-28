@@ -80,6 +80,8 @@ export const outlineTreePlugin: FieldTypePlugin<OutlineTreeSettings> = {
 	cellComponent: OutlineTreeCell,
 
 	toZodType(field: Field<OutlineTreeSettings>, composeChildren) {
+		// `children` absent or null is an unresolved outline: its nodes' values
+		// are then an opaque record.
 		const values = referenceValuesZodType(
 			field.children ?? undefined,
 			composeChildren,

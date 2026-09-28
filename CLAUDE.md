@@ -109,7 +109,7 @@ src/
 │   ├── edit-drawer.tsx  # Renders through SpecForm
 │   ├── get-cell-for-type.tsx
 │   └── cells/           # Built-in cell components
-├── publishing/          # The opt-in publishing package (@knkcs/fieldkit/publishing): publishingFieldTypes, one file per type in field-types/ — its Catalogue section is go/publishing/catalogue.json
+├── publishing/          # The opt-in publishing package (@knkcs/fieldkit/publishing): publishingFieldTypes, one file per type in field-types/, and in fields/ the stopgap UI of a type no built-in component can stand in for (outline_tree's read-only node count and cell) — its Catalogue section is go/publishing/catalogue.json
 └── rich-text-spec/      # Rich text editor specification
     ├── types.ts         # EditorSpec, EditorNodePlugin
     ├── editor-spec-editor.tsx

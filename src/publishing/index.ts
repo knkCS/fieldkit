@@ -19,11 +19,7 @@ export type {
 } from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
 export type { TemplateTextSettings } from "./field-types/template-text";
-export {
-	countOutlineNodes,
-	OutlineTreeCell,
-	OutlineTreeField,
-} from "./fields/outline-tree-view";
+export { OutlineTreeCell, OutlineTreeField } from "./fields/outline-tree-view";
 export { outlineTreePlugin, referenceFilterPlugin, templateTextPlugin };
 
 /** Every publishing type: the publishing Catalogue section's plugins. */
