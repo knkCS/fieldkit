@@ -1,0 +1,39 @@
+# The Go module's CI (go/, github.com/knkcs/fieldkit/go), from the org's
+# shared workflows (knkCS/workflows), following the caller template in
+# contenthub's docs/conventions.md.
+#
+# Actions in this org are currently blocked by a billing issue, so this does
+# not run: `npm run verify` is the gate, and it runs the same Go checks
+# (scripts/verify-go.sh). The file is committed so the gate moves back to CI
+# the moment Actions run again.
+#
+# KNOWN GAP — read before relying on this: go-service-ci.yml runs `go vet` and
+# `go test` at the repository root, and this module lives in go/. There is no
+# go.mod at the root and a go.work cannot make `./...` reach a module in a
+# subdirectory, so those steps fail until the shared workflow takes a
+# `working-directory` input. It is passed below so the caller needs no edit
+# once that input exists; until then the run fails loudly rather than
+# reporting a green gate that checked nothing.
+#
+# Pinned to @v1, which (at 7d6dc74) declares every other input used here —
+# `check-gofmt` included. Pin to the commit that adds `working-directory`
+# when it lands, per the conventions doc's "Pinning" rule.
+name: Go
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: knkcs/workflows/.github/workflows/go-service-ci.yml@v1
+    with:
+      go-version-file: go/go.mod
+      working-directory: go
+      # The module has no containers; the default mode runs a plain `go test`.
+      test-mode: testcontainers
+      test-timeout: 10m
+      check-ent-drift: false
+      check-gofmt: true
+    secrets: inherit

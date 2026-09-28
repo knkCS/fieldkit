@@ -1,0 +1,137 @@
+{
+	"description": "A declared setting of the wrong type or out of range is invalid_setting at the key, once however many rules it breaks; settings that are not an object are invalid_setting at the settings",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placeholder": 5,
+				"prepend": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Price",
+				"api_accessor": "price",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": "1",
+				"step": 0
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Weight",
+				"api_accessor": "weight",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"step": -1
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": -1.5,
+				"max_items": 1.5
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 2.0
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Subtitle",
+				"api_accessor": "subtitle",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": "short",
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Caption",
+				"api_accessor": "caption",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": [
+				1
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/title/settings/placeholder",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/title/settings/prepend",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/price/settings/min",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/price/settings/step",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/weight/settings/step",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/authors/settings/min_items",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/authors/settings/max_items",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/subtitle/settings",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/caption/settings",
+				"code": "invalid_setting"
+			}
+		]
+	}
+}

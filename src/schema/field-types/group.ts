@@ -4,7 +4,7 @@ import { GroupReadValue } from "../../renderer/fields/group-read";
 import { GroupCell } from "../../table/cells/group-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { RowArrayCaps } from "../row-array";
-import { rowArrayZodType } from "../row-array";
+import { rowArrayCapsSchema, rowArrayZodType } from "../row-array";
 import type { Field } from "../types";
 
 /** A Group's caps are the shared row-array pair, nothing more. */
@@ -28,6 +28,12 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 	toZodType(field: Field<GroupSettings>, composeChildren) {
 		return rowArrayZodType(field, composeChildren);
 	},
+
+	settingsSchema: rowArrayCapsSchema,
+
+	// A Group's text is its children's, each read under its own settings;
+	// the Group itself yields none.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
 	defaultSettings: {},
 

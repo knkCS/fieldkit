@@ -46,6 +46,16 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			placeholder: z.string().optional(),
+			prepend: z.string().optional(),
+			append: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { placeholder: "" },
 
 	defaultValue: () => "",

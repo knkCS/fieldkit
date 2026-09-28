@@ -1,0 +1,102 @@
+{
+	"version": "0.18.0",
+	"types": [
+		{
+			"id": "group",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"min_items": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"max_items": {
+						"type": "integer",
+						"minimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "number",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"min": {
+						"type": "number"
+					},
+					"max": {
+						"type": "number"
+					},
+					"step": {
+						"type": "number",
+						"exclusiveMinimum": 0
+					},
+					"prepend": {
+						"type": "string"
+					},
+					"append": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "text",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"placeholder": {
+						"type": "string"
+					},
+					"prepend": {
+						"type": "string"
+					},
+					"append": {
+						"type": "string"
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"reference_spec"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [],
+			"has_text": true
+		}
+	]
+}

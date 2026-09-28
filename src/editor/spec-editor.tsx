@@ -334,7 +334,12 @@ function translateFieldError(
 				? labels.errorEmptyName
 				: error.code === "loose_field_in_carded_tab"
 					? labels.errorLooseFieldInCardedTab
-					: labels.errorEmptyAccessor;
+					: error.code === "empty_accessor"
+						? labels.errorEmptyAccessor
+						: null;
+	// A code with no label yet keeps validate-spec's own English message,
+	// rather than borrowing another code's label.
+	if (template === null) return error;
 	return { ...error, message: template.replace("{accessor}", error.accessor) };
 }
 

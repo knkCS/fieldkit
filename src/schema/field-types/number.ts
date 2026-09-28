@@ -38,6 +38,18 @@ export const numberPlugin: FieldTypePlugin<NumberSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			min: z.number().optional(),
+			max: z.number().optional(),
+			step: z.number().positive().optional(),
+			prepend: z.string().optional(),
+			append: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: {},
 
 	defaultValue: () => 0,
