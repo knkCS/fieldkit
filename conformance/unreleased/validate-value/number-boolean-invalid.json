@@ -1,0 +1,127 @@
+{
+	"description": "A Number below settings.min is too_small and above settings.max too_big; a string, a boolean or a list where a number or a boolean belongs is invalid_type",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Below",
+				"api_accessor": "below",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 10
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Above",
+				"api_accessor": "above",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 10
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "String",
+				"api_accessor": "string",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Boolean",
+				"api_accessor": "boolean",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "String Bool",
+				"api_accessor": "string_bool",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Number Bool",
+				"api_accessor": "number_bool",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "List Bool",
+				"api_accessor": "list_bool",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"below": -0.5,
+		"above": 10.01,
+		"string": "5",
+		"boolean": true,
+		"string_bool": "true",
+		"number_bool": 1,
+		"list_bool": [
+			true
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/below",
+				"code": "too_small"
+			},
+			{
+				"path": "/above",
+				"code": "too_big"
+			},
+			{
+				"path": "/string",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/boolean",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/string_bool",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/number_bool",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/list_bool",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

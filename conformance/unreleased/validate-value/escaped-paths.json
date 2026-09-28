@@ -1,0 +1,52 @@
+{
+	"description": "An Accessor or an entry key holding / or ~ is escaped in the path as in RFC 6901",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "A/B",
+				"api_accessor": "a/b",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "C~D",
+				"api_accessor": "c~d",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"a/b": 1,
+		"c~d": {
+			"e/f": 2,
+			"g~h": ""
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/a~1b",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/c~0d/e~1f",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/c~0d/g~0h",
+				"code": "not_canonical"
+			}
+		]
+	}
+}

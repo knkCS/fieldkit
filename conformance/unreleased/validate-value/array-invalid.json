@@ -1,0 +1,116 @@
+{
+	"description": "A pair that is not an object, a half that is not a string, a keyed entry that is not a string, and the wrong shape altogether are invalid_type",
+	"spec": [
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs As Object",
+				"api_accessor": "pairs_as_object",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Keyed",
+				"api_accessor": "keyed",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Keyed As List",
+				"api_accessor": "keyed_as_list",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"pairs": [
+			"a",
+			{
+				"key": 1,
+				"value": "x"
+			},
+			{
+				"key": "b",
+				"value": [
+					"y"
+				]
+			}
+		],
+		"pairs_as_object": {
+			"key": "a",
+			"value": "b"
+		},
+		"keyed": {
+			"a": 1,
+			"b": "2",
+			"c": {
+				"d": "e"
+			}
+		},
+		"keyed_as_list": [
+			{
+				"key": "a",
+				"value": "b"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/pairs/0",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/pairs/1/key",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/pairs/2/value",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/pairs_as_object",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/keyed/a",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/keyed/c",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/keyed_as_list",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

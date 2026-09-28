@@ -1,0 +1,179 @@
+{
+	"description": "A string outside its lengths is too_small or too_big, one not matching the pattern invalid_format — every rule reported, as Zod checks every one — and a value that is not a string invalid_type",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Short",
+				"api_accessor": "short",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5,
+				"pattern": "^[A-Z]"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Long",
+				"api_accessor": "long",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "Body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "code",
+			"config": {
+				"name": "Snippet",
+				"api_accessor": "snippet",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "Notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Emoji",
+				"api_accessor": "emoji",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"max_length": 2
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Number",
+				"api_accessor": "number",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "List",
+				"api_accessor": "list",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "Object",
+				"api_accessor": "object",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"short": "a",
+		"long": "abcdef",
+		"body": "a",
+		"snippet": "abcdef",
+		"notes": "x",
+		"emoji": "😀a",
+		"number": 5,
+		"list": [
+			"a"
+		],
+		"object": {
+			"a": "b"
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/short",
+				"code": "too_small"
+			},
+			{
+				"path": "/short",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/long",
+				"code": "too_big"
+			},
+			{
+				"path": "/body",
+				"code": "too_small"
+			},
+			{
+				"path": "/snippet",
+				"code": "too_big"
+			},
+			{
+				"path": "/notes",
+				"code": "too_small"
+			},
+			{
+				"path": "/emoji",
+				"code": "too_big"
+			},
+			{
+				"path": "/number",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/list",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/object",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

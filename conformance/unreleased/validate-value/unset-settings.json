@@ -1,0 +1,75 @@
+{
+	"description": "Settings and validation are read in canonical form: an Unset minimum, maximum or pattern is none",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Count",
+				"api_accessor": "count",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": null,
+				"max": null
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": null,
+				"max_length": null,
+				"pattern": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Choice",
+				"api_accessor": "choice",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": null
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"count": -5,
+		"title": "x",
+		"choice": "a",
+		"pairs": [
+			{
+				"key": "a",
+				"value": "b"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

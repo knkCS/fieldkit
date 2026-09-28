@@ -1,0 +1,39 @@
+{
+	"description": "A List is a list of strings; an optional one may hold a blank entry, which is an item and not Unset",
+	"spec": [
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Optional",
+				"api_accessor": "optional",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Required",
+				"api_accessor": "required",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"optional": [
+			"a",
+			""
+		],
+		"required": [
+			"a",
+			"b"
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

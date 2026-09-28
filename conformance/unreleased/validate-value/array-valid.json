@@ -1,0 +1,73 @@
+{
+	"description": "array holds {key, value} pairs, either half absent, or with settings.mode keyed an object of strings",
+	"spec": [
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Dynamic",
+				"api_accessor": "dynamic",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "dynamic"
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Keyed",
+				"api_accessor": "keyed",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed",
+				"keys": [
+					"a",
+					"b"
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"pairs": [
+			{
+				"key": "a",
+				"value": "1"
+			},
+			{
+				"key": "b"
+			},
+			{
+				"value": "2"
+			}
+		],
+		"dynamic": [
+			{
+				"key": "a",
+				"value": "1"
+			}
+		],
+		"keyed": {
+			"a": "1",
+			"b": "2"
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

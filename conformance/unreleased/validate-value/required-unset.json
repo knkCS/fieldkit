@@ -1,0 +1,171 @@
+{
+	"description": "required rejects every form of Unset — absent, null, \"\", [] and {} — and every stored form but absent is not_canonical too",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Absent",
+				"api_accessor": "absent",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Null Text",
+				"api_accessor": "null_text",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Empty Text",
+				"api_accessor": "empty_text",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Empty List",
+				"api_accessor": "empty_list",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Empty Object",
+				"api_accessor": "empty_object",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Empty Multiple",
+				"api_accessor": "empty_multiple",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "Null Lookup",
+				"api_accessor": "null_lookup",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Blank Entries",
+				"api_accessor": "blank_entries",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed"
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"null_text": null,
+		"empty_text": "",
+		"empty_list": [],
+		"empty_object": {},
+		"empty_multiple": [],
+		"null_lookup": null,
+		"blank_entries": {
+			"a": "",
+			"b": null
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/absent",
+				"code": "required"
+			},
+			{
+				"path": "/null_text",
+				"code": "required"
+			},
+			{
+				"path": "/null_text",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty_text",
+				"code": "required"
+			},
+			{
+				"path": "/empty_text",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty_list",
+				"code": "required"
+			},
+			{
+				"path": "/empty_list",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty_object",
+				"code": "required"
+			},
+			{
+				"path": "/empty_object",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty_multiple",
+				"code": "required"
+			},
+			{
+				"path": "/empty_multiple",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/null_lookup",
+				"code": "required"
+			},
+			{
+				"path": "/null_lookup",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/blank_entries",
+				"code": "required"
+			},
+			{
+				"path": "/blank_entries",
+				"code": "not_canonical"
+			}
+		]
+	}
+}

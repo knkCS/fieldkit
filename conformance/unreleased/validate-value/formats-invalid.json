@@ -1,0 +1,237 @@
+{
+	"description": "A string email(), url() or the slug pattern refuses is invalid_format; a value that is not a string is invalid_type",
+	"spec": [
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Double Dot",
+				"api_accessor": "double_dot",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Leading Dot",
+				"api_accessor": "leading_dot",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "No Tld",
+				"api_accessor": "no_tld",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Short Tld",
+				"api_accessor": "short_tld",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Unicode",
+				"api_accessor": "unicode",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Number",
+				"api_accessor": "number",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "No Scheme",
+				"api_accessor": "no_scheme",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "No Host",
+				"api_accessor": "no_host",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Space",
+				"api_accessor": "space",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Bad Port",
+				"api_accessor": "bad_port",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Bad Ipv4",
+				"api_accessor": "bad_ipv4",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Url Number",
+				"api_accessor": "url_number",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Upper",
+				"api_accessor": "upper",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Double Hyphen",
+				"api_accessor": "double_hyphen",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Edge Hyphen",
+				"api_accessor": "edge_hyphen",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"double_dot": "a..b@example.com",
+		"leading_dot": ".a@example.com",
+		"no_tld": "a@example",
+		"short_tld": "a@example.c",
+		"unicode": "jörg@example.com",
+		"number": 1,
+		"no_scheme": "example.com",
+		"no_host": "http://",
+		"space": "https://exa mple.com",
+		"bad_port": "https://example.com:65536",
+		"bad_ipv4": "https://1.2.3.256",
+		"url_number": 2,
+		"upper": "Hello",
+		"double_hyphen": "a--b",
+		"edge_hyphen": "-a"
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/double_dot",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/leading_dot",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/no_tld",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/short_tld",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/unicode",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/number",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/no_scheme",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/no_host",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/space",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/bad_port",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/url_number",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/bad_ipv4",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/upper",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/double_hyphen",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/edge_hyphen",
+				"code": "invalid_format"
+			}
+		]
+	}
+}

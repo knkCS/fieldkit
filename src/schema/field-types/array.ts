@@ -27,8 +27,12 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 			return z.record(z.string());
 		}
 
-		// Default: dynamic mode — array of key-value objects
-		return z.array(z.object({ key: z.string(), value: z.string() }));
+		// Default: dynamic mode — array of key-value objects. Either half may be
+		// absent: a blank one is Unset, and Unset is stored as absent (ADR-0021),
+		// so a pair saved with an empty value comes back without the key.
+		return z.array(
+			z.object({ key: z.string().optional(), value: z.string().optional() }),
+		);
 	},
 
 	settingsSchema: z

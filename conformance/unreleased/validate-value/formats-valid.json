@@ -1,0 +1,110 @@
+{
+	"description": "email, url and slug accept what Zod's email(), url() (new URL) and the slug pattern accept",
+	"spec": [
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Email",
+				"api_accessor": "email",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Email Plus",
+				"api_accessor": "email_plus",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Website",
+				"api_accessor": "website",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Mailto",
+				"api_accessor": "mailto",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Port",
+				"api_accessor": "port",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Ipv6",
+				"api_accessor": "ipv6",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Opaque",
+				"api_accessor": "opaque",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Slug",
+				"api_accessor": "slug",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Slug Digits",
+				"api_accessor": "slug_digits",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"email": "a.b@example.com",
+		"email_plus": "O'Neil+tag_1@Sub.Example.ORG",
+		"website": "https://example.com/a?b=c#d",
+		"mailto": "mailto:someone@example.com",
+		"port": "http://localhost:65535",
+		"ipv6": "https://[::1]/",
+		"opaque": "urn:isbn:0451450523",
+		"slug": "hello-world",
+		"slug_digits": "2026"
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

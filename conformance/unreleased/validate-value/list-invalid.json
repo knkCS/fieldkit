@@ -1,0 +1,64 @@
+{
+	"description": "A required List's blank entry is too_small, at the entry; an entry that is not a string, or a List that is not a list, is invalid_type",
+	"spec": [
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Required",
+				"api_accessor": "required",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Items",
+				"api_accessor": "items",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "String",
+				"api_accessor": "string",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"required": [
+			"a",
+			"",
+			"c"
+		],
+		"items": [
+			"a",
+			2
+		],
+		"string": "a"
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/required/1",
+				"code": "too_small"
+			},
+			{
+				"path": "/items/1",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/string",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

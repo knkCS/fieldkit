@@ -284,6 +284,33 @@ describe("EditDrawer", () => {
 		});
 	});
 
+	it("stores a cleared field as absent, not as its old value or as an empty one", async () => {
+		// The submitted values are canonical (ADR-0021): a control emptied to
+		// "" is Unset, and Unset is stored as absent — so the key is gone from
+		// the parsed values. Merging those over the row must not bring the
+		// row's old value back, and must not write the "" either.
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={schema}
+				plugins={plugins}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{ id: 7, title: "Test", description: "Desc" }}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.change(screen.getByLabelText("Description"), {
+			target: { value: "" },
+		});
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+		expect(onSave.mock.calls[0][0]).toStrictEqual({ id: 7, title: "Test" });
+	});
+
 	it("should render Save button", () => {
 		render(
 			<EditDrawer

@@ -44,6 +44,35 @@ const (
 	// CodeDuplicateBlockType is a Block Type repeating the type an earlier
 	// Block Type of the same Blocks Field declared, reported at its type.
 	CodeDuplicateBlockType = "duplicate_block_type"
+
+	// The codes ValidateValue reports, shared with TS's validateValue.
+
+	// CodeRequired is a required Field whose value is Unset (ADR-0021).
+	CodeRequired = "required"
+	// CodeNotCanonical is a key holding an Unset value — null, "", [] or {} —
+	// at any depth of stored data: Unset is stored as absent (ADR-0021).
+	CodeNotCanonical = "not_canonical"
+	// CodeInvalidType is a value of the wrong JSON type, or data that is not
+	// a JSON object.
+	CodeInvalidType = "invalid_type"
+	// CodeInvalidFormat is a string not in its type's format: an email
+	// address, a URL, a slug, or the Field's validation pattern.
+	CodeInvalidFormat = "invalid_format"
+	// CodeTooSmall is a value below a minimum the Spec states: a string
+	// shorter than validation.min_length, a number below settings.min — and a
+	// blank entry in a required List.
+	CodeTooSmall = "too_small"
+	// CodeTooBig is a value above a maximum the Spec states: a string longer
+	// than validation.max_length, a number above settings.max.
+	CodeTooBig = "too_big"
+	// CodeTooManyItems is an array, or an object's keys, beyond MaxItems.
+	CodeTooManyItems = "too_many_items"
+	// CodeTooLarge is a string beyond MaxStringBytes.
+	CodeTooLarge = "too_large"
+	// CodeInvalidValue is any other rule a type's value rules state. TS
+	// reports it for a Zod rule none of the other codes names; no type this
+	// module validates reports it.
+	CodeInvalidValue = "invalid_value"
 )
 
 // Error is one validation error, in the shape TS reports it: where, which

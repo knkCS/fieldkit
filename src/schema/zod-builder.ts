@@ -1,7 +1,16 @@
 // src/schema/zod-builder.ts
-import { type ZodObject, type ZodRawShape, type ZodTypeAny, z } from "zod";
+import {
+	type ParseInput,
+	type ParseReturnType,
+	type SyncParseReturnType,
+	ZodObject,
+	type ZodRawShape,
+	type ZodTypeAny,
+	z,
+} from "zod";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field } from "./types";
+import { stripUnset } from "./unset";
 
 /** Structural field types that don't produce a value in the form data.
  * One set covers BOTH paths: specToZodSchema (schema) and getDefaultValues
@@ -26,12 +35,52 @@ export interface ZodBuilderOptions {
 
 type PluginMap = Map<string, FieldTypePlugin>;
 
+/**
+ * The Zod schema a form over `fields` validates with.
+ *
+ * What it parses is the value **in canonical form** (ADR-0021): every key
+ * holding an Unset value — `null`, `""`, `[]`, `{}`, `undefined` — is
+ * stripped from the output at every depth, so the values a form submits
+ * through `zodResolver(specToZodSchema(…))` are what Go's `ValidateValue`
+ * accepts, and a cleared control is stored as absent. Validation is
+ * unaffected: a required Field's `""` still fails with its own message.
+ *
+ * The result is a `ZodObject`, `.shape` and all. The stripping belongs to
+ * this object only — a schema derived from it with `.extend()`, `.merge()`,
+ * `.pick()` and the like validates the same but no longer strips.
+ */
 export function specToZodSchema(
 	fields: Field[],
 	plugins: FieldTypePlugin[],
 	options?: ZodBuilderOptions,
 ): ZodObject<ZodRawShape> {
-	return buildObject(fields, new Map(plugins.map((p) => [p.id, p])), options);
+	const object = buildObject(
+		fields,
+		new Map(plugins.map((p) => [p.id, p])),
+		options,
+	);
+	return new CanonicalZodObject(object._def);
+}
+
+/**
+ * A `ZodObject` whose parsed output is canonical. Subclassed rather than
+ * `.transform()`ed so the return type stays a `ZodObject`: Consumers and the
+ * row drawers read `.shape`, and a `ZodEffects` would break them.
+ */
+class CanonicalZodObject<T extends ZodRawShape> extends ZodObject<T> {
+	override _parse(input: ParseInput): ParseReturnType<this["_output"]> {
+		const result = super._parse(input);
+		return result instanceof Promise
+			? result.then(canonicalResult)
+			: canonicalResult(result);
+	}
+}
+
+function canonicalResult<T>(
+	result: SyncParseReturnType<T>,
+): SyncParseReturnType<T> {
+	if (result.status === "aborted") return result;
+	return { status: result.status, value: stripUnset(result.value) as T };
 }
 
 /** One level of a Spec as a Zod object. Called again, through the
@@ -63,8 +112,9 @@ function buildObject(
 		if (!field.config.required) {
 			// Optional strings are "empty or valid" (#38): a cleared text
 			// control produces "" and must not fail min/regex checks — an
-			// optional slug you can't empty isn't optional. "" is kept in the
-			// parsed output. Required fields are unaffected ("" still fails
+			// optional slug you can't empty isn't optional. The "" passes here
+			// and is then stripped from the output as Unset (ADR-0021, see
+			// specToZodSchema). Required fields are unaffected ("" still fails
 			// their checks).
 			if (zodType._def.typeName === z.ZodFirstPartyTypeKind.ZodString) {
 				zodType = zodType.or(z.literal("")).optional() as ZodTypeAny;

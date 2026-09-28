@@ -4,7 +4,7 @@ import { BaseSelect, Button, IconButton } from "@knkcs/anker/atoms";
 import { Plus, X } from "lucide-react";
 import { type ChangeEvent, useEffect, useId, useMemo, useState } from "react";
 import type { ZodTypeAny } from "zod";
-import { isUnset } from "../../schema/validate-settings";
+import { isUnset } from "../../schema/unset";
 import { deepEqual } from "../deep-equal";
 import type { PanelLabels } from "../field-config-panel";
 import { SettingLockReason, useSettingLock } from "./setting-lock";

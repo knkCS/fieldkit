@@ -275,8 +275,10 @@ describe("GroupField", () => {
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-		expect(onSubmit.mock.calls[0][0]).toEqual({
-			items: [{ note: "", active: false }],
+		// The seeded "" is Unset, and a submit is canonical (ADR-0021): the
+		// note is absent, the false stays.
+		expect(onSubmit.mock.calls[0][0]).toStrictEqual({
+			items: [{ active: false }],
 		});
 	});
 

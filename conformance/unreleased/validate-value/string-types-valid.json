@@ -1,0 +1,74 @@
+{
+	"description": "date, time, color, radio and lookup hold a string",
+	"spec": [
+		{
+			"field_type": "date",
+			"config": {
+				"name": "Day",
+				"api_accessor": "day",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "time",
+			"config": {
+				"name": "At",
+				"api_accessor": "at",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "color",
+			"config": {
+				"name": "Tint",
+				"api_accessor": "tint",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "Size",
+				"api_accessor": "size",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"s": "Small"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "Layout",
+				"api_accessor": "layout",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"source": "layouts"
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"day": "2026-09-28",
+		"at": "12:00",
+		"tint": "#ff0000",
+		"size": "s",
+		"layout": "layout-1"
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

@@ -8,7 +8,11 @@ import { FieldKitProvider } from "../renderer/provider";
 import { SpecForm } from "../renderer/spec-form/spec-form";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
-import { getDefaultValues, specToZodSchema } from "../schema/zod-builder";
+import {
+	fieldProducesValue,
+	getDefaultValues,
+	specToZodSchema,
+} from "../schema/zod-builder";
 
 export interface EditDrawerProps {
 	schema: Schema;
@@ -46,6 +50,14 @@ export function EditDrawer({
 
 	const formRef = useRef<HTMLFormElement>(null);
 
+	// The keys the Schema owns: every Field it composes a value for.
+	const editedKeys = useMemo(() => {
+		const pluginIds = new Set(plugins.map((p) => p.id));
+		return schema
+			.filter((f) => fieldProducesValue(f) && pluginIds.has(f.field_type))
+			.map((f) => f.config.api_accessor);
+	}, [schema, plugins]);
+
 	const handleSave = useCallback(
 		(values: Record<string, unknown>) => {
 			// react-hook-form submits what the Schema parsed, and the Schema is a
@@ -53,9 +65,16 @@ export function EditDrawer({
 			// (a row's id, its timestamps) is gone by the time it reaches here.
 			// A Spec describes what a form edits, not the whole record, so the
 			// row goes back underneath: edited fields win, the rest survives.
-			onSave({ ...initialValues, ...values });
+			//
+			// The parsed values are canonical too (ADR-0021): a Field cleared to
+			// Unset is absent from them, not "". So the Schema's keys come off
+			// the row first — a cleared Field must stay cleared, not fall back to
+			// the value the row had before.
+			const rest = { ...initialValues };
+			for (const key of editedKeys) delete rest[key];
+			onSave({ ...rest, ...values });
 		},
-		[onSave, initialValues],
+		[onSave, initialValues, editedKeys],
 	);
 
 	const handleDrawerSave = useCallback(() => {

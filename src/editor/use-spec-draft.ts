@@ -5,6 +5,7 @@ import {
 } from "../schema/partition";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Schema } from "../schema/types";
+import { canonicalSpecSettings } from "../schema/unset";
 import {
 	type SpecValidationResult,
 	validateSpec,
@@ -75,13 +76,16 @@ export function useSpecDraft(
 	// Comparisons are deepEqual, not JSON.stringify byte-equality: backends
 	// that store the schema in Postgres jsonb re-order object keys on
 	// read-back, so a post-save echo is content-equal but never
-	// byte-identical (#37).
+	// byte-identical (#37). They are also blind to how an Unset setting is
+	// spelled: a save commits canonical settings (ADR-0021), so its echo
+	// lacks the `settings: null` the draft may still hold, and is the same
+	// content all the same.
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
-		if (deepEqual(schema, baseline)) return;
-		if (deepEqual(schema, draft)) {
+		if (sameContent(schema, baseline)) return;
+		if (sameContent(schema, draft)) {
 			setBaseline(schema);
 			return;
 		}
@@ -130,7 +134,10 @@ export function useSpecDraft(
 		setSaveError(null);
 		setBaselineConflict(false);
 		try {
-			await onCommit(draft);
+			// Settings are stored canonical (ADR-0021): an Unset setting is
+			// absent, not "" or null. The draft itself is left as it is — the
+			// author's controls may still hold the empty value they cleared to.
+			await onCommit(canonicalSpecSettings(draft));
 			setBaseline(draft); // advance ONLY on success
 		} catch (error) {
 			setSaveError(error);
@@ -158,4 +165,9 @@ export function useSpecDraft(
 		baselineConflict,
 		pluginMap,
 	};
+}
+
+/** Equal content, with every Unset setting read as absent (ADR-0021). */
+function sameContent(a: Schema, b: Schema): boolean {
+	return deepEqual(canonicalSpecSettings(a), canonicalSpecSettings(b));
 }

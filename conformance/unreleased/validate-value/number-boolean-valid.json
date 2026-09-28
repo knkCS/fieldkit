@@ -1,0 +1,89 @@
+{
+	"description": "A Number within settings.min and max, both inclusive, and a Boolean either way",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": {
+				"name": "At Min",
+				"api_accessor": "at_min",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 10
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "At Max",
+				"api_accessor": "at_max",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 10
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Fraction",
+				"api_accessor": "fraction",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min": 0,
+				"max": 10
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Unbounded",
+				"api_accessor": "unbounded",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Yes",
+				"api_accessor": "yes",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "No",
+				"api_accessor": "no",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"at_min": 0,
+		"at_max": 10,
+		"fraction": 5.5,
+		"unbounded": -1e+300,
+		"yes": true,
+		"no": false
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

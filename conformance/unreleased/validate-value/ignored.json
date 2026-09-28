@@ -1,0 +1,72 @@
+{
+	"description": "Keys the Spec does not name, hidden Fields and the value-less Markers are not checked; only their Unset keys would be",
+	"spec": [
+		{
+			"field_type": "section",
+			"config": {
+				"name": "General",
+				"api_accessor": "general",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "Details",
+				"api_accessor": "details",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Secret",
+				"api_accessor": "secret",
+				"required": true,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Shadowed",
+				"api_accessor": "shadowed",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": "Hello",
+		"shadowed": 5,
+		"other": {
+			"any": [
+				"thing",
+				1
+			]
+		},
+		"general": 3
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

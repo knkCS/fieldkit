@@ -1,0 +1,97 @@
+{
+	"description": "text, textarea, code and markdown hold a string within validation.min_length and max_length, counted in UTF-16 code units; text also matches validation.pattern, unanchored as RegExp.test is",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5,
+				"pattern": "[A-Z]"
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "Body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "code",
+			"config": {
+				"name": "Snippet",
+				"api_accessor": "snippet",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "Notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"min_length": 2,
+				"max_length": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Emoji",
+				"api_accessor": "emoji",
+				"required": false,
+				"instructions": ""
+			},
+			"validation": {
+				"max_length": 2
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Required Text",
+				"api_accessor": "required_text",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": "abCde",
+		"body": "ab",
+		"snippet": "a\nb",
+		"notes": "abcde",
+		"emoji": "😀",
+		"required_text": "x"
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}
