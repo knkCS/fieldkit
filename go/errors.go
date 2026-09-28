@@ -44,6 +44,10 @@ const (
 	// CodeDuplicateBlockType is a Block Type repeating the type an earlier
 	// Block Type of the same Blocks Field declared, reported at its type.
 	CodeDuplicateBlockType = "duplicate_block_type"
+	// CodeDuplicateBlueprint is a Reference Field's blueprints entry naming a
+	// Blueprint an earlier entry names — two Reference Specs for one target.
+	// At each repeat's blueprint.
+	CodeDuplicateBlueprint = "duplicate_blueprint"
 
 	// The codes Resolve fails with (a *ResolveError), shared with TS's
 	// resolveSpec (ResolveSpecError). Prefixed, because a value's depth cap is

@@ -13,22 +13,23 @@ import (
 //   - every Field's settings are what its type's settings schema declares
 //     (CodeUnknownSetting, CodeInvalidSetting, at the setting);
 //   - every Field sits in a Position its type lists (CodePosition, ADR-0022):
-//     the root, a Row Spec, a Block Type. One check for every container —
+//     the root, a Row Spec, a Reference Spec, a Block Type. One check for
+//     every container —
 //     what a Row Spec may hold (ADR-0017) is the "row" Position;
 //   - no Accessor begins with "_" (CodeReservedAccessor);
 //   - config.search is off or A–D (CodeInvalidConfig), and only on a type
 //     the Catalogue marks as having text (CodeSearchWithoutText);
 //   - the card-marker rule at the top level (CodeLooseFieldInCardedTab);
 //   - the rules across settings a type has beside its schema (rules.go):
-//     a Virtual Table's Row Spec (ADR-0017), and a Blocks Field's Block
-//     Types;
+//     a Virtual Table's Row Spec (ADR-0017), a Blocks Field's Block Types,
+//     and a Reference Field's blueprints (CodeDuplicateBlueprint);
 //   - and whatever a caller's Policy adds (WithPolicy).
 //
 // It walks every Spec a Field holds, at every depth: its children, whatever
-// Field holds them, and a Blocks Field's Block Types' Fields, which live in its
-// settings. A Field in a Block Type is at
-// "/content/settings/allowed_blocks/0/fields/title". The result is nil for a
-// valid Spec.
+// Field holds them, a Blocks Field's Block Types' Fields and a Reference
+// Field's Reference Specs, which live in its settings. A Field in a Block Type
+// is at "/content/settings/allowed_blocks/0/fields/title", one in a Reference
+// Spec at "/related/settings/spec/page". The result is nil for a valid Spec.
 //
 // TS's validateSpec checks rules this does not implement yet — empty names
 // and Accessors, duplicate Accessors — and the conformance fixtures stay clear
@@ -36,12 +37,10 @@ import (
 //
 // The Catalogue lists only the types that already declare a settings schema.
 // Until every built-in type does, a Spec using one that does not yet —
-// reference, single_reference, rich_text — is valid in TS and reports
-// unknown_field_type here. A type the Catalogue does not list has no
-// Positions and no text, so it is never reported as CodePosition (it is
-// unknown already), and a Reference Spec — which lives in a reference
-// Field's settings — is not walked here at all. The conformance fixtures stay
-// inside the Catalogue, where the two agree.
+// rich_text — is valid in TS and reports unknown_field_type here. A type the
+// Catalogue does not list has no Positions and no text, so it is never
+// reported as CodePosition (it is unknown already). The conformance fixtures
+// stay inside the Catalogue, where the two agree.
 func ValidateSpec(spec Spec, opts ...Option) []Error {
 	return DefaultCatalogue().ValidateSpec(spec, opts...)
 }

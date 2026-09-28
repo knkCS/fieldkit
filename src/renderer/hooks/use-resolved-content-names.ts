@@ -18,6 +18,8 @@ interface Settled {
 	adapter: FieldKitAdapters["reference"];
 	/** The names that arrived, merged across every batch that answered. */
 	names: Record<string, string>;
+	/** The Blueprint of each Content that said, from the same answers. */
+	blueprints: Record<string, string>;
 	/** Whether a batch never answered — names this lookup will not produce. */
 	incomplete: boolean;
 }
@@ -27,6 +29,14 @@ interface Settled {
 export interface ResolvedContentNames {
 	/** The display names that have arrived, keyed by Content id. */
 	names: Record<string, string>;
+	/**
+	 * The Blueprint each Content is of, where the Adapter said
+	 * (`ReferenceItem.blueprint_id`) — which of a Field's Reference Specs its
+	 * References follow when one is linked per Blueprint (ADR-0008, amended).
+	 * Arrives with the names; a Content absent here is of a Blueprint not yet
+	 * known.
+	 */
+	blueprints: Record<string, string>;
 	/**
 	 * Whether that is all of them — see {@link ReferenceFindState}, whose three
 	 * states this is.
@@ -81,7 +91,13 @@ export function useResolvedContentNames(
 
 	useEffect(() => {
 		if (!adapter || wanted.length === 0) {
-			setSettled({ ids: wanted, adapter, names: {}, incomplete: false });
+			setSettled({
+				ids: wanted,
+				adapter,
+				names: {},
+				blueprints: {},
+				incomplete: false,
+			});
 			return;
 		}
 		let cancelled = false;
@@ -100,10 +116,14 @@ export function useResolvedContentNames(
 		).then((outcomes) => {
 			if (cancelled) return;
 			const resolved: Record<string, string> = {};
+			const blueprints: Record<string, string> = {};
 			for (const outcome of outcomes) {
 				if (outcome.status !== "fulfilled") continue;
 				for (const item of outcome.value) {
 					resolved[item.id] = item.display_name;
+					if (typeof item.blueprint_id === "string" && item.blueprint_id) {
+						blueprints[item.id] = item.blueprint_id;
+					}
 				}
 			}
 			// One write for the whole set rather than one per batch. The rows on
@@ -127,6 +147,7 @@ export function useResolvedContentNames(
 				ids: wanted,
 				adapter,
 				names: resolved,
+				blueprints,
 				incomplete: failed !== undefined,
 			});
 			// Once, however many batches failed: how many calls fieldkit chose to
@@ -164,6 +185,7 @@ export function useResolvedContentNames(
 			// provisional; emptying it would be saying so twice, and
 			// destructively.
 			names: settled?.names ?? {},
+			blueprints: settled?.blueprints ?? {},
 			nameState: referenceFindState({
 				pending,
 				incomplete: settled?.incomplete ?? false,

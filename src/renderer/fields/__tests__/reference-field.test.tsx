@@ -51,7 +51,7 @@ function makeField(
 		},
 		settings:
 			overrides.settings === undefined
-				? { blueprints: ["article"] }
+				? { blueprints: [{ blueprint: "article" }] }
 				: overrides.settings,
 		children: null,
 		system: false,
@@ -392,7 +392,7 @@ describe("ReferenceField", () => {
 			await openPicker(user);
 			await user.click(await screen.findByText("Dogs of the world"));
 
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 			await waitFor(() =>
 				expect(
 					screen.queryByTestId("reference-picker"),
@@ -407,7 +407,10 @@ describe("ReferenceField", () => {
 			await openPicker(user);
 			await user.click(await screen.findByText("Dogs of the world"));
 
-			expect(stored()).toEqual([{ id: "article-1" }, { id: "article-2" }]);
+			expect(stored()).toEqual([
+				{ id: "article-1" },
+				{ _id: expect.any(String), id: "article-2" },
+			]);
 		});
 
 		it("narrows the browse to what was searched", async () => {
@@ -614,7 +617,7 @@ describe("ReferenceField", () => {
 			expect(resultColumns()).toEqual(["Name"]);
 			// Still fully usable: a Content can be picked from the degraded table.
 			await user.click(await screen.findByText("Cats of the world"));
-			expect(stored()).toEqual([{ id: "article-1" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-1" }]);
 		});
 	});
 
@@ -685,7 +688,10 @@ describe("ReferenceField", () => {
 			const user = userEvent.setup();
 			const { adapter } = renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "none" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "none",
+					},
 				}),
 			});
 
@@ -694,7 +700,7 @@ describe("ReferenceField", () => {
 
 			// Picked and stored in one move: no second step ever appeared, and
 			// nothing asked the Adapter what this Content could be pinned to.
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 			expect(
 				screen.queryByTestId("reference-picker-pin-step"),
 			).not.toBeInTheDocument();
@@ -708,14 +714,17 @@ describe("ReferenceField", () => {
 			await openPicker(user);
 			await user.click(await screen.findByText("Dogs of the world"));
 
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 		});
 
 		it("gains a second step listing that Content's Pin targets", async () => {
 			const user = userEvent.setup();
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
@@ -737,22 +746,28 @@ describe("ReferenceField", () => {
 			const user = userEvent.setup();
 			const { adapter } = renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "version" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
 			await openPicker(user);
 			const step = await pickInStepOne(user, "Dogs of the world");
 
+			// `"version"` is gone (ADR-0008, amended), so `"release"` is the one
+			// kind of target left; what is still asserted is that the Field's
+			// setting — nothing in the value — chose what was offered.
 			expect(
-				await within(step).findByRole("button", { name: /Version 3/ }),
+				await within(step).findByRole("button", { name: /Spring release/ }),
 			).toBeInTheDocument();
 			expect(
-				within(step).queryByRole("button", { name: /Spring release/ }),
+				within(step).queryByRole("button", { name: /Version 3/ }),
 			).not.toBeInTheDocument();
 			// Asked for the Content that was picked, in the Field's mode.
 			expect(adapter.pinTargetQueries).toEqual([
-				{ contentId: "article-2", mode: "version" },
+				{ contentId: "article-2", mode: "release" },
 			]);
 		});
 
@@ -760,7 +775,10 @@ describe("ReferenceField", () => {
 			const user = userEvent.setup();
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
@@ -772,7 +790,9 @@ describe("ReferenceField", () => {
 
 			// The id and nothing else — not the label, not which kind of target
 			// it is. Only the Field's `pin_mode` says that (ADR-0008).
-			expect(stored()).toEqual([{ id: "article-2", pin: "article-2-r2" }]);
+			expect(stored()).toEqual([
+				{ _id: expect.any(String), id: "article-2", pin: "article-2-r2" },
+			]);
 			await waitFor(() =>
 				expect(
 					screen.queryByTestId("reference-picker-pin-step"),
@@ -784,7 +804,10 @@ describe("ReferenceField", () => {
 			const user = userEvent.setup();
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
@@ -796,14 +819,17 @@ describe("ReferenceField", () => {
 
 			// No `pin` key, which is what "resolves to the newest Version"
 			// looks like in stored data.
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 		});
 
 		it("goes back to the browse without storing anything", async () => {
 			const user = userEvent.setup();
 			const { adapter } = renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
@@ -833,7 +859,10 @@ describe("ReferenceField", () => {
 			});
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 				adapter,
 				onError,
@@ -848,7 +877,7 @@ describe("ReferenceField", () => {
 			await user.click(
 				within(step).getByRole("button", { name: /Newest version/ }),
 			);
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 		});
 
 		it("still offers the newest Version when the Adapter omits listPinTargets", async () => {
@@ -859,7 +888,10 @@ describe("ReferenceField", () => {
 			const { listPinTargets, ...adapter } = createFakeReferenceAdapter();
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 				adapter,
 				onError,
@@ -871,7 +903,7 @@ describe("ReferenceField", () => {
 			await user.click(
 				within(step).getByRole("button", { name: /Newest version/ }),
 			);
-			expect(stored()).toEqual([{ id: "article-2" }]);
+			expect(stored()).toEqual([{ _id: expect.any(String), id: "article-2" }]);
 			// The omission is a configuration, not a failure.
 			expect(onError).not.toHaveBeenCalled();
 		});
@@ -880,7 +912,10 @@ describe("ReferenceField", () => {
 			const user = userEvent.setup();
 			renderField({
 				field: makeField({
-					settings: { blueprints: ["article"], pin_mode: "release" },
+					settings: {
+						blueprints: [{ blueprint: "article" }],
+						pin_mode: "release",
+					},
 				}),
 			});
 
@@ -923,7 +958,7 @@ describe("ReferenceField", () => {
 
 			await waitFor(() =>
 				expect(submitted).toHaveBeenCalledWith({
-					[ACCESSOR]: [{ id: "article-1" }],
+					[ACCESSOR]: [{ _id: expect.any(String), id: "article-1" }],
 				}),
 			);
 		});
@@ -932,7 +967,9 @@ describe("ReferenceField", () => {
 	describe("the caps", () => {
 		/** A Field capped however the test needs, Blueprints left as they were. */
 		function capped(settings: ReferenceSettings) {
-			return makeField({ settings: { blueprints: ["article"], ...settings } });
+			return makeField({
+				settings: { blueprints: [{ blueprint: "article" }], ...settings },
+			});
 		}
 
 		describe("the add affordance", () => {
@@ -1467,13 +1504,13 @@ describe("ReferenceField", () => {
 				});
 			});
 
-			it("changes nothing that is stored — order, nesting, Pins and Attributes alike", async () => {
+			it("changes nothing that is stored — order, nesting, Pins and values alike", async () => {
 				const value = [
 					...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
 					{
 						id: "article-21",
 						pin: "article-21-v3",
-						attributes: { page: 12 },
+						values: { page: 12 },
 					},
 				];
 				renderTree(21, { value });
@@ -1907,10 +1944,10 @@ describe("ReferenceField", () => {
 			expect(rowNamed("Content 6")).toBeNull();
 		});
 
-		it("changes nothing that is stored — order, nesting, Pins and Attributes alike", async () => {
+		it("changes nothing that is stored — order, nesting, Pins and values alike", async () => {
 			const value = [
 				...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
-				{ id: "article-21", pin: "article-21-v3", attributes: { page: 12 } },
+				{ id: "article-21", pin: "article-21-v3", values: { page: 12 } },
 			];
 			renderTree(21, { value });
 			await screen.findByText("Content 1");
@@ -1957,5 +1994,81 @@ describe("ReferenceField", () => {
 			});
 			expect(rowNamed("Content 20")).toHaveAttribute("data-revealed", "true");
 		});
+	});
+});
+
+describe("a Blueprint's linked Reference Spec", () => {
+	function valueField(
+		fieldType: string,
+		accessor: string,
+		name: string,
+	): Field {
+		return {
+			field_type: fieldType,
+			config: {
+				name,
+				api_accessor: accessor,
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: null,
+			system: false,
+		};
+	}
+
+	it("asks a Reference for its own Blueprint's Spec, and everything else for the Field's", async () => {
+		const user = userEvent.setup();
+		// Which Blueprint a target belongs to comes from the Adapter's `fetch`
+		// — the stored value says nothing about it.
+		const adapter = createFakeReferenceAdapter({
+			contents: [
+				{ id: "book-1", display_name: "Moby Dick", blueprint_id: "book" },
+				{
+					id: "article-1",
+					display_name: "Cats of the world",
+					blueprint_id: "article",
+				},
+			],
+		});
+		renderField({
+			adapter,
+			field: makeField({
+				settings: {
+					blueprints: [
+						{
+							blueprint: "book",
+							spec_blueprint: "r1",
+							spec: [valueField("number", "chapter", "Chapter")],
+						},
+					],
+					spec: [valueField("text", "note", "Note")],
+				},
+			}),
+			value: [
+				{ _id: "row-book", id: "book-1" },
+				{ _id: "row-article", id: "article-1" },
+			],
+		});
+
+		// The linked Spec is used instead of the embedded one, never merged.
+		await user.click(
+			await screen.findByRole("button", { name: /^Values for Moby Dick/ }),
+		);
+		let drawer = await screen.findByTestId("reference-values-drawer");
+		expect(within(drawer).getByText("Chapter")).toBeInTheDocument();
+		expect(within(drawer).queryByText("Note")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "Done" }));
+		await waitFor(() =>
+			expect(screen.queryByTestId("reference-values-drawer")).toBeNull(),
+		);
+
+		// A Blueprint with no linked Spec falls back to the Field's own.
+		await user.click(
+			screen.getByRole("button", { name: /^Values for Cats of the world/ }),
+		);
+		drawer = await screen.findByTestId("reference-values-drawer");
+		expect(within(drawer).getByText("Note")).toBeInTheDocument();
+		expect(within(drawer).queryByText("Chapter")).toBeNull();
 	});
 });

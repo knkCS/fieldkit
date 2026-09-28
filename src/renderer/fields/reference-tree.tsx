@@ -43,10 +43,13 @@ import {
 } from "react";
 import type { Reference } from "../../schema/reference";
 import {
-	countFilledAttributes,
-	declaredAttributes,
-} from "../../schema/reference-attributes";
-import type { ReferenceRow } from "../../schema/reference-tree";
+	countFilledValues,
+	declaredReferenceFields,
+} from "../../schema/reference-spec";
+import type {
+	FlatReferenceValue,
+	ReferenceRow,
+} from "../../schema/reference-tree";
 import {
 	foldsToReveal,
 	initialReferenceFolds,
@@ -606,14 +609,18 @@ export interface ReferenceTreeProps {
 	 */
 	depthCeiling?: number;
 	/**
-	 * The Attribute Spec the Field declares. Empty — the ordinary case — puts
-	 * no Attributes affordance on any row: there is nothing to fill in, and a
-	 * count of nothing is noise.
+	 * The Reference Spec the Field declares — one for every row, or, for a
+	 * Field whose Reference Spec depends on the target's Blueprint (a linked
+	 * one, ADR-0008 amended), a function answering it per Reference. Empty —
+	 * the ordinary case — puts no values affordance on a row: there is nothing
+	 * to fill in, and a count of nothing is noise.
 	 */
-	attributeSpec?: Field[];
-	/** Opens the Attributes of one Reference. The drawer belongs to the Field,
+	referenceSpec?:
+		| readonly Field[]
+		| ((reference: FlatReferenceValue) => readonly Field[]);
+	/** Opens the values of one Reference. The drawer belongs to the Field,
 	 * which is the only thing that knows the Accessor its paths hang off. */
-	onOpenAttributes?: (row: ReferenceRow) => void;
+	onOpenValues?: (row: ReferenceRow) => void;
 	/**
 	 * Asked to find a Content for an insertion strip somebody clicked, with the
 	 * write to perform once one is chosen (see {@link ReferenceInsertRequest}).
@@ -669,8 +676,8 @@ export function ReferenceTree({
 	readOnly,
 	onChange,
 	depthCeiling,
-	attributeSpec,
-	onOpenAttributes,
+	referenceSpec,
+	onOpenValues,
 	onInsert,
 	atItemCap,
 	reveal,
@@ -773,7 +780,7 @@ export function ReferenceTree({
 	 * what hangs under it are different questions.
 	 *
 	 * Nothing here writes the value. Find changes what is folded and where an
-	 * Author is looking; order, nesting, Pins and Attributes are untouched, so
+	 * Author is looking; order, nesting, Pins and values are untouched, so
 	 * a drag is never standing on ground that moved.
 	 */
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the token is a re-run trigger, not read for its value — it is what makes asking for the same Reference twice two Reveals, which naming `reveal` or `rows` here would not
@@ -827,13 +834,22 @@ export function ReferenceTree({
 		node.scrollIntoView?.({ block: "center", behavior: "smooth" });
 	});
 
-	// The Attributes an Author is actually being asked for — a hidden one is
+	// The Fields an Author is actually being asked for — a hidden one is
 	// neither counted nor rendered, so a row cannot say "1 of 2" with only one
-	// control behind it.
-	const askedFor = useMemo(
-		() => declaredAttributes(attributeSpec ?? []),
-		[attributeSpec],
+	// control behind it. One list for every row, unless the Reference Spec is
+	// chosen per target.
+	const sharedAskedFor = useMemo(
+		() =>
+			typeof referenceSpec === "function"
+				? undefined
+				: declaredReferenceFields(referenceSpec ?? []),
+		[referenceSpec],
 	);
+	const askedFor = (reference: FlatReferenceValue): Field[] =>
+		sharedAskedFor ??
+		(typeof referenceSpec === "function"
+			? declaredReferenceFields(referenceSpec(reference))
+			: []);
 
 	function toggle(key: string) {
 		setCollapsed((current) =>
@@ -1165,16 +1181,14 @@ export function ReferenceTree({
 							adopted={pending?.adopted.has(row.key) ?? false}
 							collapsed={collapsed.has(row.key)}
 							readOnly={readOnly ?? false}
-							attributesAsked={askedFor.length}
-							attributesFilled={countFilledAttributes(
-								askedFor,
-								row.reference.attributes,
+							valuesAsked={askedFor(row.reference).length}
+							valuesFilled={countFilledValues(
+								askedFor(row.reference),
+								row.reference.values,
 							)}
 							onToggle={() => toggle(row.key)}
 							onRemove={() => handleRemove(row)}
-							onOpenAttributes={
-								onOpenAttributes ? () => onOpenAttributes(row) : undefined
-							}
+							onOpenValues={onOpenValues ? () => onOpenValues(row) : undefined}
 						/>
 					</Fragment>
 				))}
@@ -1232,14 +1246,14 @@ interface ReferenceTreeRowItemProps {
 	revealed: boolean;
 	collapsed: boolean;
 	readOnly: boolean;
-	/** How many Attributes the Field declares. Zero puts no affordance on the
-	 * row at all. */
-	attributesAsked: number;
+	/** How many Fields this Reference's Reference Spec asks for. Zero puts no
+	 * affordance on the row at all. */
+	valuesAsked: number;
 	/** How many of them this Reference has answered. */
-	attributesFilled: number;
+	valuesFilled: number;
 	onToggle: () => void;
 	onRemove: () => void;
-	onOpenAttributes?: () => void;
+	onOpenValues?: () => void;
 }
 
 function ReferenceTreeRowItem({
@@ -1251,11 +1265,11 @@ function ReferenceTreeRowItem({
 	revealed,
 	collapsed,
 	readOnly,
-	attributesAsked,
-	attributesFilled,
+	valuesAsked,
+	valuesFilled,
 	onToggle,
 	onRemove,
-	onOpenAttributes,
+	onOpenValues,
 }: ReferenceTreeRowItemProps) {
 	const {
 		attributes,
@@ -1418,27 +1432,23 @@ function ReferenceTreeRowItem({
 				</Text>
 			</Flex>
 			<Flex align="center" gap="1" flexShrink={0}>
-				{attributesAsked > 0 && onOpenAttributes && (
+				{valuesAsked > 0 && onOpenValues && (
 					// Available read-only too: reading what a Reference says about
 					// the pointing is reading, and the count is only useful if the
 					// thing it counts can be looked at.
 					<Button
 						size="xs"
 						variant="ghost"
-						onClick={onOpenAttributes}
+						onClick={onOpenValues}
 						// The count is on screen as well, but a name that reads
-						// "Attributes for Cats of the world: 1 of 2 filled" is the
+						// "Values for Cats of the world: 1 of 2 filled" is the
 						// only version of it a screen reader gets in one go.
-						aria-label={`Attributes for ${name}: ${String(attributesFilled)} of ${String(attributesAsked)} filled`}
-						data-testid="reference-attributes-button"
+						aria-label={`Values for ${name}: ${String(valuesFilled)} of ${String(valuesAsked)} filled`}
+						data-testid="reference-values-button"
 					>
 						<Tags size={14} />
-						<Text
-							as="span"
-							fontSize="xs"
-							data-testid="reference-attribute-count"
-						>
-							{attributesFilled}/{attributesAsked}
+						<Text as="span" fontSize="xs" data-testid="reference-values-count">
+							{valuesFilled}/{valuesAsked}
 						</Text>
 					</Button>
 				)}

@@ -189,6 +189,33 @@ export type ComposeChildrenDefaults = (
 ) => Record<string, unknown>;
 
 /**
+ * What the values being validated or walked point at, beyond what the Spec
+ * says — handed to `toZodType` and `records` as an optional last argument,
+ * and absent unless a caller knows it.
+ *
+ * A Reference's value carries no Blueprint id (ADR-0008, amended), so a
+ * Reference Field that links a Reference Spec for some Blueprints cannot tell
+ * which Spec a Reference's `values` follow without being told its target's
+ * Blueprint. Without `targetBlueprint` those values are an opaque record.
+ */
+export interface ValueContext {
+	/** The Blueprint of a target Content, by its id; `undefined` when not
+	 * known. Go's `WithTargetBlueprints`. */
+	targetBlueprint?: (contentId: string) => string | undefined;
+}
+
+/**
+ * One rule across a Field's settings that its settings schema cannot state —
+ * two entries of one list naming the same thing. `segments` are relative to
+ * the Field: `["settings", "blueprints", 1, "blueprint"]`.
+ */
+export interface SettingsRuleError {
+	segments: readonly (string | number)[];
+	code: string;
+	message: string;
+}
+
+/**
  * What a container type's `mintIds` needs from the shared machinery: whether
  * every `_id` is to be new, and a way into the record its child Fields
  * describe — the id-minting twin of {@link ComposeChildrenSchema} (ADR-0007,
@@ -283,6 +310,9 @@ export interface FieldTypePlugin<S = unknown> {
 	toZodType: (
 		field: Field<S>,
 		composeChildren?: ComposeChildrenSchema,
+		/** What the values point at (`ValueContext`) — optional and additive
+		 * on the same terms as `composeChildren`. */
+		context?: ValueContext,
 	) => ZodTypeAny;
 
 	defaultSettings?: S;
@@ -301,7 +331,10 @@ export interface FieldTypePlugin<S = unknown> {
 	) => unknown;
 	/**
 	 * Mints `_id`s into a value of this type (ADR-0023), for a type whose
-	 * value holds rows — or holds Fields that might. Returns the value itself
+	 * value holds rows — or holds Fields that might. A type whose stored shape
+	 * changed normalises a legacy value here too, since this is what every
+	 * loaded value goes through (the Reference types turn `attributes` into
+	 * `values`). Returns the value itself
 	 * when nothing was minted, so a caller can tell by `===`. Absent: the
 	 * type's values hold no ids. Called by `mintMissingIds()` and
 	 * `copyRows()`, never by a field component directly.
@@ -337,7 +370,11 @@ export interface FieldTypePlugin<S = unknown> {
 	 * (ADR-0023), a Fieldset's record at the value itself (`[]`). A value not
 	 * of the type's shape holds none.
 	 */
-	records?: (field: Field<S>, value: unknown) => HeldRecord[];
+	records?: (
+		field: Field<S>,
+		value: unknown,
+		context?: ValueContext,
+	) => HeldRecord[];
 	maxPerSpec?: number;
 	/**
 	 * The Consumers whose type picker offers this type (ADR-0022). Advice for
@@ -365,6 +402,14 @@ export interface FieldTypePlugin<S = unknown> {
 	 * Spec, and the settings schema reports them.
 	 */
 	heldSpecs?: (field: Field<S>) => HeldSpec[];
+	/**
+	 * The rules across this type's settings that its `settingsSchema` cannot
+	 * state — two `blueprints` entries naming one Blueprint — for
+	 * `validateSpec()`, which reports each at the Field's path plus
+	 * `segments`. Read leniently, as `heldSpecs` is. Go runs the same rules as
+	 * the type's hook (`go/rules.go`).
+	 */
+	settingsRules?: (field: Field<S>) => SettingsRuleError[];
 
 	/**
 	 * The settings this type accepts, as a **strict** Zod object: a key it

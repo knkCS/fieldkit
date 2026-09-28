@@ -1,0 +1,135 @@
+{
+	"description": "Each Reference is a reference edge to its target, carrying its Pin where it has one, at its node's path by _id through children — the same Content twice is two edges; a Single Reference's at the Field, in a row by the row's _id too",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "single_reference",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"related": [
+			{
+				"_id": "n1",
+				"id": "c1",
+				"pin": "r7",
+				"children": [
+					{
+						"_id": "n2",
+						"id": "c2"
+					},
+					{
+						"_id": "n3",
+						"id": "c1"
+					}
+				]
+			},
+			{
+				"_id": "n4",
+				"id": "c3"
+			}
+		],
+		"primary": {
+			"_id": "s",
+			"id": "c9",
+			"pin": "r1"
+		},
+		"rows": [
+			{
+				"_id": "r1",
+				"cell": {
+					"_id": "x",
+					"id": "c5"
+				}
+			}
+		]
+	},
+	"expect": {
+		"edges": [
+			{
+				"path": "/related/n1",
+				"kind": "reference",
+				"target": {
+					"content": "c1",
+					"pin": "r7"
+				}
+			},
+			{
+				"path": "/related/n1/children/n2",
+				"kind": "reference",
+				"target": {
+					"content": "c2"
+				}
+			},
+			{
+				"path": "/related/n1/children/n3",
+				"kind": "reference",
+				"target": {
+					"content": "c1"
+				}
+			},
+			{
+				"path": "/related/n4",
+				"kind": "reference",
+				"target": {
+					"content": "c3"
+				}
+			},
+			{
+				"path": "/primary",
+				"kind": "reference",
+				"target": {
+					"content": "c9",
+					"pin": "r1"
+				}
+			},
+			{
+				"path": "/rows/r1/cell",
+				"kind": "reference",
+				"target": {
+					"content": "c5"
+				}
+			}
+		]
+	}
+}

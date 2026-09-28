@@ -30,6 +30,10 @@ func containerRuleFor(fieldType string) (containerRule, bool) {
 		return blocksValue, true
 	case "fieldset":
 		return fieldsetValue, true
+	case "reference":
+		return referenceTreeValue, true
+	case "single_reference":
+		return singleReferenceValue, true
 	}
 	return nil, false
 }

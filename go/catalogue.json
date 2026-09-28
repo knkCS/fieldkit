@@ -501,6 +501,73 @@
 			"has_text": false
 		},
 		{
+			"id": "reference",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"blueprints": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"blueprint": {
+									"type": "string"
+								},
+								"spec_blueprint": {
+									"type": "string"
+								},
+								"spec": {
+									"type": "array",
+									"items": {}
+								}
+							},
+							"required": [
+								"blueprint"
+							],
+							"additionalProperties": false
+						}
+					},
+					"spec": {
+						"type": "array",
+						"items": {}
+					},
+					"pin_mode": {
+						"type": "string",
+						"enum": [
+							"none",
+							"release"
+						]
+					},
+					"max_items": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"max_depth": {
+						"type": "integer",
+						"minimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"block_type"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [
+				{
+					"key": "blueprints/*/spec_blueprint",
+					"kind": "blueprint"
+				}
+			],
+			"has_text": false
+		},
+		{
 			"id": "section",
 			"since": "0.18.0",
 			"settings_schema": {
@@ -558,6 +625,66 @@
 				"form"
 			],
 			"pins": [],
+			"has_text": false
+		},
+		{
+			"id": "single_reference",
+			"since": "0.18.0",
+			"settings_schema": {
+				"type": "object",
+				"properties": {
+					"blueprints": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"blueprint": {
+									"type": "string"
+								},
+								"spec_blueprint": {
+									"type": "string"
+								},
+								"spec": {
+									"type": "array",
+									"items": {}
+								}
+							},
+							"required": [
+								"blueprint"
+							],
+							"additionalProperties": false
+						}
+					},
+					"spec": {
+						"type": "array",
+						"items": {}
+					},
+					"pin_mode": {
+						"type": "string",
+						"enum": [
+							"none",
+							"release"
+						]
+					}
+				},
+				"additionalProperties": false
+			},
+			"positions": [
+				"root",
+				"row",
+				"block_type"
+			],
+			"consumers": [
+				"blueprint",
+				"task",
+				"form"
+			],
+			"pins": [
+				{
+					"key": "blueprints/*/spec_blueprint",
+					"kind": "blueprint"
+				}
+			],
 			"has_text": false
 		},
 		{

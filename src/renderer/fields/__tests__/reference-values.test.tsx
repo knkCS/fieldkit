@@ -18,7 +18,7 @@ import { FieldKitProvider } from "../../provider";
 
 const ACCESSOR = "related";
 
-function attribute(
+function specField(
 	fieldType: string,
 	accessor: string,
 	name: string,
@@ -40,10 +40,10 @@ function attribute(
 	};
 }
 
-const PAGE = attribute("text", "page", "Page");
-const ROLE = attribute("text", "role", "Role", { required: true });
+const PAGE = specField("text", "page", "Page");
+const ROLE = specField("text", "role", "Role", { required: true });
 
-function makeField(attributes: Field[]): Field<ReferenceSettings> {
+function makeField(referenceSpec: Field[]): Field<ReferenceSettings> {
 	return {
 		field_type: "reference",
 		config: {
@@ -52,7 +52,10 @@ function makeField(attributes: Field[]): Field<ReferenceSettings> {
 			required: false,
 			instructions: "",
 		},
-		settings: { blueprints: ["article"], attributes },
+		settings: {
+			blueprints: [{ blueprint: "article" }],
+			spec: referenceSpec,
+		},
 		children: null,
 		system: false,
 	};
@@ -69,11 +72,11 @@ function StoredValue() {
 function RoleError({ index = 0 }: { index?: number }) {
 	const { errors } = useFormState();
 	const forField = errors[ACCESSOR] as
-		| Record<number, { attributes?: { role?: { message?: string } } }>
+		| Record<number, { values?: { role?: { message?: string } } }>
 		| undefined;
 	return (
 		<output data-testid="role-error">
-			{forField?.[index]?.attributes?.role?.message ?? ""}
+			{forField?.[index]?.values?.role?.message ?? ""}
 		</output>
 	);
 }
@@ -83,15 +86,15 @@ function stored(): unknown {
 }
 
 function renderField({
-	attributes = [PAGE],
+	referenceSpec = [PAGE],
 	value = [],
 	readOnly = false,
 }: {
-	attributes?: Field[];
+	referenceSpec?: Field[];
 	value?: Reference[];
 	readOnly?: boolean;
 } = {}) {
-	const field = makeField(attributes);
+	const field = makeField(referenceSpec);
 	const submitted = vi.fn();
 
 	function Harness() {
@@ -131,63 +134,68 @@ function renderField({
 /** The count each row shows, top to bottom. */
 function counts(): string[] {
 	return screen
-		.queryAllByTestId("reference-attribute-count")
+		.queryAllByTestId("reference-values-count")
 		.map((el) => el.textContent ?? "");
 }
 
-/** Opens one Reference's Attributes by the Content's resolved name. */
-async function openAttributes(
+/** Opens one Reference's values by the Content's resolved name. */
+async function openValues(
 	user: ReturnType<typeof userEvent.setup>,
 	name: string,
 ) {
 	await user.click(
 		await screen.findByRole("button", {
-			name: new RegExp(`^Attributes for ${name}`),
+			name: new RegExp(`^Values for ${name}`),
 		}),
 	);
-	return await screen.findByTestId("reference-attributes-drawer");
+	return await screen.findByTestId("reference-values-drawer");
 }
 
 async function closeDrawer(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(screen.getByRole("button", { name: "Done" }));
 }
 
-describe("the Attributes drawer", () => {
-	it("renders the Attribute Spec through the ordinary renderer", async () => {
+describe("the values drawer", () => {
+	it("renders the Reference Spec through the ordinary renderer", async () => {
 		const user = userEvent.setup();
 		renderField({
-			attributes: [
+			referenceSpec: [
 				PAGE,
-				attribute("number", "copies", "Copies"),
-				attribute("boolean", "primary", "Primary"),
+				specField("number", "copies", "Copies"),
+				specField("boolean", "primary", "Primary"),
 			],
-			value: [{ id: "article-1" }],
+			value: [{ _id: "r1", id: "article-1" }],
 		});
 		await screen.findByText("Content 1");
 
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 
-		// Each Attribute brought its own label and its own control, because each
+		// Each Field brought its own label and its own control, because each
 		// is an ordinary plugin rendered by the ordinary renderer.
 		expect(within(drawer).getByText("Page")).toBeInTheDocument();
 		expect(within(drawer).getByText("Copies")).toBeInTheDocument();
 		expect(within(drawer).getByText("Primary")).toBeInTheDocument();
-		// A number Attribute is a number control — nothing here has a case for
+		// A number Field is a number control — nothing here has a case for
 		// one; the `number` plugin does.
 		expect(within(drawer).getByRole("spinbutton")).toBeInTheDocument();
 		// And every one of them registers under the Reference it was opened on.
 		expect(within(drawer).getByLabelText(/Page/)).toHaveAttribute(
 			"name",
-			"related.0.attributes.page",
+			"related.0.values.page",
 		);
 	});
 
 	it("names the Content it was opened on", async () => {
 		const user = userEvent.setup();
-		renderField({ value: [{ id: "article-1" }, { id: "article-2" }] });
+		renderField({
+			value: [
+				{ _id: "r1", id: "article-1" },
+				{ _id: "r2", id: "article-2" },
+			],
+		});
 		await screen.findByText("Content 2");
 
-		await openAttributes(user, "Content 2");
+		await openValues(user, "Content 2");
 
 		// The drawer's own title, not the row's: someone filling in a page
 		// number has to know whose page it is.
@@ -197,36 +205,46 @@ describe("the Attributes drawer", () => {
 	it("stores what was typed on that Reference, keyed by Accessor", async () => {
 		const user = userEvent.setup();
 		renderField({
-			attributes: [PAGE, ROLE],
-			value: [{ id: "article-1" }, { id: "article-2" }],
+			referenceSpec: [PAGE, ROLE],
+			value: [
+				{ _id: "r1", id: "article-1" },
+				{ _id: "r2", id: "article-2" },
+			],
 		});
 		await screen.findByText("Content 2");
 
-		const drawer = await openAttributes(user, "Content 2");
+		const drawer = await openValues(user, "Content 2");
 		await user.type(within(drawer).getByLabelText(/Page/), "12");
 
-		// On the SECOND Reference, keyed by the Attribute's Accessor — never a
+		// On the SECOND Reference, keyed by the Field's Accessor — never a
 		// position, which is what knkCMS core aligns these by.
 		expect(stored()).toEqual([
-			{ id: "article-1" },
-			{ id: "article-2", attributes: { page: "12" } },
+			{ _id: "r1", id: "article-1" },
+			{ _id: "r2", id: "article-2", values: { page: "12" } },
 		]);
 	});
 
-	it("stores a nested Reference's Attributes on the nested Reference", async () => {
+	it("stores a nested Reference's values on the nested Reference", async () => {
 		const user = userEvent.setup();
 		renderField({
-			value: [{ id: "article-1", children: [{ id: "article-2" }] }],
+			value: [
+				{
+					_id: "r1",
+					id: "article-1",
+					children: [{ _id: "r2", id: "article-2" }],
+				},
+			],
 		});
 		await screen.findByText("Content 2");
 
-		const drawer = await openAttributes(user, "Content 2");
+		const drawer = await openValues(user, "Content 2");
 		await user.type(within(drawer).getByLabelText(/Page/), "7");
 
 		expect(stored()).toEqual([
 			{
+				_id: "r1",
 				id: "article-1",
-				children: [{ id: "article-2", attributes: { page: "7" } }],
+				children: [{ _id: "r2", id: "article-2", values: { page: "7" } }],
 			},
 		]);
 	});
@@ -234,11 +252,11 @@ describe("the Attributes drawer", () => {
 	it("shows what a Reference already carries", async () => {
 		const user = userEvent.setup();
 		renderField({
-			value: [{ id: "article-1", attributes: { page: "iv" } }],
+			value: [{ _id: "r1", id: "article-1", values: { page: "iv" } }],
 		});
 		await screen.findByText("Content 1");
 
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 
 		expect(within(drawer).getByLabelText(/Page/)).toHaveValue("iv");
 	});
@@ -246,34 +264,41 @@ describe("the Attributes drawer", () => {
 	it("opens read-only for a read-only Field", async () => {
 		const user = userEvent.setup();
 		renderField({
-			value: [{ id: "article-1", attributes: { page: "iv" } }],
+			value: [{ _id: "r1", id: "article-1", values: { page: "iv" } }],
 			readOnly: true,
 		});
 		await screen.findByText("Content 1");
 
 		// Reading what a Reference says about the pointing is reading, so the
 		// drawer opens — it just does not take an edit.
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 		expect(within(drawer).getByLabelText(/Page/)).toHaveAttribute("readonly");
 	});
 
-	it("offers nothing at all when the Field declares no Attributes", async () => {
-		renderField({ attributes: [], value: [{ id: "article-1" }] });
+	it("offers nothing at all when the Reference Spec is empty", async () => {
+		renderField({
+			referenceSpec: [],
+			value: [{ _id: "r1", id: "article-1" }],
+		});
 		await screen.findByText("Content 1");
 
 		// A count of nothing is noise, and a drawer with nothing in it is worse.
-		expect(screen.queryByTestId("reference-attributes-button")).toBeNull();
+		expect(screen.queryByTestId("reference-values-button")).toBeNull();
 	});
 });
 
 describe("the filled count on a row", () => {
-	it("says how many of the declared Attributes a Reference has", async () => {
+	it("says how many of the Reference Spec's Fields a Reference has filled", async () => {
 		renderField({
-			attributes: [PAGE, ROLE],
+			referenceSpec: [PAGE, ROLE],
 			value: [
-				{ id: "article-1", attributes: { page: "3", role: "editor" } },
-				{ id: "article-2", attributes: { page: "" } },
-				{ id: "article-3" },
+				{
+					_id: "r1",
+					id: "article-1",
+					values: { page: "3", role: "editor" },
+				},
+				{ _id: "r2", id: "article-2", values: { page: "" } },
+				{ _id: "r3", id: "article-3" },
 			],
 		});
 		await screen.findByText("Content 1");
@@ -281,13 +306,16 @@ describe("the filled count on a row", () => {
 		expect(counts()).toEqual(["2/2", "0/2", "0/2"]);
 	});
 
-	it("goes up as an Attribute is filled in", async () => {
+	it("goes up as a value is filled in", async () => {
 		const user = userEvent.setup();
-		renderField({ attributes: [PAGE, ROLE], value: [{ id: "article-1" }] });
+		renderField({
+			referenceSpec: [PAGE, ROLE],
+			value: [{ _id: "r1", id: "article-1" }],
+		});
 		await screen.findByText("Content 1");
 		expect(counts()).toEqual(["0/2"]);
 
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 		await user.type(within(drawer).getByLabelText(/Page/), "3");
 		await closeDrawer(user);
 
@@ -295,19 +323,19 @@ describe("the filled count on a row", () => {
 	});
 });
 
-describe("a required Attribute", () => {
+describe("a required Reference Spec Field", () => {
 	it("blocks submit and reports under the Reference it belongs to", async () => {
 		const user = userEvent.setup();
 		const { submitted } = renderField({
-			attributes: [PAGE, ROLE],
-			value: [{ id: "article-1" }],
+			referenceSpec: [PAGE, ROLE],
+			value: [{ _id: "r1", id: "article-1" }],
 		});
 		await screen.findByText("Content 1");
 
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		expect(submitted).not.toHaveBeenCalled();
-		// `related.0.attributes.role` — the path of the Reference that is
+		// `related.0.values.role` — the path of the Reference that is
 		// missing it, so a Consumer's error display lands on the right row.
 		expect(screen.getByTestId("role-error").textContent).not.toBe("");
 	});
@@ -315,23 +343,23 @@ describe("a required Attribute", () => {
 	it("lets submit through once it is answered", async () => {
 		const user = userEvent.setup();
 		const { submitted } = renderField({
-			attributes: [ROLE],
-			value: [{ id: "article-1" }],
+			referenceSpec: [ROLE],
+			value: [{ _id: "r1", id: "article-1" }],
 		});
 		await screen.findByText("Content 1");
 
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 		await user.type(within(drawer).getByLabelText(/Role/), "author");
 		await closeDrawer(user);
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		expect(submitted).toHaveBeenCalledWith({
-			[ACCESSOR]: [{ id: "article-1", attributes: { role: "author" } }],
+			[ACCESSOR]: [{ _id: "r1", id: "article-1", values: { role: "author" } }],
 		});
 	});
 });
 
-describe("Attributes and the shape of the tree", () => {
+describe("values and the shape of the tree", () => {
 	/**
 	 * jsdom lays nothing out, so a keyboard drag needs a faked column — the
 	 * same one `reference-tree.test.tsx` fakes.
@@ -382,18 +410,18 @@ describe("Attributes and the shape of the tree", () => {
 		const rects = mockRowRects();
 		renderField({
 			value: [
-				{ id: "article-1", attributes: { page: "one" } },
-				{ id: "article-2", attributes: { page: "two" } },
+				{ _id: "r1", id: "article-1", values: { page: "one" } },
+				{ _id: "r2", id: "article-2", values: { page: "two" } },
 			],
 		});
 		await screen.findByText("Content 1");
 
 		await keyboardDrag("Content 1", "ArrowDown");
 
-		// The Attributes went with their Reference, not with the position.
+		// The values went with their Reference, not with the position.
 		expect(stored()).toEqual([
-			{ id: "article-2", attributes: { page: "two" } },
-			{ id: "article-1", attributes: { page: "one" } },
+			{ _id: "r2", id: "article-2", values: { page: "two" } },
+			{ _id: "r1", id: "article-1", values: { page: "one" } },
 		]);
 		rects.mockRestore();
 	});
@@ -402,11 +430,12 @@ describe("Attributes and the shape of the tree", () => {
 		const rects = mockRowRects();
 		renderField({
 			value: [
-				{ id: "article-1", attributes: { page: "one" } },
+				{ _id: "r1", id: "article-1", values: { page: "one" } },
 				{
+					_id: "r2",
 					id: "article-2",
-					attributes: { page: "two" },
-					children: [{ id: "article-3", attributes: { page: "three" } }],
+					values: { page: "two" },
+					children: [{ _id: "r3", id: "article-3", values: { page: "three" } }],
 				},
 			],
 		});
@@ -417,11 +446,12 @@ describe("Attributes and the shape of the tree", () => {
 
 		expect(stored()).toEqual([
 			{
+				_id: "r2",
 				id: "article-2",
-				attributes: { page: "two" },
+				values: { page: "two" },
 				children: [
-					{ id: "article-3", attributes: { page: "three" } },
-					{ id: "article-1", attributes: { page: "one" } },
+					{ _id: "r3", id: "article-3", values: { page: "three" } },
+					{ _id: "r1", id: "article-1", values: { page: "one" } },
 				],
 			},
 		]);
@@ -433,8 +463,8 @@ describe("Attributes and the shape of the tree", () => {
 		const rects = mockRowRects();
 		renderField({
 			value: [
-				{ id: "article-1", attributes: { page: "one" } },
-				{ id: "article-2", attributes: { page: "two" } },
+				{ _id: "r1", id: "article-1", values: { page: "one" } },
+				{ _id: "r2", id: "article-2", values: { page: "two" } },
 			],
 		});
 		await screen.findByText("Content 1");
@@ -444,7 +474,7 @@ describe("Attributes and the shape of the tree", () => {
 
 		// Content 1 now sits at index 1, so its drawer has to address index 1 —
 		// the count and the row are read from the same value the drawer writes.
-		const drawer = await openAttributes(user, "Content 1");
+		const drawer = await openValues(user, "Content 1");
 		expect(within(drawer).getByLabelText(/Page/)).toHaveValue("one");
 	});
 });

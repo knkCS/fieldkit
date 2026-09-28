@@ -8,7 +8,7 @@ import {
 	type ZodTypeAny,
 	z,
 } from "zod";
-import type { FieldTypePlugin } from "./plugin";
+import type { FieldTypePlugin, ValueContext } from "./plugin";
 import { mintMissingIds } from "./row-ids";
 import type { Field } from "./types";
 import { stripUnset } from "./unset";
@@ -32,6 +32,13 @@ export function fieldProducesValue(field: Field): boolean {
 
 export interface ZodBuilderOptions {
 	overrides?: Record<string, (base: ZodTypeAny) => ZodTypeAny>;
+	/**
+	 * What the values being validated point at, handed to every plugin's
+	 * `toZodType` at every depth — the target Blueprints a Reference Field
+	 * that links a Reference Spec chooses by (`ValueContext`). Absent, such a
+	 * Field checks its References' values as an opaque record.
+	 */
+	targetBlueprint?: ValueContext["targetBlueprint"];
 }
 
 type PluginMap = Map<string, FieldTypePlugin>;
@@ -96,6 +103,9 @@ function buildObject(
 	options?: ZodBuilderOptions,
 ): ZodObject<ZodRawShape> {
 	const shape: ZodRawShape = {};
+	const context: ValueContext | undefined = options?.targetBlueprint
+		? { targetBlueprint: options.targetBlueprint }
+		: undefined;
 
 	for (const field of fields) {
 		if (!fieldProducesValue(field)) continue;
@@ -103,11 +113,16 @@ function buildObject(
 		const plugin = pluginMap.get(field.field_type);
 		if (!plugin) continue;
 
-		let zodType = plugin.toZodType(field as Field<unknown>, (children) =>
-			// No `options`: overrides are keyed by top-level accessor and belong
-			// to the Consumer's own Fields, not to whatever a Blueprint happens
-			// to name the same.
-			buildObject(children, pluginMap),
+		let zodType = plugin.toZodType(
+			field as Field<unknown>,
+			(children) =>
+				// No `overrides`: they are keyed by top-level accessor and belong
+				// to the Consumer's own Fields, not to whatever a Blueprint
+				// happens to name the same. The value context reaches every depth.
+				buildObject(children, pluginMap, {
+					targetBlueprint: options?.targetBlueprint,
+				}),
+			context,
 		);
 
 		if (!field.config.required) {

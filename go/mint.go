@@ -18,8 +18,9 @@ var mintNamespace = uuidV5(namespaceURL, "https://github.com/knkCS/fieldkit#_id"
 var namespaceURL = [16]byte{0x6b, 0xa7, 0xb8, 0x11, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8} //nolint:gochecknoglobals
 
 // MintIDs gives every row of a Field's value an _id where it has none
-// (ADR-0023): the rows of a group, a virtual_table and blocks, at every
-// depth — inside rows, Blocks and a resolved fieldset's record. f is the
+// (ADR-0023): the rows of a group, a virtual_table and blocks, and the nodes
+// of a reference and a single_reference, at every depth — inside rows,
+// Blocks, a resolved fieldset's record and a Reference's branch. f is the
 // resolved Field; value is its stored value, not the whole Content's data.
 //
 // It is for importers: ValidateValue never mints, and neither does anything
@@ -84,8 +85,40 @@ func (m minter) field(f Field, value any, path string) any {
 		if record, ok := value.(map[string]any); ok && f.Children != nil {
 			m.record(f.Children, record, path)
 		}
+	case "reference":
+		m.nodes(value, path)
+	case "single_reference":
+		if node, ok := value.(map[string]any); ok {
+			m.ensure(node, path)
+		}
 	}
 	return value
+}
+
+// nodes mints into each node of a Reference Tree, at every level: a node at
+// its index, its branch under "children". A Reference Spec holds no rows (its
+// Position admits none), so a node's values need nothing.
+func (m minter) nodes(value any, path string) {
+	nodes, ok := value.([]any)
+	if !ok {
+		return
+	}
+	for i, item := range nodes {
+		node, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		at := joinPath(path, strconv.Itoa(i))
+		m.ensure(node, at)
+		m.nodes(node["children"], joinPath(at, "children"))
+	}
+}
+
+// ensure gives a row or node the _id of its place, unless it has one.
+func (m minter) ensure(obj map[string]any, path string) {
+	if id, present := obj["_id"]; !present || isUnset(id) {
+		obj["_id"] = m.id(path)
+	}
 }
 
 // rows mints into each row of an array: its own _id, then its Fields'.
@@ -100,9 +133,7 @@ func (m minter) rows(value any, path string, fieldsOf func(map[string]any) []Fie
 			continue
 		}
 		at := joinPath(path, strconv.Itoa(i))
-		if id, present := obj["_id"]; !present || isUnset(id) {
-			obj["_id"] = m.id(at)
-		}
+		m.ensure(obj, at)
 		m.record(fieldsOf(obj), obj, at)
 	}
 	return rows

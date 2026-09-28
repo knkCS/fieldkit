@@ -166,8 +166,8 @@ func (c *Catalogue) collectPins(fields []Field, list string, pins *[]Pin) {
 		if t, ok := c.Type(f.FieldType); ok && len(t.Pins) > 0 {
 			settings, _ := canonicalSettings(f.Settings)
 			for _, p := range t.Pins {
-				if release := pinRelease(settings, p.Key); release != "" {
-					*pins = append(*pins, Pin{Path: joinPath(path, "settings", p.Key), Kind: p.Kind, Release: release})
+				for _, pinned := range pinReleases(settings, p.Key) {
+					*pins = append(*pins, Pin{Path: joinPath(path, append([]string{"settings"}, pinned.at...)...), Kind: p.Kind, Release: pinned.release})
 				}
 			}
 		}
@@ -186,7 +186,11 @@ func (c *Catalogue) collectPins(fields []Field, list string, pins *[]Pin) {
 // Resolve resolves every Pin in a Spec against the embedded Catalogue
 // (ADR-0020), fetching each Release through fetcher:
 //
-//   - a pinned Blueprint Release is inlined as the pinning Field's children,
+//   - a pinned Blueprint Release is inlined as the pinning Field's children —
+//     or, for a Pin inside a settings entry (a Reference Field's
+//     blueprints[i].spec_blueprint), as that entry's spec, which replaces the
+//     embedded Reference Spec for References to that Blueprint and is never
+//     merged into it —
 //     and the Pins inside it are resolved in turn. A Field that already has
 //     children is resolved already — or, for a Virtual Table, embeds its Row
 //     Spec — and is left alone, so resolving a Resolved Spec's Fields
@@ -277,12 +281,9 @@ func (r *resolver) field(f Field, path string, chain []pinKey) (Field, bool, err
 	inlined := false
 	if t, ok := r.c.Type(f.FieldType); ok && len(t.Pins) > 0 {
 		settings, _ := canonicalSettings(f.Settings)
-		for _, p := range t.Pins {
-			release := pinRelease(settings, p.Key)
-			if release == "" {
-				continue
-			}
-			pin := Pin{Path: joinPath(path, "settings", p.Key), Kind: p.Kind, Release: release}
+		for _, pinned := range allPins(t.Pins, settings) {
+			p, release := pinned.pin, pinned.release
+			pin := Pin{Path: joinPath(path, append([]string{"settings"}, pinned.at...)...), Kind: p.Kind, Release: release}
 			key := pinKey{p.Kind, release}
 			if p.Kind != pinKindBlueprint {
 				raw, err := r.fetch(pin, chain)
@@ -295,9 +296,10 @@ func (r *resolver) field(f Field, path string, chain []pinKey) (Field, bool, err
 				r.parts[p.Kind][release] = raw
 				continue
 			}
-			// Children present is resolved already, or an embedded Row Spec
-			// (ADR-0017): nothing to fetch.
-			if f.Children != nil {
+			// Its Fields present is resolved already — or, for children, an
+			// embedded Row Spec (ADR-0017): nothing to fetch.
+			into := inlineAt(pinned.at)
+			if inlinedAt(f, into) {
 				continue
 			}
 			raw, err := r.fetch(pin, chain)
@@ -308,15 +310,26 @@ func (r *resolver) field(f Field, path string, chain []pinKey) (Field, bool, err
 			if err != nil {
 				return f, false, &ResolveError{Code: CodeResolveInvalidRelease, Pin: pin, Err: err}
 			}
-			children, _, err := r.fields(spec, joinPath(path, "children"), append(slices.Clone(chain), key))
+			resolved, _, err := r.fields(spec, joinPath(path, into...), append(slices.Clone(chain), key))
 			if err != nil {
 				return f, false, err
 			}
-			if children == nil {
-				children = []Field{}
+			if resolved == nil {
+				resolved = []Field{}
 			}
-			f.Children = children
-			changed, inlined = true, true
+			if into[0] == "children" {
+				f.Children = resolved
+				inlined = true
+			} else {
+				encoded, err := json.Marshal(resolved)
+				if err != nil {
+					return f, false, err
+				}
+				if f.Settings, err = setRaw(f.Settings, into[1:], encoded); err != nil {
+					return f, false, err
+				}
+			}
+			changed = true
 		}
 	}
 	// Children not fetched here sit inside the same Releases this Field does.
@@ -383,6 +396,64 @@ func (r *resolver) fetch(pin Pin, chain []pinKey) (json.RawMessage, error) {
 	}
 	r.fetched[key] = raw
 	return raw, nil
+}
+
+// typePin is one Pin a Field's settings hold, with the Catalogue entry that
+// declares it.
+type typePin struct {
+	pin CataloguePin
+	pinnedRelease
+}
+
+// allPins are the Pins a Field's canonical settings hold, key by key in the
+// Catalogue's order.
+func allPins(pins []CataloguePin, settings any) []typePin {
+	var out []typePin
+	for _, p := range pins {
+		for _, pinned := range pinReleases(settings, p.Key) {
+			out = append(out, typePin{pin: p, pinnedRelease: pinned})
+		}
+	}
+	return out
+}
+
+// inlineAt is where a Blueprint Pin's resolved Fields go, relative to the
+// Field: a Pin in a top-level setting (a Fieldset's, a linked Virtual
+// Table's blueprint) is inlined as the Field's children; a Pin inside a
+// settings entry (a Reference Field's blueprints[i].spec_blueprint) as that
+// entry's spec, beside it. TS's inlineAt is the same rule.
+func inlineAt(at []string) []string {
+	if len(at) == 1 {
+		return []string{"children"}
+	}
+	return append(append([]string{"settings"}, at[:len(at)-1]...), "spec")
+}
+
+// inlinedAt reports whether a Field already holds Fields at into — present,
+// even as none — which is what resolved means.
+func inlinedAt(f Field, into []string) bool {
+	if into[0] == "children" {
+		return f.Children != nil
+	}
+	var node any
+	if json.Unmarshal(f.Settings, &node) != nil {
+		return false
+	}
+	for _, segment := range into[1:] {
+		switch x := node.(type) {
+		case map[string]any:
+			node = x[segment]
+		case []any:
+			i, err := strconv.Atoi(segment)
+			if err != nil || i < 0 || i >= len(x) {
+				return false
+			}
+			node = x[i]
+		default:
+			return false
+		}
+	}
+	return node != nil
 }
 
 // setRaw replaces the JSON value at segments inside raw — object keys, and

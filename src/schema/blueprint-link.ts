@@ -52,8 +52,58 @@ export function linkedBlueprintId(field: Field): string | undefined {
  */
 export function pinnedRelease(field: Field, key: string): string | undefined {
 	const settings = field.settings as Record<string, unknown> | null | undefined;
-	const value = settings?.[key];
+	return releaseIn(settings?.[key]);
+}
+
+/** A setting's value as a Release id: a string that is not blank. */
+function releaseIn(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
 	return trimmed === "" ? undefined : trimmed;
+}
+
+/** One Pin a Field's settings hold: where, and the Release it names. */
+export interface PinnedRelease {
+	/** The setting's path inside the settings: `["blueprint"]`,
+	 * `["blueprints", 0, "spec_blueprint"]`. */
+	at: (string | number)[];
+	release: string;
+}
+
+/**
+ * Every Release a Catalogue Pin key names in a Field's settings. A key is a
+ * `/`-separated settings path, where `*` stands for every item of a list:
+ * `blueprint` is one setting, `blueprints/*\/spec_blueprint` is one per
+ * `blueprints` entry (a Reference Field's linked Reference Specs). Each is read
+ * as {@link pinnedRelease} reads one. Go's `pinReleases` reads the same
+ * grammar.
+ */
+export function pinnedReleases(field: Field, key: string): PinnedRelease[] {
+	const found: PinnedRelease[] = [];
+	const walk = (
+		node: unknown,
+		rest: string[],
+		at: (string | number)[],
+	): void => {
+		if (rest.length === 0) {
+			const release = releaseIn(node);
+			if (release) found.push({ at, release });
+			return;
+		}
+		const [segment, ...tail] = rest;
+		if (segment === "*") {
+			if (Array.isArray(node)) {
+				node.forEach((item, index) => {
+					walk(item, tail, [...at, index]);
+				});
+			}
+			return;
+		}
+		if (typeof node !== "object" || node === null || Array.isArray(node)) {
+			return;
+		}
+		walk((node as Record<string, unknown>)[segment], tail, [...at, segment]);
+	};
+	walk(field.settings, key.split("/"), []);
+	return found;
 }

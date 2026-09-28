@@ -1,0 +1,146 @@
+{
+	"description": "A Reference's values are records of its Reference Spec: each Field of it yields its text at the node's values path, weighed by its own search — through the linked Reference Spec for a target whose Blueprint links one",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Chapter",
+									"api_accessor": "chapter",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Quote",
+									"api_accessor": "quote",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"targets": {
+		"c-book": "book",
+		"c-film": "film"
+	},
+	"data": {
+		"related": [
+			{
+				"_id": "n1",
+				"id": "c-film",
+				"values": {
+					"note": "a film note",
+					"page": 3
+				},
+				"children": [
+					{
+						"_id": "n2",
+						"id": "c-book",
+						"values": {
+							"chapter": 1,
+							"quote": "a quote",
+							"note": "not a Field of the linked spec"
+						}
+					}
+				]
+			}
+		],
+		"primary": {
+			"_id": "s",
+			"id": "c-film",
+			"values": {
+				"note": "single"
+			}
+		}
+	},
+	"expect": {
+		"texts": [
+			{
+				"path": "/related/n1/values/note",
+				"weight": "B",
+				"text": "a film note"
+			},
+			{
+				"path": "/related/n1/children/n2/values/quote",
+				"weight": "D",
+				"text": "a quote"
+			},
+			{
+				"path": "/primary/values/note",
+				"weight": "B",
+				"text": "single"
+			}
+		]
+	}
+}

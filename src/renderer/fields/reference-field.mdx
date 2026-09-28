@@ -11,7 +11,7 @@ A **Reference Tree**: References to other Contents, ordered and nested. Each row
 
 Use **Reference** when a field holds several links to other Contents — "Related articles", "Cited works", "Featured items" — and when the arrangement of those links is itself meaningful. For exactly one Reference, use [Single Reference](?path=/docs/fields-single-reference--docs), which is a separate field type because the two store incompatible values (ADR-0005).
 
-Each Reference can also carry **Attributes** — values about the pointing itself rather than about either Content, such as the page a citation appears on. See [Attributes](#attributes).
+Each Reference can also carry **values** about the pointing itself rather than about either Content, such as the page a citation appears on — the Fields of its **Reference Spec**. See [Reference Spec](#reference-spec).
 
 ## The Tree
 
@@ -71,7 +71,7 @@ An arrow press moves the *level*, not the offset behind it, so pressing <kbd>→
 
 <kbd>Esc</kbd> **leaves** the strip — focus goes with it, which is what leaving means, at the cost of the browser restarting <kbd>Tab</kbd> from wherever it puts the focus next. It is also **contained**: it goes no further. A Reference Field rendered inside a drawer — `EditDrawer` renders one through `SpecForm` — must not lose its edits to the press that backed out of a strip, and dismissable layers read Escape off `document` in the capture phase, so the strip answers it a phase earlier still. Only an Escape aimed at the strip is taken; anything else travels untouched, including the one that cancels a keyboard drag.
 
-Each strip is **its own tab stop**, in document order among the rows — so an `N`-row tree carries `N+1` of them, interleaved. The alternative, one roving tab stop for the group, was considered and rejected: every other control in this tree — the grips, the chevrons, the Attributes and Remove buttons — is individually focusable, and a strip that answered to <kbd>↑</kbd>/<kbd>↓</kbd> instead of <kbd>Tab</kbd> would be the one thing here that did. A strip disabled at `max_items` is skipped entirely rather than offering a stop that does nothing, and keeps the reason as its accessible name.
+Each strip is **its own tab stop**, in document order among the rows — so an `N`-row tree carries `N+1` of them, interleaved. The alternative, one roving tab stop for the group, was considered and rejected: every other control in this tree — the grips, the chevrons, the values and Remove buttons — is individually focusable, and a strip that answered to <kbd>↑</kbd>/<kbd>↓</kbd> instead of <kbd>Tab</kbd> would be the one thing here that did. A strip disabled at `max_items` is skipped entirely rather than offering a stop that does nothing, and keeps the reason as its accessible name.
 
 Depth changes are **announced**. The sentence is the strip's accessible name, so arriving on one reads it out; each arrow press after that also goes to a live region under the tree, because a name that changes under standing focus is the case a screen reader announces least reliably. Arriving does not use the live region — it would say the same sentence twice.
 
@@ -109,7 +109,7 @@ Picking one **Reveals** it: every fold above it opens, the row scrolls to the ce
 
 **A Reveal is not a preview**, in deliberate contrast to a Spring. It opens the ancestors that are shut and touches nothing else, so Reveals **accumulate**: an earlier Reveal's folds stay open, a fold an Author opened by hand is never fought, and the revealed Reference's own branch stays as it was — showing a row and opening what hangs under it are different questions.
 
-Find **never filters or restructures the tree**, and writes nothing: order, nesting, Pins and Attributes are untouched, so a drag is never standing on ground that moved. It claims **no global keyboard shortcut** — the form's own field search claims `/` on a first-mounted-wins basis, and a rival listener here could never fire. <kbd>Esc</kbd> dismisses the results and is contained, so a Field rendered in a drawer does not lose its edits to the press that shut a dropdown.
+Find **never filters or restructures the tree**, and writes nothing: order, nesting, Pins and values are untouched, so a drag is never standing on ground that moved. It claims **no global keyboard shortcut** — the form's own field search claims `/` on a first-mounted-wins basis, and a rival listener here could never fire. <kbd>Esc</kbd> dismisses the results and is contained, so a Field rendered in a drawer does not lose its edits to the press that shut a dropdown.
 
 The matching, the ranking, the cap and the ancestor paths are pure functions in `src/schema/reference-find.ts` — and one call answers both the list and the count, so the two can never describe different searches, and which folds a Reveal opens is `foldsToReveal` in `src/schema/reference-tree.ts` — so none of it is asserted through a DOM. A Consumer driving `ReferenceTree` itself passes a `reveal` — a row key and a token together, because the token is what makes asking for the same Reference twice running two Reveals, and a key with nothing to arm it would silently do nothing the second time.
 
@@ -134,12 +134,17 @@ Fieldkit owns the shape; a Consumer maps it to whatever it persists (ADR-0008).
 Reference[]
 
 interface Reference {
+  _id: string                           // the node's identity (ADR-0023)
   id: string                            // the referenced Content
-  pin?: string | null                   // the Pin's target id; absent = newest Version
-  attributes?: Record<string, unknown>  // keyed by the Attribute's accessor
+  pin?: string                          // a Release of it; absent = the Release In Force
+  values?: Record<string, unknown>      // keyed by the Reference Spec's accessors
   children?: Reference[]                // the branch under this Reference
 }
 ```
+
+Every node carries an **`_id`**, unique across every level of the tree and not the target's `id` — one Content may be referenced twice. It is minted when a Reference is added, and it is what Compare and Merge match nodes by (ADR-0023). The value carries **no label and no Blueprint id** (ADR-0008, amended).
+
+A value stored in an older shape is **normalised on load**, into the form's defaults, so opening it does not make the form dirty and the next save stores the current shape: `attributes` becomes `values`, a Pin is dropped unless the field pins Releases (a `version`-era Pin names nothing a Pin may), a stored label or other key the shape does not hold is dropped, and a missing or repeated `_id` is minted. SpecForm, EditDrawer and SpecDataTable all do it, through the plugin's `mintIds` (`mintMissingIds()`).
 
 The nesting is genuine rather than a flat list with ancestor ids, which is what makes an orphan unrepresentable. Flat encodings are the Consumer's business.
 
@@ -149,59 +154,61 @@ A display name is **never stored**. Names are resolved through the adapter on ev
 
 Names are resolved for **every Reference at every level**, including the ones inside collapsed branches (ADR-0013), and the ids go out in **batches**: fieldkit cuts the list into calls of a fixed maximum size and merges the results, so `fetch` may be called several times for one tree — concurrently — and is never handed ten thousand ids at once. The batch size is fieldkit's, not the adapter's — nothing is asked of a Consumer, and an adapter written against a field of twenty References keeps working at ten thousand. A batch that rejects is reported through `onError` once and costs only its own names: the rows the other batches resolved still read normally, and the rest fall back to their ids. The size is a **provisional** number, a guess rather than a measurement; it is `REFERENCE_NAME_BATCH_SIZE` in `renderer/hooks/batch-ids.ts`, internal rather than a knob, and the first Consumer to measure it should change it there.
 
-`pin` holds **only the target id**. Which *kind* of target it is comes from the field's `pin_mode`, never from the value (ADR-0008) — which is why changing `pin_mode` invalidates every stored pin at once rather than leaving some stale. No pin at all means the Content's newest Version.
+`pin` holds **only a Release id**. Whether the field pins at all comes from its `pin_mode`, never from the value (ADR-0008) — which is why changing `pin_mode` invalidates every stored pin at once rather than leaving some stale. No pin at all means the Release In Force.
 
 ## Settings
 
 | Setting      | Type                               | Default  | Description                                                        |
 |--------------|------------------------------------|----------|--------------------------------------------------------------------|
-| `blueprints` | `string[]`                         | `[]`     | The blueprints this field may point at. Empty means the adapter decides |
+| `blueprints` | `{ blueprint, spec_blueprint? }[]` | `[]`     | The blueprints this field may point at, each with an optional linked Reference Spec. Empty means the adapter decides |
+| `spec`       | `Field[]`                          | `[]`     | The embedded Reference Spec — the Fields every Reference carries about the pointing. See [Reference Spec](#reference-spec) |
 | `max_items`  | `number`                           | —        | At most this many References, counted over the whole tree — a nested child counts as much as a root |
 | `max_depth`  | `number`                           | —        | How many **levels** the tree may hold, roots being level 1. `1` is a flat list; `2` allows one level of nesting |
-| `pin_mode`   | `"none" \| "release" \| "version"` | `"none"` | Whether References are fixed to a release, to a version, or track the newest version. Absent reads as `"none"` |
-| `attributes` | `Field[]`                          | `[]`     | The Attribute Spec — the Fields every Reference carries about the pointing. See [Attributes](#attributes) |
+| `pin_mode`   | `"none" \| "release"`              | `"none"` | Whether References are fixed to a Release of their target, or follow the Release In Force. Absent reads as `"none"` |
+
+The settings are strict (ADR-0018): any other key is `unknown_setting`. Three changes from before 0.18.0 are **Spec migrations a Consumer makes**: `blueprints` was a list of ids and is a list of entries now (`"article"` → `{ "blueprint": "article" }`), `attributes` is `spec`, and the `"version"` pin mode is gone — a Pin names a Release only (ADR-0008, amended).
 
 `max_depth` is a **count of levels, not the index of the deepest one** — the dialect every other `max_*` setting in this package speaks, and the one knkCMS core's `reference` speaks too. The tree model works in 0-based depth indices, so the conversion happens once, in `referenceDepthCeiling()`; `referenceItemCap()` is its twin for `max_items`. Read both through those functions rather than with `?? 0`: **an unset cap is no cap**, and `0` is a cap of zero. Conflating the two is how an uncapped field ends up refusing to add anything.
 
-The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints. Each cap is a number box whose empty state means "no limit" — emptying it removes the key rather than storing `0`. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
+The Blueprints control is the shared `BlueprintPicker`, so it falls back to blueprint-id entry when the blueprint adapter cannot enumerate blueprints; under it, one picker per Blueprint chooses its linked Reference Spec (`ReferenceBlueprintsEditor`). Each cap is a number box whose empty state means "no limit" — emptying it removes the key rather than storing `0`. `pin_mode` is a select, with a warning that changing it strands every pin already saved — fieldkit cannot refuse the change, because only a Consumer knows whether any Content would be stranded (ADR-0008); a Consumer freezes the setting through `config.locked_settings` instead.
 
-## Attributes
+## Reference Spec
 
-An **Attribute** is a value a Reference carries about the *pointing* — the page a citation appears on, the role a credit names — not about either Content. An Author declares them once per field, as a Spec of ordinary Fields, so "page" can be a number and "role" a select and either can be required. Someone filling in the form opens a drawer per Reference and fills them in with real controls.
+A Reference carries **values** about the *pointing* — the page a citation appears on, the role a credit names — not about either Content. The Fields declaring them are the field's **Reference Spec**: ordinary Fields, so "page" can be a number and "role" a select and either can be required. Someone filling in the form opens a drawer per Reference and fills them in with real controls.
 
-Values are stored **keyed by Accessor** on the Reference itself, which is what makes them survive: moving a Reference moves its whole entry, Attributes included, so nothing has to keep a parallel structure in step. In knkCMS core these are bare strings positionally aligned to a settings array.
+Values are stored **keyed by Accessor** in the Reference's `values`, which is what makes them survive: moving a Reference moves its whole entry, values included, so nothing has to keep a parallel structure in step. In knkCMS core these are bare strings positionally aligned to a settings array (and fieldkit called them `attributes` before 0.18.0).
 
-Each row shows a **filled count** — `1/2` — so it is visible at a glance which References still need attention. The count is over exactly what the Schema composes: a hidden Attribute, a value-less Marker a hand-written Spec slipped in, and an entry that is not a Field at all are none of them counted, asked for, or composed — a stray costs itself and nothing else. A key left behind by an Attribute since deleted is not counted either. `false` and `0` count as filled: they are what an unchecked box and a zero page number are, and the count must not disagree with the Schema about whether a required Attribute is satisfied. A field declaring no Attributes shows no affordance at all.
+Every Reference has **exactly one** Reference Spec. It is the embedded `spec`, unless the field's `blueprints` entry for the target's Blueprint names a `spec_blueprint` — a Blueprint Release whose Fields then **replace** the embedded `spec` for References to that Blueprint, and are never merged with it. `spec_blueprint` is a Pin (ADR-0020): `resolveSpec()` inlines the Release's Fields as that entry's `spec`, beside the Pin. Which Blueprint a target is of comes from the adapter's `fetch` (`ReferenceItem.blueprint_id`) — the value never stores it — so until it has arrived, a Reference to a field that links a Reference Spec asks for nothing. `referenceSpecFor()` in `/schema` is the one reading of the rule.
 
-### Authoring them
+Each row shows a **filled count** — `1/2` — so it is visible at a glance which References still need attention. The count is over exactly what the Schema composes: a hidden Field, a value-less Marker a hand-written Spec slipped in, and an entry that is not a Field at all are none of them counted, asked for, or composed — a stray costs itself and nothing else. A key left behind by a Field since deleted is not counted either. `false` and `0` count as filled: they are what an unchecked box and a zero page number are, and the count must not disagree with the Schema about whether a required Field is satisfied. A Reference whose Reference Spec asks for nothing shows no affordance at all.
 
-The Attribute Spec is authored in the config panel's **Type settings** tab. Adding one is the ordinary type picker; configuring one is the panel's incumbent **drill-in** — the same Back control, the same three tabs, the same accessor gate a group's child gets. There is no separate nested editor.
+### Authoring it
 
-The picker offers strictly less than the canvas does: only the types whose `positions` list `reference_spec` (ADR-0022; this was the `"attribute"` Field Context before 0.18.0), and `validateSpec()` reports any other type found there as `position`:
+The embedded Reference Spec is authored in the config panel's **Type settings** tab. Adding a Field is the ordinary type picker; configuring one is the panel's incumbent **drill-in** — the same Back control, the same three tabs, the same accessor gate a group's child gets. There is no separate nested editor. A linked one is a Blueprint Release, authored where Blueprints are.
+
+The picker offers strictly less than the canvas does: only the types whose `positions` list `reference_spec` (ADR-0022; this was the `"attribute"` Field Context before 0.18.0), and `validateSpec()` reports any other type found there as `position` — in a linked Reference Spec too, once it is resolved:
 
 - **no Markers** — a drawer has no Tab and no Card for a Section or a Card to open;
 - **no containers** — a `fieldset` there would never resolve, and a drawer holds one level (see the boundary below);
-- **no reference types** — cycle rejection walks `children`, so a Reference Field declared as an Attribute is a recursion nothing would catch.
+- **no reference types** — a Reference Field declared in a Reference Spec is a recursion nothing would catch.
 
 ### The settings-nested boundary (ADR-0007)
 
-The Attribute Spec lives in `settings.attributes`, following the Blocks precedent. `validateSpec()` walks it — the plugin names it through `heldSpecs`, in the `reference_spec` Position (ADR-0022) — so a duplicate accessor, an empty name or accessor, a reserved `_` accessor and a type that may not sit there are all reported at `/<field>/settings/attributes/<accessor>`. `resolveMarkerConvention()` still walks `Field.children` only, which is ADR-0007's boundary for it. `resolveSpec()` and `specPins()` walk the Attribute Spec as `validateSpec()` does (#212), so a Pin in it is listed and resolved — but `fieldset` does not list `reference_spec`, so `validateSpec()` refuses a Fieldset declared as an Attribute.
+The Reference Spec lives in `settings.spec` (and a linked one in `settings.blueprints[i].spec` once resolved), following the Blocks precedent. `validateSpec()` walks both — the plugin names them through `heldSpecs`, in the `reference_spec` Position (ADR-0022) — so a duplicate accessor, an empty name or accessor, a reserved `_` accessor and a type that may not sit there are all reported at `/<field>/settings/spec/<accessor>`; two `blueprints` entries naming one Blueprint are `duplicate_blueprint`, and an entry holding a `spec` without a `spec_blueprint` is `invalid_setting`. The Go module checks the same (`go/reference.go`). `resolveMarkerConvention()` still walks `Field.children` only, which is ADR-0007's boundary for it. `resolveSpec()` and `specPins()` walk the Reference Spec as `validateSpec()` does, so a Pin in it is listed and resolved — but `fieldset` does not list `reference_spec`, so `validateSpec()` refuses a Fieldset declared in one.
 
-The Go module does not check a Reference Spec yet: `reference` is not in the Catalogue until its settings schema lands (#215).
-
-The reference plugin composes the Spec itself, exactly as the Blocks plugin composes a block type's fields. `src/schema/reference-attributes.ts` is where this is written down.
+The reference plugin composes the Spec itself, exactly as the Blocks plugin composes a block type's fields. `src/schema/reference-spec.ts` is where this is written down.
 
 ## Pinning, and the drawer's second step
 
-When `pin_mode` is `"none"` the add drawer has **exactly one step**: picking a Content stores `{ id }` and closes, and the adapter is never asked about pin targets.
+When `pin_mode` is `"none"` the add drawer has **exactly one step**: picking a Content stores `{ _id, id }` — the `_id` minted — and closes, and the adapter is never asked about pin targets.
 
-When the field pins, picking a Content opens a **second step** listing what that Content may be pinned to. Choosing a target stores `{ id, pin }`; choosing **Newest version** — always first, and available even while the targets load or after a lookup that failed — stores `{ id }` with no `pin` key at all. **Back** returns to the browse, still narrowed to whatever was searched, having stored nothing.
+When the field pins, picking a Content opens a **second step** listing what that Content may be pinned to. Choosing a target stores `{ _id, id, pin }`; choosing **Newest version** — always first, and available even while the targets load or after a lookup that failed — stores `{ _id, id }` with no `pin` key at all. **Back** returns to the browse, still narrowed to whatever was searched, having stored nothing.
 
 ## The drawer's chrome: steps, and destination
 
 Two things the drawer says about itself, above whichever step is showing.
 
-**Its steps**, through anker's `Stepper`. The titles are `Choose content` and — when the field pins — `Choose a release` or `Choose a version`, whichever `pin_mode` named. The active step carries `aria-current="step"`, anker's accessibility rule for the component (its README, *Accessibility*); `StepperStep` sets it itself, and the controlled `step` index is what makes the mark follow the flow instead of resting on step one.
+**Its steps**, through anker's `Stepper`. The titles are `Choose content` and — when the field pins — `Choose a release`. The active step carries `aria-current="step"`, anker's accessibility rule for the component (its README, *Accessibility*); `StepperStep` sets it itself, and the controlled `step` index is what makes the mark follow the flow instead of resting on step one.
 
 The step **count** follows `pin_mode` alone, exactly as the flow does. Whether the Stepper is *there* does not: it renders in the one-step flow too, so the drawer's chrome does not change shape depending on a field setting.
 
@@ -217,7 +224,7 @@ reference: {
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
   listPinTargets?: (              // optional
     contentId: string,
-    mode: "release" | "version",
+    mode: "release",
   ) => Promise<PinTarget[]>;
   getSearchFilters?: () => Field[];   // optional
   getResultColumns?: () => Field[];   // optional
@@ -262,7 +269,7 @@ The field is **optional and additive**, on the same terms as the methods above. 
 
 This is a **policy about the picker, not about the value**. A Reference Tree keys its rows by path precisely so the same Content *can* appear twice; nothing here refuses such a value, rewrites one, or stops a drag producing one. [Single Reference](?path=/docs/fields-single-reference--docs) applies the one-item version of the same rule.
 
-`listPinTargets` is **optional on the same terms**. Only the adapter knows a Content's Releases or Versions, and it is the adapter that normalises whichever kind was asked for into an id, a label and a description — so **fieldkit models neither a Release nor a Version**. Without the method a pinning field offers the newest Version and nothing else: the same answer a Consumer gets from returning an empty list, and the same one the field already shows while the targets are in flight. A Consumer that has not implemented pinning gets that rather than an error.
+`listPinTargets` is **optional on the same terms**. Only the adapter knows a Content's Releases, and it is the adapter that normalises them into an id, a label and a description — so **fieldkit does not model a Release**. Without the method a pinning field offers the Release In Force and nothing else: the same answer a Consumer gets from returning an empty list, and the same one the field already shows while the targets are in flight. A Consumer that has not implemented pinning gets that rather than an error.
 
 The absence is **silent** — it is a configuration, not a failure — where a call that *rejects* is reported through the provider's `onError`. It is called only when the field pins, and only once a Content is chosen.
 
@@ -271,45 +278,51 @@ The absence is **silent** — it is a configuration, not a failure — where a c
 | Rule        | Description                                              |
 |-------------|----------------------------------------------------------|
 | `required`  | At least one Reference                                    |
-| per item    | Each entry must be a Reference — an object with a non-empty `id` |
+| per item    | Each entry must be a Reference — an object with an `_id` and a non-empty `id`, its `pin` a string |
+| `_id`       | Unique across every level of the tree; a repeat is `duplicate_id` at the repeat |
 | per branch  | A nested Reference is held to the same rules as a root one |
-| per Attribute | Each declared Attribute is checked as the type it is; a required one blocks submit and reports at its own key under the Reference that owns it |
+| per value   | Each Field of the Reference's Reference Spec is checked as the type it is; a required one blocks submit and reports at its own key under the Reference that owns it |
 | `max_items` | The flattened tree holds at most that many References. Reported **at the field's path** |
 | `max_depth` | No Reference sits deeper than that many levels. Reported **at the offending Reference's path** — `related.0.children.1` |
 
 ```ts
 // Optional
-z.array(referenceTreeSchemaWith(attributes)).superRefine(caps)
+ReferenceTreeZodArray.with(z.array(referenceTreeSchemaWith(values)), caps)
 
 // Required
-z.array(referenceTreeSchemaWith(attributes))
-  .min(1, "Related articles is required")
-  .superRefine(caps)
+ReferenceTreeZodArray.with(
+  z.array(referenceTreeSchemaWith(values)).min(1, "Related articles is required"),
+  caps,
+)
 ```
 
-The node schema is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list. The recursion is also what puts the Attribute Spec on every Reference at every level.
+The tree-wide rules — every `_id` unique at every level, and both caps — are checked on the raw tree whatever else a node gets wrong, as the Go module checks them, so the two report the same errors.
 
-`attributes` is the Attribute Spec composed through the plugin's `composeChildren` argument (ADR-0007), and takes one of three shapes:
+The node schema is **lazily recursive**: it names `children`, so a nested branch survives a parse. An object schema that did not would strip the branch, and a drop that nested a Reference on screen would submit a flat list. The recursion is also what puts the Reference Spec on every Reference at every level.
 
-- **no Attribute declared** — the opaque `Record<string, unknown>` ADR-0008 declares, unchanged from before Attributes existed;
-- **no required Attribute** — the composed object, optional and `passthrough`, so a Reference carrying nothing stores no `attributes` key at all;
-- **a required Attribute** — the same object with a `{}` default, so a Reference added before the Attribute was declared cannot slip past the check.
+`values` is the Reference Spec composed through the plugin's `composeChildren` argument (ADR-0007), and takes one of three shapes:
 
-`passthrough` throughout, as both container types do: a stored record carries keys the Spec no longer declares, and validation arriving is no reason to prune an Author's data. A required Attribute reports at `related.0.attributes.role` — under the Reference that is missing it — and at `related.0.children.0.attributes.role` for a nested one.
+- **no Field declared** — the opaque `Record<string, unknown>` ADR-0008 declares;
+- **no required Field** — the composed object, optional and `passthrough`, so a Reference carrying nothing stores no `values` key at all;
+- **a required Field** — the same object with a `{}` default, so a Reference added before the Field was declared cannot slip past the check.
 
-The blast radius mirrors ADR-0007's: declaring a required Attribute starts checking every stored Reference of that field, so data that saved successfully before can begin blocking submit.
+`passthrough` throughout, as both container types do: a stored record carries keys the Spec no longer declares, and validation arriving is no reason to prune an Author's data. A required Field reports at `related.0.values.role` — under the Reference that is missing it — and at `related.0.children.0.values.role` for a nested one.
+
+A field that links a Reference Spec per Blueprint can only check a Reference's values against the right one when told whose Blueprint each target is: `toZodType`'s third argument, `specToZodSchema`'s and `validateValue`'s `targetBlueprint` option (Go's `WithTargetBlueprints`). Without it those values are checked as an opaque record.
+
+The blast radius mirrors ADR-0007's: declaring a required Field starts checking every stored Reference of that field, so data that saved successfully before can begin blocking submit.
 
 Both caps live in the **Schema**, not only in the control, so an import or an API write is checked on the same terms a form is. The UI additionally disables the add affordance at `max_items` and clamps a drop to `max_depth`, but neither is where the rule lives.
 
 That has a blast radius, and it is intended: **a Spec whose caps were never enforced can begin blocking submit on data that saved fine before.** What does not happen is fieldkit quietly fixing it — a value over a cap is reported, never truncated, and a branch past the depth is reported, never re-nested. Only the shallowest Reference in each over-deep branch is reported, since everything under it is too deep because of it.
 
-`ReferenceField` renders those messages under the tree, because `FormField` shows only the message on the field's *own* node and `max_depth` deliberately reports deeper. The same collection catches a required Attribute, which reports at `related.0.attributes.page` for the same reason — and which lives inside a drawer, so without it a submit blocked by an Attribute would be a submit blocked by nothing visible at all.
+`ReferenceField` renders those messages under the tree, because `FormField` shows only the message on the field's *own* node and `max_depth` deliberately reports deeper. The same collection catches a required value, which reports at `related.0.values.page` for the same reason — and which lives inside a drawer, so without it a submit blocked by one would be a submit blocked by nothing visible at all.
 
 ## Table Cell and Read Mode
 
 `ReferenceCell` renders a count — "3 references" — at table density, counting **every** Reference at every level, exactly as `max_items` does. Not the names: a cell has neither adapter access nor async, so the alternative is a row of raw ids. `SingleReferenceCell` counts on the same terms ("1 reference"), so the two types read alike in one table.
 
-Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's Attribute values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never touches react-hook-form, so read mode still needs no `FormProvider`.
+Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never touches react-hook-form, so read mode still needs no `FormProvider`.
 
 It **folds and finds on the same terms the editable tree does**. Past `REFERENCE_TREE_COLLAPSE_THRESHOLD` a read-mode tree opens with its parents collapsed and carries the Find and Collapse all controls; at or below it, expanded and without either. Folds open and close while reading, because reading a folded branch is reading, and picking a Find result Reveals the Reference exactly as it does when editing — every fold above it opens, the row scrolls to the centre, takes focus and stays marked. A read-mode tree sprawls open as Reveals accumulate for the same reason the editable one does, so Collapse all is the way back here too, returning it to the set it opened in. Nothing about any of it is written: folding and the mark are the component's own state, as folding already is on the editable side.
 
@@ -339,7 +352,7 @@ Pass it to `FieldKitProvider` and `TypePicker` beside `builtInFieldTypes` and it
 
 `maxPerSpec` is enforced everywhere it always was: `validateSpec()` reports a second instance, the type picker greys the type out once one exists, the canvas blocks the duplicate, and `SpecEditor` refuses to save.
 
-**Registering a replacement is not a migration.** Fieldkit's removed `toc_reference` stored a bare id string; a minted type stores a Reference Tree, so stored values have to be converted — `"x"` becomes `[{ id: "x" }]` — or they fail the Schema and render as an empty tree. Its `always_latest` and `attributes` settings keys are gone with it; `pin_mode: "none"` is what `always_latest` meant.
+**Registering a replacement is not a migration.** Fieldkit's removed `toc_reference` stored a bare id string; a minted type stores a Reference Tree, so stored values have to be converted — `"x"` becomes `[{ id: "x" }]`, its `_id` then minted on load — or they fail the Schema and render as an empty tree. Its `always_latest` and `attributes` settings keys are gone with it; `pin_mode: "none"` is what `always_latest` meant.
 
 For a control of your own around the same tree, `ReferenceTree` is exported from `@knkcs/fieldkit/renderer`. It is the rows and the dragging, not the Field: it takes `rows` (from `readReferenceTree(value)`), the stored `value`, an `onChange` that receives the whole next value, `names` — a record keyed by Content id — and `depthCeiling`, a 0-based depth index that `referenceDepthCeiling(settings)` converts a `max_depth` setting into. Resolving those names, and offering any way to *add* a Reference, stay yours, because only your Adapter can do either.
 
@@ -353,11 +366,11 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 
 ## Known Limitations
 
-- Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required Attribute — is shown under the tree rather than on the row or the Attribute that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
-- An Attribute is checked by the Schema but nothing shared validates the Attribute *Spec* — a hand-written duplicate accessor among Attributes goes unreported (ADR-0007, above).
-- `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — an Attribute of one of those types needs its `settings.options` hand-authored. Not specific to Attributes.
-- Attributes are not reorderable in the settings list; they render in declaration order.
-- The row's filled count does not say which Attribute is *invalid*, only how many are filled.
+- Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required value — is shown under the tree rather than on the row or the Field that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
+- `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — a Reference Spec Field of one of those types needs its `settings.options` hand-authored. Not specific to the Reference Spec.
+- The Reference Spec's Fields are not reorderable in the settings list; they render in declaration order.
+- The row's filled count does not say which value is *invalid*, only how many are filled.
+- The form's own Schema (`specToZodSchema`) is not told whose Blueprint each target is, so in a form a field that links a Reference Spec checks its values as an opaque record; the drawer still offers the right Fields. A Consumer that knows the targets passes `targetBlueprint`, and `validateValue()` on save does.
 - A stored pin is not shown on the row; it is chosen when the Reference is added and changed by removing and re-adding it. Read mode does not show it either.
 - The browse drawer's page size is fixed at 10.
 - When the adapter ignores `excludeIds`, the backstop shortens each page after it was cut, so a page can show fewer than 10 rows — or none at all, if a field already references ten Contents that land on the same page — while the total still promises more. Honouring `excludeIds` removes this entirely.
@@ -423,15 +436,21 @@ No blueprints configured: the adapter decides what may be referenced.
 
 <Canvas of={Stories.ReadOnly} />
 
-### With Attributes
+### With a Reference Spec
 
-Two Attributes — a number and a required select. Each row shows its filled count; the button opens the drawer.
+A Reference Spec of two Fields — a number and a required select. Each row shows its filled count; the button opens the drawer.
 
 <Canvas of={Stories.WithAttributes} />
 
+### With a linked Reference Spec
+
+References to an `article` follow the Blueprint Release linked for it — a required `chapter` — instead of the embedded Reference Spec, which the `author` row follows. The two are never merged.
+
+<Canvas of={Stories.WithLinkedReferenceSpec} />
+
 ### Read Mode
 
-The resolved tree, not the count cell: names through the adapter, nesting by indentation, each Reference's Attribute values against it.
+The resolved tree, not the count cell: names through the adapter, nesting by indentation, each Reference's values against it.
 
 <Canvas of={Stories.ReadMode} />
 

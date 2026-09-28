@@ -9,22 +9,28 @@ import {
 	referenceItemCap,
 } from "../../schema/field-types/reference";
 import type { FieldProps } from "../../schema/plugin";
-import { withPin } from "../../schema/reference";
+import {
+	referenceBlueprintIds,
+	referenceSpecFor,
+	withPin,
+} from "../../schema/reference";
 import {
 	readReferenceTree,
 	referenceTreeOpensFolded,
 } from "../../schema/reference-tree";
+import type { Field } from "../../schema/types";
 import type { ReferenceItem } from "../adapters";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds } from "./exclude-referenced";
-import { ReferenceAttributesDrawer } from "./reference-attributes-drawer";
+
 import { describeAppend } from "./reference-destination";
 import { ReferenceFind } from "./reference-find";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import type { ReferenceInsertRequest, ReferenceReveal } from "./reference-tree";
 import { ReferenceTree } from "./reference-tree";
+import { ReferenceValuesDrawer } from "./reference-values-drawer";
 
 /**
  * Every message reported *under* a Field's own error node, deduplicated.
@@ -41,10 +47,9 @@ import { ReferenceTree } from "./reference-tree";
  * so the same text is shown once.
  *
  * It collects *every* nested message, not only the depth cap's — a required
- * Attribute reports at `related.0.attributes.page` and is out of reach for the
- * same reason. That is deliberate: an Attribute lives inside a drawer, so
- * without this a submit blocked by one is a submit blocked by nothing visible
- * at all. Which Reference each message came from is still only in
+ * value reports at `related.0.values.page` and is out of reach for the same
+ * reason. That is deliberate: a value lives inside a drawer, so without this a
+ * submit blocked by one is a submit blocked by nothing visible at all. Which Reference each message came from is still only in
  * `formState.errors`; naming it on the row is a row's job, not this one's.
  */
 function nestedErrorMessages(error: unknown): string[] {
@@ -69,7 +74,7 @@ function nestedErrorMessages(error: unknown): string[] {
  *
  * Two things this control deliberately does not do:
  *
- * - **It never stores a name.** A row writes `{ id }` and nothing else; the
+ * - **It never stores a name.** A row writes `{ _id, id }` and nothing else; the
  *   name on screen is resolved through the Adapter on every load, so a Content
  *   renamed elsewhere reads correctly here and a Content that no longer
  *   resolves keeps its id on screen rather than vanishing.
@@ -97,12 +102,13 @@ export function ReferenceField({
 	// and only this says which of them did.
 	const [insertRequest, setInsertRequest] =
 		useState<ReferenceInsertRequest | null>(null);
-	// Which Reference's Attributes are open, by where it sits in the stored
+	// Which Reference's values are open, by where it sits in the stored
 	// value — never the row object, which is rebuilt on every keystroke inside
 	// the drawer. The name is carried along because it is the drawer's title
 	// and resolving it again would be a second chance to disagree.
 	const [filling, setFilling] = useState<{
 		path: number[];
+		id: string;
 		name: string;
 	} | null>(null);
 	// What an Author last asked Find to show them — see {@link ReferenceReveal},
@@ -111,11 +117,7 @@ export function ReferenceField({
 
 	// A Consumer's settings object is a fresh literal on every render, and the
 	// drawer's search effect must not churn with it.
-	const blueprints = useStableValue(settings?.blueprints ?? []);
-
-	// The Attribute Spec, on the same terms: `NestedItemFields` memoizes the
-	// remapped Spec by identity, so a fresh array per render would defeat it.
-	const attributeSpec = useStableValue(settings?.attributes ?? []);
+	const blueprints = useStableValue(referenceBlueprintIds(settings));
 
 	// One read of the stored value, used both to render and to mutate: two
 	// reads of the same array is two chances for them to disagree.
@@ -132,10 +134,37 @@ export function ReferenceField({
 	// it falls back to its id whatever the reason — while Find needs both,
 	// because "nothing in this tree matches" is a claim about a tree whose names
 	// have all arrived (#152).
-	const { names, nameState } = useResolvedContentNames(
+	const {
+		names,
+		blueprints: targetBlueprints,
+		nameState,
+	} = useResolvedContentNames(
 		rows.map((row) => row.reference.id),
 		accessor,
 	);
+
+	// Each Reference's Reference Spec: the embedded one, or — where one is
+	// linked for its target's Blueprint — that one instead, never merged
+	// (ADR-0008, amended). Until the target's Blueprint is known a Field that
+	// links one asks for nothing. Stable per settings and Blueprints, because
+	// `NestedItemFields` memoizes the remapped Spec by identity.
+	const specSettings = useStableValue({
+		blueprints: settings?.blueprints,
+		spec: settings?.spec,
+	});
+	const referenceSpecOf = useMemo(() => {
+		const cache = new Map<string, Field[]>();
+		return (reference: { id: string }): Field[] => {
+			const blueprint = targetBlueprints[reference.id];
+			const key = blueprint ?? "";
+			let spec = cache.get(key);
+			if (!spec) {
+				spec = referenceSpecFor(specSettings, blueprint) ?? [];
+				cache.set(key, spec);
+			}
+			return spec;
+		};
+	}, [specSettings, targetBlueprints]);
 
 	// What the picker must stop offering: adding a Content the tree already
 	// holds would put it there twice. Every level, not just the roots — a
@@ -267,13 +296,14 @@ export function ReferenceField({
 							readOnly={readOnly}
 							onChange={formField.onChange}
 							depthCeiling={depthCeiling}
-							attributeSpec={attributeSpec}
+							referenceSpec={referenceSpecOf}
 							onInsert={setInsertRequest}
 							atItemCap={atCap}
 							reveal={reveal}
-							onOpenAttributes={(row) =>
+							onOpenValues={(row) =>
 								setFilling({
 									path: row.path,
+									id: row.reference.id,
 									name: names[row.reference.id] ?? row.reference.id,
 								})
 							}
@@ -329,12 +359,12 @@ export function ReferenceField({
 						{filling && (
 							// Keyed by the path, so switching Reference mounts a fresh
 							// drawer rather than one still registered under the last
-							// Reference's Attributes.
-							<ReferenceAttributesDrawer
+							// Reference's values.
+							<ReferenceValuesDrawer
 								key={filling.path.join(".")}
 								open
 								onClose={() => setFilling(null)}
-								attributeSpec={attributeSpec}
+								referenceSpec={referenceSpecOf(filling)}
 								accessor={accessor}
 								path={filling.path}
 								name={filling.name}

@@ -360,7 +360,7 @@ that drill the panel into a child, with a Back control), **Validation**
 (min/max length, pattern + message, unique), and **Type settings** (the
 plugin's own settings UI, or a form generated from its `settingsSchema` —
 see [Generic settings form](#generic-settings-form)). A settings UI holding a **Spec of its own** —
-a Reference Field's Attribute Spec and a Virtual Table's embedded Row Spec
+a Reference Field's Reference Spec and a Virtual Table's embedded Row Spec
 are the two built-in cases — drills into it through that **same**
 Back-and-frames mechanism rather than a nested editor of its own: a Spec
 held in a **settings key** calls `onDrillIn(settingsKey, accessor)` from
@@ -506,7 +506,7 @@ config: {
 For a **custom field type**, honouring the list is not something your
 `settingsComponent` has to remember — the lock reaches the *controls*. Every
 control fieldkit mounts internally (`BlueprintPicker`, `CapInput`,
-`PinModePicker`, the attribute list, every control of the generic settings
+`PinModePicker`, the Reference Spec list, every control of the generic settings
 form) takes the settings key it writes and
 asks about that key itself. For controls of your own, `@knkcs/fieldkit/editor`
 exports the same hook they use:

@@ -3,6 +3,7 @@ package fieldkit
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -58,8 +59,10 @@ type heldSpec struct {
 
 // typeRulesByID are the rules of every type that has any.
 var typeRulesByID = map[string]typeRules{ //nolint:gochecknoglobals
-	"virtual_table": {field: virtualTableRowSpec, childrenPosition: PositionRow},
-	"blocks":        {settings: duplicateBlockTypes, specs: blockTypeSpecs},
+	"virtual_table":    {field: virtualTableRowSpec, childrenPosition: PositionRow},
+	"blocks":           {settings: duplicateBlockTypes, specs: blockTypeSpecs},
+	"reference":        referenceRules,
+	"single_reference": referenceRules,
 }
 
 func rulesFor(fieldType string) typeRules {
@@ -76,7 +79,9 @@ func (c *Catalogue) linkedBlueprint(fieldType string, settings any) string {
 		return ""
 	}
 	for _, pin := range t.Pins {
-		if pin.Kind == pinKindBlueprint {
+		// A link is one top-level setting; a Pin in a settings list (a
+		// Reference Field's linked Reference Specs) links no Row Spec.
+		if pin.Kind == pinKindBlueprint && !strings.Contains(pin.Key, "/") {
 			return pinRelease(settings, pin.Key)
 		}
 	}
@@ -87,10 +92,54 @@ func (c *Catalogue) linkedBlueprint(fieldType string, settings any) string {
 // that is not blank, read from canonical settings.
 func pinRelease(settings any, key string) string {
 	obj, _ := settings.(map[string]any)
-	if id, ok := obj[key].(string); ok {
+	return releaseIn(obj[key])
+}
+
+// releaseIn is a setting's value as a Release id: a string that is not blank,
+// trimmed; "" otherwise.
+func releaseIn(value any) string {
+	if id, ok := value.(string); ok {
 		return trimJS(id)
 	}
 	return ""
+}
+
+// pinnedRelease is one Pin a Field's settings hold: the setting's segments
+// inside the settings, and the Release it names.
+type pinnedRelease struct {
+	at      []string
+	release string
+}
+
+// pinReleases are the Releases a Catalogue Pin key names in canonical
+// settings. A key is a /-separated settings path in which * stands for every
+// item of a list: "blueprint" is one setting, "blueprints/*/spec_blueprint"
+// one per blueprints entry. TS's pinnedReleases reads the same grammar.
+func pinReleases(settings any, key string) []pinnedRelease {
+	var found []pinnedRelease
+	var walk func(node any, rest, at []string)
+	walk = func(node any, rest, at []string) {
+		if len(rest) == 0 {
+			if release := releaseIn(node); release != "" {
+				found = append(found, pinnedRelease{at: at, release: release})
+			}
+			return
+		}
+		if rest[0] == "*" {
+			items, _ := node.([]any)
+			for i, item := range items {
+				walk(item, rest[1:], append(slices.Clone(at), strconv.Itoa(i)))
+			}
+			return
+		}
+		obj, ok := node.(map[string]any)
+		if !ok {
+			return
+		}
+		walk(obj[rest[0]], rest[1:], append(slices.Clone(at), rest[0]))
+	}
+	walk(settings, strings.Split(key, "/"), nil)
+	return found
 }
 
 // pinKindBlueprint is the kind of a Pin naming a Blueprint's Release.

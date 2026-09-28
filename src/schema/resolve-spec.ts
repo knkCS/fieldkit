@@ -1,6 +1,6 @@
 // src/schema/resolve-spec.ts
 import { isFieldShaped } from "./block-types";
-import { BLUEPRINT_PIN, pinnedRelease } from "./blueprint-link";
+import { BLUEPRINT_PIN, pinnedReleases } from "./blueprint-link";
 import { CATALOGUE_VERSION } from "./catalogue-version";
 import { builtInFieldTypes } from "./field-types";
 import type { FieldTypePlugin } from "./plugin";
@@ -145,25 +145,55 @@ function pluginMap(plugins: ResolveSpecOptions["plugins"]): PluginMap {
 	);
 }
 
-/** Each Pin a Field holds itself, as the Catalogue records its type's. */
+/** One Pin a Field holds, and where in its settings. */
+interface HeldPin {
+	pin: SpecPin;
+	/** The setting's path inside the settings. */
+	at: Segments;
+}
+
+/** Each Pin a Field holds itself, as the Catalogue records its type's — a
+ * key may name one setting or one per list item (`pinnedReleases`). */
 function fieldPins(
 	field: Field,
 	segments: Segments,
 	plugins: PluginMap,
-): SpecPin[] {
-	const pins: SpecPin[] = [];
+): HeldPin[] {
+	const pins: HeldPin[] = [];
 	for (const { key, kind } of plugins.get(field.field_type)?.catalogue?.pins ??
 		[]) {
-		const release = pinnedRelease(field, key);
-		if (release) {
+		for (const { at, release } of pinnedReleases(field, key)) {
 			pins.push({
-				path: toPath([...segments, "settings", key]),
-				kind,
-				release,
+				pin: { path: toPath([...segments, "settings", ...at]), kind, release },
+				at,
 			});
 		}
 	}
 	return pins;
+}
+
+/**
+ * Where a Blueprint Pin's resolved Fields go, relative to the Field: a Pin in a
+ * top-level setting (a Fieldset's, a linked Virtual Table's `blueprint`) is
+ * inlined as the Field's `children`; a Pin inside a settings entry (a Reference
+ * Field's `blueprints[i].spec_blueprint`) as that entry's `spec`, beside it. Go's
+ * `inlineAt` is the same rule.
+ */
+function inlineAt(at: Segments): Segments {
+	return at.length === 1
+		? ["children"]
+		: ["settings", ...at.slice(0, -1), "spec"];
+}
+
+/** Whether a Blueprint Pin is resolved already: its Fields are where
+ * {@link inlineAt} puts them — present, even as none. */
+function inlined(field: Field, at: Segments): boolean {
+	let node: unknown = field;
+	for (const segment of inlineAt(at)) {
+		if (typeof node !== "object" || node === null) return false;
+		node = (node as Record<string | number, unknown>)[segment];
+	}
+	return node != null;
 }
 
 /**
@@ -182,7 +212,7 @@ export function specPins(
 	const walk = (fields: Field[], list: Segments) => {
 		for (const field of fields) {
 			const segments = [...list, field.config.api_accessor];
-			pins.push(...fieldPins(field, segments, map));
+			pins.push(...fieldPins(field, segments, map).map((held) => held.pin));
 			if (field.children?.length)
 				walk(field.children, [...segments, "children"]);
 			for (const held of map.get(field.field_type)?.heldSpecs?.(field) ?? []) {
@@ -203,8 +233,10 @@ export function specPins(
  *
  * - A **Blueprint** Pin — a Fieldset's (ADR-0003), a linked Virtual Table's
  *   (ADR-0017) — is fetched through `adapters.blueprint.getSchema(releaseId)`
- *   and inlined as the Field's `children`, and the Pins inside it are
- *   resolved in turn. Only a Resolved Spec can produce a complete Schema, so
+ *   and inlined as the Field's `children` — a linked Reference Spec's
+ *   (`blueprints[i].spec_blueprint`, a Pin inside a settings entry) as that
+ *   entry's `spec` instead, beside the embedded one it replaces (ADR-0008,
+ *   amended) — and the Pins inside it are resolved in turn. Only a Resolved Spec can produce a complete Schema, so
  *   this is the step between loading a Spec and building its Zod schema: hand
  *   `resolved.fields` to the renderer, the table and `specToZodSchema()`.
  * - Any other Pin names an **opaque part**, fetched through
@@ -282,12 +314,10 @@ export function specNeedsResolution(
 	if (!adapters.blueprint && !adapters.parts) return false;
 	const map = pluginMap(plugins);
 	const needs = (field: Field): boolean => {
-		const catalogue = map.get(field.field_type)?.catalogue;
-		for (const { key, kind } of catalogue?.pins ?? []) {
-			if (!pinnedRelease(field, key)) continue;
-			if (kind === BLUEPRINT_PIN.kind) {
-				if (field.children == null && adapters.blueprint) return true;
-			} else if (adapters.parts?.[kind]) {
+		for (const { pin, at } of fieldPins(field, [], map)) {
+			if (pin.kind === BLUEPRINT_PIN.kind) {
+				if (!inlined(field, at) && adapters.blueprint) return true;
+			} else if (adapters.parts?.[pin.kind]) {
 				return true;
 			}
 		}
@@ -345,8 +375,8 @@ class Resolver {
 		chain: readonly string[],
 	): Promise<Field> {
 		let next = field;
-		let inlined = false;
-		for (const pin of fieldPins(field, segments, this.plugins)) {
+		let childrenInlined = false;
+		for (const { pin, at } of fieldPins(field, segments, this.plugins)) {
 			if (pin.kind !== BLUEPRINT_PIN.kind) {
 				const fetchPart = this.adapters.parts?.[pin.kind];
 				if (!fetchPart) continue;
@@ -355,12 +385,12 @@ class Resolver {
 				this.parts[pin.kind][pin.release] = part;
 				continue;
 			}
-			// Children present is resolved already, or an embedded Row Spec
-			// (ADR-0017): nothing to fetch. An unresolved Pin without an
-			// adapter is not an error — the renderer says so, and the rest of
-			// the form still works.
+			// Its Fields present is resolved already — or, for `children`, an
+			// embedded Row Spec (ADR-0017): nothing to fetch. An unresolved Pin
+			// without an adapter is not an error — the renderer says so, and the
+			// rest of the form still works.
 			const blueprint = this.adapters.blueprint;
-			if (field.children != null || !blueprint) continue;
+			if (inlined(field, at) || !blueprint) continue;
 			const release = await this.fetch(pin, chain, async () => {
 				const fields = await blueprint.getSchema(pin.release);
 				if (!Array.isArray(fields) || !fields.every(isFieldShaped)) {
@@ -368,19 +398,20 @@ class Resolver {
 				}
 				return fields;
 			});
-			const children = await this.fields(
+			const into = inlineAt(at);
+			const resolved = await this.fields(
 				release as Field[],
-				[...segments, "children"],
+				[...segments, ...into],
 				[...chain, pinKey(pin)],
 			);
-			next = { ...next, children };
-			inlined = true;
+			next = setAt(next, into, resolved);
+			if (into[0] === "children") childrenInlined = true;
 		}
 
 		// Children not fetched here sit inside the same Releases this Field
 		// does: a Group's rows, a resolved Fieldset's Fields, an embedded Row
 		// Spec.
-		if (!inlined && next.children?.length) {
+		if (!childrenInlined && next.children?.length) {
 			const children = await this.fields(
 				next.children,
 				[...segments, "children"],

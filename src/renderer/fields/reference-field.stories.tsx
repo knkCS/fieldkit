@@ -33,8 +33,9 @@ function treeOf(count: number) {
 	const roots = [];
 	for (let n = 1; n <= count; n += 2) {
 		roots.push({
+			_id: `r${n}`,
 			id: `article-${n}`,
-			children: [{ id: `article-${n + 1}` }],
+			children: [{ _id: `r${n + 1}`, id: `article-${n + 1}` }],
 		});
 	}
 	return roots;
@@ -42,7 +43,9 @@ function treeOf(count: number) {
 
 function makeField(
 	overrides: Partial<Field["config"]> = {},
-	settings: Record<string, unknown> = { blueprints: ["article"] },
+	settings: Record<string, unknown> = {
+		blueprints: [{ blueprint: "article" }],
+	},
 ): Field {
 	return {
 		field_type: "reference",
@@ -83,7 +86,12 @@ export const WithStoredReferences: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ related: [{ id: "article-1" }, { id: "article-3" }] }}
+			defaultValues={{
+				related: [
+					{ _id: "r1", id: "article-1" },
+					{ _id: "r2", id: "article-3" },
+				],
+			}}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -101,10 +109,17 @@ export const NestedTree: Story = {
 			defaultValues={{
 				related: [
 					{
+						_id: "r1",
 						id: "article-1",
-						children: [{ id: "article-3", children: [{ id: "article-2" }] }],
+						children: [
+							{
+								_id: "r2",
+								id: "article-3",
+								children: [{ _id: "r3", id: "article-2" }],
+							},
+						],
 					},
-					{ id: "author-1" },
+					{ _id: "r4", id: "author-1" },
 				],
 			}}
 			adapters={{ reference: referenceAdapter }}
@@ -131,7 +146,7 @@ export const UnresolvableReference: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ related: [{ id: "deleted-42" }] }}
+			defaultValues={{ related: [{ _id: "r1", id: "deleted-42" }] }}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -178,26 +193,21 @@ export const Required: Story = {
 
 /**
  * A Field that pins: adding gains a second step, where the Content's Releases
- * are offered alongside the newest Version. Open the drawer and pick a Content
- * to see it.
+ * are offered alongside the Release in force. Open the drawer and pick a
+ * Content to see it.
  */
 export const PinnedToARelease: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[makeField({}, { blueprints: ["article"], pin_mode: "release" })]}
-			defaultValues={{ related: [{ id: "article-1", pin: "article-1-r2" }] }}
-			adapters={{ reference: referenceAdapter }}
-		/>
-	),
-};
-
-/** The same second step, offering Versions instead — the value is identical
- * either way, since a Pin stores only a target id (ADR-0008). */
-export const PinnedToAVersion: Story = {
-	render: () => (
-		<FieldStoryWrapper
-			fields={[makeField({}, { blueprints: ["article"], pin_mode: "version" })]}
-			defaultValues={{ related: [] }}
+			fields={[
+				makeField(
+					{},
+					{ blueprints: [{ blueprint: "article" }], pin_mode: "release" },
+				),
+			]}
+			defaultValues={{
+				related: [{ _id: "r1", id: "article-1", pin: "article-1-r2" }],
+			}}
 			adapters={{ reference: referenceAdapter }}
 		/>
 	),
@@ -224,15 +234,21 @@ export const ReadOnly: Story = {
 	render: () => (
 		<FieldStoryWrapper
 			fields={[makeField()]}
-			defaultValues={{ related: [{ id: "article-1" }, { id: "article-2" }] }}
+			defaultValues={{
+				related: [
+					{ _id: "r1", id: "article-1" },
+					{ _id: "r2", id: "article-2" },
+				],
+			}}
 			adapters={{ reference: referenceAdapter }}
 			readOnly
 		/>
 	),
 };
 
-/** One Attribute Field, as an Author would declare it in the config panel. */
-function attribute(
+/** One Reference Spec Field, as an Author would declare it in the config
+ * panel. */
+function specField(
 	fieldType: string,
 	accessor: string,
 	name: string,
@@ -255,9 +271,9 @@ function attribute(
 }
 
 /**
- * Attributes: values about the *pointing*, declared once and filled per
- * Reference. Each row shows how many it has filled; the button opens a drawer
- * rendering the Attribute Spec through the ordinary renderer.
+ * Values: facts about the *pointing*, declared once as the Reference Spec and
+ * filled per Reference. Each row shows how many it has filled; the button opens
+ * a drawer rendering the Reference Spec through the ordinary renderer.
  *
  * `role` is required, so submitting reports at that Reference's own path.
  */
@@ -268,10 +284,10 @@ export const WithAttributes: Story = {
 				makeField(
 					{},
 					{
-						blueprints: ["article"],
-						attributes: [
-							attribute("number", "page", "Page"),
-							attribute(
+						blueprints: [{ blueprint: "article" }],
+						spec: [
+							specField("number", "page", "Page"),
+							specField(
 								"select",
 								"role",
 								"Role",
@@ -286,9 +302,53 @@ export const WithAttributes: Story = {
 			]}
 			defaultValues={{
 				related: [
-					{ id: "article-1", attributes: { page: 12, role: "cited" } },
-					{ id: "article-3", attributes: { page: 4 } },
-					{ id: "article-2" },
+					{ _id: "r1", id: "article-1", values: { page: 12, role: "cited" } },
+					{ _id: "r2", id: "article-3", values: { page: 4 } },
+					{ _id: "r3", id: "article-2" },
+				],
+			}}
+			adapters={{ reference: referenceAdapter }}
+		/>
+	),
+};
+
+/**
+ * A linked Reference Spec: the `article` entry names a Blueprint Release
+ * (`spec_blueprint`) whose resolved Fields — a required `chapter` — ask about
+ * every Reference to an article *instead of* the embedded `spec`. A Reference
+ * to an author falls back to the embedded `spec` and is asked for a `page`.
+ * The two are never merged.
+ *
+ * Which Blueprint a target belongs to comes from the Adapter's `fetch`
+ * (`blueprint_id`), so the drawer for a row picks its Spec only once that
+ * row's Content has resolved.
+ */
+export const WithLinkedReferenceSpec: Story = {
+	render: () => (
+		<FieldStoryWrapper
+			fields={[
+				makeField(
+					{ name: "Sources" },
+					{
+						blueprints: [
+							{
+								blueprint: "article",
+								spec_blueprint: "bp-citation@1",
+								spec: [
+									specField("number", "chapter", "Chapter", { required: true }),
+								],
+							},
+							{ blueprint: "author" },
+						],
+						spec: [specField("number", "page", "Page")],
+					},
+				),
+			]}
+			defaultValues={{
+				related: [
+					{ _id: "r1", id: "article-1", values: { chapter: 3 } },
+					{ _id: "r2", id: "article-3" },
+					{ _id: "r3", id: "author-1", values: { page: 42 } },
 				],
 			}}
 			adapters={{ reference: referenceAdapter }}
@@ -301,7 +361,7 @@ export const WithAttributes: Story = {
  *
  * It bypasses the table cell — which can only count, having neither adapter
  * access nor async — and renders the tree: each Content's current name at the
- * depth it sits at, with its Attribute values against it (ADR-0008). No form
+ * depth it sits at, with its values against it (ADR-0008). No form
  * is involved; `SpecForm` in read mode needs no `FormProvider`.
  */
 export const ReadMode: Story = {
@@ -315,8 +375,8 @@ export const ReadMode: Story = {
 					makeField(
 						{},
 						{
-							blueprints: ["article"],
-							attributes: [attribute("number", "page", "Page")],
+							blueprints: [{ blueprint: "article" }],
+							spec: [specField("number", "page", "Page")],
 						},
 					),
 				]}
@@ -324,11 +384,12 @@ export const ReadMode: Story = {
 				values={{
 					related: [
 						{
+							_id: "r1",
 							id: "article-1",
-							attributes: { page: 12 },
-							children: [{ id: "article-2", attributes: { page: 88 } }],
+							values: { page: 12 },
+							children: [{ _id: "r2", id: "article-2", values: { page: 88 } }],
 						},
-						{ id: "article-3" },
+						{ _id: "r3", id: "article-3" },
 					],
 				}}
 			/>

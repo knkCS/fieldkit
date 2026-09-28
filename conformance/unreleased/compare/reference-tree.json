@@ -1,0 +1,211 @@
+{
+	"description": "A Reference Tree compares per node by _id at every level (ADR-0023): items list every node of b in document order with its status, a node moved among the siblings it shares is moved, a node moved to another parent has _parent changed, a node's values per Field of the Reference Spec; a Single Reference with one _id compares per field, and a different one as a whole value",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"a": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"children": [
+						{
+							"_id": "n2",
+							"id": "c2",
+							"values": {
+								"page": 1
+							}
+						}
+					]
+				},
+				{
+					"_id": "n3",
+					"id": "c3"
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				},
+				{
+					"_id": "n5",
+					"id": "c5"
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1",
+				"values": {
+					"page": 1
+				}
+			}
+		},
+		"b": {
+			"related": [
+				{
+					"_id": "n4",
+					"id": "c4"
+				},
+				{
+					"_id": "n1",
+					"id": "c1",
+					"pin": "r1"
+				},
+				{
+					"_id": "n3",
+					"id": "c3",
+					"children": [
+						{
+							"_id": "n2",
+							"id": "c2",
+							"values": {
+								"page": 2
+							}
+						},
+						{
+							"_id": "n6",
+							"id": "c6"
+						}
+					]
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1",
+				"values": {
+					"page": 2
+				}
+			}
+		}
+	},
+	"expect": {
+		"compare": {
+			"related": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "n4",
+							"status": "unchanged",
+							"moved": true
+						},
+						{
+							"_id": "n5",
+							"status": "removed"
+						},
+						{
+							"_id": "n1",
+							"status": "changed",
+							"fields": {
+								"pin": {
+									"status": "added"
+								}
+							}
+						},
+						{
+							"_id": "n3",
+							"status": "unchanged"
+						},
+						{
+							"_id": "n2",
+							"status": "changed",
+							"fields": {
+								"_parent": {
+									"status": "changed"
+								},
+								"values": {
+									"status": "changed",
+									"fields": {
+										"page": {
+											"status": "changed"
+										}
+									}
+								}
+							}
+						},
+						{
+							"_id": "n6",
+							"status": "added"
+						}
+					]
+				}
+			},
+			"primary": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"fields": {
+						"values": {
+							"status": "changed",
+							"fields": {
+								"page": {
+									"status": "changed"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

@@ -28,8 +28,10 @@ const OrderSegment = "_order"
 // Field is described by inside it.
 //
 //   - A row array — group, virtual_table, blocks — is
-//     {status, items: [...]}, one CompareItem per row of either value.
-//   - A record — fieldset — is {status, fields: {...}}.
+//     {status, items: [...]}, one CompareItem per row of either value; a
+//     reference tree the same, one per node at every level.
+//   - A record — fieldset, and a single_reference holding one node on both
+//     sides — is {status, fields: {...}}.
 //   - A child Field of any other type is {status} alone.
 //
 // At the top of a Field Status is always "changed": versionkit calls Compare
@@ -59,7 +61,8 @@ type CompareItem struct {
 
 // finerRule is a type's Compare and Merge finer than a whole value. It hands
 // what it holds to the composer, so it never learns its children's types
-// (ADR-0007): a reference tree (#215) and rich_text (#216) plug in here.
+// (ADR-0007): the reference types' (reference_compare.go) are here, and
+// rich_text (#216) plugs in beside them.
 type finerRule struct {
 	compare func(c *composer, f *Field, a, b any) (bool, *CompareDetail, error)
 	merge   func(c *composer, f *Field, base, ours, theirs any, path string) (any, error)
@@ -75,6 +78,10 @@ func finerRuleFor(fieldType string) (finerRule, bool) {
 		return finerRule{compare: compareRowsOf(blockFieldsOf), merge: mergeRowsOf(blockFieldsOf)}, true
 	case "fieldset":
 		return finerRule{compare: compareFieldset, merge: mergeFieldset}, true
+	case "reference":
+		return finerRule{compare: compareReferenceTree, merge: mergeReferenceTree}, true
+	case "single_reference":
+		return finerRule{compare: compareSingleReference, merge: mergeSingleReference}, true
 	}
 	return finerRule{}, false
 }

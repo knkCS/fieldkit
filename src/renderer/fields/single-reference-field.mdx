@@ -37,27 +37,38 @@ one `field_type`.
 
 ```ts
 Reference = {
+  _id: string                            // the node's identity (ADR-0023)
   id: string
-  pin?: string | null                    // the Pin's target id; absent = newest Version
-  attributes?: Record<string, unknown>   // not set by this field type yet
-  children?: Reference[]                 // reference (tree) only
+  pin?: string                           // a Release of it; absent = the Release In Force
+  values?: Record<string, unknown>       // keyed by the Reference Spec's accessors
 }
 ```
 
-The value is one `Reference` or `null` — **never an array**. A display name is
-never stored: it is resolved on load, every load.
+The value is one `Reference` or `null` — **never an array**, and never a
+branch. A display name is never stored: it is resolved on load, every load.
+Picking another Content writes a new Reference, with a new `_id`. A value
+stored in an older shape is normalised on load exactly as a Reference Tree's
+is — `attributes` to `values`, a Pin dropped unless the field pins Releases, a
+label dropped, an `_id` minted — so opening it does not make the form dirty.
 
-`pin` holds **only the target id**. Which *kind* of target it is comes from the
-field's `pin_mode`, never from the value (ADR-0008) — which is why changing
+`pin` holds **only a Release id**. Whether the field pins at all comes from its
+`pin_mode`, never from the value (ADR-0008) — which is why changing
 `pin_mode` invalidates every stored pin at once rather than leaving some stale.
-No pin at all means the Content's newest Version.
+No pin at all means the Release In Force.
 
 ## Settings
 
 | Setting      | Type                                  | Default  | Description                                              |
 |--------------|---------------------------------------|----------|----------------------------------------------------------|
-| `blueprints` | `string[]`                            | `[]`     | The blueprints this field may point at. Empty allows any. |
-| `pin_mode`   | `"none" \| "release" \| "version"`    | `"none"` | Whether the reference is fixed to a release, to a version, or tracks the newest version. Absent reads as `"none"` |
+| `blueprints` | `{ blueprint, spec_blueprint? }[]`    | `[]`     | The blueprints this field may point at, each with an optional linked Reference Spec. Empty allows any. |
+| `spec`       | `Field[]`                             | `[]`     | The embedded Reference Spec, replaced for a target whose Blueprint links one — as a [Reference](?path=/docs/fields-reference--docs)'s |
+| `pin_mode`   | `"none" \| "release"`                 | `"none"` | Whether the reference is fixed to a Release of its target, or follows the Release In Force. Absent reads as `"none"` |
+
+The same settings a Reference Field declares about its References, meaning the
+same things; the `"version"` pin mode is gone, and `blueprints` entries replace
+the list of ids (ADR-0008, amended). The control does not offer a drawer for
+the Reference's values yet: they are validated, walked and compared, and a
+Consumer fills them in.
 
 The config panel offers the blueprints as a multi-select of the blueprints
 `adapters.blueprint.list()` returns, degrading to comma-separated id entry
@@ -99,7 +110,7 @@ reference: {
   fetch: (ids: string[]) => Promise<ReferenceItem[]>;
   listPinTargets?: (              // optional
     contentId: string,
-    mode: "release" | "version",
+    mode: "release",
   ) => Promise<PinTarget[]>;
 }
 

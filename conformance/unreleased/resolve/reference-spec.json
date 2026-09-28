@@ -1,0 +1,266 @@
+{
+	"description": "A Reference Field's linked Reference Specs are Blueprint Pins (blueprints/*/spec_blueprint): each resolves into its own blueprints entry's spec beside the embedded spec, never into it, and a Pin in a linked Reference Spec resolves in turn; an entry already holding its spec is resolved, and fetches nothing",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1"
+					},
+					{
+						"blueprint": "film"
+					},
+					{
+						"blueprint": "review",
+						"spec_blueprint": "bp-review@1"
+					}
+				],
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprints": [
+					{
+						"blueprint": "book",
+						"spec_blueprint": "bp-citation@1",
+						"spec": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Kept",
+									"api_accessor": "kept",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-citation@1": [
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Chapter",
+						"api_accessor": "chapter",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Quote",
+						"api_accessor": "quote",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"bp-review@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "Source",
+						"api_accessor": "source",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-source@2"
+					},
+					"system": false
+				}
+			],
+			"bp-source@2": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Publisher",
+						"api_accessor": "publisher",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"pins": [
+			{
+				"path": "/related/settings/blueprints/0/spec_blueprint",
+				"kind": "blueprint",
+				"release": "bp-citation@1"
+			},
+			{
+				"path": "/related/settings/blueprints/2/spec_blueprint",
+				"kind": "blueprint",
+				"release": "bp-review@1"
+			},
+			{
+				"path": "/primary/settings/blueprints/0/spec_blueprint",
+				"kind": "blueprint",
+				"release": "bp-citation@1"
+			}
+		],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "reference",
+					"config": {
+						"name": "Related",
+						"api_accessor": "related",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprints": [
+							{
+								"blueprint": "book",
+								"spec_blueprint": "bp-citation@1",
+								"spec": [
+									{
+										"field_type": "number",
+										"config": {
+											"name": "Chapter",
+											"api_accessor": "chapter",
+											"required": true,
+											"instructions": ""
+										},
+										"system": false
+									},
+									{
+										"field_type": "text",
+										"config": {
+											"name": "Quote",
+											"api_accessor": "quote",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									}
+								]
+							},
+							{
+								"blueprint": "film"
+							},
+							{
+								"blueprint": "review",
+								"spec_blueprint": "bp-review@1",
+								"spec": [
+									{
+										"field_type": "fieldset",
+										"config": {
+											"name": "Source",
+											"api_accessor": "source",
+											"required": false,
+											"instructions": ""
+										},
+										"settings": {
+											"blueprint": "bp-source@2"
+										},
+										"children": [
+											{
+												"field_type": "text",
+												"config": {
+													"name": "Publisher",
+													"api_accessor": "publisher",
+													"required": false,
+													"instructions": ""
+												},
+												"system": false
+											}
+										],
+										"system": false
+									}
+								]
+							}
+						],
+						"spec": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Page",
+									"api_accessor": "page",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					"system": false
+				},
+				{
+					"field_type": "single_reference",
+					"config": {
+						"name": "Primary",
+						"api_accessor": "primary",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprints": [
+							{
+								"blueprint": "book",
+								"spec_blueprint": "bp-citation@1",
+								"spec": [
+									{
+										"field_type": "text",
+										"config": {
+											"name": "Kept",
+											"api_accessor": "kept",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									}
+								]
+							}
+						]
+					},
+					"system": false
+				}
+			],
+			"parts": {}
+		}
+	}
+}

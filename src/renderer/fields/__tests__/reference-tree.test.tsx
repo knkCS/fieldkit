@@ -28,7 +28,7 @@ const field: Field<ReferenceSettings> = {
 		required: false,
 		instructions: "",
 	},
-	settings: { blueprints: ["article"] },
+	settings: { blueprints: [{ blueprint: "article" }] },
 	children: null,
 	system: false,
 };
@@ -647,8 +647,12 @@ describe("what a drag stores", () => {
 		const schema = specToZodSchema([field], builtInFieldTypes);
 		const tree = {
 			[ACCESSOR]: [
-				{ id: "article-1", children: [{ id: "article-2" }] },
-				{ id: "article-3" },
+				{
+					_id: "r1",
+					id: "article-1",
+					children: [{ _id: "r2", id: "article-2" }],
+				},
+				{ _id: "r3", id: "article-3" },
 			],
 		};
 
@@ -936,22 +940,22 @@ describe("a drag that would adopt the branch below it", () => {
 		]);
 	});
 
-	it("carries Attributes and Pins across, on every Reference that moved", async () => {
+	it("carries values and Pins across, on every Reference that moved", async () => {
 		renderTree({
 			value: [
 				{
 					id: "article-1",
 					pin: "article-1-v2",
-					attributes: { role: "lead" },
+					values: { role: "lead" },
 					children: [
 						{
 							id: "article-2",
 							pin: "article-2-v1",
-							attributes: { role: "support" },
+							values: { role: "support" },
 						},
 					],
 				},
-				{ id: "article-3", pin: "article-3-v3", attributes: { role: "extra" } },
+				{ id: "article-3", pin: "article-3-v3", values: { role: "extra" } },
 			],
 		});
 		await screen.findByText("Content 1");
@@ -961,16 +965,16 @@ describe("a drag that would adopt the branch below it", () => {
 		// The moved Reference keeps its own, and so does the adopted one:
 		// adoption changes whose child a Reference is and nothing else.
 		expect(stored()).toEqual([
-			{ id: "article-1", pin: "article-1-v2", attributes: { role: "lead" } },
+			{ id: "article-1", pin: "article-1-v2", values: { role: "lead" } },
 			{
 				id: "article-3",
 				pin: "article-3-v3",
-				attributes: { role: "extra" },
+				values: { role: "extra" },
 				children: [
 					{
 						id: "article-2",
 						pin: "article-2-v1",
-						attributes: { role: "support" },
+						values: { role: "support" },
 					},
 				],
 			},

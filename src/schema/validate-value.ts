@@ -1,6 +1,6 @@
 // src/schema/validate-value.ts
 import type { ZodIssue } from "zod";
-import type { FieldTypePlugin } from "./plugin";
+import type { FieldTypePlugin, ValueContext } from "./plugin";
 import { itemSegments, toIdPath } from "./row-ids";
 import type { Field } from "./types";
 import { canonicalValue, isPlainObject, isUnset, stripUnset } from "./unset";
@@ -112,6 +112,11 @@ export const VALUE_CAPS = {
  * `missing_id` at the row, a repeat `duplicate_id` at the repeat. Every path
  * addresses an array item by its `_id` where it has one ({@link toIdPath}).
  * A key a row's Fields require, missing, is `required` like a top-level one.
+ *
+ * `options.targetBlueprint` says whose Blueprint each referenced Content is,
+ * for a Reference Field that links a Reference Spec (ADR-0008, amended):
+ * without it such a Field's values are checked as an opaque record. Go's
+ * `WithTargetBlueprints`.
  */
 export function validateValue(
 	spec: Field[],
@@ -119,6 +124,7 @@ export function validateValue(
 	plugins:
 		| readonly FieldTypePlugin[]
 		| ReadonlyMap<string, FieldTypePlugin<unknown>>,
+	options: ValueContext = {},
 ): ValueError[] {
 	const pluginList: FieldTypePlugin[] = Array.isArray(plugins)
 		? [...(plugins as readonly FieldTypePlugin[])]
@@ -161,7 +167,12 @@ export function validateValue(
 			continue;
 		}
 
-		const schema = zodTypeOf(plugin, canonicalField(field), pluginList);
+		const schema = zodTypeOf(
+			plugin,
+			canonicalField(field),
+			pluginList,
+			options,
+		);
 		const result = schema.safeParse(value);
 		if (result.success) continue;
 		for (const issue of typeIssues(result.error.issues)) {
@@ -185,14 +196,18 @@ function zodTypeOf(
 	plugin: FieldTypePlugin,
 	field: Field<unknown>,
 	plugins: FieldTypePlugin[],
+	context: ValueContext,
 ) {
-	const compose = (children: Field[]) => specToZodSchema(children, plugins);
+	const compose = (children: Field[]) =>
+		specToZodSchema(children, plugins, {
+			targetBlueprint: context.targetBlueprint,
+		});
 	try {
-		return plugin.toZodType(field, compose);
+		return plugin.toZodType(field, compose, context);
 	} catch (error) {
 		if (!field.validation?.pattern) throw error;
 		const { pattern: _, ...validation } = field.validation;
-		return plugin.toZodType({ ...field, validation }, compose);
+		return plugin.toZodType({ ...field, validation }, compose, context);
 	}
 }
 
@@ -239,8 +254,10 @@ function valueAt(value: unknown, path: readonly (string | number)[]): unknown {
  * missing `_id`.
  */
 function codeOf(issue: ZodIssue, found: unknown): ValueErrorCode {
-	if (issue.code === "custom" && issue.params?.code === "duplicate_id") {
-		return "duplicate_id";
+	// A rule a type states itself names its code: `duplicate_id` of a row
+	// array or a tree, a Reference Tree's `too_many_items`.
+	if (issue.code === "custom" && isValueErrorCode(issue.params?.code)) {
+		return issue.params.code;
 	}
 	if (found === undefined && issue.path.length > 0) {
 		return issue.path[issue.path.length - 1] === "_id"
@@ -261,6 +278,25 @@ function codeOf(issue: ZodIssue, found: unknown): ValueErrorCode {
 		default:
 			return "invalid_value";
 	}
+}
+
+const VALUE_ERROR_CODES: ReadonlySet<string> = new Set<ValueErrorCode>([
+	"required",
+	"not_canonical",
+	"invalid_type",
+	"invalid_format",
+	"too_small",
+	"too_big",
+	"too_many_items",
+	"too_large",
+	"invalid_value",
+	"missing_id",
+	"duplicate_id",
+	"too_deep",
+]);
+
+function isValueErrorCode(code: unknown): code is ValueErrorCode {
+	return typeof code === "string" && VALUE_ERROR_CODES.has(code);
 }
 
 /** Reports every key holding an Unset value, at every depth. A key that is

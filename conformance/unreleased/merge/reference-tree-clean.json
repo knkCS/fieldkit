@@ -1,0 +1,231 @@
+{
+	"description": "A Reference Tree merges per node: a move to another parent on one side and a values edit of the same node on the other merge cleanly, as do a reorder on one side and a Pin and a new child on the other; a Single Reference merges per field",
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"pin_mode": "release"
+			},
+			"system": false
+		},
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "Primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"children": [
+						{
+							"_id": "n2",
+							"id": "c2",
+							"values": {
+								"page": 1
+							}
+						}
+					]
+				},
+				{
+					"_id": "n3",
+					"id": "c3",
+					"values": {
+						"page": 5
+					}
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1",
+				"values": {
+					"page": 1,
+					"note": "x"
+				}
+			}
+		},
+		"ours": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1"
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				},
+				{
+					"_id": "n3",
+					"id": "c3",
+					"values": {
+						"page": 5
+					},
+					"children": [
+						{
+							"_id": "n2",
+							"id": "c2",
+							"values": {
+								"page": 1
+							}
+						}
+					]
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1",
+				"values": {
+					"page": 2,
+					"note": "x"
+				}
+			}
+		},
+		"theirs": {
+			"related": [
+				{
+					"_id": "n1",
+					"id": "c1",
+					"pin": "r9",
+					"children": [
+						{
+							"_id": "n2",
+							"id": "c2",
+							"values": {
+								"page": 7
+							}
+						},
+						{
+							"_id": "n5",
+							"id": "c5"
+						}
+					]
+				},
+				{
+					"_id": "n3",
+					"id": "c3",
+					"values": {
+						"page": 6
+					}
+				},
+				{
+					"_id": "n4",
+					"id": "c4"
+				}
+			],
+			"primary": {
+				"_id": "s",
+				"id": "c1",
+				"pin": "r2",
+				"values": {
+					"page": 1,
+					"note": "x"
+				}
+			}
+		}
+	},
+	"expect": {
+		"merge": {
+			"related": {
+				"merged": [
+					{
+						"_id": "n1",
+						"id": "c1",
+						"pin": "r9",
+						"children": [
+							{
+								"_id": "n5",
+								"id": "c5"
+							}
+						]
+					},
+					{
+						"_id": "n4",
+						"id": "c4"
+					},
+					{
+						"_id": "n3",
+						"id": "c3",
+						"values": {
+							"page": 6
+						},
+						"children": [
+							{
+								"_id": "n2",
+								"id": "c2",
+								"values": {
+									"page": 7
+								}
+							}
+						]
+					}
+				]
+			},
+			"primary": {
+				"merged": {
+					"_id": "s",
+					"id": "c1",
+					"pin": "r2",
+					"values": {
+						"page": 2,
+						"note": "x"
+					}
+				}
+			}
+		}
+	}
+}

@@ -134,10 +134,10 @@ func TestValidateValueSkipsWhatItDoesNotImplement(t *testing.T) {
 	// The types outside the Catalogue are TS's alone for now: skipped, not
 	// refused — in a row too.
 	group := valueField("group", "authors", "")
-	group.Children = []Field{valueField("reference", "related", "")}
+	group.Children = []Field{valueField("legacy", "related", "")}
 	spec := Spec{
 		group,
-		valueField("reference", "related", ""),
+		valueField("legacy", "related", ""),
 		valueField("rich_text", "body", ""),
 	}
 	data := json.RawMessage(`{"authors": [{"_id": "a", "related": 5}], "related": "x", "body": 1}`)

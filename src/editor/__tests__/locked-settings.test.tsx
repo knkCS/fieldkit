@@ -37,7 +37,7 @@ function referenceField(locked?: LockedSetting[]): Field {
 			instructions: "",
 			...(locked ? { locked_settings: locked } : {}),
 		},
-		settings: { blueprints: [], pin_mode: "version", max_items: 3 },
+		settings: { blueprints: [], pin_mode: "release", max_items: 3 },
 		children: null,
 		system: false,
 	};
@@ -229,12 +229,12 @@ describe("the mechanism is generic", () => {
 
 	it("freezes a settings-nested Spec, drill-in included", async () => {
 		const user = userEvent.setup();
-		const withAttributes: Field = {
-			...referenceField(frozen("attributes", "Attribute data already saved")),
+		const withReferenceSpec: Field = {
+			...referenceField(frozen("spec", "Reference values already saved")),
 			settings: {
 				blueprints: [],
 				pin_mode: "none",
-				attributes: [
+				spec: [
 					{
 						field_type: "text",
 						config: {
@@ -250,16 +250,14 @@ describe("the mechanism is generic", () => {
 			},
 		};
 
-		renderPanel(withAttributes, referencePlugin);
+		renderPanel(withReferenceSpec, referencePlugin);
 		await openTypeSettingsFully(user);
 
-		expect(
-			screen.getByRole("button", { name: "Add attribute" }),
-		).toBeDisabled();
-		expect(screen.getByTestId("attribute-edit-note")).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Add field" })).toBeDisabled();
+		expect(screen.getByTestId("reference-spec-edit-note")).toBeDisabled();
 		expect(screen.getByRole("button", { name: "Remove Note" })).toBeDisabled();
-		expect(screen.getByTestId("setting-locked-attributes")).toHaveTextContent(
-			"Attribute data already saved",
+		expect(screen.getByTestId("setting-locked-spec")).toHaveTextContent(
+			"Reference values already saved",
 		);
 	});
 });
@@ -343,7 +341,7 @@ describe("a settings editor that ignores the list", () => {
 		await user.click(screen.getByRole("button", { name: "Rewrite settings" }));
 
 		const settings = panelField().settings as Record<string, unknown>;
-		expect(settings.pin_mode).toBe("version");
+		expect(settings.pin_mode).toBe("release");
 		// The rest of the same write lands: the lock freezes one setting, not
 		// the whole editor.
 		expect(settings.max_items).toBe(9);
@@ -416,6 +414,6 @@ describe("freezing the pin mode, end to end", () => {
 		const committed = onCommit.mock.calls[0][0] as Schema;
 		const settings = committed[0].settings as Record<string, unknown>;
 		expect(settings.max_items).toBe(8);
-		expect(settings.pin_mode).toBe("version");
+		expect(settings.pin_mode).toBe("release");
 	});
 });

@@ -117,19 +117,21 @@ describe("SingleReferenceSettingsEditor", () => {
 			await user.click(await screen.findByLabelText(/Blueprints/));
 			await user.click(await screen.findByText("Article"));
 
-			expect(onChange).toHaveBeenLastCalledWith({ blueprints: ["article"] });
+			expect(onChange).toHaveBeenLastCalledWith({
+				blueprints: [{ blueprint: "article" }],
+			});
 
 			await user.click(blueprints());
 			await user.click(await screen.findByText("Author"));
 
 			expect(onChange).toHaveBeenLastCalledWith({
-				blueprints: ["article", "author"],
+				blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
 			});
 		});
 
 		it("shows stored blueprints by name, not by id", async () => {
 			renderEditor({
-				initial: { blueprints: ["author"] },
+				initial: { blueprints: [{ blueprint: "author" }] },
 				adapters: listingAdapter(),
 			});
 
@@ -138,7 +140,7 @@ describe("SingleReferenceSettingsEditor", () => {
 
 		it("keeps a stored blueprint the list does not offer", async () => {
 			const { onChange } = renderEditor({
-				initial: { blueprints: ["retired_bp"] },
+				initial: { blueprints: [{ blueprint: "retired_bp" }] },
 				adapters: listingAdapter(),
 			});
 
@@ -150,7 +152,7 @@ describe("SingleReferenceSettingsEditor", () => {
 	});
 
 	describe("the pin mode", () => {
-		it("offers none, release or version", async () => {
+		it("offers none or release — never a version", async () => {
 			const user = userEvent.setup();
 			const { pinMode } = renderEditor();
 
@@ -162,26 +164,26 @@ describe("SingleReferenceSettingsEditor", () => {
 				(await screen.findAllByRole("option")).map((option) =>
 					option.textContent?.trim(),
 				),
-			).toEqual(["The newest version", "A chosen release", "A chosen version"]);
+			).toEqual(["The release in force", "A chosen release"]);
 		});
 
-		it("starts a Field on the newest version", () => {
+		it("starts a Field on the release in force", () => {
 			renderEditor();
 
-			expect(screen.getByText("The newest version")).toBeInTheDocument();
+			expect(screen.getByText("The release in force")).toBeInTheDocument();
 		});
 
 		it("stores the mode the Author chooses, leaving the rest alone", async () => {
 			const user = userEvent.setup();
 			const { onChange, pinMode } = renderEditor({
-				initial: { blueprints: ["article"] },
+				initial: { blueprints: [{ blueprint: "article" }] },
 			});
 
 			await user.click(pinMode());
 			await user.click(await screen.findByText("A chosen release"));
 
 			expect(onChange).toHaveBeenLastCalledWith({
-				blueprints: ["article"],
+				blueprints: [{ blueprint: "article" }],
 				pin_mode: "release",
 			});
 		});
@@ -195,6 +197,25 @@ describe("SingleReferenceSettingsEditor", () => {
 		});
 	});
 
+	it("offers a Reference Spec, as a tree of references has", () => {
+		renderEditor();
+
+		expect(screen.getByTestId("reference-spec-editor")).toHaveTextContent(
+			"Reference Spec",
+		);
+	});
+
+	it("offers a linked Reference Spec for each Blueprint", () => {
+		renderEditor({
+			initial: { blueprints: [{ blueprint: "article" }] },
+			adapters: schemaOnlyAdapter(),
+		});
+
+		expect(
+			screen.getByTestId("single-reference-blueprints-input-spec-article"),
+		).toBeInTheDocument();
+	});
+
 	describe("with no way to list blueprints", () => {
 		it("sets the blueprint ids the Author types", async () => {
 			const user = userEvent.setup();
@@ -205,13 +226,15 @@ describe("SingleReferenceSettingsEditor", () => {
 			await user.type(blueprints(), "article, author");
 
 			expect(onChange).toHaveBeenLastCalledWith({
-				blueprints: ["article", "author"],
+				blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
 			});
 		});
 
 		it("shows the Author's stored blueprint ids", () => {
 			const { blueprints } = renderEditor({
-				initial: { blueprints: ["article", "author"] },
+				initial: {
+					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
+				},
 				adapters: schemaOnlyAdapter(),
 			});
 
@@ -221,7 +244,7 @@ describe("SingleReferenceSettingsEditor", () => {
 		it("treats a cleared input as no blueprint constraint", async () => {
 			const user = userEvent.setup();
 			const { onChange, blueprints } = renderEditor({
-				initial: { blueprints: ["article"] },
+				initial: { blueprints: [{ blueprint: "article" }] },
 				adapters: schemaOnlyAdapter(),
 			});
 

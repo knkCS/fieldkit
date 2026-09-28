@@ -130,7 +130,7 @@ describe("validateSpec over a Reference Spec", () => {
 	it("reports a Field whose type may not sit in a Reference Spec as position", () => {
 		const credits = field("reference", "credits", {
 			settings: {
-				attributes: [
+				spec: [
 					field("text", "role"),
 					field("section", "divider"),
 					field("group", "details", { children: [field("text", "note")] }),
@@ -144,16 +144,16 @@ describe("validateSpec over a Reference Spec", () => {
 				.filter((e) => e.code === "position")
 				.map((e) => [e.path, e.params?.position]),
 		).toEqual([
-			["/credits/settings/attributes/divider", "reference_spec"],
-			["/credits/settings/attributes/details", "reference_spec"],
-			["/credits/settings/attributes/nested", "reference_spec"],
+			["/credits/settings/spec/divider", "reference_spec"],
+			["/credits/settings/spec/details", "reference_spec"],
+			["/credits/settings/spec/nested", "reference_spec"],
 		]);
 	});
 
 	it("walks it like children, so an Attribute's Accessor is checked too", () => {
 		const credits = field("reference", "credits", {
 			settings: {
-				attributes: [
+				spec: [
 					field("text", "role"),
 					field("text", "role"),
 					field("text", "_id"),
@@ -163,8 +163,8 @@ describe("validateSpec over a Reference Spec", () => {
 		const errors = validateSpec([credits], plugins).fieldErrors;
 		expect(errors.map((e) => [e.code, e.path])).toEqual(
 			expect.arrayContaining([
-				["duplicate_accessor", "/credits/settings/attributes/role"],
-				["reserved_accessor", "/credits/settings/attributes/_id"],
+				["duplicate_accessor", "/credits/settings/spec/role"],
+				["reserved_accessor", "/credits/settings/spec/_id"],
 			]),
 		);
 	});
@@ -172,7 +172,7 @@ describe("validateSpec over a Reference Spec", () => {
 	it("accepts a Reference Spec of leaf types", () => {
 		const credits = field("reference", "credits", {
 			settings: {
-				attributes: [field("text", "role"), field("number", "page")],
+				spec: [field("text", "role"), field("number", "page")],
 			},
 		});
 		expect(validateSpec([credits], plugins).fieldErrors).toEqual([]);

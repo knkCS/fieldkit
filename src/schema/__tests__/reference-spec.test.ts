@@ -1,13 +1,13 @@
-// src/schema/__tests__/reference-attributes.test.ts
+// src/schema/__tests__/reference-spec.test.ts
 import { describe, expect, it } from "vitest";
 import { builtInFieldTypes } from "../field-types";
 import type { ReferenceSettings } from "../field-types/reference";
 import { referencePlugin } from "../field-types/reference";
 import {
-	countFilledAttributes,
-	declaredAttributes,
-	isAttributeFilled,
-} from "../reference-attributes";
+	countFilledValues,
+	declaredReferenceFields,
+	isReferenceValueFilled,
+} from "../reference-spec";
 import { resolveSpec, specPins } from "../resolve-spec";
 import type { Field } from "../types";
 import { validateSpec } from "../validate-spec";
@@ -46,7 +46,7 @@ const ROLE = attribute(
 	},
 );
 
-function referenceField(attributes: Field[]): Field<ReferenceSettings> {
+function referenceField(spec: Field[]): Field<ReferenceSettings> {
 	return {
 		field_type: "reference",
 		config: {
@@ -55,7 +55,7 @@ function referenceField(attributes: Field[]): Field<ReferenceSettings> {
 			required: false,
 			instructions: "",
 		},
-		settings: { blueprints: [], attributes },
+		settings: { blueprints: [], spec },
 		children: null,
 		system: false,
 	};
@@ -63,49 +63,47 @@ function referenceField(attributes: Field[]): Field<ReferenceSettings> {
 
 /** The Field's Schema as a whole Spec produces it — the only path that hands
  * the plugin its `composeChildren`. */
-function schemaFor(attributes: Field[]) {
-	return specToZodSchema([referenceField(attributes)], builtInFieldTypes);
+function schemaFor(spec: Field[]) {
+	return specToZodSchema([referenceField(spec)], builtInFieldTypes);
 }
 
 describe("counting what a Reference has filled in", () => {
 	it("counts an answered Attribute and skips an unanswered one", () => {
-		expect(countFilledAttributes([PAGE, ROLE], { page: 12 })).toBe(1);
-		expect(
-			countFilledAttributes([PAGE, ROLE], { page: 12, role: "author" }),
-		).toBe(2);
-		expect(countFilledAttributes([PAGE, ROLE], {})).toBe(0);
-		expect(countFilledAttributes([PAGE, ROLE], undefined)).toBe(0);
+		expect(countFilledValues([PAGE, ROLE], { page: 12 })).toBe(1);
+		expect(countFilledValues([PAGE, ROLE], { page: 12, role: "author" })).toBe(
+			2,
+		);
+		expect(countFilledValues([PAGE, ROLE], {})).toBe(0);
+		expect(countFilledValues([PAGE, ROLE], undefined)).toBe(0);
 	});
 
 	it("reads the four ways a control says nothing as unanswered", () => {
-		expect(isAttributeFilled(undefined)).toBe(false);
-		expect(isAttributeFilled(null)).toBe(false);
-		expect(isAttributeFilled("")).toBe(false);
-		expect(isAttributeFilled("   ")).toBe(false);
-		expect(isAttributeFilled([])).toBe(false);
+		expect(isReferenceValueFilled(undefined)).toBe(false);
+		expect(isReferenceValueFilled(null)).toBe(false);
+		expect(isReferenceValueFilled("")).toBe(false);
+		expect(isReferenceValueFilled("   ")).toBe(false);
+		expect(isReferenceValueFilled([])).toBe(false);
 	});
 
 	it("reads a false and a zero as answers, because that is what they are", () => {
 		// A count that disagreed with the Schema about whether a required
 		// Attribute was satisfied would be worse than no count at all.
-		expect(isAttributeFilled(false)).toBe(true);
-		expect(isAttributeFilled(0)).toBe(true);
+		expect(isReferenceValueFilled(false)).toBe(true);
+		expect(isReferenceValueFilled(0)).toBe(true);
 	});
 
 	it("counts over the Spec, so a deleted Attribute's leftover key does not", () => {
 		// Nothing on screen still offers it, so counting it would report
 		// attention no drawer can be paid.
-		expect(countFilledAttributes([PAGE], { page: 3, role: "author" })).toBe(1);
+		expect(countFilledValues([PAGE], { page: 3, role: "author" })).toBe(1);
 	});
 
 	it("asks for no hidden Attribute, so a count cannot outrun the drawer", () => {
 		const hidden = attribute("text", "note", "Note", { hidden: true });
 		expect(
-			declaredAttributes([PAGE, hidden]).map((f) => f.config.name),
+			declaredReferenceFields([PAGE, hidden]).map((f) => f.config.name),
 		).toEqual(["Page"]);
-		expect(countFilledAttributes([PAGE, hidden], { page: 1, note: "x" })).toBe(
-			1,
-		);
+		expect(countFilledValues([PAGE, hidden], { page: 1, note: "x" })).toBe(1);
 	});
 
 	it("asks for no value-less Marker either", () => {
@@ -114,9 +112,9 @@ describe("counting what a Reference has filled in", () => {
 		// permanently one short of full, with nothing on screen to fill.
 		const marker = attribute("section", "details", "Details");
 		expect(
-			declaredAttributes([PAGE, marker]).map((f) => f.config.name),
+			declaredReferenceFields([PAGE, marker]).map((f) => f.config.name),
 		).toEqual(["Page"]);
-		expect(countFilledAttributes([PAGE, marker], { page: 1 })).toBe(1);
+		expect(countFilledValues([PAGE, marker], { page: 1 })).toBe(1);
 	});
 });
 
@@ -125,12 +123,13 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 		const schema = schemaFor([PAGE]);
 
 		expect(
-			schema.safeParse({ related: [{ id: "a", attributes: { page: 12 } }] })
-				.success,
+			schema.safeParse({
+				related: [{ _id: "n-a", id: "a", values: { page: 12 } }],
+			}).success,
 		).toBe(true);
 		expect(
 			schema.safeParse({
-				related: [{ id: "a", attributes: { page: "twelve" } }],
+				related: [{ _id: "n-a", id: "a", values: { page: "twelve" } }],
 			}).success,
 		).toBe(false);
 	});
@@ -139,26 +138,28 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 		const schema = schemaFor([PAGE, ROLE]);
 
 		const parsed = schema.safeParse({
-			related: [{ id: "a", attributes: { page: 12 } }],
+			related: [{ _id: "n-a", id: "a", values: { page: 12 } }],
 		});
 		expect(parsed.success).toBe(false);
 		expect(parsed.success === false && parsed.error.issues[0].path).toEqual([
 			"related",
 			0,
-			"attributes",
+			"values",
 			"role",
 		]);
 	});
 
-	it("blocks on a Reference that stores no attributes record at all", () => {
+	it("blocks on a Reference that stores no values record at all", () => {
 		// A Reference added before the Attribute was declared: an absent record
 		// must not slip past the check the Author just imposed.
-		const parsed = schemaFor([ROLE]).safeParse({ related: [{ id: "a" }] });
+		const parsed = schemaFor([ROLE]).safeParse({
+			related: [{ _id: "n-a", id: "a" }],
+		});
 		expect(parsed.success).toBe(false);
 		expect(parsed.success === false && parsed.error.issues[0].path).toEqual([
 			"related",
 			0,
-			"attributes",
+			"values",
 			"role",
 		]);
 	});
@@ -169,9 +170,10 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 		const parsed = schema.safeParse({
 			related: [
 				{
+					_id: "n-a",
 					id: "a",
-					attributes: { role: "author" },
-					children: [{ id: "a1", attributes: {} }],
+					values: { role: "author" },
+					children: [{ _id: "n-a1", id: "a1", values: {} }],
 				},
 			],
 		});
@@ -181,18 +183,18 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 			0,
 			"children",
 			0,
-			"attributes",
+			"values",
 			"role",
 		]);
 	});
 
 	it("leaves an optional Attribute optional, and stores no record without one", () => {
 		const schema = schemaFor([PAGE]);
-		const value = { related: [{ id: "a" }] };
+		const value = { related: [{ _id: "n-a", id: "a" }] };
 
 		const parsed = schema.safeParse(value);
 		expect(parsed.success).toBe(true);
-		// No `attributes: {}` injected: a Reference that carries nothing about
+		// No `values: {}` injected: a Reference that carries nothing about
 		// the pointing stores exactly what it stored before Attributes existed.
 		expect(parsed.success && parsed.data).toEqual(value);
 	});
@@ -201,7 +203,7 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 		// The same passthrough both container types apply (ADR-0007): validation
 		// arriving is no reason to prune an Author's data.
 		const value = {
-			related: [{ id: "a", attributes: { page: 3, legacy: "kept" } }],
+			related: [{ _id: "n-a", id: "a", values: { page: 3, legacy: "kept" } }],
 		};
 		const parsed = schemaFor([PAGE]).safeParse(value);
 
@@ -211,7 +213,9 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 
 	it("holds the opaque record it always did when no Attribute is declared", () => {
 		const schema = schemaFor([]);
-		const value = { related: [{ id: "a", attributes: { anything: [1, 2] } }] };
+		const value = {
+			related: [{ _id: "n-a", id: "a", values: { anything: [1, 2] } }],
+		};
 
 		expect(schema.safeParse(value).success).toBe(true);
 	});
@@ -221,7 +225,7 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 		// Attribute Spec it was never handed a composer for stays uninspected.
 		const zodType = referencePlugin.toZodType(referenceField([ROLE]));
 
-		expect(zodType.safeParse([{ id: "a" }]).success).toBe(true);
+		expect(zodType.safeParse([{ _id: "n-a", id: "a" }]).success).toBe(true);
 	});
 });
 
@@ -242,7 +246,7 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 		expect(result.fieldErrors.map((e) => [e.code, e.path])).toEqual([
 			[
 				"duplicate_accessor",
-				`/${field.config.api_accessor}/settings/attributes/page`,
+				`/${field.config.api_accessor}/settings/spec/page`,
 			],
 		]);
 	});
@@ -277,7 +281,7 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 
 		expect(specPins(spec)).toEqual([
 			{
-				path: "/related/settings/attributes/address/settings/blueprint",
+				path: "/related/settings/spec/address/settings/blueprint",
 				kind: "blueprint",
 				release: "address@1",
 			},
@@ -293,8 +297,7 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 
 		expect(fetched).toEqual(["address@1"]);
 		expect(
-			(resolved.fields[0].settings as ReferenceSettings).attributes?.[0]
-				.children,
+			(resolved.fields[0].settings as ReferenceSettings).spec?.[0].children,
 		).toEqual([]);
 	});
 
@@ -304,11 +307,11 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 		// does not throw where an Accessor was expected.
 		const spec = ["not-a-field", null, PAGE] as unknown as Field[];
 
-		expect(declaredAttributes(spec)).toEqual([PAGE]);
-		expect(countFilledAttributes(spec, { page: 3 })).toBe(1);
+		expect(declaredReferenceFields(spec)).toEqual([PAGE]);
+		expect(countFilledValues(spec, { page: 3 })).toBe(1);
 		expect(
 			schemaFor(spec).safeParse({
-				related: [{ id: "a", attributes: { page: "three" } }],
+				related: [{ _id: "n-a", id: "a", values: { page: "three" } }],
 			}).success,
 		).toBe(false);
 	});
@@ -320,12 +323,14 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 		]);
 
 		expect(
-			schema.safeParse({ related: [{ id: "a", attributes: { page: 12 } }] })
-				.success,
+			schema.safeParse({
+				related: [{ _id: "n-a", id: "a", values: { page: 12 } }],
+			}).success,
 		).toBe(true);
 		expect(
-			schema.safeParse({ related: [{ id: "a", attributes: { page: "12" } }] })
-				.success,
+			schema.safeParse({
+				related: [{ _id: "n-a", id: "a", values: { page: "12" } }],
+			}).success,
 		).toBe(false);
 	});
 });

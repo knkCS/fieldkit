@@ -104,7 +104,7 @@ describe("validateSpec — a caller's policy", () => {
 			[
 				field("virtual_table", "rows", { children: [field("text", "label")] }),
 				field("reference", "credits", {
-					settings: { attributes: [field("number", "page")] },
+					settings: { spec: [field("number", "page")] },
 				}),
 				spec[3],
 			],
@@ -120,7 +120,7 @@ describe("validateSpec — a caller's policy", () => {
 			["/rows", "root"],
 			["/rows/children/label", "row"],
 			["/credits", "root"],
-			["/credits/settings/attributes/page", "reference_spec"],
+			["/credits/settings/spec/page", "reference_spec"],
 			["/content", "root"],
 			["/content/settings/allowed_blocks/0/fields/headline", "block_type"],
 		]);

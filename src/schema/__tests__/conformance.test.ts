@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { CATALOGUE_VERSION } from "../catalogue-version";
 import { type Edge, edges, type FieldText, texts } from "../content-walk";
 import { builtInFieldTypes } from "../field-types";
-import type { FieldTypePlugin } from "../plugin";
+import type { FieldTypePlugin, ValueContext } from "../plugin";
 import {
 	type ResolvedSpec,
 	resolveSpec,
@@ -52,7 +52,16 @@ interface Fixture {
 	releases?: Record<string, Record<string, unknown>>;
 	/** Resolution's caps, overriding `RESOLVE_CAPS`. */
 	resolveOptions?: { maxFetches?: number; maxDepth?: number };
+	/** The Blueprint of each referenced Content, by its id, for the value
+	 * operations (`ValueContext.targetBlueprint`). */
+	targets?: Record<string, string>;
 	expect: Record<string, unknown>;
+}
+
+/** The value context a fixture's `targets` make. */
+function valueContext(fixture: Fixture): ValueContext {
+	const targets = fixture.targets;
+	return targets ? { targetBlueprint: (id) => targets[id] } : {};
 }
 
 /** The Catalogue's types, and only those: Go validates against the Catalogue,
@@ -191,7 +200,12 @@ describe("conformance fixtures", () => {
 
 			if (bound.includes("validateValue")) {
 				const want = fixture.expect.validateValue as ExpectedError[];
-				const got = validateValue(fixture.spec, fixture.data, cataloguePlugins);
+				const got = validateValue(
+					fixture.spec,
+					fixture.data,
+					cataloguePlugins,
+					valueContext(fixture),
+				);
 				expect(sorted(got)).toEqual(sorted(want));
 			}
 
@@ -231,14 +245,24 @@ describe("conformance fixtures", () => {
 			if (bound.includes("edges")) {
 				const want = fixture.expect.edges as Edge[];
 				const resolved = await resolveFixture(fixture);
-				const got = edges(resolved, fixture.data, cataloguePlugins);
+				const got = edges(
+					resolved,
+					fixture.data,
+					cataloguePlugins,
+					valueContext(fixture),
+				);
 				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
 			}
 
 			if (bound.includes("texts")) {
 				const want = fixture.expect.texts as FieldText[];
 				const resolved = await resolveFixture(fixture);
-				const got = texts(resolved, fixture.data, cataloguePlugins);
+				const got = texts(
+					resolved,
+					fixture.data,
+					cataloguePlugins,
+					valueContext(fixture),
+				);
 				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
 			}
 		});

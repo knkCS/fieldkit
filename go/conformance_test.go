@@ -40,7 +40,18 @@ type fixture struct {
 		MaxFetches *int `json:"maxFetches,omitempty"`
 		MaxDepth   *int `json:"maxDepth,omitempty"`
 	} `json:"resolveOptions,omitempty"`
-	Expect map[string]json.RawMessage `json:"expect"`
+	// Targets are the Blueprint of each referenced Content, by its id, for
+	// the value operations (WithTargetBlueprints).
+	Targets map[string]string          `json:"targets,omitempty"`
+	Expect  map[string]json.RawMessage `json:"expect"`
+}
+
+// valueOptions are the options a fixture's targets make.
+func (fx fixture) valueOptions() []ValueOption {
+	if fx.Targets == nil {
+		return nil
+	}
+	return []ValueOption{WithTargetBlueprints(func(id string) string { return fx.Targets[id] })}
 }
 
 // inRepository skips a test that reads the repository around the module when
@@ -222,7 +233,7 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
 	got := []expectedError{}
-	for _, e := range ValidateValue(spec, fx.Data) {
+	for _, e := range ValidateValue(spec, fx.Data, fx.valueOptions()...) {
 		got = append(got, expectedError{Path: e.Path, Code: e.Code})
 	}
 	if want == nil {

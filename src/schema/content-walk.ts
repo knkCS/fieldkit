@@ -9,7 +9,12 @@
 // `edges`, and a container hands what it holds back to the walk through its
 // `records` (ADR-0007), so the walk never learns a type's name.
 
-import type { EdgeTarget, FieldTypePlugin, ValueEdge } from "./plugin";
+import type {
+	EdgeTarget,
+	FieldTypePlugin,
+	ValueContext,
+	ValueEdge,
+} from "./plugin";
 import type { ResolvedSpec } from "./resolve-spec";
 import { toPluginMap } from "./row-ids";
 import type { SearchWeight } from "./search";
@@ -64,6 +69,7 @@ function walkFields(
 	segments: readonly string[],
 	plugins: ReadonlyMap<string, FieldTypePlugin>,
 	visit: Visit,
+	context: ValueContext,
 ): void {
 	for (const field of fields) {
 		if (!isPlainObject(field) || !isPlainObject(field.config)) continue;
@@ -76,13 +82,14 @@ function walkFields(
 		if (!plugin) continue;
 		const at = [...segments, accessor];
 		visit(field, plugin, value, at);
-		for (const held of plugin.records?.(field, value) ?? []) {
+		for (const held of plugin.records?.(field, value, context) ?? []) {
 			walkFields(
 				held.fields,
 				held.record,
 				[...at, ...held.segments],
 				plugins,
 				visit,
+				context,
 			);
 		}
 	}
@@ -96,12 +103,20 @@ function walkData(
 	plugins: Plugins,
 	visit: Visit,
 	operation: string,
+	context: ValueContext,
 ): void {
 	const canonical = stripUnset(data === undefined ? {} : data);
 	if (!isPlainObject(canonical)) {
 		throw new TypeError(`fieldkit: ${operation}: data is not an object`);
 	}
-	walkFields(resolved.fields, canonical, [], toPluginMap(plugins), visit);
+	walkFields(
+		resolved.fields,
+		canonical,
+		[],
+		toPluginMap(plugins),
+		visit,
+		context,
+	);
 }
 
 /**
@@ -112,12 +127,14 @@ function walkData(
  *
  * It reads data validation accepted, and checks nothing: a value of the wrong
  * shape yields no edge. Markers and hidden Fields yield none, and neither
- * does a `lookup`. Throws on data that is not an object.
+ * does a `lookup`. Throws on data that is not an object. `options` is
+ * validation's: whose Blueprint each referenced Content is (`ValueContext`).
  */
 export function edges(
 	resolved: ResolvedSpec,
 	data: unknown,
 	plugins: Plugins,
+	options: ValueContext = {},
 ): Edge[] {
 	const out: Edge[] = [];
 	walkData(
@@ -130,6 +147,7 @@ export function edges(
 			}
 		},
 		"edges",
+		options,
 	);
 	return out;
 }
@@ -151,12 +169,14 @@ function toEdge(edge: ValueEdge, segments: readonly string[]): Edge {
  * Each Field weighs by its own `config.search`, inside a row as at the root:
  * `off` yields nothing, and Unset weighs `D`. A value yielding no text yields
  * nothing; markers and hidden Fields yield none. Throws on data that is not
- * an object.
+ * an object. `options` is validation's (`ValueContext`): a Reference's values
+ * are read only against the Reference Spec they follow.
  */
 export function texts(
 	resolved: ResolvedSpec,
 	data: unknown,
 	plugins: Plugins,
+	options: ValueContext = {},
 ): FieldText[] {
 	const out: FieldText[] = [];
 	walkData(
@@ -174,6 +194,7 @@ export function texts(
 			out.push({ path: toPath(segments), weight, text });
 		},
 		"texts",
+		options,
 	);
 	return out;
 }

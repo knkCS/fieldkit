@@ -21,7 +21,7 @@ func runEdges(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	got, err := Edges(resolved, fx.Data)
+	got, err := Edges(resolved, fx.Data, fx.valueOptions()...)
 	if err != nil {
 		t.Fatalf("Edges: %v", err)
 	}
@@ -52,7 +52,7 @@ func runTexts(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	got, err := Texts(resolved, fx.Data)
+	got, err := Texts(resolved, fx.Data, fx.valueOptions()...)
 	if err != nil {
 		t.Fatalf("Texts: %v", err)
 	}

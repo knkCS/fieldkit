@@ -67,10 +67,16 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // ignores them; hidden Fields and the Markers are not checked. Data that is
 // not a JSON object is one CodeInvalidType at ""; empty data is {}.
 //
+// A Reference's value carries no Blueprint id (ADR-0008, amended), so a
+// Reference Field that links a Reference Spec for some Blueprints needs to be
+// told whose Blueprint each target is (WithTargetBlueprints) to check its
+// References' values; without it those values are an opaque record.
+//
 // Not yet implemented, and skipped: the types the Catalogue does not list
-// (reference, single_reference, rich_text). TS validates them; the
-// conformance fixtures stay clear of them until Go does.
-func ValidateValue(spec Spec, data json.RawMessage) []Error {
+// (rich_text). TS validates them; the conformance fixtures stay clear of them
+// until Go does.
+func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
+	o := valueOptionsOf(opts)
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(data))
@@ -87,7 +93,7 @@ func ValidateValue(spec Spec, data json.RawMessage) []Error {
 
 	// The caps come first and cover the whole document, keys the Spec does
 	// not name included: nothing else walks a document beyond them.
-	errs := &valueErrors{}
+	errs := &valueErrors{targetBlueprint: o.targetBlueprint}
 	if capErrors(obj, "", errs) {
 		return errs.list
 	}
@@ -140,10 +146,36 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 	}
 }
 
-// valueErrors collects errors, each {path, code} once, as TS does.
+// ValueOption configures ValidateValue, Edges and Texts.
+type ValueOption func(*valueOptions)
+
+type valueOptions struct {
+	targetBlueprint func(contentID string) string
+}
+
+// WithTargetBlueprints says whose Blueprint each referenced Content is — ""
+// when not known — so a Reference Field that links a Reference Spec checks
+// and walks each Reference's values against the Reference Spec its target's
+// Blueprint has (ADR-0008, amended). TS's ValueContext.targetBlueprint.
+func WithTargetBlueprints(blueprintOf func(contentID string) string) ValueOption {
+	return func(o *valueOptions) { o.targetBlueprint = blueprintOf }
+}
+
+func valueOptionsOf(opts []ValueOption) valueOptions {
+	var o valueOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
+// valueErrors collects errors, each {path, code} once, as TS does, and
+// carries what the value rules are told beside the Spec (ValueOption).
 type valueErrors struct {
 	list []Error
 	seen map[string]bool
+	// targetBlueprint is WithTargetBlueprints', nil when not given.
+	targetBlueprint func(contentID string) string
 }
 
 func (v *valueErrors) add(path, code string, params map[string]any) {

@@ -6,8 +6,8 @@ import (
 )
 
 // The Content Graph's edge kinds a Field Type yields (contenthub ADR 0009).
-// Only media exists yet: reference (#215) and link, footnote and media from
-// rich text (#216) plug in beside it. The graph's other kinds — toc,
+// media is here and reference (EdgeReference) in reference.go; link, footnote
+// and media from rich text (#216) plug in beside them. The graph's other kinds — toc,
 // include, exclude, replace, annotate, blueprint — are the Consumer's, or
 // the publishing package's.
 const (
@@ -58,7 +58,9 @@ type edgeRule func(f Field, settings map[string]any, value any) []Edge
 // here yields no edge — a lookup's bare id among them: it names a row of
 // another service, never a Content (contenthub ADR 0010).
 var edgeRules = map[string]edgeRule{ //nolint:gochecknoglobals
-	"media": mediaEdges,
+	"media":            mediaEdges,
+	"reference":        referenceTreeEdges,
+	"single_reference": singleReferenceEdges,
 }
 
 // mediaEdges are a media Field's Assets, one edge each, at the Field: its
@@ -81,15 +83,17 @@ func mediaEdges(_ Field, _ map[string]any, value any) []Edge {
 // Edges are every Content Graph edge a Content's data holds, against the
 // Resolved Spec it was validated with: each Field's own, through every
 // container at every depth — a group's and a virtual_table's rows, a Block's
-// Fields, a resolved fieldset's record — in Spec order, then row order.
+// Fields, a resolved fieldset's record, a Reference's values — in Spec order,
+// then row order. opts are ValidateValue's: WithTargetBlueprints says which
+// Reference Spec a Reference's values follow.
 //
 // It reads data ValidateValue accepted, and checks nothing: a value of the
 // wrong shape yields no edge rather than an error, and markers and hidden
 // Fields yield none, as ValidateValue skips them. A lookup yields none. Data
 // that is not a JSON object is an error; empty data is {}.
-func Edges(resolved *ResolvedSpec, data json.RawMessage) ([]Edge, error) {
+func Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]Edge, error) {
 	edges := []Edge{}
-	err := walkData(resolved, data, func(f Field, settings map[string]any, value any, path string) {
+	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
 		rule, ok := edgeRules[f.FieldType]
 		if !ok {
 			return
