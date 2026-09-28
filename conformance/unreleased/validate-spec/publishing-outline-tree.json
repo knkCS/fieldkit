@@ -1,0 +1,221 @@
+{
+	"description": "With the publishing package, an outline_tree pins a Blueprint Release and a Text Type Release and takes nothing else — core's text_type_id and levels are unknown settings — sits at the root only, and its node Fields, authored as children, sit in the reference_spec Position: no container, no Marker",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1",
+				"text_type": "article@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Legacy",
+				"api_accessor": "legacy",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type_id": "article",
+				"levels": [
+					{
+						"key": "part"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Blank",
+				"api_accessor": "blank",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": null,
+				"text_type": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Wrong",
+				"api_accessor": "wrong",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": 3
+			},
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Embedded",
+				"api_accessor": "embedded",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Box",
+						"api_accessor": "box",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Inner",
+								"api_accessor": "inner",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "section",
+					"config": {
+						"name": "Tab",
+						"api_accessor": "tab",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "outline_tree",
+					"config": {
+						"name": "Nested",
+						"api_accessor": "nested",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "b",
+						"name": "B",
+						"fields": [
+							{
+								"field_type": "outline_tree",
+								"config": {
+									"name": "In_block",
+									"api_accessor": "in_block",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/legacy/settings/levels",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/legacy/settings/text_type_id",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/wrong/settings/blueprint",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/embedded/children/box",
+				"code": "position"
+			},
+			{
+				"path": "/embedded/children/tab",
+				"code": "position"
+			},
+			{
+				"path": "/rows/children/nested",
+				"code": "position"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/in_block",
+				"code": "position"
+			}
+		]
+	}
+}

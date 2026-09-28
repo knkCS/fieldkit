@@ -1,0 +1,65 @@
+{
+	"description": "With the publishing package, a template_text that is not a string is invalid_type, and a required one left Unset is required",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Template",
+				"api_accessor": "template",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"context_blueprints": [
+					"bp-1"
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Logic",
+				"api_accessor": "logic",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "template_text",
+			"config": {
+				"name": "Stray",
+				"api_accessor": "stray",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"logic": 3,
+		"stray": [
+			"{{ .Count }}"
+		]
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/template",
+				"code": "required"
+			},
+			{
+				"path": "/logic",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/stray",
+				"code": "invalid_type"
+			}
+		]
+	}
+}
