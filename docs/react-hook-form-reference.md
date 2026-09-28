@@ -208,7 +208,25 @@ Located in `src/schema/zod-builder.ts`. Converts a `Field[]` spec into a `ZodObj
 1. For each field, calls `plugin.toZodType(field, composeChildren)` to get the base Zod type
 2. Wraps with `.optional()` if `field.config.required` is false
 3. Applies `options.overrides[accessor]` if provided
-4. Returns `z.object(shape)`
+4. Returns `z.object(shape)` — one whose parsed output is **canonical**
+
+**What a form submits is canonical (ADR-0021).** The object `specToZodSchema`
+returns strips every key holding an Unset value — `null`, `""`, `[]`, `{}`,
+`undefined` — from its parsed output, at every depth. So the values
+`handleSubmit` hands a consumer through `zodResolver(specToZodSchema(…))` hold a
+cleared text or an empty checkbox list as an **absent key**, never as `""` or
+`[]`: the one form Go's `ValidateValue` accepts, which refuses the others as
+`not_canonical`. `0` and `false` are values and stay. Validation is unchanged —
+a required Field's `""` still fails with its own message — only the output is
+stripped. It is still a `ZodObject` (`.shape` works), but a schema derived from
+it with `.extend()`, `.merge()`, `.pick()` and the like validates without
+stripping.
+
+A consumer that merges the submitted values over a stored record must take the
+Spec's keys off the record first, or a cleared Field falls back to its old
+value — `EditDrawer` does exactly that. `canonicalValue()` canonicalises data
+from anywhere else, and `validateValue(spec, data, plugins)` checks stored data
+with the answers Go gives, as `{path, code}` errors.
 
 `composeChildren` is the second argument a container plugin can use to build an
 object schema from `field.children`, by the same rules (ADR-0007) — that is how

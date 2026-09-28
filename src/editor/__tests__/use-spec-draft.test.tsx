@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field, Schema } from "../../schema/types";
+import { canonicalSpecSettings } from "../../schema/unset";
 import { removeField } from "../draft-ops";
 import { useSpecDraft } from "../use-spec-draft";
 
@@ -67,6 +68,32 @@ describe("useSpecDraft", () => {
 				config: expect.objectContaining({ api_accessor: "a" }),
 			}),
 		]);
+		expect(result.current.dirty).toBe(false);
+	});
+
+	it("commits settings in canonical form, Unset settings stripped (ADR-0021)", async () => {
+		const onCommit = vi.fn();
+		const withSettings: Field = {
+			...f("b"),
+			settings: { placeholder: "", prepend: "€", append: null },
+		};
+		const { result, rerender } = renderHook(
+			({ schema }) => useSpecDraft(schema, [textPlugin], onCommit),
+			{ initialProps: { schema: [f("a")] as Schema } },
+		);
+		act(() => result.current.apply([f("a"), withSettings]));
+		await act(async () => result.current.save());
+
+		const committed = onCommit.mock.calls[0][0] as Schema;
+		expect("settings" in committed[0]).toBe(false);
+		expect(committed[1].settings).toStrictEqual({ prepend: "€" });
+		// The draft keeps what the author's controls hold.
+		expect(result.current.draft[1].settings).toEqual(withSettings.settings);
+
+		// The host echoing the canonical commit back is our own save, not a
+		// change made in the background.
+		rerender({ schema: committed });
+		expect(result.current.baselineConflict).toBe(false);
 		expect(result.current.dirty).toBe(false);
 	});
 
@@ -250,7 +277,8 @@ describe("useSpecDraft", () => {
 		await act(async () => {
 			resolve();
 		});
-		expect(onCommit).toHaveBeenCalledWith(d1);
+		// Committed in canonical form: f()'s `settings: null` is absent.
+		expect(onCommit).toHaveBeenCalledWith(canonicalSpecSettings(d1));
 		// The server now holds D1; baseline truthfully advanced to it, so
 		// the reverted draft (B0) reads dirty against the committed content.
 		expect(result.current.dirty).toBe(true);
