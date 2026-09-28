@@ -367,6 +367,11 @@ func movedIDs(a, b []string) map[string]bool {
 			cb = append(cb, id)
 		}
 	}
+	// Nothing moved: no table to build — the usual case, a row or node edited
+	// in place, costs linear time and memory.
+	if slices.Equal(ca, cb) {
+		return map[string]bool{}
+	}
 	kept := longestCommonSubsequence(ca, cb)
 	moved := map[string]bool{}
 	for _, id := range cb {

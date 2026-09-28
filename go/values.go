@@ -53,9 +53,10 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // The containers dispatch what they hold to its own types (ADR-0007): a
 // group's or virtual_table's rows and a resolved fieldset's record are
 // checked against their children, a block against its Block Type's Fields,
-// at every depth. Every row carries an _id (ADR-0023) — a row without one is
-// CodeMissingID at the row, a repeat within its array CodeDuplicateID at the
-// repeat.
+// a Reference's values against its Reference Spec, at every depth. Every row
+// and Reference node carries an _id (ADR-0023) — a row without one is
+// CodeMissingID at the row, a repeat within its array (for a Reference Tree,
+// anywhere in the tree) CodeDuplicateID at the repeat.
 //
 // Paths are /-separated from the data's root: a Field is its Accessor, an
 // object entry its key, and an array item its _id where it holds a
