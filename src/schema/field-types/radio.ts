@@ -37,5 +37,6 @@ export const radioPlugin: FieldTypePlugin<RadioSettings> = {
 	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
 	defaultSettings: { options: {} },
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };

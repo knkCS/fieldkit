@@ -31,5 +31,6 @@ export const cardPlugin: FieldTypePlugin = {
 	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
 	defaultSettings: {},
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "block_type"],
 };

@@ -1,0 +1,234 @@
+{
+	"description": "Every Field sits in a Position its type lists (ADR-0022): a Group's children sit where the Group does, a Virtual Table's in row, a Block Type's in block_type — a type outside its Positions is position at that Field, an unknown type only unknown_field_type",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Details",
+				"api_accessor": "details",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "section",
+					"config": {
+						"name": "Inner tab",
+						"api_accessor": "inner_tab",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "virtual_table",
+					"config": {
+						"name": "Lines",
+						"api_accessor": "lines",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "select",
+							"config": {
+								"name": "Status",
+								"api_accessor": "status",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "list",
+							"config": {
+								"name": "Tags",
+								"api_accessor": "tags",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "code",
+							"config": {
+								"name": "Snippet",
+								"api_accessor": "snippet",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "section",
+							"config": {
+								"name": "Row tab",
+								"api_accessor": "row_tab",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						},
+						{
+							"field_type": "fieldset",
+							"config": {
+								"name": "Address",
+								"api_accessor": "address",
+								"required": false,
+								"instructions": ""
+							},
+							"settings": {
+								"blueprint": "bp-address"
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "hero",
+						"name": "Hero",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Headline",
+									"api_accessor": "headline",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Cta",
+									"api_accessor": "cta",
+									"required": false,
+									"instructions": ""
+								},
+								"children": [
+									{
+										"field_type": "url",
+										"config": {
+											"name": "Href",
+											"api_accessor": "href",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							},
+							{
+								"field_type": "card",
+								"config": {
+									"name": "",
+									"api_accessor": "hero_card",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "blocks",
+								"config": {
+									"name": "Nested",
+									"api_accessor": "nested",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "virtual_table",
+								"config": {
+									"name": "Specs",
+									"api_accessor": "specs",
+									"required": false,
+									"instructions": ""
+								},
+								"children": [
+									{
+										"field_type": "number",
+										"config": {
+											"name": "Value",
+											"api_accessor": "value",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									},
+									{
+										"field_type": "array",
+										"config": {
+											"name": "Pairs",
+											"api_accessor": "pairs",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									},
+									{
+										"field_type": "legacy",
+										"config": {
+											"name": "Old",
+											"api_accessor": "old",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/details/children/lines/children/tags",
+				"code": "position"
+			},
+			{
+				"path": "/details/children/lines/children/snippet",
+				"code": "position"
+			},
+			{
+				"path": "/details/children/lines/children/row_tab",
+				"code": "position"
+			},
+			{
+				"path": "/details/children/lines/children/address",
+				"code": "position"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/specs/children/pairs",
+				"code": "position"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/specs/children/old",
+				"code": "unknown_field_type"
+			}
+		]
+	}
+}

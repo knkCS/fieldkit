@@ -81,14 +81,18 @@ describe("listPlugin", () => {
 		expect(listPlugin.defaultSettings).toEqual({ max_items_per_page: 0 });
 	});
 
-	it("is available in every field context", () => {
-		expect(listPlugin.availableIn).toEqual([
-			"blueprint",
-			"task",
-			"form",
-			// A List holds free text and no child Fields, so it is as available
-			// inside a Reference's Attribute drawer as anywhere else.
-			"attribute",
+	it("is offered to every Consumer", () => {
+		expect(listPlugin.consumers).toEqual(["blueprint", "task", "form"]);
+	});
+
+	it("may sit in a Reference Spec but not in a Row Spec", () => {
+		// A List holds free text and no child Fields, so it is as welcome in a
+		// Reference's drawer as anywhere else — but it is many values, and a
+		// Row Spec's cell holds one (ADR-0017).
+		expect(listPlugin.positions).toEqual([
+			"root",
+			"reference_spec",
+			"block_type",
 		]);
 	});
 });

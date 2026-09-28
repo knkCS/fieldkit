@@ -14,10 +14,12 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { mergeLabels } from "../renderer/merge-labels";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	Position,
 } from "../schema/plugin";
+import { allowedInPosition, offeredToConsumer } from "../schema/positions";
 import type { Field } from "../schema/types";
 
 export interface TypePickerLabels {
@@ -48,7 +50,14 @@ export const DEFAULT_TYPE_PICKER_LABELS: Required<TypePickerLabels> = {
 
 export interface TypePickerProps {
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	/** Offers only the types this Consumer's picker lists (ADR-0022). Advice:
+	 * nothing validates it. */
+	consumer?: Consumer;
+	/** Offers only the types a Field may be in this Position — `row` for a
+	 * Row Spec, `reference_spec` for a Reference Spec (ADR-0022). The
+	 * validator enforces the same rule, so the picker never offers a type
+	 * `validateSpec()` would then refuse. */
+	position?: Position;
 	currentSpec?: Field[];
 	onSelect: (pluginId: string) => void;
 	labels?: TypePickerLabels;
@@ -64,7 +73,8 @@ function countByType(spec: Field[]): Map<string, number> {
 
 function TypePickerInner({
 	plugins,
-	context,
+	consumer,
+	position,
 	currentSpec,
 	onSelect,
 	labels,
@@ -74,10 +84,11 @@ function TypePickerInner({
 	const filteredPlugins = useMemo(() => {
 		let result = plugins;
 
-		if (context) {
-			result = result.filter(
-				(p) => !p.availableIn || p.availableIn.includes(context),
-			);
+		if (consumer) {
+			result = result.filter((p) => offeredToConsumer(p, consumer));
+		}
+		if (position) {
+			result = result.filter((p) => allowedInPosition(p, position));
 		}
 
 		if (search.trim()) {
@@ -90,7 +101,7 @@ function TypePickerInner({
 		}
 
 		return result;
-	}, [plugins, context, search]);
+	}, [plugins, consumer, position, search]);
 
 	const typeCounts = useMemo(
 		() => (currentSpec ? countByType(currentSpec) : new Map<string, number>()),

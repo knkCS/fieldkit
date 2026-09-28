@@ -153,6 +153,13 @@ describe("field ops", () => {
 		expect(slugify("")).toBe("");
 	});
 
+	it("slugify never starts an Accessor with the reserved _ (ADR-0022)", () => {
+		expect(slugify("# of items")).toBe("of_items");
+		expect(slugify(" Title")).toBe("title");
+		expect(slugify("€ Price")).toBe("price");
+		expect(slugify("snake_case")).toBe("snake_case");
+	});
+
 	it("createField builds a fresh Field from a plugin's id/name/defaultSettings", () => {
 		const plugin = makePlugin({
 			id: "select",

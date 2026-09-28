@@ -104,14 +104,26 @@ export type {
 	CellProps,
 	ComposeChildrenDefaults,
 	ComposeChildrenSchema,
-	FieldContext,
+	Consumer,
 	FieldProps,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	HeldSpec,
+	Position,
 	ReadProps,
 	RenderReadValue,
 	SettingsProps,
 } from "./plugin";
+// Where a Field may sit (enforced) and which Consumers offer a type (advice),
+// ADR-0022
+export {
+	allowedInPosition,
+	CONSUMERS,
+	DEFAULT_POSITIONS,
+	offeredToConsumer,
+	POSITIONS,
+	positionsOf,
+} from "./positions";
 // The Reference value shape
 export {
 	asReference,
@@ -142,6 +154,12 @@ export type {
 	ResolveSpecAdapters,
 } from "./resolve-spec";
 export { resolveSpec } from "./resolve-spec";
+// `config.search`
+export {
+	isSearchWeight,
+	SEARCH_WEIGHTS,
+	type SearchWeight,
+} from "./search";
 // Types
 export type {
 	Field,
@@ -158,19 +176,18 @@ export { canonicalSpecSettings, canonicalValue, isUnset } from "./unset";
 export type {
 	SpecFieldError,
 	SpecFieldErrorCode,
+	SpecPolicy,
+	SpecPolicyError,
 	SpecValidationResult,
+	ValidateSpecOptions,
 } from "./validate-spec";
 export { validateSpec } from "./validate-spec";
 export type { ValueError, ValueErrorCode } from "./validate-value";
 export { VALUE_CAPS, validateValue } from "./validate-value";
-// The Virtual Table's Row Spec rules (ADR-0017): which of the two ways a
-// Field declares one, and what a column may be.
+// The Virtual Table's Row Spec rule (ADR-0017): which of the two ways a
+// Field declares one. What a column may be is the `row` Position (ADR-0022).
 export type { VirtualTableRowSpecKind } from "./virtual-table-row-spec";
-export {
-	isVirtualTableRowFieldType,
-	VIRTUAL_TABLE_ROW_FIELD_TYPES,
-	virtualTableRowSpecKind,
-} from "./virtual-table-row-spec";
+export { virtualTableRowSpecKind } from "./virtual-table-row-spec";
 // Zod builder
 export type { ZodBuilderOptions } from "./zod-builder";
 export { getDefaultValues, specToZodSchema } from "./zod-builder";

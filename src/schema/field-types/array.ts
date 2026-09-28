@@ -48,5 +48,6 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "reference_spec", "block_type"],
 };

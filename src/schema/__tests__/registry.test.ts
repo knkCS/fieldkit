@@ -52,21 +52,43 @@ describe("Plugin Registry", () => {
 		expect(textPlugins.map((p) => p.id)).toEqual(["text", "textarea"]);
 	});
 
-	it("should filter plugins by context", () => {
+	it("should filter plugins by Consumer", () => {
 		registry.register(
-			mockPlugin("text", { availableIn: ["blueprint", "task", "form"] }),
+			mockPlugin("text", { consumers: ["blueprint", "task", "form"] }),
 		);
-		registry.register(mockPlugin("reference", { availableIn: ["blueprint"] }));
-		const taskPlugins = registry.getByContext("task");
+		registry.register(mockPlugin("reference", { consumers: ["blueprint"] }));
+		const taskPlugins = registry.getByConsumer("task");
 		expect(taskPlugins).toHaveLength(1);
 		expect(taskPlugins[0].id).toBe("text");
 	});
 
-	it("should include plugins with no availableIn filter in all contexts", () => {
+	it("should offer a plugin that names no Consumers to every Consumer", () => {
 		registry.register(mockPlugin("text"));
-		expect(registry.getByContext("blueprint")).toHaveLength(1);
-		expect(registry.getByContext("task")).toHaveLength(1);
-		expect(registry.getByContext("form")).toHaveLength(1);
+		expect(registry.getByConsumer("blueprint")).toHaveLength(1);
+		expect(registry.getByConsumer("task")).toHaveLength(1);
+		expect(registry.getByConsumer("form")).toHaveLength(1);
+	});
+
+	it("should filter plugins by Position", () => {
+		registry.register(
+			mockPlugin("text", { positions: ["root", "row", "block_type"] }),
+		);
+		registry.register(mockPlugin("group", { positions: ["root"] }));
+		expect(registry.getByPosition("row").map((p) => p.id)).toEqual(["text"]);
+		expect(registry.getByPosition("root").map((p) => p.id)).toEqual([
+			"text",
+			"group",
+		]);
+	});
+
+	it("should keep a plugin that names no Positions out of a Row Spec and a Reference Spec", () => {
+		// A type has to be declared fit for the narrow Positions (ADR-0022);
+		// the root and a Block Type are the default.
+		registry.register(mockPlugin("custom"));
+		expect(registry.getByPosition("root")).toHaveLength(1);
+		expect(registry.getByPosition("block_type")).toHaveLength(1);
+		expect(registry.getByPosition("row")).toHaveLength(0);
+		expect(registry.getByPosition("reference_spec")).toHaveLength(0);
 	});
 
 	it("should throw when registering duplicate ID", () => {

@@ -201,6 +201,37 @@ describe("validation surfacing", () => {
 		expect(screen.getByLabelText("Duplicate field")).not.toBeDisabled();
 	});
 
+	it("outlines the shell that holds a nested error, not one sharing its Accessor", () => {
+		// validateSpec walks every Spec a Field holds (ADR-0022), and an
+		// Accessor is unique only among its siblings: the duplicate `note`
+		// inside `meta` is `meta`'s to fix, and the top-level `note` is fine.
+		const schema: Schema = [
+			makeSection("s1", "General"),
+			{
+				...makeField("meta"),
+				children: [makeField("note"), makeField("note")],
+			},
+			makeField("note"),
+		];
+		render(
+			<EditorWrap>
+				<Harness schema={schema} />
+			</EditorWrap>,
+		);
+
+		expect(screen.getByTestId("shell-meta")).toHaveAttribute(
+			"data-invalid",
+			"true",
+		);
+		expect(screen.getByTestId("shell-note")).not.toHaveAttribute(
+			"data-invalid",
+		);
+		expect(screen.getByTestId("tab-errors-0")).toHaveAttribute(
+			"aria-label",
+			"1 invalid field",
+		);
+	});
+
 	it("valid spec renders no badges", () => {
 		const schema: Schema = [
 			makeSection("s1", "General"),

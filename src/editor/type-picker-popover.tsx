@@ -8,14 +8,16 @@ import {
 } from "@knkcs/anker/primitives";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import type { FieldContext, FieldTypePlugin } from "../schema/plugin";
+import type { Consumer, FieldTypePlugin, Position } from "../schema/plugin";
 import type { Schema } from "../schema/types";
 import type { TypePickerLabels } from "./type-picker";
 import { TypePicker } from "./type-picker";
 
 export interface TypePickerPopoverProps {
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	consumer?: Consumer;
+	/** Offers only the types a Field may be in this Position (ADR-0022). */
+	position?: Position;
 	currentSpec: Schema;
 	onPick: (pluginId: string) => void; // parent inserts + selects
 	triggerLabel: string; // aria-label for the ⊕ button
@@ -28,7 +30,8 @@ export interface TypePickerPopoverProps {
 
 export function TypePickerPopover({
 	plugins,
-	context,
+	consumer,
+	position,
 	currentSpec,
 	onPick,
 	triggerLabel,
@@ -58,7 +61,8 @@ export function TypePickerPopover({
 				<Box p="2">
 					<TypePicker
 						plugins={plugins}
-						context={context}
+						consumer={consumer}
+						position={position}
 						currentSpec={currentSpec}
 						onSelect={(id) => {
 							setOpen(false);

@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { mergeLabels } from "../renderer/merge-labels";
 import { partitionSchemaBySections } from "../schema/partition";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
@@ -133,6 +133,15 @@ export interface EditorLabels {
 	/** @deprecated Unused since 0.10.0 — see `panelTabType`. */
 	panelTypeSettings?: string;
 	panelNoSettings?: string;
+	/** Generic settings form (a type with no `settingsComponent`): the button
+	 * appending an item to a list setting. */
+	settingsAddItem?: string;
+	/** Generic settings form: aria-label of the button removing one list item. */
+	settingsRemoveItem?: string;
+	/** Generic settings form: placeholder of a choice setting left unset. */
+	settingsNotSet?: string;
+	/** Generic settings form: the note under a setting it can only show. */
+	settingsReadOnly?: string;
 	panelChildren?: string;
 	panelBack?: string;
 	panelClose?: string;
@@ -286,6 +295,10 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	panelValidation: "Validation",
 	panelTypeSettings: "Type settings",
 	panelNoSettings: "No additional settings",
+	settingsAddItem: "Add",
+	settingsRemoveItem: "Remove",
+	settingsNotSet: "Not set",
+	settingsReadOnly: "This setting can't be edited here — shown as stored.",
 	panelChildren: "Children",
 	panelBack: "Back",
 	panelClose: "Close",
@@ -364,7 +377,10 @@ export interface SpecEditorProps {
 	onCommit: (schema: Schema) => void | Promise<void>;
 	onDirtyChange?: (dirty: boolean) => void;
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	/** The Consumer authoring this Spec: the type picker offers the types
+	 * whose `consumers` name it (ADR-0022). Advice, never a rule. Was
+	 * `context` before 0.18.0. */
+	consumer?: Consumer;
 	/** Header left slot, beside the dirty indicator. Flagged spec addition. */
 	title?: ReactNode;
 	labels?: EditorLabels;
@@ -380,7 +396,7 @@ export function SpecEditor({
 	onCommit,
 	onDirtyChange,
 	plugins,
-	context,
+	consumer,
 	title,
 	labels,
 	formatSaveError,
@@ -790,7 +806,7 @@ export function SpecEditor({
 							<EditorCanvas
 								spec={spec}
 								plugins={plugins}
-								context={context}
+								consumer={consumer}
 								selectedAccessor={selected}
 								onSelect={handleSelect}
 								onEdit={handleEdit}

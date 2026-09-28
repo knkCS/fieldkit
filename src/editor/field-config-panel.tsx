@@ -8,7 +8,9 @@ import { findLockedSetting } from "../schema/locked-settings";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
 import { isField } from "../schema/types";
+import { toPath } from "../schema/validate-settings";
 import type { SpecFieldError } from "../schema/validate-spec";
+import { pathWithin } from "./error-paths";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
 import { SystemFieldSummary } from "./panel-sections/system-summary";
@@ -79,6 +81,11 @@ export type PanelLabels = Pick<
 	| "panelTabValidation"
 	| "panelTabType"
 	| "panelNoSettings"
+	// The generic settings form's own controls.
+	| "settingsAddItem"
+	| "settingsRemoveItem"
+	| "settingsNotSet"
+	| "settingsReadOnly"
 	| "panelChildren"
 	| "panelBack"
 	| "panelClose"
@@ -515,11 +522,23 @@ export function FieldConfigPanel({
 		onFieldChange(rebuilt);
 	}
 
+	// Where the active Field is in the Spec, in `validateSpec()`'s path
+	// grammar — so an error is matched by WHERE it is, not by an Accessor that
+	// is only unique among its siblings (a Reference Spec's `note` and a
+	// top-level `note` are different Fields).
+	const activePath = toPath(
+		chain.flatMap((f, i) => {
+			if (i === 0) return [f.config.api_accessor];
+			const holder = drillStack[i - 1].holder;
+			return holder.kind === "children"
+				? ["children", f.config.api_accessor]
+				: ["settings", holder.key, f.config.api_accessor];
+		}),
+	);
+
 	const accessorError =
 		fieldErrors.find(
-			(e) =>
-				e.code === "duplicate_accessor" &&
-				e.accessor === activeField.config.api_accessor,
+			(e) => e.code === "duplicate_accessor" && e.path === activePath,
 		)?.message ?? null;
 
 	/**
@@ -527,21 +546,18 @@ export function FieldConfigPanel({
 	 * Author — its own errors, and those of the Fields it holds.
 	 *
 	 * The duplicate-accessor banner below has its own surface (it also puts the
-	 * panel read-only), so it is not repeated here. The children are included
-	 * because some rules report against a CHILD's accessor while the thing to
-	 * fix is the parent's: a Virtual Table whose Row Spec holds a type no cell
-	 * can draw is flagged at that row Field (ADR-0017), and the canvas — which
-	 * outlines top-level shells — has nowhere to show it. The panel does: the
-	 * Row Spec is chosen here.
+	 * panel read-only), so the active Field's own duplicate is not repeated
+	 * here. What the Field holds is included, at any depth, because some rules
+	 * report against a HELD Field while the thing to fix is chosen here: a
+	 * Virtual Table whose Row Spec holds a type no cell can draw is flagged at
+	 * that row Field (`position`, ADR-0022), an Attribute a Reference Spec may
+	 * not hold at the Attribute — and the canvas, which outlines top-level
+	 * shells, has nowhere to show either.
 	 */
-	const childAccessors = new Set(
-		(activeField.children ?? []).map((c) => c.config.api_accessor),
-	);
 	const fieldNotices = fieldErrors.filter(
 		(e) =>
-			e.code !== "duplicate_accessor" &&
-			(e.accessor === activeField.config.api_accessor ||
-				childAccessors.has(e.accessor)),
+			pathWithin(e.path, activePath) &&
+			!(e.code === "duplicate_accessor" && e.path === activePath),
 	);
 
 	// F2: a consumer-supplied schema can contain duplicate accessors — exactly
@@ -773,7 +789,7 @@ export function FieldConfigPanel({
 						>
 							{fieldNotices.map((notice) => (
 								<Text
-									key={`${notice.code}:${notice.accessor}`}
+									key={`${notice.code}:${notice.path}`}
 									fontSize="xs"
 									color="danger.600"
 								>

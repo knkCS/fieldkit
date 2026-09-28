@@ -170,7 +170,7 @@ _Avoid_: catalogue (that word already means both the field-type catalogue and th
 The person building a Spec in the editor, as distinct from the person who later fills in the rendered form.
 
 **Consumer**:
-The application integrating fieldkit — it owns the Spec, persists it, and owns the form instance the renderer reads from.
+The application integrating fieldkit — it owns the Spec, persists it, and owns the form instance the renderer reads from. Which Consumers a Field Type names (`consumers`) only decides whose type picker offers it; unlike a Position, it is never enforced (ADR-0022).
 _Avoid_: host, client app, embedder
 
 **Draft**:

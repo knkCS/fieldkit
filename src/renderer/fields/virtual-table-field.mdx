@@ -14,7 +14,7 @@ A repeating table of rows, one per record. Its **Row Spec** — the Spec every r
 
 ## When to Use
 
-Use **Virtual Table** for a repeating set of records edited as a table rather than as stacked forms — a line-items table on an order, for example. Link the Row Spec when several Fields should share it; embed it when the Row Spec belongs to this Field alone. Available in every context: `availableIn: ["blueprint", "task", "form"]`.
+Use **Virtual Table** for a repeating set of records edited as a table rather than as stacked forms — a line-items table on an order, for example. Link the Row Spec when several Fields should share it; embed it when the Row Spec belongs to this Field alone. Offered to every Consumer: `consumers: ["blueprint", "task", "form"]`.
 
 ## What a Row Spec may hold
 
@@ -22,7 +22,7 @@ Use **Virtual Table** for a repeating set of records edited as a table rather th
 
 `text`, `textarea`, `markdown`, `number`, `date`, `time`, `boolean`, `select`, `radio`, `checkboxes`, `email`, `url`, `slug`, `color`, `lookup`, `media`, `single_reference`
 
-No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending Field with the `virtual_table_row_field_type` code. The list is exported from `/schema` as `VIRTUAL_TABLE_ROW_FIELD_TYPES`.
+No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending Field with the `position` code, in TS and in Go. The list is the `row` Position (ADR-0022): each type that may be a column lists `row` in its plugin's `positions`, and the row-field picker offers exactly those.
 
 ## Settings
 

@@ -36,7 +36,7 @@ conformance/
 
 | Area | Contents |
 |---|---|
-| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children |
+| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types — and a Block Type's Fields validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022) |
 | [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value but the containers: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping |
 
 ## Fixture format
@@ -68,8 +68,10 @@ conformance/
   against the Catalogue's types only — the TS runner hands `validateSpec` just
   the plugins that declare a `settingsSchema` — so a type outside the
   Catalogue is `unknown_field_type` on both sides. TS's `validateSpec` also
-  checks rules Go does not implement yet (empty names, duplicate Accessors,
-  the card-layout rule); a fixture must not break those until both sides do.
+  checks rules Go does not implement yet (empty names, duplicate Accessors);
+  a fixture must not break those until both sides do. A Reference Spec is
+  walked by TS but not by Go until `reference` is in the Catalogue (#215), so
+  no fixture holds one.
   The Fields in a Block Type's `fields` are decoded by Go as strictly as the
   Spec, so they too may only use properties the Field model declares: TS
   refuses a list whose items are not objects with a `config` object, as Go
@@ -132,7 +134,7 @@ A segment holding `/` or `~` is escaped as in RFC 6901: `~` as `~0`, `/` as
 ## Codes
 
 Codes are part of the data contract: added, never renamed or removed
-(ADR-0019).
+(ADR-0019). The one exception predates the first release: `virtual_table_row_field_type` was replaced by `position` (ADR-0022) before any Catalogue or fixture folder was frozen.
 
 | Code | Meaning |
 |---|---|
@@ -141,7 +143,11 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_setting` | A declared setting of the wrong type, or out of range; or settings that are not an object; or a Block Type's `fields` that are not Fields. Reported once per path, however many rules the value breaks. |
 | `virtual_table_row_spec_ambiguous` | A Virtual Table that links a Blueprint and has children: two Row Specs (ADR-0017). At the Field. |
 | `virtual_table_row_spec_missing` | A Virtual Table with neither a linked nor an embedded Row Spec. A blank Blueprint is no link. At the Field. |
-| `virtual_table_row_field_type` | A Field a Row Spec may not hold — one whose type's Positions lack `row`. At that Field. |
+| `position` | A Field in a Position its type's Catalogue entry does not list (ADR-0022) — `root`, `row` (a Virtual Table's children), `block_type` (a Block Type's Fields); a Group's or Fieldset's children sit where it does. At that Field. A type the Catalogue does not list is `unknown_field_type` only. |
+| `reserved_accessor` | An Accessor beginning with `_`, in any Position (ADR-0022). At the Field. |
+| `loose_field_in_carded_tab` | A top-level Field before the first card marker of a tab (split at each `section`) that has one. At the Field. |
+| `invalid_config` | A `config` key holding a value it does not accept: a `search` other than `off`, `A`, `B`, `C`, `D`. At the key. |
+| `search_without_text` | `config.search` on a type whose Catalogue entry has `has_text: false`. At the key. |
 | `duplicate_block_type` | A Block Type repeating the `type` an earlier Block Type of the same Field declared. At each repeat's `type`. |
 | `required` | *(value)* A required Field whose value is Unset. `0` and `false` are values. |
 | `not_canonical` | *(value)* A stored key holding an Unset value — `null`, `""`, `[]` or `{}` — at any depth: Unset is stored as absent (ADR-0021). At the outermost key whose whole value is Unset. Array items are kept, so `[null]` holds one item and is no error. |

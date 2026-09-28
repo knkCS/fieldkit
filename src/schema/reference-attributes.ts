@@ -12,19 +12,20 @@
  *
  * ## Where the Spec lives, and what that costs
  *
- * In `settings.attributes`, following the Blocks precedent — and inheriting
- * ADR-0007's boundary verbatim. `resolveSpec()`, `validateSpec()` and
- * `resolveMarkerConvention()` walk `Field.children` (and `validateSpec()` a
- * Block Type's Fields, #208) but not `settings.attributes`, so **nothing
- * shared reaches an Attribute Field**. Concretely, and this is the reason it is
- * written down rather than left implicit:
+ * In `settings.attributes`, following the Blocks precedent. `validateSpec()`
+ * walks it as the `reference_spec` Position (ADR-0022) — the reference plugin
+ * names it through `heldSpecs` — so a duplicate, empty or reserved Accessor,
+ * an empty name and a type that may not sit there are all reported. The Go
+ * module does not yet: `reference` is not in the Catalogue until #215.
  *
- * - A duplicate Accessor between two Attributes is never reported. The later
- *   one silently wins the composed shape.
- * - An empty name and an empty Accessor are never reported either.
+ * `resolveSpec()` and `resolveMarkerConvention()` still walk `Field.children`
+ * only, which is ADR-0007's boundary for them. Concretely, and this is the
+ * reason it is written down rather than left implicit:
+ *
  * - A Fieldset declared as an Attribute is never resolved, and composes as the
- *   opaque record any unresolved Fieldset does. The Attribute type picker
- *   therefore does not offer one — see `FieldContext`.
+ *   opaque record any unresolved Fieldset does. `fieldset` therefore does not
+ *   list `reference_spec` — see `Position` — and `validateSpec()` refuses
+ *   one there.
  *
  * The reference plugin composes these Fields itself, exactly as the Blocks
  * plugin composes a block type's. Composing is not walking, so it does not move

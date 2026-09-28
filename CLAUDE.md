@@ -41,7 +41,7 @@ src/
 │   ├── registry.ts      # Plugin registry
 │   ├── partition.ts     # partitionSchemaBySections() — shared by SpecForm + editor
 │   ├── partition-cards.ts # partitionTabByCards() — card layout groups within one tab
-│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks (recursive into children and a Block Type's Fields), card-layout rule, duplicate Block Types, the Virtual Table Row Spec rules (ADR-0017), unknown Field Types and each type's settings against its `settingsSchema` (ADR-0018). Every error carries a `/`-separated `path` shared with Go
+│   ├── validate-spec.ts # validateSpec() — maxPerSpec, accessor checks incl. reserved `_` Accessors (recursive into children and every Spec a plugin names in `heldSpecs`: a Block Type's Fields, a Reference Spec), card-layout rule, duplicate Block Types, the Virtual Table Row Spec rule (ADR-0017), unknown Field Types and each type's settings against its `settingsSchema` (ADR-0018), the one Position check and `config.search` (ADR-0022), and a caller's optional `policy`. Every error carries a `/`-separated `path` shared with Go
 │   ├── validate-settings.ts # validateSettings() — one Field's settings against a strict `settingsSchema` (`unknown_setting`, `invalid_setting`), Unset stripped first (ADR-0021); the path grammar
 │   ├── resolve-spec.ts  # resolveSpec() — expands the adapter-backed containers (a fieldset, and a virtual_table whose Row Spec is linked) into a Resolved Spec (dedupes fetches, throws on cycles); specNeedsResolution() — internal, would it fetch anything?
 │   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021)
@@ -51,11 +51,13 @@ src/
 │   ├── reference.ts     # The Reference value — id, pin, attributes, children — plus referenceTreeSchema and withPin (ADR-0008)
 │   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
 │   ├── reference-find.ts # Find: which References in a tree match a typed query, ranked and capped, and the ancestor path placing each one. Matches client-side (ADR-0013) against both the name a row shows and the id behind it, case-insensitively and with diacritics folded (foldReferenceText — ß spelled out in its own right); one answer carries the list, the total and which of Find's three states (referenceFindState — matches, nothing, or names still arriving) the names behind it were in, so neither the count nor the empty line can claim a whole tree was searched when it was not; knows nothing about a dropdown
-│   ├── reference-attributes.ts # Composes a Reference Field's Attribute Spec into each Reference's branch (ADR-0007's boundary)
+│   ├── reference-attributes.ts # Composes a Reference Field's Attribute Spec into each Reference's branch (ADR-0007's boundary); validateSpec walks it as the `reference_spec` Position
 │   ├── blueprint-link.ts # linkedBlueprintId() — the Blueprint a Fieldset or a linked Virtual Table names, read in ONE place so the validator, the resolver and the renderer cannot disagree; BLUEPRINT_PIN, the Catalogue's record of that key
 │   ├── block-types.ts   # blockTypeSpecs() / duplicateBlockTypes() — a Blocks Field's settings read as the Specs its Block Types hold, so validateSpec walks them without learning the settings' shape
 │   ├── row-array.ts     # rowArrayZodType() — the Zod type shared by every Field holding an array of rows all shaped alike (group, virtual_table), plus the RowArrayCaps (min_items/max_items) both offer
-│   ├── virtual-table-row-spec.ts # ADR-0017's rules as pure functions: which of the two ways a Virtual Table declares its Row Spec (linked, embedded, both, neither) and the flat value types a Row Spec may hold — shared by validateSpec and the renderer
+│   ├── virtual-table-row-spec.ts # ADR-0017's rule as a pure function: which of the two ways a Virtual Table declares its Row Spec (linked, embedded, both, neither) — shared by validateSpec and the renderer. What a Row Spec may hold is the `row` Position
+│   ├── positions.ts     # ADR-0022: POSITIONS, CONSUMERS, DEFAULT_POSITIONS, positionsOf() / allowedInPosition() (enforced) and offeredToConsumer() (picker advice). Each plugin declares `positions`, `consumers` and, for a container, `childrenPosition` / `heldSpecs`
+│   ├── search.ts        # SearchWeight — `config.search`'s values (off, A–D)
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
@@ -75,7 +77,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
-│   ├── field-settings/  # Per-type settings editors + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours)
+│   ├── field-settings/  # Per-type settings editors + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
@@ -111,9 +113,11 @@ Beside `src/`, the data contract the Go services share (ADR-0018):
 go/                      # Go module github.com/knkcs/fieldkit/go (package fieldkit)
 ├── catalogue.json       # THE Catalogue — generated by scripts/catalogue.ts, committed; embedded here, shipped by npm as @knkcs/fieldkit/catalogue.json
 ├── spec.go              # Spec/Field model, DecodeSpec (strict: an unmodelled property is an error)
-├── validate.go          # ValidateSpec — unknown_field_type, settings errors, walking children and Block Types' Fields
+├── validate.go          # ValidateSpec — unknown_field_type, settings errors, Positions, reserved `_` Accessors, config.search, a caller's Policy (WithPolicy); walks children and Block Types' Fields
+├── positions.go         # The Position constants (ADR-0022) and the Catalogue lookup behind the Position check
+├── cards.go             # The card-marker rule (loose_field_in_carded_tab), as TS's checkCardLayout
 ├── settings.go          # ValidateSettings — generic over the Catalogue's JSON Schemas
-├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec, blocks' Block Types)
+├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec and its children's `row` Position, blocks' Block Types in `block_type`)
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps; the containers are not implemented yet
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
@@ -151,8 +155,8 @@ an architectural choice.
 
 1. Create `src/schema/field-types/<name>.ts`:
    - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`, and — when a safe one exists — `defaultValue` (function returning the value-level form default; see #38)
-   - Define a `<Name>Settings` interface if the field has configurable settings (plus a `settingsComponent` for the editor's config panel)
-   - Declare a strict Zod `settingsSchema` (every key optional — Unset is stripped before it is checked) and the `catalogue` facts (`since`, `hasText`, `pins`); then run `npm run catalogue` and commit `go/catalogue.json`. A type in the Catalogue is validated by Go too, so add conformance fixtures under `conformance/unreleased/` (ADR-0018)
+   - Define a `<Name>Settings` interface if the field has configurable settings. A `settingsComponent` for the editor's config panel is optional: without one, the panel renders a form generated from the `settingsSchema` (strings, numbers, booleans, enums, lists of scalars, nested objects; anything else read-only)
+   - Declare a strict Zod `settingsSchema` (every key optional — Unset is stripped before it is checked) and the `catalogue` facts (`since`, `hasText`, `pins`), plus `consumers` (picker advice) and `positions` (enforced, ADR-0022 — list `row` or `reference_spec` only for a flat value type fit for a cell or a drawer); then run `npm run catalogue` and commit `go/catalogue.json`. A type in the Catalogue is validated by Go too, so add conformance fixtures under `conformance/unreleased/` (ADR-0018)
    - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
 2. Register the plugin in `src/schema/field-types/index.ts`
 3. Create renderer component: `src/renderer/fields/<name>-field.tsx` and set it as the plugin's `fieldComponent`

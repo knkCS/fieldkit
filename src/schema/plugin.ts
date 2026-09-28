@@ -14,22 +14,48 @@ export type FieldTypeCategory =
 	| "media";
 
 /**
- * Where a Field is being authored — which decides the types on offer.
+ * A Consumer whose type picker may offer a Field Type (ADR-0022).
  *
- * `"attribute"` is the Attribute Spec of a Reference Field: the Fields an
- * Author declares once per Field and someone filling in the form fills per
- * Reference. It offers strictly less than the other three, and deliberately:
- *
- * - **No Marker.** Attributes render in a drawer, and there is no Tab or Card
- *   there for a Section or a Card to open.
- * - **No container.** The Attribute Spec lives in settings, so shared traversal
- *   never reaches it (ADR-0007) — a Fieldset would never resolve, and a Group's
- *   children would never have their Accessors checked.
- * - **No reference type.** Cycle rejection walks `children`, so a Reference
- *   Field declared as an Attribute of a Reference Field is a recursion nothing
- *   would catch.
+ * Advice for pickers, never a rule: nothing validates it, and the Go module
+ * ignores it. A Consumer passes its own to `SpecEditor` as `consumer`, and the
+ * picker offers the types whose `consumers` name it.
  */
-export type FieldContext = "blueprint" | "task" | "form" | "attribute";
+export type Consumer = "blueprint" | "task" | "form";
+
+/**
+ * Where in a Spec a Field sits, which decides the Field Types it may be
+ * (ADR-0022). Enforced: `validateSpec()` reports a Field in a Position its type
+ * does not list as `position`, in TS and in Go.
+ *
+ * - `root` — the top level of a Spec.
+ * - `row` — a Virtual Table's Row Spec (ADR-0017): flat value Fields only, each
+ *   one a cell and a drawer control.
+ * - `reference_spec` — the Reference Spec of a Reference Field, filled in per
+ *   Reference in a drawer. No Marker (there is no Tab or Card in a drawer), no
+ *   container (a Fieldset there would never resolve), and no reference type
+ *   (the recursion nothing would catch).
+ * - `block_type` — the Fields of a Blocks Field's Block Type.
+ *
+ * A Group's and a Fieldset's `children` sit in the Position the container
+ * does — a Group at the root holds `root` Fields; only a container that says
+ * otherwise (`childrenPosition`) changes it. The list grows additively.
+ *
+ * Replaces the `"attribute"` value of the old `FieldContext`, which mixed this
+ * axis with the Consumer's; `attribute` is `reference_spec` now.
+ */
+export type Position = "root" | "row" | "reference_spec" | "block_type";
+
+/**
+ * A Spec a Field holds in its settings rather than in `children` — a Block
+ * Type's Fields, a Reference Spec — and the Position its Fields sit in.
+ * `segments` are the settings path relative to the Field:
+ * `["settings", "allowed_blocks", 0, "fields"]`.
+ */
+export interface HeldSpec {
+	segments: readonly (string | number)[];
+	fields: Field[];
+	position: Position;
+}
 
 /** Props passed to a field type's renderer component. */
 export interface FieldProps<S = unknown> {
@@ -222,7 +248,32 @@ export interface FieldTypePlugin<S = unknown> {
 		composeChildren?: ComposeChildrenDefaults,
 	) => unknown;
 	maxPerSpec?: number;
-	availableIn?: FieldContext[];
+	/**
+	 * The Consumers whose type picker offers this type (ADR-0022). Advice for
+	 * pickers only. Absent: every Consumer's.
+	 */
+	consumers?: Consumer[];
+	/**
+	 * Where in a Spec a Field of this type may sit (ADR-0022), enforced by
+	 * `validateSpec()`. Absent: `DEFAULT_POSITIONS` — the root and a Block
+	 * Type, never a Row Spec or a Reference Spec, which a type has to be
+	 * declared fit for.
+	 */
+	positions?: Position[];
+	/**
+	 * The Position of the Fields in this type's `children`, when it is not
+	 * the Field's own — a Virtual Table's children are its Row Spec, `row`.
+	 * Absent: a container is transparent, and its children sit where it does.
+	 */
+	childrenPosition?: Position;
+	/**
+	 * The Specs this type holds in its settings, so `validateSpec()` walks
+	 * them as it walks `children` — each in its own Position. Only the plugin
+	 * knows its settings' shape (ADR-0007): the shared walk asks this and
+	 * learns nothing else. Read leniently: settings of the wrong shape hold no
+	 * Spec, and the settings schema reports them.
+	 */
+	heldSpecs?: (field: Field<S>) => HeldSpec[];
 
 	/**
 	 * The settings this type accepts, as a **strict** Zod object: a key it

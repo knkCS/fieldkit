@@ -51,7 +51,7 @@ import { resolveMarkerConvention } from "../schema/marker-convention";
 import { partitionSchemaBySections } from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
@@ -83,6 +83,7 @@ import {
 	ShellDragPreview,
 } from "./drag-previews";
 import { DropIndicatorLine } from "./drop-indicator";
+import { topLevelAccessor } from "./error-paths";
 import { FieldShell } from "./field-shell";
 import {
 	type ResolvedDropTarget,
@@ -207,7 +208,7 @@ export interface CanvasLabels
 export interface EditorCanvasProps {
 	spec: SpecDraft;
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	consumer?: Consumer;
 	selectedAccessor: string | null;
 	onSelect: (accessor: string | null) => void;
 	onEdit: (accessor: string) => void;
@@ -321,7 +322,7 @@ DragRemeasurer.displayName = "DragRemeasurer";
 export function EditorCanvas({
 	spec,
 	plugins,
-	context,
+	consumer,
 	selectedAccessor,
 	onSelect,
 	onEdit,
@@ -489,7 +490,10 @@ export function EditorCanvas({
 	);
 
 	const invalidAccessors = useMemo(
-		() => new Set(spec.validation.fieldErrors.map((e) => e.accessor)),
+		// By path, not by `error.accessor`: an error inside a Field (a child,
+		// an Attribute) outlines the top-level shell that holds it, never an
+		// unrelated one sharing the inner Accessor.
+		() => new Set(spec.validation.fieldErrors.map(topLevelAccessor)),
 		[spec.validation],
 	);
 
@@ -505,7 +509,7 @@ export function EditorCanvas({
 					tab.fields.map((field) => field.config.api_accessor),
 				);
 				return spec.validation.fieldErrors.filter((error) =>
-					accessors.has(error.accessor),
+					accessors.has(topLevelAccessor(error)),
 				).length;
 			}),
 		[partition, spec.validation],
@@ -972,7 +976,7 @@ export function EditorCanvas({
 					// the marker bookkeeping (addSection / insertCard's auto-wrap)
 					// that keeps tabs and cards consistent.
 					plugins={plugins.filter((p) => p.id !== "section" && p.id !== "card")}
-					context={context}
+					consumer={consumer}
 					currentSpec={draft}
 					onPick={insertAt(tabIndex, position)}
 					triggerLabel={labels.addField}

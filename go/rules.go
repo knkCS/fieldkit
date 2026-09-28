@@ -3,7 +3,6 @@ package fieldkit
 import (
 	"bytes"
 	"encoding/json"
-	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -34,6 +33,11 @@ type typeRules struct {
 	// that should hold a Spec but does not decode as one is an error at that
 	// setting, and is not walked. Paths are relative to the Field.
 	specs func(settings json.RawMessage) ([]heldSpec, []Error)
+	// childrenPosition is the Position of the Fields in the type's children,
+	// when it is not the Field's own: a Virtual Table's children are its Row
+	// Spec. "" means the container is transparent, and its children sit
+	// where it does.
+	childrenPosition string
 }
 
 // heldSpec is one Spec a Field holds in its settings, and where.
@@ -43,26 +47,18 @@ type heldSpec struct {
 	// Accessor.
 	path   string
 	fields []Field
+	// position is the Position its Fields sit in.
+	position string
 }
 
 // typeRulesByID are the rules of every type that has any.
 var typeRulesByID = map[string]typeRules{ //nolint:gochecknoglobals
-	"virtual_table": {field: virtualTableRowSpec},
+	"virtual_table": {field: virtualTableRowSpec, childrenPosition: PositionRow},
 	"blocks":        {settings: duplicateBlockTypes, specs: blockTypeSpecs},
 }
 
 func rulesFor(fieldType string) typeRules {
 	return typeRulesByID[fieldType]
-}
-
-// positionRow is the Position of a Field in a Virtual Table's Row Spec.
-const positionRow = "row"
-
-// allowsPosition reports whether the Catalogue lets a Field of this type sit
-// in this Position. A type the Catalogue does not list sits nowhere.
-func (c *Catalogue) allowsPosition(fieldType, position string) bool {
-	t, ok := c.Type(fieldType)
-	return ok && slices.Contains(t.Positions, position)
 }
 
 // linkedBlueprint is the Blueprint a Field links, or "" for none: the setting
@@ -91,8 +87,8 @@ const pinKindBlueprint = "blueprint"
 
 // virtualTableRowSpec is ADR-0017: a Virtual Table declares its Row Spec
 // exactly one way — linked, by a Blueprint Pin in its settings, or embedded,
-// in its children — and a Row Spec holds only the types whose Positions
-// include "row".
+// in its children. What a Row Spec may hold is the "row" Position, which the
+// Position check enforces for every container alike (ADR-0022).
 //
 // Like TS's validateSpec it reads an authored Spec: a Resolved one carries a
 // linked Row Spec in children as well, and reads as both.
@@ -105,15 +101,6 @@ func virtualTableRowSpec(c *Catalogue, f Field, settings any) []Error {
 		errs = append(errs, Error{Path: "", Code: CodeVirtualTableRowSpecAmbiguous})
 	case !linked && !embedded:
 		errs = append(errs, Error{Path: "", Code: CodeVirtualTableRowSpecMissing})
-	}
-	// Checked whichever way the Row Spec was declared, as TS checks it.
-	for _, child := range f.Children {
-		if !c.allowsPosition(child.FieldType, positionRow) {
-			errs = append(errs, Error{
-				Path: joinPath("", "children", child.Config.APIAccessor),
-				Code: CodeVirtualTableRowFieldType,
-			})
-		}
 	}
 	return errs
 }
@@ -175,7 +162,7 @@ func blockTypeSpecs(raw json.RawMessage) ([]heldSpec, []Error) {
 			errs = append(errs, Error{Path: path, Code: CodeInvalidSetting})
 			continue
 		}
-		held = append(held, heldSpec{path: path, fields: fields})
+		held = append(held, heldSpec{path: path, fields: fields, position: PositionBlockType})
 	}
 	return held, errs
 }

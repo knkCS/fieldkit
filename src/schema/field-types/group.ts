@@ -39,5 +39,6 @@ export const groupPlugin: FieldTypePlugin<GroupSettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "block_type"],
 };

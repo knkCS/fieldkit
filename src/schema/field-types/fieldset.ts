@@ -70,5 +70,6 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 		return composeChildren(children);
 	},
 
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "block_type"],
 };
