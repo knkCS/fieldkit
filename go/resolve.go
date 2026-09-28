@@ -71,7 +71,10 @@ func DecodeResolvedSpec(data []byte) (*ResolvedSpec, error) {
 // Fetch returns the Release a Pin names, as JSON: for a "blueprint" Pin, the
 // Blueprint Release's Fields — a Spec, decoded strictly as DecodeSpec decodes
 // it (a Release already resolved is fine: its resolved Fields are left
-// alone) — and for any other kind the part itself, which Resolve stores in
+// alone). TS has no strict Field decoder and refuses only a Release that is
+// not a list of objects with a config object, so a stray property is
+// CodeResolveInvalidRelease here and nothing in TS — the gap DecodeSpec has
+// with TS everywhere. For any other kind the part itself, which Resolve stores in
 // Parts unread. An error fails Resolve with CodeResolveFetchFailed, wrapping
 // it.
 type Fetcher interface {

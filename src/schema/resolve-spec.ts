@@ -234,7 +234,10 @@ export function specPins(
  * `resolve_too_deep` past the caps (`RESOLVE_CAPS`, or the options);
  * `resolve_fetch_failed` wrapping an adapter's rejection, which is never
  * swallowed into empty children; `resolve_invalid_release` for a Blueprint
- * Release that is not a list of Fields.
+ * Release that is not a list of objects with a `config` object (Go, which
+ * decodes strictly, also refuses a stray property). Sibling Pins resolve
+ * concurrently here and in document order in Go, so on a Spec over a cap the
+ * two agree on the code but may name different Pins.
  */
 export async function resolveSpec(
 	spec: Schema,

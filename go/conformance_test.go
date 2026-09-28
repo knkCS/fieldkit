@@ -27,9 +27,9 @@ type expectedError struct {
 }
 
 type fixture struct {
-	Description string                     `json:"description"`
-	Spec        json.RawMessage            `json:"spec"`
-	Data        json.RawMessage            `json:"data,omitempty"`
+	Description string          `json:"description"`
+	Spec        json.RawMessage `json:"spec"`
+	Data        json.RawMessage `json:"data,omitempty"`
 	// Releases are what resolving spec fetches: kind → Release id → JSON.
 	Releases map[string]map[string]json.RawMessage `json:"releases,omitempty"`
 	// ResolveOptions override Resolve's caps.
