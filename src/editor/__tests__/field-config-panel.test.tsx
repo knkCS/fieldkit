@@ -117,6 +117,7 @@ describe("FieldConfigPanel", () => {
 							accessor: "dup",
 							code: "duplicate_accessor",
 							message: 'Duplicate accessor "dup"',
+							path: "/dup",
 						},
 					]}
 					onFieldChange={onFieldChangeSpy}
@@ -160,6 +161,7 @@ describe("FieldConfigPanel", () => {
 							accessor: "dup",
 							code: "duplicate_accessor",
 							message: 'Duplicate accessor "dup"',
+							path: "/dup",
 						},
 					]}
 					onFieldChange={onFieldChangeSpy}
@@ -208,6 +210,52 @@ describe("FieldConfigPanel", () => {
 
 		fireEvent.click(screen.getByTestId("panel-required-input"));
 		expect(onFieldChangeSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("matches errors by path: a held Field's duplicate is its holder's notice, not a same-named Field's banner", () => {
+		// validateSpec walks a Reference Spec (ADR-0022), so an Attribute's
+		// error carries the Attribute's Accessor — which a top-level Field may
+		// share. The path says whose it is.
+		const credits = makeField("credits", "Credits");
+		const note = makeField("note", "Note");
+		const fieldErrors = [
+			{
+				accessor: "note",
+				code: "duplicate_accessor" as const,
+				message: 'Duplicate accessor "note"',
+				path: "/credits/settings/attributes/note",
+			},
+		];
+		const panel = (field: typeof credits) => (
+			<EditorWrap>
+				<FieldConfigPanel
+					field={field}
+					plugin={undefined}
+					draft={[credits, note]}
+					fieldErrors={fieldErrors}
+					onFieldChange={vi.fn()}
+					onClose={vi.fn()}
+					committedAccessors={new Set()}
+					baselineAccessor={field.config.api_accessor}
+					labels={testLabels}
+				/>
+			</EditorWrap>
+		);
+
+		const { unmount } = render(panel(credits));
+		expect(screen.getByTestId("panel-field-errors")).toHaveTextContent(
+			'Duplicate accessor "note"',
+		);
+		expect(
+			screen.queryByTestId("panel-duplicate-banner"),
+		).not.toBeInTheDocument();
+		unmount();
+
+		render(panel(note));
+		expect(
+			screen.queryByTestId("panel-duplicate-banner"),
+		).not.toBeInTheDocument();
+		expect(screen.queryByTestId("panel-field-errors")).not.toBeInTheDocument();
 	});
 
 	it("label edit calls onFieldChange with updated name (and auto-slugs a fresh accessor for a new-in-draft field)", () => {
@@ -1197,6 +1245,7 @@ describe("FieldConfigPanel", () => {
 							accessor: "dup",
 							code: "duplicate_accessor",
 							message: 'Duplicate accessor "dup"',
+							path: "/dup",
 						},
 					]}
 					onFieldChange={vi.fn()}
