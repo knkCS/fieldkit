@@ -27,17 +27,68 @@ var packagedVocabulary = sync.OnceValue(vocabulary.Packaged) //nolint:gochecknog
 // parseTextTypePart reads a text_type part as knkeditor reads it, and checks
 // that its minimum vocabulary version, when it states one, is a semantic
 // version — Resolve compares them to fill the Resolved Spec's vocabulary.
+//
+// It is memoised by the part's JSON text (parsedTextTypes): Texts reads a
+// rich_text value's Text Type once per value, so without it a table of
+// thousands of rich-text rows parses the same Text Type thousands of times
+// (fieldkit#222). The Text Type it returns is shared: never modify it.
 func parseTextTypePart(raw json.RawMessage) (*vocabulary.TextType, error) {
+	parsed := parsedTextTypes.get(raw)
+	return parsed.textType, parsed.err
+}
+
+// parsedTextType is one memoised parseTextTypePart: the Text Type and its
+// Symbol Set, or why it cannot be read.
+type parsedTextType struct {
+	textType *vocabulary.TextType
+	symbols  vocabulary.SymbolSet
+	err      error
+}
+
+func parseTextTypeUncached(raw json.RawMessage) parsedTextType {
 	textType, err := vocabulary.ParseTextType(raw)
 	if err != nil {
-		return nil, err
+		return parsedTextType{err: err}
 	}
 	if v := textType.MinimumVocabularyVersion; v != nil {
 		if _, err := vocabulary.CompareVersions(*v, *v); err != nil {
-			return nil, fmt.Errorf("minimumVocabularyVersion: %w", err)
+			return parsedTextType{err: fmt.Errorf("minimumVocabularyVersion: %w", err)}
 		}
 	}
-	return textType, nil
+	// A Symbol Set knkeditor cannot read is none: its custom symbols read as
+	// nothing, as without a Text Type.
+	symbols, _ := textType.SymbolSet()
+	return parsedTextType{textType: textType, symbols: symbols}
+}
+
+// textTypeMemo memoises parseTextTypeUncached by the part's JSON text, for
+// every goroutine. A service reads a handful of Text Type Releases, but the
+// parts come from outside, so it holds at most maxParsedTextTypes and starts
+// over when full rather than grow without bound.
+type textTypeMemo struct {
+	mu     sync.Mutex
+	parsed map[string]parsedTextType
+}
+
+const maxParsedTextTypes = 256
+
+var parsedTextTypes = &textTypeMemo{} //nolint:gochecknoglobals
+
+func (m *textTypeMemo) get(raw json.RawMessage) parsedTextType {
+	m.mu.Lock()
+	parsed, ok := m.parsed[string(raw)]
+	m.mu.Unlock()
+	if ok {
+		return parsed
+	}
+	parsed = parseTextTypeUncached(raw)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.parsed == nil || len(m.parsed) >= maxParsedTextTypes {
+		m.parsed = map[string]parsedTextType{}
+	}
+	m.parsed[string(raw)] = parsed
+	return parsed
 }
 
 // higherVocabulary is the higher of two vocabulary versions, "" being none.
@@ -96,47 +147,49 @@ func (r *richTextContext) textType(f Field) (release string, textType *vocabular
 	return release, textType, nil
 }
 
+// validator and merger are built once per Text Type, and found again by the
+// release a Field pins before anything is read: a table of thousands of
+// rich-text rows asks for one per row (fieldkit#222). A pin the parts do not
+// hold, outside strict, is the vocabulary alone, found under "" too.
 func (r *richTextContext) validator(f Field) (*vocabulary.Validator, error) {
-	release, textType, err := r.textType(f)
-	if err != nil {
-		return nil, err
-	}
-	if v, ok := r.validators[release]; ok {
-		return v, nil
-	}
-	var v *vocabulary.Validator
-	if textType == nil {
-		v, err = vocabulary.NewValidator(packagedVocabulary())
-	} else {
-		v, err = vocabulary.NewTextTypeValidator(packagedVocabulary(), textType)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if r.validators == nil {
-		r.validators = map[string]*vocabulary.Validator{}
-	}
-	r.validators[release] = v
-	return v, nil
+	return built(r, f, &r.validators, func(textType *vocabulary.TextType) (*vocabulary.Validator, error) {
+		if textType == nil {
+			return vocabulary.NewValidator(packagedVocabulary())
+		}
+		return vocabulary.NewTextTypeValidator(packagedVocabulary(), textType)
+	})
 }
 
 func (r *richTextContext) merger(f Field) (*vocabulary.Merger, error) {
+	return built(r, f, &r.mergers, func(textType *vocabulary.TextType) (*vocabulary.Merger, error) {
+		return vocabulary.NewMerger(packagedVocabulary(), textType)
+	})
+}
+
+// built is the validator or merger for f's Text Type from cache, building it
+// with build on a miss.
+func built[T any](r *richTextContext, f Field, cache *map[string]T, build func(*vocabulary.TextType) (T, error)) (T, error) {
+	pinned := textTypeRelease(f)
+	if v, ok := (*cache)[pinned]; ok {
+		return v, nil
+	}
+	var zero T
 	release, textType, err := r.textType(f)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
-	if m, ok := r.mergers[release]; ok {
-		return m, nil
+	v, ok := (*cache)[release]
+	if !ok {
+		if v, err = build(textType); err != nil {
+			return zero, err
+		}
 	}
-	m, err := vocabulary.NewMerger(packagedVocabulary(), textType)
-	if err != nil {
-		return nil, err
+	if *cache == nil {
+		*cache = map[string]T{}
 	}
-	if r.mergers == nil {
-		r.mergers = map[string]*vocabulary.Merger{}
-	}
-	r.mergers[release] = m
-	return m, nil
+	(*cache)[release] = v
+	(*cache)[pinned] = v
+	return v, nil
 }
 
 // richTextValue is the rich_text value rule: an object — as TS's
@@ -276,8 +329,8 @@ func richTextEdges(_ Field, _ map[string]any, value any) []Edge {
 func richTextText(f Field, _ map[string]any, value any, parts map[string]map[string]json.RawMessage) string {
 	var symbols vocabulary.SymbolSet
 	ctx := richTextContext{parts: parts}
-	if _, textType, err := ctx.textType(f); err == nil && textType != nil {
-		symbols, _ = textType.SymbolSet()
+	if release, textType, err := ctx.textType(f); err == nil && textType != nil {
+		symbols = parsedTextTypes.get(parts[pinKindTextType][release]).symbols
 	}
 	text, err := vocabulary.Text(value, symbols)
 	if err != nil {
@@ -314,8 +367,10 @@ func compareRichText(_ *composer, f *Field, a, b any) (bool, *CompareDetail, err
 // merged document the Text Type refuses outside such a node, a JSON Pointer
 // into it; "" is the whole value — each placed below path.
 func mergeRichText(c *composer, f *Field, base, ours, theirs any, path string) (any, error) {
-	ctx := richTextContext{parts: c.parts, strict: true}
-	merger, err := ctx.merger(*f)
+	if c.richText == nil {
+		c.richText = &richTextContext{parts: c.parts, strict: true}
+	}
+	merger, err := c.richText.merger(*f)
 	if err != nil {
 		return nil, fmt.Errorf("fieldkit: %s: %w", f.Config.APIAccessor, err)
 	}
