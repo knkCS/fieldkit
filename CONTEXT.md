@@ -15,7 +15,7 @@ The Zod validator generated from a Spec, composed from each field type's Zod typ
 _Avoid_: bare "schema" for the authored document — that's a Spec
 
 **Resolved Spec**:
-A Spec whose adapter-backed containers have been expanded into inline Fields. Only a resolved Spec can produce a complete Schema.
+A Spec whose every Pin has been resolved, so a reader never follows a second one: each pinned Blueprint Release is expanded into inline Fields, and each other pinned part — a Text Type, a Typesetting Instruction Set — is carried once beside the Fields, however many Fields pin it. Only a Resolved Spec can produce a complete Schema, and only a Resolved Spec can validate a value.
 _Avoid_: expanded spec, flattened spec
 
 **Blueprint**:
@@ -35,7 +35,16 @@ The kind of a Field, named by an id such as `text`, `group`, or `card`.
 The object implementing a field type — its Zod type, its renderer, its table cell, its settings. Built-in and custom types are plugins alike.
 _Avoid_: field type (that's the kind; the plugin is its implementation)
 
+**Catalogue**:
+Every Field Type one fieldkit release knows, described as data: each type's id, the settings it accepts, where it is available, and which of its settings hold a Pin. TS and Go read the same Catalogue, and it only ever grows — a released Blueprint keeps meaning what it meant.
+_Avoid_: registry (that's the TS runtime lookup of Plugins), type list
+
 ## Structure
+
+**Position**:
+Where in a Spec a Field sits — at the root, in a Row Spec, in a Reference Spec, in a Block Type — which decides which Field Types it may be. Enforced wherever a Spec is validated, and for a linked part only once it is known what the part is linked as, which is when the Blueprint Release using it is cut. Distinct from which Consumers offer a Field Type in their picker, which is advice, not a rule.
+_Avoid_: context, availableIn (the old name that mixed the two)
+
 
 **Marker**:
 A Field that partitions layout and produces no value in the payload. Section and Card are the markers.
@@ -107,9 +116,9 @@ _Avoid_: single ref, one-to-one reference
 The nested arrangement of References a Reference Field holds — each Reference may carry child References. A Reference Field owns both the order and the nesting; neither is derived from the Contents themselves.
 _Avoid_: hierarchy, outline, structure
 
-**Attribute**:
-A value a Reference carries about the pointing itself, not about either Content — the page a citation appears on, the role a credit names. Attributes are declared once per Reference Field, as a Spec of their own, and filled in per Reference.
-_Avoid_: property, metadata, setting
+**Reference Spec**:
+The Fields a Reference Field declares for every Reference it holds, whose values describe the pointing itself, not either Content — the page a citation appears on, the role a credit names. Embedded in the Field once, and replaced — never merged — by a linked Blueprint Release where the Field names one for the target's Blueprint, so every Reference has exactly one. The values belong to the pointing Content's Revision. The term is contenthub's.
+_Avoid_: attributes, attribute spec, reference attributes, title data, edge data
 
 **Adoption**:
 What happens to the References that follow one that arrives shallower than they are: they become its children, and their branches travel with them. A Reference gains children this way whether it was inserted between rows or dragged there, and both say so before they do it — an insert names the rows that will move, a drag highlights them (ADR-0012). Adoption never changes what a Reference *is*, only whose child it is.
@@ -129,22 +138,26 @@ _Avoid_: search (that's the catalogue browse), filter
 A Reference being brought into view: every fold above it opened, and the row itself shown and marked. Where a Spring opens a fold because a drag rested on it, a Reveal opens one because someone named the Reference — so a Spring is a preview and folds back, and a Reveal is not and does not.
 _Avoid_: jump, scroll to, expand to
 
-**Version**:
-One saved state of a Content's data. Versions have no names of their own.
-_Avoid_: revision, snapshot, draft
+**Revision**:
+One immutable saved state of a Content's data or of a Blueprint's Fields. contenthub owns the term; fieldkit needs it only to say that a Pin never names one.
+_Avoid_: version (unqualified), snapshot, draft
 
 **Release**:
-A named, published Version of a Content, carrying a tag and a title. Every Release is a Version; most Versions are not Releases.
-_Avoid_: publication, tag, release version
+A named, immutable pin of one Content or one Blueprint at one of its Revisions. It labels a Revision rather than copying it, and it is the only thing a Pin may name. The term is contenthub's.
+_Avoid_: version (unqualified), tag, publication, snapshot
+
+**Blueprint Release**:
+A Release of a Blueprint. What a Fieldset, a linked Row Spec, a linked Reference Spec and an outline tree pin, and what the Blueprint Release using them has them resolved into, so that a reader never follows a second Pin.
+_Avoid_: blueprint version, blueprint id (a bare id no longer names a shape)
 
 **Pin**:
-The Version or Release one Reference is fixed to. Whether a Reference Field pins at all, and to which of the two, is settled once per Field; which target is settled per Reference. A Reference with no Pin resolves to the Content's newest Version, which is also what a Reference falls back to when its Field stops pinning.
-_Avoid_: lock, freeze, snapshot
+A fixed Release. A Reference may carry one, naming one of its target Content's Releases; whether a Reference Field's References may be pinned at all is settled once per Field. A Field that uses a shared part — a Fieldset, a linked Row Spec or Reference Spec, a Text Type — always pins that part's Release. A Pin never names a Revision.
+_Avoid_: lock, freeze, snapshot, version pin
 
 ## Lookups
 
 **Lookup**:
-The field type holding exactly one id from a Source, or none. Distinct from a Reference, which points at a Content — a Lookup points at something with no Blueprint, no Versions and no Releases, so it carries no Pin and no Attributes and its value is a bare id string (ADR-0015). Paired with Find: **Find looks inward** at the tree already held, **Lookup looks outward** at a Source.
+The field type holding exactly one id from a Source, or none. Distinct from a Reference, which points at a Content — a Lookup points at something with no Blueprint, no Revisions and no Releases, so it carries no Pin and no Reference Spec and its value is a bare id string (ADR-0015). Paired with Find: **Find looks inward** at the tree already held, **Lookup looks outward** at a Source.
 _Avoid_: reference, relation, external reference
 
 **Source**:
@@ -179,6 +192,10 @@ _Avoid_: disabled setting, readonly setting, system setting
 **Accessor**:
 The key a Field's value takes in the payload, unique among its siblings.
 _Avoid_: name (that's the Field's human-readable label), key, id
+
+**Unset**:
+A setting or a value that says nothing: absent, `null`, `""`, `[]` or `{}` — all five mean the same, everywhere, in TS and Go alike, so two of them compare equal and `required` rejects each. `0` and `false` are values, not Unset. Unset is stored one way only — absent. Nothing can be narrowed to "none" by leaving it empty; whoever needs "none" says so with a switch of its own.
+_Avoid_: empty (as distinct from unset), cleared, blank
 
 **Adapter**:
 The injected boundary through which backend-dependent field types get their data. Fieldkit never calls a service directly.

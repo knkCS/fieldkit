@@ -9,3 +9,7 @@ The boundary is narrower than "no domain coupling". Fieldkit's **adapter surface
 ## Consequences
 
 Core must author five plugins including editor settings UI and table cells, and `blueprint-review`'s "placeholder" classification for those five becomes permanent unless that tool can import core's plugin definitions.
+
+## Amended by contenthub's map (fieldkit#200)
+
+`manipulation_tree`, `outline_tree`, `ti_overlay`, `template_text` and the new `reference_filter` move into fieldkit after all — as an **opt-in publishing package** (`@knkcs/fieldkit/publishing`, `…/go/publishing`) that nothing registers by default. The catalogue itself stays generic. They cannot stay consumer-owned because blueprinthub and contenthub both need their Go side, and neither may depend on the other's repo. `title_data` and `title_scope` go. The package ships each type's data contract — Catalogue entry, settings schema, Zod type, Go — first; their editing UI is optional on the plugin and ported later, and until then a Consumer attaches its own component or uses the settings form generated from the schema (ADR-0018). `FieldContext` is replaced by Consumers and Positions (ADR-0022).

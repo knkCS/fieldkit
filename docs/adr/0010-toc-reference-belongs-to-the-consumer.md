@@ -1,3 +1,7 @@
+---
+status: superseded — the TOC is named by the Blueprint (`toc_field`, an Accessor), per contenthub's map (fieldkit#200)
+---
+
 # `toc_reference` belongs to the Consumer, and fieldkit exports the parts to build it
 
 ADR-0002 drew the line at "the catalogue is generic, the integration surface is not", and named `manipulation_tree` among the types knkCMS core registers for itself. `toc_reference` is that type's structural sibling and sat on the wrong side of the line: its entire meaning is knkCMS publication structure, and core's backend addresses it *by field type id* — `GetFirstFieldByType(bp.Data, TocReferenceFieldTypeID)` expands a publication tree from it, and reference extraction finds a Content's parent through it. Fieldkit therefore drops the type and exports the pieces instead: the tree Reference Field component and a `createReferencePlugin()` factory, so core mints `toc_reference` with `maxPerSpec: 1` in a few lines rather than reimplementing a tree.
