@@ -309,6 +309,14 @@ export interface FieldKitAdapters {
 		 */
 		list?: () => Promise<BlueprintSummary[]>;
 	};
+	/**
+	 * Text Types. `listEditorSpecs()` is also what the rich_text config
+	 * panel's Text Type picker lists (#216): each entry's `id` is the **Text
+	 * Type Release id** a Field's `text_type` Pin stores (ADR-0020), and its
+	 * `name` what the Author reads. Without this adapter the picker degrades
+	 * to Release id entry. Resolution fetches the Text Type itself through
+	 * `resolveSpec()`'s `parts.text_type`, not through this adapter.
+	 */
 	textType?: {
 		getEditorSpec: (id: string) => Promise<EditorSpecData>;
 		getGlobalSettings: () => Promise<EditorSpecGlobalSettings>;
