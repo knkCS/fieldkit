@@ -1,32 +1,32 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
-  "root": true,
-  "files": {
-    "includes": ["src/**"],
-    "ignoreUnknown": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "a11y": {
-        "noLabelWithoutControl": "warn",
-        "noStaticElementInteractions": "warn"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn",
-        "noArrayIndexKey": "warn"
-      },
-      "correctness": {
-        "useHookAtTopLevel": "warn"
-      }
-    }
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "tab",
-    "indentWidth": 2
-  },
-  "javascript": {
-    "formatter": { "quoteStyle": "double" }
-  }
+	"$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+	"root": true,
+	"files": {
+		"includes": ["src/**"],
+		"ignoreUnknown": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"a11y": {
+				"noLabelWithoutControl": "warn",
+				"noStaticElementInteractions": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn"
+			},
+			"correctness": {
+				"useHookAtTopLevel": "warn"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 2
+	},
+	"javascript": {
+		"formatter": { "quoteStyle": "double" }
+	}
 }

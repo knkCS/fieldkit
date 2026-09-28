@@ -4,6 +4,7 @@ import { CodeField } from "../../renderer/fields/code-field";
 import { CodeCell } from "../../table/cells/code-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { stringText } from "../value-text";
 
 export interface CodeSettings {
 	language?: string;
@@ -44,6 +45,7 @@ export const codePlugin: FieldTypePlugin<CodeSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: stringText,
 
 	defaultSettings: { language: undefined },
 

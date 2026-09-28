@@ -4,6 +4,7 @@ import { MarkdownField } from "../../renderer/fields/markdown-field";
 import { MarkdownCell } from "../../table/cells/markdown-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { stringText } from "../value-text";
 
 export interface MarkdownSettings {
 	placeholder?: string;
@@ -44,6 +45,7 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 		.strict(),
 
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: stringText,
 
 	defaultSettings: { placeholder: "" },
 

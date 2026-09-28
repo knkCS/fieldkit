@@ -39,6 +39,20 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 
 	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
+	// Its value is a list of Asset ids: one `media` edge per Asset, at the
+	// Field itself — the value is one whole, never addressed by index
+	// (ADR-0023) — and an Asset listed twice is one edge.
+	edges(_field, value) {
+		if (!Array.isArray(value)) return [];
+		const assets = new Set(
+			value.filter((id): id is string => typeof id === "string" && !!id),
+		);
+		return [...assets].map((asset) => ({
+			kind: "media",
+			target: { asset },
+		}));
+	},
+
 	defaultSettings: { accept: undefined, max_items: undefined },
 
 	defaultValue: () => [],

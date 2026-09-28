@@ -6,6 +6,7 @@ import { FieldsetCell } from "../../table/cells/fieldset-cell";
 import { BLUEPRINT_PIN } from "../blueprint-link";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { isPlainObject } from "../unset";
 
 export interface FieldsetSettings {
 	/** Id of the Blueprint whose Fields this Fieldset embeds. Resolved
@@ -53,6 +54,14 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 	mintIds(field, value, context) {
 		const children = field.children;
 		return children == null ? value : context.mintChildren(children, value);
+	},
+
+	// Its one record, against `children` once resolved, for `texts()` and
+	// `edges()`.
+	records(field, value) {
+		const children = field.children;
+		if (children == null || !isPlainObject(value)) return [];
+		return [{ fields: children, record: value, segments: [] }];
 	},
 
 	settingsSchema: z

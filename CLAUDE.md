@@ -60,6 +60,8 @@ src/
 │   ├── virtual-table-row-spec.ts # ADR-0017's rule as a pure function: which of the two ways a Virtual Table declares its Row Spec (linked, embedded, both, neither) — shared by validateSpec and the renderer. What a Row Spec may hold is the `row` Position
 │   ├── positions.ts     # ADR-0022: POSITIONS, CONSUMERS, DEFAULT_POSITIONS, positionsOf() / allowedInPosition() (enforced) and offeredToConsumer() (picker advice). Each plugin declares `positions`, `consumers` and, for a container, `childrenPosition` / `heldSpecs`
 │   ├── search.ts        # SearchWeight — `config.search`'s values (off, A–D)
+│   ├── content-walk.ts  # edges() / texts() / valueText() — a Content's data walked against its Resolved Spec, Go's Edges/Texts/ValueText: each Field read by its plugin's `text`/`edges`, containers entered through their `records` (ADR-0007)
+│   ├── value-text.ts    # The `text()` the types with text share (string, List, Array)
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders
@@ -123,6 +125,9 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec and its children's `row` Position, blocks' Block Types in `block_type`); linkedBlueprint/pinRelease read Pins by the Catalogue's keys
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)
 ├── value_containers.go  # group/virtual_table/blocks/fieldset value rules, the rows' `_id`s (missing_id, duplicate_id) and itemSegments — the `_id` path grammar (ADR-0023)
+├── walk.go              # The walk Edges and Texts share: every Field with its value, containers entered through heldRecords (ADR-0007)
+├── edges.go             # Edges — Content Graph edges {path, kind, target} (contenthub ADR 0009); one edgeRule per type that points at something (media so far)
+├── texts.go             # Texts and ValueText — plain text per Field with its search weight (contenthub ADR 0019); one textRule per type the Catalogue marks has_text
 ├── mint.go              # MintIDs — deterministic UUIDv5 `_id`s for importers, from a seed and each row's place; nothing else mints
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
@@ -161,7 +166,7 @@ an architectural choice.
 1. Create `src/schema/field-types/<name>.ts`:
    - Export a `FieldTypePlugin` with `id`, `name`, `description`, `icon` (Lucide), `category`, `toZodType()`, `defaultSettings`, and — when a safe one exists — `defaultValue` (function returning the value-level form default; see #38)
    - Define a `<Name>Settings` interface if the field has configurable settings. A `settingsComponent` for the editor's config panel is optional: without one, the panel renders a form generated from the `settingsSchema` (strings, numbers, booleans, enums, lists of scalars, nested objects; anything else read-only)
-   - Declare a strict Zod `settingsSchema` (every key optional — Unset is stripped before it is checked) and the `catalogue` facts (`since`, `hasText`, `pins`), plus `consumers` (picker advice) and `positions` (enforced, ADR-0022 — list `row` or `reference_spec` only for a flat value type fit for a cell or a drawer); then run `npm run catalogue` and commit `go/catalogue.json`. A type in the Catalogue is validated by Go too, so add conformance fixtures under `conformance/unreleased/` (ADR-0018)
+   - Declare a strict Zod `settingsSchema` (every key optional — Unset is stripped before it is checked) and the `catalogue` facts (`since`, `hasText`, `pins`) — a type with `hasText` declares `text()` (and Go a `textRule`), a type whose value points at something `edges()` (Go an `edgeRule`), a container `records()` (Go `heldRecords`), plus `consumers` (picker advice) and `positions` (enforced, ADR-0022 — list `row` or `reference_spec` only for a flat value type fit for a cell or a drawer); then run `npm run catalogue` and commit `go/catalogue.json`. A type in the Catalogue is validated by Go too, so add conformance fixtures under `conformance/unreleased/` (ADR-0018)
    - Add tests in `src/schema/field-types/__tests__/<name>.test.ts`
 2. Register the plugin in `src/schema/field-types/index.ts`
 3. Create renderer component: `src/renderer/fields/<name>-field.tsx` and set it as the plugin's `fieldComponent`
