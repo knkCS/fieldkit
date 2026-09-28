@@ -103,6 +103,9 @@ type composer struct {
 	catalogue *Catalogue
 	parts     map[string]map[string]json.RawMessage
 	conflicts []string
+	// richText builds knkeditor's Merger once per Text Type for the whole
+	// Merge, not once per rich_text value (fieldkit#222).
+	richText *richTextContext
 }
 
 // compare compares two present values of a Field — nil for a key no Field

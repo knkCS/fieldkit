@@ -150,7 +150,8 @@ scripts/catalogue.ts     # Generates each Catalogue section — go/catalogue.jso
 scripts/lib/catalogue-sections.ts # The sections: their files and frozen names, judged together as one Catalogue with one version
 scripts/catalogue-compat.ts # The Catalogue may only grow: compares it with the last release's frozen one
 scripts/release.ts       # The release train (docs/releasing.md); prints tag commands, never pushes
-scripts/verify-go.sh     # gofmt, go vet, go test — the Go half of `npm run verify`
+scripts/verify-go.sh     # gofmt, go vet, go test (the performance budgets in go/budget_test.go included) and a short fuzz — the Go half of `npm run verify`
+scripts/fuzz-go.sh       # Fuzzes every Go Fuzz target for a bounded time each (go/fuzz_test.go; seeds from the conformance fixtures); a failing input lands in go/testdata/fuzz/ as a regression case
 ```
 
 The Catalogue lives inside `go/` because Go's `embed` cannot reach outside the
@@ -259,7 +260,8 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 | `npm run catalogue:check` | Fail when the committed Catalogue is stale |
 | `npm run catalogue:compat` | Fail when the Catalogue breaks the last released one — it may only grow (ADR-0019); passes before the first release |
 | `npm run release -- prepare <X.Y.Z[-rc.N]>` / `-- tags` | The release train (`docs/releasing.md`): prepare bumps the version and freezes a final release's fixtures; tags checks the release commit and **prints** the `vX.Y.Z` + `go/vX.Y.Z` tag-push commands — it never pushes |
-| `npm run verify:go` | The Go module's checks: gofmt, `go vet`, `go test` (with `GOWORK=off`, so a workspace above the checkout cannot take the module over) |
+| `npm run verify:go` | The Go module's checks: gofmt, `go vet`, `go test` — the performance budgets included — and every Fuzz target for 3s (`FIELDKIT_FUZZTIME`), all with `GOWORK=off`, so a workspace above the checkout cannot take the module over |
+| `npm run verify:full` | `npm run verify` with 60s of fuzzing per Go Fuzz target: run before a release (`docs/releasing.md`) and before landing a change to the fuzz targets, the budgets or what they cover |
 | `npm run test:gate` | The full suite as the gate runs it: 30s per test and one retry |
 
 Always run `npm run typecheck` and `npm run lint` before committing.
