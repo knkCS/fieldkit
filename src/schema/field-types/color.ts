@@ -29,6 +29,15 @@ export const colorPlugin: FieldTypePlugin<ColorSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			default_color: z.string().optional(),
+		})
+		.strict(),
+
+	// No text: the value is a colour code, not prose.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { default_color: "#000000" },
 	availableIn: ["blueprint", "task", "form", "attribute"],
 };

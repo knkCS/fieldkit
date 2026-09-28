@@ -1,5 +1,5 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ListSettings } from "../../schema/field-types/list";
@@ -40,6 +40,14 @@ describe("ListSettingsEditor", () => {
 		await user.clear(input);
 
 		expect(onChange).toHaveBeenLastCalledWith({ max_items_per_page: 0 });
+	});
+
+	it("writes a whole number of entries, which is all the setting accepts", () => {
+		const { onChange, input } = renderEditor();
+
+		fireEvent.change(input, { target: { value: "2.5" } });
+
+		expect(onChange).toHaveBeenLastCalledWith({ max_items_per_page: 2 });
 	});
 
 	it("keeps settings it does not own", async () => {

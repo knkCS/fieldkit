@@ -24,6 +24,14 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 		return z.string().email(`${field.config.name} must be a valid email`);
 	},
 
+	settingsSchema: z
+		.object({
+			placeholder: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { placeholder: "" },
 
 	defaultValue: () => "",

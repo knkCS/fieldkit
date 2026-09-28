@@ -37,6 +37,14 @@ export const codePlugin: FieldTypePlugin<CodeSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			language: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { language: undefined },
 
 	defaultValue: () => "",

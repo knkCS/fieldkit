@@ -25,5 +25,9 @@ export const timePlugin: FieldTypePlugin<null> = {
 		return schema;
 	},
 
+	settingsSchema: z.object({}).strict(),
+
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	availableIn: ["blueprint", "task", "form", "attribute"],
 };

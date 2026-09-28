@@ -37,6 +37,14 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			placeholder: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { placeholder: "" },
 
 	defaultValue: () => "",

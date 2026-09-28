@@ -1,0 +1,350 @@
+{
+	"description": "A key the scalar, choice and marker types do not declare is unknown_setting at the key — core-era keys (render_card, validity_role) included — while the declared keys beside it pass",
+	"spec": [
+		{
+			"field_type": "section",
+			"config": {
+				"name": "Main",
+				"api_accessor": "main",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"orientation": "vertical",
+				"render_card": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "Details",
+				"api_accessor": "details",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"title": "Details"
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "Summary",
+				"api_accessor": "summary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placeholder": "x",
+				"row": 4
+			},
+			"system": false
+		},
+		{
+			"field_type": "date",
+			"config": {
+				"name": "Published",
+				"api_accessor": "published",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"enable_range": true,
+				"validity_role": "valid_from"
+			},
+			"system": false
+		},
+		{
+			"field_type": "time",
+			"config": {
+				"name": "Starts at",
+				"api_accessor": "starts_at",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"format": "HH:mm"
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Featured",
+				"api_accessor": "featured",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"default": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Fruit",
+				"api_accessor": "fruit",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "A"
+				},
+				"multiselect": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "Answer",
+				"api_accessor": "answer",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "A"
+				},
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Toppings",
+				"api_accessor": "toppings",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"choices": {
+					"a": "A"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Contact",
+				"api_accessor": "contact",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"placehodler": "x"
+			},
+			"system": false
+		},
+		{
+			"field_type": "url",
+			"config": {
+				"name": "Homepage",
+				"api_accessor": "homepage",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"prepend": "https://"
+			},
+			"system": false
+		},
+		{
+			"field_type": "slug",
+			"config": {
+				"name": "Slug",
+				"api_accessor": "slug",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"source": "title"
+			},
+			"system": false
+		},
+		{
+			"field_type": "color",
+			"config": {
+				"name": "Accent",
+				"api_accessor": "accent",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"default": "#fff"
+			},
+			"system": false
+		},
+		{
+			"field_type": "code",
+			"config": {
+				"name": "Snippet",
+				"api_accessor": "snippet",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"lang": "go"
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "Notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"rows": 4
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"max_items": 3
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Pairs",
+				"api_accessor": "pairs",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"mode": "keyed",
+				"key": [
+					"a"
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "Stylesheet",
+				"api_accessor": "stylesheet",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"source": "x",
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "Gallery",
+				"api_accessor": "gallery",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"accept": [
+					"image/png"
+				],
+				"min_items": 1
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/main/settings/render_card",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/details/settings/title",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/summary/settings/row",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/published/settings/validity_role",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/starts_at/settings/format",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/featured/settings/default",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/fruit/settings/multiselect",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/answer/settings/multiple",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/toppings/settings/choices",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/contact/settings/placehodler",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/homepage/settings/prepend",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/slug/settings/source",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/accent/settings/default",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/snippet/settings/lang",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/notes/settings/rows",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/tags/settings/max_items",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/pairs/settings/key",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/stylesheet/settings/multiple",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/gallery/settings/min_items",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}

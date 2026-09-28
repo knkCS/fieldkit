@@ -31,6 +31,15 @@ export const arrayPlugin: FieldTypePlugin<ArraySettings> = {
 		return z.array(z.object({ key: z.string(), value: z.string() }));
 	},
 
+	settingsSchema: z
+		.object({
+			mode: z.enum(["dynamic", "keyed"]).optional(),
+			keys: z.array(z.string()).optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { mode: "dynamic" },
 
 	defaultValue: () => [],

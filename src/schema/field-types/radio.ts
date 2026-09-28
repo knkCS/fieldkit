@@ -27,6 +27,15 @@ export const radioPlugin: FieldTypePlugin<RadioSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			options: z.record(z.string()).optional(),
+		})
+		.strict(),
+
+	// No text: the value is an option key, an identifier, not prose.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { options: {} },
 	availableIn: ["blueprint", "task", "form", "attribute"],
 };

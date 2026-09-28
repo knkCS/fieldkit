@@ -38,6 +38,16 @@ export const selectPlugin: FieldTypePlugin<SelectSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			options: z.record(z.string()).optional(),
+			multiple: z.boolean().optional(),
+		})
+		.strict(),
+
+	// No text: the value is option keys, which are identifiers, not prose.
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { options: {} },
 
 	defaultValue: (field: Field<SelectSettings>) =>
