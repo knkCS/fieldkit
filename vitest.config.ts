@@ -1,5 +1,5 @@
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -35,5 +35,8 @@ export default defineConfig({
     globals: true,
     css: false,
     passWithNoTests: true,
+    // Agent worktrees live inside the checkout; their copies of the suite
+    // are theirs to run, never this checkout's.
+    exclude: [...configDefaults.exclude, ".claude/**"],
   },
 });

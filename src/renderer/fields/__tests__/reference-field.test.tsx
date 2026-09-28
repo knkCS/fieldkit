@@ -249,6 +249,11 @@ describe("ReferenceField", () => {
 		/** Past the batch size *and* past the collapse threshold, so the tree
 		 * opens with every child hidden and no one call could carry it. */
 		const COUNT = REFERENCE_NAME_BATCH_SIZE * 2 + 10;
+		/** The slowest renders in the suite: under the gate's load (several
+		 * auto-implement lanes at once) they outrun even `test:gate`'s 30s.
+		 * A per-test timeout overrides the global one, so this must stay
+		 * above it. */
+		const AT_SIZE_BUDGET_MS = 120_000;
 
 		it("resolves every Reference in the tree, in calls no bigger than the batch size", async () => {
 			const adapter = createFakeReferenceAdapter({
@@ -266,7 +271,7 @@ describe("ReferenceField", () => {
 			expect(adapter.fetches.length).toBeGreaterThan(1);
 			const biggest = Math.max(...adapter.fetches.map((call) => call.length));
 			expect(biggest).toBeLessThanOrEqual(REFERENCE_NAME_BATCH_SIZE);
-		});
+		}, AT_SIZE_BUDGET_MS);
 
 		it("shows the names the other batches resolved when one of them fails", async () => {
 			const onError = vi.fn();
@@ -311,7 +316,7 @@ describe("ReferenceField", () => {
 			// Its name was already resolved, so the row arrives named rather than
 			// showing an id until something fetches it.
 			expect(screen.getByText("Content 2")).toBeInTheDocument();
-		});
+		}, AT_SIZE_BUDGET_MS);
 	});
 
 	describe("the browse drawer", () => {
