@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # verify-go — the Go module's gate, run by `npm run verify` so the gate stays
-# one command: gofmt, go vet, go test. Fails when any of them fails.
+# one command: gofmt, go vet, go test (the performance budgets included, in
+# go/budget_test.go) and a short fuzz of every Fuzz target. Fails when any of
+# them fails.
 #
 # What it checks mirrors the org's go-service-ci.yml (which the Go workflow
 # calls), with two local differences:
@@ -51,3 +53,7 @@ echo "go vet: clean"
 # -count=1: the conformance fixtures live outside the module, and a cached
 # pass must never stand in for a run over changed fixtures.
 go test -count=1 ./...
+# Fuzz every target for a bounded time (scripts/fuzz-go.sh, fieldkit#222):
+# `go test` above only replays their seed corpora. FIELDKIT_FUZZTIME sets the
+# time per target — 3s here, 60s in `npm run verify:full`.
+bash "$root/scripts/fuzz-go.sh" "${FIELDKIT_FUZZTIME:-3s}"

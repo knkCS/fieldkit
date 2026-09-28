@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -192,5 +194,40 @@ func TestRichTextCompareAndMerge(t *testing.T) {
 	bare := schemaField(t, richText("body", "minimal@1"))
 	if _, _, err := bare.Type.(Merger).Merge(bare.Settings, json.RawMessage(base), json.RawMessage(ours), json.RawMessage(theirs)); err == nil {
 		t.Error("a Merge without its Text Type did not fail")
+	}
+}
+
+// A Text Type is parsed once per JSON text, from any goroutine, a failure
+// included, and the memo starts over rather than grow past its bound
+// (fieldkit#222).
+func TestTextTypeMemo(t *testing.T) {
+	m := &textTypeMemo{}
+	var wg sync.WaitGroup
+	got := make([]parsedTextType, 8)
+	for i := range got {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got[i] = m.get(json.RawMessage(textTypeMinimal))
+		}()
+	}
+	wg.Wait()
+	for _, p := range got {
+		if p.err != nil || p.textType == nil {
+			t.Fatalf("a valid Text Type: %+v", p)
+		}
+	}
+	first := m.get(json.RawMessage(textTypeMinimal))
+	if again := m.get(json.RawMessage(textTypeMinimal)); again.textType != first.textType {
+		t.Error("the same JSON text parsed twice")
+	}
+	if bad := m.get(json.RawMessage(`{}`)); bad.err == nil {
+		t.Error("an unreadable Text Type: no error")
+	}
+	for i := range maxParsedTextTypes + 1 {
+		m.get(json.RawMessage(`{"n":` + strconv.Itoa(i) + `}`))
+	}
+	if n := len(m.parsed); n > maxParsedTextTypes {
+		t.Errorf("the memo holds %d, past its bound of %d", n, maxParsedTextTypes)
 	}
 }

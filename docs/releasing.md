@@ -18,10 +18,15 @@ A release candidate goes first. Every step runs from an up-to-date `main`.
 
 ```sh
 npm run release -- prepare 0.18.0-rc.1
-npm run verify
+npm run verify:full
 git switch -c release/0.18.0-rc.1
 git commit -am "chore(release): 0.18.0-rc.1 — <what it ships>"
 ```
+
+`verify:full` is `npm run verify` with each Go Fuzz target fuzzed for 60s
+instead of 3s (`scripts/fuzz-go.sh`): a release is when the long run pays. A
+failing input it finds is written to `go/testdata/fuzz/`; fix the panic and
+commit the input with the fix, as the regression case.
 
 `prepare` refuses a dirty tree or a version not newer than `package.json`,
 checks that the Catalogue is current and may ship under this version (below),
@@ -58,7 +63,7 @@ The same three steps with the final version:
 
 ```sh
 npm run release -- prepare 0.18.0
-npm run verify
+npm run verify:full
 git switch -c release/0.18.0
 git add -A    # includes the new conformance/0.18.0/
 git commit -m "chore(release): 0.18.0 — <what it ships>"
