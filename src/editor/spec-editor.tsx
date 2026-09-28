@@ -133,6 +133,15 @@ export interface EditorLabels {
 	/** @deprecated Unused since 0.10.0 — see `panelTabType`. */
 	panelTypeSettings?: string;
 	panelNoSettings?: string;
+	/** Generic settings form (a type with no `settingsComponent`): the button
+	 * appending an item to a list setting. */
+	settingsAddItem?: string;
+	/** Generic settings form: aria-label of the button removing one list item. */
+	settingsRemoveItem?: string;
+	/** Generic settings form: placeholder of a choice setting left unset. */
+	settingsNotSet?: string;
+	/** Generic settings form: the note under a setting it can only show. */
+	settingsReadOnly?: string;
 	panelChildren?: string;
 	panelBack?: string;
 	panelClose?: string;
@@ -286,6 +295,10 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	panelValidation: "Validation",
 	panelTypeSettings: "Type settings",
 	panelNoSettings: "No additional settings",
+	settingsAddItem: "Add",
+	settingsRemoveItem: "Remove",
+	settingsNotSet: "Not set",
+	settingsReadOnly: "This setting can't be edited here — shown as stored.",
 	panelChildren: "Children",
 	panelBack: "Back",
 	panelClose: "Close",
