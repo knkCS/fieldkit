@@ -255,11 +255,17 @@ func (c *Catalogue) finerRule(fieldType string) (finerRule, bool) {
 			if err != nil {
 				return nil, err
 			}
+			// A conflict is a path relative to the value, as every hook's
+			// is: "" or JoinPath's "/a/b". A bare segment is read as one
+			// segment, and escaped, as rich_text's conflicts are.
 			for _, at := range conflicts {
-				if at == "" {
+				switch {
+				case at == "":
 					k.conflict(path)
-				} else {
-					k.conflict(path + "/" + at)
+				case strings.HasPrefix(at, "/"):
+					k.conflict(path + at)
+				default:
+					k.conflict(joinPath(path, at))
 				}
 			}
 			return merged, nil

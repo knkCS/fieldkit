@@ -47,7 +47,7 @@ func stampCode() map[string]TypeCode {
 			if strings.EqualFold(ours.(string), theirs.(string)) {
 				return ours, nil, nil
 			}
-			return nil, []string{"stamp"}, nil
+			return nil, []string{JoinPath("", "case", "a/b")}, nil
 		},
 	}}
 }
@@ -167,7 +167,9 @@ func TestSectionTypesCompareAndMergeThroughTheirCode(t *testing.T) {
 		t.Errorf("Compare = %v, %v; want equal", equal, err)
 	}
 	_, conflicts, err := stamp.Merge(fields[0].Settings, json.RawMessage(`"S-a"`), json.RawMessage(`"S-b"`), json.RawMessage(`"S-c"`))
-	if err != nil || !reflect.DeepEqual(conflicts, []string{"stamp"}) {
+	// Relative to the value, as every hook's path is: at the top of a Field
+	// versionkit prefixes the Accessor itself.
+	if err != nil || !reflect.DeepEqual(conflicts, []string{"case/a~1b"}) {
 		t.Errorf("Merge conflicts = %v, %v", conflicts, err)
 	}
 	// Inside a row the composer hands the child to the section's code too.
