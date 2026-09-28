@@ -100,12 +100,26 @@ func readReferenceTree(f *Field, value any) (referenceTree, error) {
 	return t, nil
 }
 
-// compareReferenceTree compares two trees node by node, by _id: the detail
-// row arrays give, over every node at every level. Items list every node of
-// b in b's document order, each node only a holds after the node it followed
-// in a's; a node is moved when its place among the siblings both trees hold
-// under the same parent changed, and a changed parent is its _parent field.
+// treeFields are the Fields describing a tree node's record for the
+// composer, given the node as each side holds it: what compares and merges
+// its keys finer than whole values. A Reference's are its Field's alone
+// (referenceNodeFields); a tree type of a Catalogue section may choose by the
+// node — a manipulation_tree node's values follow the Spec its intent names.
+type treeFields func(nodes ...map[string]any) []Field
+
+// compareReferenceTree compares two Reference Trees node by node (compareTree).
 func compareReferenceTree(c *composer, f *Field, a, b any) (bool, *CompareDetail, error) {
+	fields := referenceNodeFields(f)
+	return compareTree(c, f, a, b, func(...map[string]any) []Field { return fields })
+}
+
+// compareTree compares two trees node by node, by _id: the detail row arrays
+// give, over every node at every level. Items list every node of b in b's
+// document order, each node only a holds after the node it followed in a's; a
+// node is moved when its place among the siblings both trees hold under the
+// same parent changed, and a changed parent is its _parent field. fieldsOf
+// describes each node's record.
+func compareTree(c *composer, f *Field, a, b any, fieldsOf treeFields) (bool, *CompareDetail, error) {
 	ta, err := readReferenceTree(f, a)
 	if err != nil {
 		return false, nil, err
@@ -114,7 +128,6 @@ func compareReferenceTree(c *composer, f *Field, a, b any) (bool, *CompareDetail
 	if err != nil {
 		return false, nil, err
 	}
-	fields := referenceNodeFields(f)
 	moved := map[string]bool{}
 	for parent, siblings := range tb.children {
 		for id := range movedIDs(ta.children[parent], siblings) {
@@ -142,7 +155,8 @@ func compareReferenceTree(c *composer, f *Field, a, b any) (bool, *CompareDetail
 	for _, id := range tb.order {
 		item := CompareItem{ID: id, Status: StatusAdded}
 		if ra, inA := ta.records[id]; inA {
-			changed, err := c.compareRecord(fields, ra, tb.records[id])
+			rb := tb.records[id]
+			changed, err := c.compareRecord(fieldsOf(ra, rb), ra, rb)
 			if err != nil {
 				return false, nil, err
 			}
@@ -179,6 +193,13 @@ func compareReferenceTree(c *composer, f *Field, a, b any) (bool, *CompareDetail
 //     a Conflict at _order (the roots) or <_id>/children/_order, and a node
 //     the other side added or moved in lands after the node it followed there.
 func mergeReferenceTree(c *composer, f *Field, base, ours, theirs any, path string) (any, error) {
+	fields := referenceNodeFields(f)
+	return mergeTree(c, f, base, ours, theirs, path, func(...map[string]any) []Field { return fields })
+}
+
+// mergeTree is mergeReferenceTree's merge for any tree, fieldsOf describing
+// each node's record.
+func mergeTree(c *composer, f *Field, base, ours, theirs any, path string, fieldsOf treeFields) (any, error) {
 	var trees [3]referenceTree
 	for i, value := range []any{base, ours, theirs} {
 		t, err := readReferenceTree(f, value)
@@ -188,7 +209,6 @@ func mergeReferenceTree(c *composer, f *Field, base, ours, theirs any, path stri
 		trees[i] = t
 	}
 	tb, to, tt := trees[0], trees[1], trees[2]
-	fields := referenceNodeFields(f)
 
 	kept := map[string]map[string]any{}
 	var keptOrder []string
@@ -210,7 +230,7 @@ func mergeReferenceTree(c *composer, f *Field, base, ours, theirs any, path stri
 			case samePresent(asAny(b), inB, asAny(o), inO):
 				record = t
 			case inB && inO && inT:
-				merged, err := c.mergeRecord(fields, b, o, t, at)
+				merged, err := c.mergeRecord(fieldsOf(b, o, t), b, o, t, at)
 				if err != nil {
 					return nil, err
 				}

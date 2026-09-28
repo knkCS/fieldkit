@@ -16,7 +16,7 @@ the fixtures are `conformance/unreleased/compare/` and `merge/`.
 | `Accessor` | the Field's `api_accessor` |
 | `TypeID` | its `field_type` |
 | `Settings` | `{"field": <the whole resolved Field>, "parts": {<kind>: {<release>: <part>}}}` — `parts` only the opaque parts the Field pins, at any depth, and absent when it pins none (`SchemaSettings`, `DecodeSchemaSettings`) |
-| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` |
+| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` — and, through a Catalogue that holds the publishing package, `manipulation_tree` |
 
 fieldkit never imports versionkit (versionkit ADR 0002). `Comparer` and
 `Merger` have exactly versionkit's `FieldType` and `FieldMerger` method sets,
@@ -105,6 +105,14 @@ A `single_reference` holding the same node on both sides — one `_id` —
 compares per field as a tree's node does, as a record detail; a different
 node is a whole value.
 
+The publishing package's `manipulation_tree` is a Reference Tree and
+compares by the same code (`TypeEnv.CompareTree`): its nodes' `intent` and
+`with` are whole-value fields beside `id` and `pin`, and `values` is a record
+detail per Field of the Spec the node's intent names — the embedded Reference
+Spec for an `include`, the node-level `annotation_spec` for an `annotate` —
+when both sides agree on the intent, and key by key as whole values when they
+do not.
+
 ```json
 {
 	"status": "changed",
@@ -154,7 +162,14 @@ Field:
   cycle. Each parent's children merge in order as a row array does, their
   order Conflict at `_order` for the roots and `<_id>/children/_order` for a
   node's. A `single_reference` holding one node on all three sides merges per
-  field; a different node on a side is a Conflict at the Field.
+  field; a different node on a side is a Conflict at the Field. A
+  `manipulation_tree` merges as a `reference` does (`TypeEnv.MergeTree`), its
+  `intent` and `with` fields of the node: an intent changed on one side and a
+  Pin on the other is clean, intents changed differently a Conflict at
+  `<_id>/intent` — as is a merged node whose intent no longer admits what
+  the other side gave it (an `exclude` gaining `values`, a `with` left on a
+  node that is no `replace`), so a merge never answers with a value the
+  type's own validation refuses.
 - **Canonical.** A key whose merged value is Unset is dropped (ADR-0021). A
   top-level row array the merge empties is `[]`, since Merge cannot answer
   "absent": versionkit's `Validate` then reports it `not_canonical`, and the

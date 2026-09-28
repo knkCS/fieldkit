@@ -1,0 +1,48 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./unported-field.stories";
+
+<Meta of={Stories} />
+
+# Unported Field
+
+The field component of a publishing type whose editing UI is not ported yet
+(ADR-0002 amended, #267): the stored value, read-only, as JSON. A form holding
+one shows what it holds and saves it untouched; nothing on screen pretends to
+edit it. `manipulation_tree` uses it.
+
+A Consumer that edits the type attaches its own component by spreading the
+plugin, and passes that instead of the package's:
+
+```ts
+const plugins = [
+  ...builtInFieldTypes,
+  ...publishingFieldTypes.map((plugin) =>
+    plugin.id === "manipulation_tree"
+      ? { ...manipulationTreePlugin, fieldComponent: MyManipulationTree }
+      : plugin,
+  ),
+];
+```
+
+## Manipulation Tree
+
+A Title's composition: a Reference Tree whose every node carries an `intent`.
+
+```ts
+interface ManipulationNode {
+  _id: string;                       // unique across the whole tree (ADR-0023)
+  id: string;                        // the Content the node names
+  intent: "include" | "exclude" | "replace" | "annotate";
+  pin?: string;                      // a Release of `id`
+  values?: Record<string, unknown>;  // include: the Reference Spec's; annotate: annotation_spec's
+  with?: { id: string; pin?: string }; // replace only: what takes `id`'s place
+  children?: ManipulationNode[];
+}
+```
+
+What an intent does to a Title is contenthub's manipulation engine, not
+fieldkit's. Migrating from knkCMS core's `manipulation_tree` is in
+`docs/knkcms-core-parity.md` ("Migrating core's publishing types").
+
+<Canvas of={Stories.ManipulationTree} />
+<Canvas of={Stories.Empty} />

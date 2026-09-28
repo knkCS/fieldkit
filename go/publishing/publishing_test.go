@@ -43,7 +43,7 @@ func TestTheSectionListsExactlyThePublishingTypes(t *testing.T) {
 	for _, typ := range section.Types {
 		ids = append(ids, typ.ID)
 	}
-	if want := []string{"outline_tree", "reference_filter", "template_text", "ti_overlay"}; !reflect.DeepEqual(ids, want) {
+	if want := []string{"manipulation_tree", "outline_tree", "reference_filter", "template_text", "ti_overlay"}; !reflect.DeepEqual(ids, want) {
 		t.Errorf("types = %v, want %v", ids, want)
 	}
 	filter, _ := section.Type("reference_filter")

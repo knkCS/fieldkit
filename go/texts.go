@@ -174,7 +174,7 @@ func Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([
 // types yield their text too.
 func (c *Catalogue) Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
 	texts := []FieldText{}
-	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
+	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
 		rule, ok := c.textRule(f.FieldType)
 		if !ok {
 			return

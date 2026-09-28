@@ -110,7 +110,7 @@ func (c *Catalogue) Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...
 	if resolved != nil {
 		parts = resolved.Parts
 	}
-	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
+	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
 		rule, ok := c.edgeRule(f.FieldType, parts)
 		if !ok {
 			return

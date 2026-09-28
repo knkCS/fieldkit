@@ -7,13 +7,25 @@
 // Their Catalogue section is its own file, `go/publishing/catalogue.json`,
 // shipped as `@knkcs/fieldkit/publishing/catalogue.json` and embedded by the
 // Go package `github.com/knkcs/fieldkit/go/publishing`.
+//
+// Their editing UI is optional until it is ported: a Consumer attaches its
+// own by spreading a plugin — `{ ...manipulationTreePlugin, fieldComponent:
+// Mine }` — and passing that instead.
 
 import type { FieldTypePlugin } from "../schema/plugin";
+import { manipulationTreePlugin } from "./field-types/manipulation-tree";
 import { outlineTreePlugin } from "./field-types/outline-tree";
 import { referenceFilterPlugin } from "./field-types/reference-filter";
 import { templateTextPlugin } from "./field-types/template-text";
 import { tiOverlayPlugin } from "./field-types/ti-overlay";
 
+export type {
+	ManipulationIntent,
+	ManipulationNode,
+	ManipulationReplacement,
+	ManipulationTreeSettings,
+} from "./field-types/manipulation-tree";
+export { MANIPULATION_INTENTS } from "./field-types/manipulation-tree";
 export type {
 	OutlineNode,
 	OutlineTreeSettings,
@@ -37,11 +49,18 @@ export {
 	tiOverlayPlugin,
 } from "./field-types/ti-overlay";
 export { OutlineTreeCell, OutlineTreeField } from "./fields/outline-tree-view";
-export { outlineTreePlugin, referenceFilterPlugin, templateTextPlugin };
+export { UnportedField } from "./fields/unported-field";
+export {
+	manipulationTreePlugin,
+	outlineTreePlugin,
+	referenceFilterPlugin,
+	templateTextPlugin,
+};
 
 /** Every publishing type: the publishing Catalogue section's plugins. */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const publishingFieldTypes: FieldTypePlugin<any>[] = [
+	manipulationTreePlugin,
 	referenceFilterPlugin,
 	outlineTreePlugin,
 	templateTextPlugin,

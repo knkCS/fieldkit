@@ -181,16 +181,29 @@ func fieldsIn(value any) []Field {
 }
 
 // referenceTreeValue is the reference type's toZodType: an array of nodes,
-// each with its branch in children, at every level. Across the whole tree,
-// whatever else a node gets wrong:
+// each with its branch in children, at every level, checked by treeValue —
+// the rules every tree type shares — and each node's own keys by
+// referenceNode.
+func referenceTreeValue(_ Field, settings map[string]any, value any, path string, errs *valueErrors) {
+	treeValue(settings, value, path, errs, func(node map[string]any, at string, errs *valueErrors) {
+		referenceNode(settings, node, at, errs)
+	})
+}
+
+// treeValue checks a tree value — a Reference Tree, and every tree type a
+// Catalogue section defines alike (ValidateTree): an array of nodes, each an
+// object with an _id (as a row's) and its branch, if any, a list in children.
+// Across the whole tree, whatever else a node gets wrong:
 //
 //   - every _id is unique at every level (ADR-0023): CodeDuplicateID at each
 //     repeat, in document order;
 //   - settings.max_items caps every node at every level: CodeTooManyItems at
-//     the Field;
+//     the tree;
 //   - settings.max_depth caps the levels: CodeInvalidValue at each shallowest
 //     node past it.
-func referenceTreeValue(f Field, settings map[string]any, value any, path string, errs *valueErrors) {
+//
+// node checks one node's own keys, at the node's path.
+func treeValue(settings map[string]any, value any, path string, errs *valueErrors, node func(node map[string]any, at string, errs *valueErrors)) {
 	nodes, ok := value.([]any)
 	if !ok {
 		errs.add(path, CodeInvalidType, nil)
@@ -240,12 +253,15 @@ func referenceTreeValue(f Field, settings map[string]any, value any, path string
 	var check func(nodes []any, at string)
 	check = func(nodes []any, at string) {
 		segments := itemSegments(nodes)
-		for i, node := range nodes {
+		for i, item := range nodes {
 			nodePath := joinPath(at, segments[i])
-			obj := referenceNode(settings, node, nodePath, errs)
-			if obj == nil {
+			obj, ok := item.(map[string]any)
+			if !ok {
+				errs.add(nodePath, CodeInvalidType, nil)
 				continue
 			}
+			rowID(obj, nodePath, errs)
+			node(obj, nodePath, errs)
 			if children, present := obj["children"]; present {
 				list, ok := children.([]any)
 				if !ok {
@@ -262,25 +278,21 @@ func referenceTreeValue(f Field, settings map[string]any, value any, path string
 // singleReferenceValue is the single_reference type's toZodType: one node,
 // without a branch.
 func singleReferenceValue(_ Field, settings map[string]any, value any, path string, errs *valueErrors) {
-	referenceNode(settings, value, path, errs)
-}
-
-// referenceNode checks one node at path, and returns it when it is an
-// object: its _id (as a row's), its id — a Content's, required — its Pin,
-// and its values against its Reference Spec (referenceSpecFor). A Field that
-// links a Reference Spec chooses by the target's Blueprint, which only
-// WithTargetBlueprints can say: without it such a Field's values are an
-// opaque record, and with it a node whose id is not a string has no target to
-// choose by and its values are not checked — TS's answers.
-func referenceNode(settings map[string]any, node any, path string, errs *valueErrors) map[string]any {
-	obj, ok := node.(map[string]any)
+	obj, ok := value.(map[string]any)
 	if !ok {
 		errs.add(path, CodeInvalidType, nil)
-		return nil
+		return
 	}
 	rowID(obj, path, errs)
+	referenceNode(settings, obj, path, errs)
+}
+
+// referenceNode checks one node's own keys at path — its _id and its branch
+// are the tree's: its id — a Content's, required — its Pin, and its values
+// against its Reference Spec (referenceValues).
+func referenceNode(settings map[string]any, obj map[string]any, path string, errs *valueErrors) {
 	id, present := obj["id"]
-	target, idOK := id.(string)
+	_, idOK := id.(string)
 	switch {
 	case !present:
 		errs.add(joinPath(path, "id"), CodeRequired, nil)
@@ -292,7 +304,17 @@ func referenceNode(settings map[string]any, node any, path string, errs *valueEr
 			errs.add(joinPath(path, "pin"), CodeInvalidType, nil)
 		}
 	}
+	referenceValues(settings, obj, path, errs)
+}
 
+// referenceValues checks a node's values, at path plus "values", against its
+// Reference Spec (referenceSpecFor). A Field that links a Reference Spec
+// chooses by the target's Blueprint, which only WithTargetBlueprints can say:
+// without it such a Field's values are an opaque record, and with it a node
+// whose id is not a string has no target to choose by and its values are not
+// checked — TS's answers.
+func referenceValues(settings map[string]any, obj map[string]any, path string, errs *valueErrors) {
+	target, idOK := obj["id"].(string)
 	var fields []Field
 	known := false
 	var lookup func(string) string
@@ -301,31 +323,35 @@ func referenceNode(settings map[string]any, node any, path string, errs *valueEr
 	}
 	if lookup != nil && linksReferenceSpec(settings) {
 		if !idOK {
-			return obj
+			return
 		}
 		fields, known = referenceSpecFor(settings, lookup(target))
 	} else {
 		fields, known = referenceSpecFor(settings, "")
 	}
+	recordValues(fields, known, obj, path, errs)
+}
+
+// recordValues checks a node's values, at path plus "values": a record, and —
+// when its Fields are known — the record they describe. A missing record is
+// an empty one: its required Fields are missing, as TS seeds it with {}.
+func recordValues(fields []Field, known bool, obj map[string]any, path string, errs *valueErrors) {
 	at := joinPath(path, "values")
 	values, present := obj["values"]
 	if !present {
 		if known {
-			// A missing record is an empty one: its required Fields are
-			// missing, as TS seeds it with {}.
 			validateFields(fields, map[string]any{}, at, errs)
 		}
-		return obj
+		return
 	}
 	record, ok := values.(map[string]any)
 	if !ok {
 		errs.add(at, CodeInvalidType, nil)
-		return obj
+		return
 	}
 	if known {
 		validateFields(fields, record, at, errs)
 	}
-	return obj
 }
 
 // referenceTreeEdges are a Reference Field's edges: one EdgeReference per

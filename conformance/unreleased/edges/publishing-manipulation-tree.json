@@ -1,0 +1,164 @@
+{
+	"description": "With the publishing package, a manipulation_tree yields one edge per node, of its intent's kind — include, exclude, replace, annotate — at the node's path with its target and Pin, and a replace's with as an include edge at the node's path plus with",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": [
+			{
+				"_id": "i1",
+				"id": "law1",
+				"intent": "include",
+				"pin": "r1",
+				"values": {
+					"page": 3,
+					"note": "Stand 2026"
+				},
+				"children": [
+					{
+						"_id": "x1",
+						"id": "p1",
+						"intent": "exclude",
+						"pin": "r2"
+					},
+					{
+						"_id": "a1",
+						"id": "p2",
+						"intent": "annotate",
+						"values": {
+							"redtitel": "Neu gefasst"
+						}
+					},
+					{
+						"_id": "rp1",
+						"id": "p3",
+						"intent": "replace",
+						"pin": "r3",
+						"with": {
+							"id": "na1",
+							"pin": "r9"
+						},
+						"children": [
+							{
+								"_id": "i2",
+								"id": "p4",
+								"intent": "include"
+							}
+						]
+					}
+				]
+			},
+			{
+				"_id": "i3",
+				"id": "law1",
+				"intent": "include"
+			}
+		]
+	},
+	"expect": {
+		"edges": [
+			{
+				"path": "/title/i1",
+				"kind": "include",
+				"target": {
+					"content": "law1",
+					"pin": "r1"
+				}
+			},
+			{
+				"path": "/title/i1/children/x1",
+				"kind": "exclude",
+				"target": {
+					"content": "p1",
+					"pin": "r2"
+				}
+			},
+			{
+				"path": "/title/i1/children/a1",
+				"kind": "annotate",
+				"target": {
+					"content": "p2"
+				}
+			},
+			{
+				"path": "/title/i1/children/rp1",
+				"kind": "replace",
+				"target": {
+					"content": "p3",
+					"pin": "r3"
+				}
+			},
+			{
+				"path": "/title/i1/children/rp1/with",
+				"kind": "include",
+				"target": {
+					"content": "na1",
+					"pin": "r9"
+				}
+			},
+			{
+				"path": "/title/i1/children/rp1/children/i2",
+				"kind": "include",
+				"target": {
+					"content": "p4"
+				}
+			},
+			{
+				"path": "/title/i3",
+				"kind": "include",
+				"target": {
+					"content": "law1"
+				}
+			}
+		]
+	}
+}

@@ -1,0 +1,121 @@
+{
+	"description": "With the publishing package, a manipulation_tree has no text of its own; an include's values yield theirs against the Reference Spec and an annotate's against the node-level Reference Spec, each Field by its own search weight",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "manipulation_tree",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "number",
+						"config": {
+							"name": "Page",
+							"api_accessor": "page",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					},
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Note",
+							"api_accessor": "note",
+							"required": false,
+							"instructions": "",
+							"search": "B"
+						},
+						"system": false
+					}
+				],
+				"annotation_spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "Redtitel",
+							"api_accessor": "redtitel",
+							"required": true,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"title": [
+			{
+				"_id": "i1",
+				"id": "law1",
+				"intent": "include",
+				"pin": "r1",
+				"values": {
+					"page": 3,
+					"note": "Stand 2026"
+				},
+				"children": [
+					{
+						"_id": "x1",
+						"id": "p1",
+						"intent": "exclude",
+						"pin": "r2"
+					},
+					{
+						"_id": "a1",
+						"id": "p2",
+						"intent": "annotate",
+						"values": {
+							"redtitel": "Neu gefasst"
+						}
+					},
+					{
+						"_id": "rp1",
+						"id": "p3",
+						"intent": "replace",
+						"pin": "r3",
+						"with": {
+							"id": "na1",
+							"pin": "r9"
+						},
+						"children": [
+							{
+								"_id": "i2",
+								"id": "p4",
+								"intent": "include"
+							}
+						]
+					}
+				]
+			},
+			{
+				"_id": "i3",
+				"id": "law1",
+				"intent": "include"
+			}
+		]
+	},
+	"expect": {
+		"texts": [
+			{
+				"path": "/title/i1/values/note",
+				"weight": "B",
+				"text": "Stand 2026"
+			},
+			{
+				"path": "/title/i1/children/a1/values/redtitel",
+				"weight": "D",
+				"text": "Neu gefasst"
+			}
+		]
+	}
+}

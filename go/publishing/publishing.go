@@ -34,10 +34,11 @@ var catalogueJSON []byte
 // code is every publishing type's code, by type id: exactly the types
 // catalogue.json lists (fieldkit.NewCatalogue refuses anything else).
 var code = map[string]fieldkit.TypeCode{ //nolint:gochecknoglobals
-	"outline_tree":     outlineTree,
-	"reference_filter": referenceFilter,
-	"template_text":    templateText,
-	"ti_overlay":       tiOverlay,
+	"manipulation_tree": manipulationTree,
+	"outline_tree":      outlineTree,
+	"reference_filter":  referenceFilter,
+	"template_text":     templateText,
+	"ti_overlay":        tiOverlay,
 }
 
 var (

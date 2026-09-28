@@ -124,6 +124,14 @@ _Avoid_: hierarchy, outline, structure
 The Fields a Reference Field declares for every Reference it holds, whose values describe the pointing itself, not either Content — the page a citation appears on, the role a credit names. Embedded in the Field once, and replaced — never merged — by a linked Blueprint Release where the Field names one for the target's Blueprint, so every Reference has exactly one. The values, a Reference's `values` keyed by Accessor, belong to the pointing Content's Revision. The term is contenthub's.
 _Avoid_: attributes, attribute spec, reference attributes, title data, edge data
 
+**Manipulation Tree**:
+The publishing package's field type holding a Title's composition: a Reference Tree whose every node carries an Intent. It shares the Reference Tree's rules — `_id`s, caps, Compare and Merge per node — and none of what the Intents do, which is contenthub's manipulation engine.
+_Avoid_: configurator, manipulation spec
+
+**Intent**:
+What a Manipulation Tree node does with the Content it names: `include` it (its values following the Field's Reference Spec), `exclude` it, `replace` it `with` another, or `annotate` it (its values following the node-level Reference Spec, `annotation_spec`). Each is also the kind of the Content Graph edge the node yields.
+_Avoid_: op, operation, node type, manipulation
+
 **Adoption**:
 What happens to the References that follow one that arrives shallower than they are: they become its children, and their branches travel with them. A Reference gains children this way whether it was inserted between rows or dragged there, and both say so before they do it — an insert names the rows that will move, a drag highlights them (ADR-0012). Adoption never changes what a Reference *is*, only whose child it is.
 _Avoid_: re-parenting, stealing, nesting

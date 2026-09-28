@@ -38,6 +38,12 @@ var namespaceURL = [16]byte{0x6b, 0xa7, 0xb8, 0x11, 0x9d, 0xad, 0x11, 0xd1, 0x80
 // Numbers are kept exactly as they were written; keys come back in Go's
 // order (sorted), which JSON does not distinguish.
 func MintIDs(f Field, value json.RawMessage, seed string) (json.RawMessage, error) {
+	return DefaultCatalogue().MintIDs(f, value, seed)
+}
+
+// MintIDs is the package-level MintIDs against this Catalogue, whose
+// sections' types mint by their TypeCode's MintIDs.
+func (c *Catalogue) MintIDs(f Field, value json.RawMessage, seed string) (json.RawMessage, error) {
 	if len(bytes.TrimSpace(value)) == 0 {
 		return value, nil
 	}
@@ -47,7 +53,7 @@ func MintIDs(f Field, value json.RawMessage, seed string) (json.RawMessage, erro
 	if err := dec.Decode(&decoded); err != nil || dec.More() {
 		return nil, fmt.Errorf("fieldkit: mint ids: value is not one JSON value")
 	}
-	m := minter{seed: seed}
+	m := minter{seed: seed, catalogue: c}
 	decoded = m.field(f, decoded, joinPath("", f.Config.APIAccessor))
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
@@ -60,6 +66,9 @@ func MintIDs(f Field, value json.RawMessage, seed string) (json.RawMessage, erro
 
 type minter struct {
 	seed string
+	// catalogue is the Catalogue whose sections' types mint by their own
+	// code; nil for the built-in types alone.
+	catalogue *Catalogue
 }
 
 // field mints into one Field's value, at path — the Field's own, with each
@@ -90,6 +99,10 @@ func (m minter) field(f Field, value any, path string) any {
 	case "single_reference":
 		if node, ok := value.(map[string]any); ok {
 			m.ensure(node, path)
+		}
+	default:
+		if tc, ok := m.catalogue.codeOf(f.FieldType); ok && tc.MintIDs != nil {
+			return tc.MintIDs(f, value, TypeEnv{catalogue: m.catalogue, mint: &mintEnv{minter: m, path: path}})
 		}
 	}
 	return value
