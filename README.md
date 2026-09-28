@@ -106,7 +106,7 @@ const tocReference = createReferencePlugin({
   description: "The publication tree this content hangs in",
   icon: BookOpen,
   maxPerSpec: 1,              // one per blueprint
-  availableIn: ["blueprint"],
+  consumers: ["blueprint"],   // offered in the blueprint picker only
 });
 ```
 

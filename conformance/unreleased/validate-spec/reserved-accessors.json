@@ -1,0 +1,157 @@
+{
+	"description": "An Accessor beginning with _ is reserved_accessor in every Position — at the root, in a Group, in a Row Spec and in a Block Type; an _ elsewhere in it is not",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Id",
+				"api_accessor": "_id",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Snake_case_title",
+				"api_accessor": "snake_case_title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Meta",
+				"api_accessor": "meta",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Type",
+						"api_accessor": "_type",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind_",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Order",
+						"api_accessor": "_order",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "textarea",
+								"config": {
+									"name": "Body",
+									"api_accessor": "_body",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "By",
+									"api_accessor": "by",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "legacy",
+			"config": {
+				"name": "Old",
+				"api_accessor": "_old",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/_id",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/meta/children/_type",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/rows/children/_order",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/_body",
+				"code": "reserved_accessor"
+			},
+			{
+				"path": "/_old",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/_old",
+				"code": "reserved_accessor"
+			}
+		]
+	}
+}

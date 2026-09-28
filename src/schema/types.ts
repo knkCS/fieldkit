@@ -1,4 +1,5 @@
 // src/schema/types.ts
+import type { SearchWeight } from "./search";
 
 /** Condition for showing/hiding a field based on another field's value. */
 export interface FieldCondition {
@@ -56,6 +57,12 @@ export interface FieldConfig {
 	hidden?: boolean;
 	read_only?: boolean;
 	condition?: FieldCondition;
+	/**
+	 * How this Field's text weighs in Delivery Search — `off`, or `A` to `D`.
+	 * Valid only on a type the Catalogue marks as having text; `validateSpec()`
+	 * reports it anywhere else as `search_without_text`. Unset is absent.
+	 */
+	search?: SearchWeight;
 	/**
 	 * Type settings a Consumer has frozen, each with a reason (ADR-0011).
 	 * Absent — the ordinary case — means every setting is editable.

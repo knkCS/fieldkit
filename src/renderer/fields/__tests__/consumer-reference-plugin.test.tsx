@@ -34,7 +34,7 @@ const tocReferencePlugin = createReferencePlugin({
 	description: "The publication tree this Content hangs in",
 	icon: BookOpen,
 	maxPerSpec: 1,
-	availableIn: ["blueprint"],
+	consumers: ["blueprint"],
 });
 
 const PLUGINS = [...builtInFieldTypes, tocReferencePlugin];

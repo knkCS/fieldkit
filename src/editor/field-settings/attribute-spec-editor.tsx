@@ -31,7 +31,7 @@ export interface AttributeSpecEditorProps {
  * The Attribute Spec, authored in the Type settings tab.
  *
  * There is deliberately **no nested editor here**. Adding an Attribute is the
- * ordinary type picker, restricted to the `attribute` Field Context; configuring
+ * ordinary type picker, restricted to the `reference_spec` Position; configuring
  * one is the config panel's incumbent drill-in — the same Back button, the same
  * three tabs, the same Accessor gate a Group's child gets. What this component
  * owns is only the list: which Attributes exist, in what order, and how to reach
@@ -39,7 +39,8 @@ export interface AttributeSpecEditorProps {
  *
  * The type picker offers strictly less than the canvas does — no Markers, no
  * containers, no reference types — and that narrowing lives in each plugin's
- * `availableIn`, not here. See `FieldContext`.
+ * `positions`, not here, where `validateSpec()` enforces it too. See
+ * `Position`.
  */
 export function AttributeSpecEditor({
 	attributeSpec,
@@ -89,7 +90,7 @@ export function AttributeSpecEditor({
 						plugins={plugins}
 						// The one thing that keeps a Marker, a container or a
 						// Reference Field out of an Attribute drawer.
-						context="attribute"
+						position="reference_spec"
 						currentSpec={declared}
 						onPick={addAttribute}
 						triggerLabel="Add attribute"

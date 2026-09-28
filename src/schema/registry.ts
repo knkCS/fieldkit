@@ -1,9 +1,11 @@
 // src/schema/registry.ts
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	Position,
 } from "./plugin";
+import { allowedInPosition, offeredToConsumer } from "./positions";
 
 export interface PluginRegistry {
 	register(plugin: FieldTypePlugin): void;
@@ -11,7 +13,10 @@ export interface PluginRegistry {
 	get(id: string): FieldTypePlugin | undefined;
 	getAll(): FieldTypePlugin[];
 	getByCategory(category: FieldTypeCategory): FieldTypePlugin[];
-	getByContext(context: FieldContext): FieldTypePlugin[];
+	/** The types this Consumer's picker offers (ADR-0022). Advice only. */
+	getByConsumer(consumer: Consumer): FieldTypePlugin[];
+	/** The types a Field in this Position may be (ADR-0022). */
+	getByPosition(position: Position): FieldTypePlugin[];
 }
 
 export function createRegistry(): PluginRegistry {
@@ -43,10 +48,12 @@ export function createRegistry(): PluginRegistry {
 			return this.getAll().filter((p) => p.category === category);
 		},
 
-		getByContext(context) {
-			return this.getAll().filter(
-				(p) => !p.availableIn || p.availableIn.includes(context),
-			);
+		getByConsumer(consumer) {
+			return this.getAll().filter((p) => offeredToConsumer(p, consumer));
+		},
+
+		getByPosition(position) {
+			return this.getAll().filter((p) => allowedInPosition(p, position));
 		},
 	};
 }

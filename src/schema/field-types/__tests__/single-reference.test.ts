@@ -128,10 +128,17 @@ describe("singleReferencePlugin", () => {
 	});
 
 	it("is offered wherever a leaf field can go", () => {
-		expect(singleReferencePlugin.availableIn).toEqual([
+		expect(singleReferencePlugin.consumers).toEqual([
 			"blueprint",
 			"task",
 			"form",
+		]);
+		// One flat value a cell can show, so a Row Spec may hold it (ADR-0017);
+		// never a Reference Spec, the recursion nothing would catch.
+		expect(singleReferencePlugin.positions).toEqual([
+			"root",
+			"row",
+			"block_type",
 		]);
 	});
 

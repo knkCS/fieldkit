@@ -30,7 +30,7 @@ most consumers won't need it directly.
 | `onCommit`      | `(schema: Schema) => void \| Promise<void>` | —  | Called with the draft when the author clicks Save. May return a Promise; a rejection surfaces an error toast and keeps the draft dirty. |
 | `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard (need not be memoized — the hook latches the latest callback). |
 | `plugins`       | `FieldTypePlugin[]`                  | —       | The field-type registry available to insert, render, and validate against.  |
-| `context`       | `FieldContext`                       | —       | Restricts which plugins the type picker offers (`plugin.availableIn`).       |
+| `consumer`      | `Consumer`                           | —       | Restricts which plugins the type picker offers to those whose `consumers` name it (ADR-0022). Advice, never validated. Was `context` (`FieldContext`) before 0.18.0. |
 | `title`         | `ReactNode`                          | —       | Rendered on its own line **above the toolbar** — put a spec/content-type name here. Nothing renders when omitted. |
 | `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
 | `formatSaveError` | `(reason: unknown) => string \| null` | —     | Formats a rejected `onCommit` reason into the `saveFailed` toast description; return `null` to suppress it. See [Save-failure description](#save-failure-description-formatsaveerror) below. |

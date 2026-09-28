@@ -1,5 +1,5 @@
 {
-	"description": "A Virtual Table declares its Row Spec exactly one way and holds only Row Position types — at the root, in a Group and in a Block Type",
+	"description": "A Virtual Table declares its Row Spec exactly one way, and a Field in its Row Spec whose type lacks the row Position is position — at the root, in a Group and in a Block Type; an unknown type is unknown_field_type only",
 	"spec": [
 		{
 			"field_type": "virtual_table",
@@ -236,15 +236,11 @@
 			},
 			{
 				"path": "/nested/children/rows",
-				"code": "virtual_table_row_field_type"
+				"code": "position"
 			},
 			{
 				"path": "/nested/children/inner",
-				"code": "virtual_table_row_field_type"
-			},
-			{
-				"path": "/nested/children/old",
-				"code": "virtual_table_row_field_type"
+				"code": "position"
 			},
 			{
 				"path": "/nested/children/old",
@@ -260,7 +256,7 @@
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/rows/children/address",
-				"code": "virtual_table_row_field_type"
+				"code": "position"
 			}
 		]
 	}

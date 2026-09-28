@@ -112,7 +112,7 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 
 **None has derivation-level demand.** All six are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
 
-`toc_reference` joined this list on 2026-08-04, and is the corollary's first user: core mints it with `createReferencePlugin({ id: "toc_reference", name: …, maxPerSpec: 1, availableIn: ["blueprint"] })` and gets fieldkit's Reference Tree, browse drawer, count cell, settings editor and Zod schema. The other five still have to be written by hand.
+`toc_reference` joined this list on 2026-08-04, and is the corollary's first user: core mints it with `createReferencePlugin({ id: "toc_reference", name: …, maxPerSpec: 1, availableIn: ["blueprint"] })` (since 0.18.0 `consumers: ["blueprint"]`, ADR-0022) and gets fieldkit's Reference Tree, browse drawer, count cell, settings editor and Zod schema. The other five still have to be written by hand.
 
 ## D. fieldkit-only
 

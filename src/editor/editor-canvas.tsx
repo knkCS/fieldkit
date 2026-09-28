@@ -51,7 +51,7 @@ import { resolveMarkerConvention } from "../schema/marker-convention";
 import { partitionSchemaBySections } from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
@@ -207,7 +207,7 @@ export interface CanvasLabels
 export interface EditorCanvasProps {
 	spec: SpecDraft;
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	consumer?: Consumer;
 	selectedAccessor: string | null;
 	onSelect: (accessor: string | null) => void;
 	onEdit: (accessor: string) => void;
@@ -321,7 +321,7 @@ DragRemeasurer.displayName = "DragRemeasurer";
 export function EditorCanvas({
 	spec,
 	plugins,
-	context,
+	consumer,
 	selectedAccessor,
 	onSelect,
 	onEdit,
@@ -972,7 +972,7 @@ export function EditorCanvas({
 					// the marker bookkeeping (addSection / insertCard's auto-wrap)
 					// that keeps tabs and cards consistent.
 					plugins={plugins.filter((p) => p.id !== "section" && p.id !== "card")}
-					context={context}
+					consumer={consumer}
 					currentSpec={draft}
 					onPick={insertAt(tabIndex, position)}
 					triggerLabel={labels.addField}

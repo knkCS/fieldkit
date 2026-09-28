@@ -20,7 +20,8 @@ describe("FieldTypePlugin", () => {
 				return schema;
 			},
 			defaultSettings: { placeholder: "" },
-			availableIn: ["blueprint", "task", "form"],
+			consumers: ["blueprint", "task", "form"],
+			positions: ["root", "row", "reference_spec", "block_type"],
 		};
 
 		expect(plugin.id).toBe("text");

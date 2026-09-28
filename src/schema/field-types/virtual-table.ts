@@ -71,5 +71,10 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 
 	// Every context (ADR-0017). A Consumer with no blueprint adapter still
 	// gets the embedded Row Spec; only the linked one needs Blueprints.
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "block_type"],
+	// Its children are its Row Spec: flat value Fields only, which is the
+	// `row` Position every type declares itself fit for or not (ADR-0017,
+	// ADR-0022).
+	childrenPosition: "row",
 };

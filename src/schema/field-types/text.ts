@@ -60,5 +60,6 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };

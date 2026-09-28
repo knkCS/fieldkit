@@ -215,12 +215,13 @@ describe("virtualTablePlugin — rows composed from the resolved Row Spec", () =
 		expect(zodType.safeParse([{ anything: true }]).success).toBe(true);
 	});
 
-	it("is available in the blueprint, task and form contexts", () => {
-		expect(virtualTablePlugin.availableIn).toEqual([
-			"blueprint",
-			"task",
-			"form",
-		]);
+	it("is offered to every Consumer", () => {
+		expect(virtualTablePlugin.consumers).toEqual(["blueprint", "task", "form"]);
+	});
+
+	it("sits at the root and in a Block Type, and holds its children in row", () => {
+		expect(virtualTablePlugin.positions).toEqual(["root", "block_type"]);
+		expect(virtualTablePlugin.childrenPosition).toBe("row");
 	});
 });
 

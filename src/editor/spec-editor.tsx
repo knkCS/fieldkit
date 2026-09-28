@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { mergeLabels } from "../renderer/merge-labels";
 import { partitionSchemaBySections } from "../schema/partition";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
 } from "../schema/plugin";
@@ -364,7 +364,10 @@ export interface SpecEditorProps {
 	onCommit: (schema: Schema) => void | Promise<void>;
 	onDirtyChange?: (dirty: boolean) => void;
 	plugins: FieldTypePlugin[];
-	context?: FieldContext;
+	/** The Consumer authoring this Spec: the type picker offers the types
+	 * whose `consumers` name it (ADR-0022). Advice, never a rule. Was
+	 * `context` before 0.18.0. */
+	consumer?: Consumer;
 	/** Header left slot, beside the dirty indicator. Flagged spec addition. */
 	title?: ReactNode;
 	labels?: EditorLabels;
@@ -380,7 +383,7 @@ export function SpecEditor({
 	onCommit,
 	onDirtyChange,
 	plugins,
-	context,
+	consumer,
 	title,
 	labels,
 	formatSaveError,
@@ -790,7 +793,7 @@ export function SpecEditor({
 							<EditorCanvas
 								spec={spec}
 								plugins={plugins}
-								context={context}
+								consumer={consumer}
 								selectedAccessor={selected}
 								onSelect={handleSelect}
 								onEdit={handleEdit}

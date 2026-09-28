@@ -40,5 +40,6 @@ export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };
