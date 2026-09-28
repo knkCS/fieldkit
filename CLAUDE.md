@@ -129,6 +129,8 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── edges.go             # Edges — Content Graph edges {path, kind, target} (contenthub ADR 0009); one edgeRule per type that points at something (media so far)
 ├── texts.go             # Texts and ValueText — plain text per Field with its search weight (contenthub ADR 0019); one textRule per type the Catalogue marks has_text
 ├── mint.go              # MintIDs — deterministic UUIDv5 `_id`s for importers, from a seed and each row's place; nothing else mints
+├── schemas.go           # SchemaFields — the versionkit adapter: Settings = the whole resolved Field + its pinned parts, Type = Comparer/Merger, versionkit's interfaces by shape, never imported (docs/compare-and-merge.md)
+├── compare.go           # Compare/Merge composer (ADR-0023): whole values by equality; rows by `_id` (detail, per-child merge, `_order`), a Fieldset per child — finerRuleFor is where trees and rich_text plug in
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md

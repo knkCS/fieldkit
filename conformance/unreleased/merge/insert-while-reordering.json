@@ -1,0 +1,211 @@
+{
+	"description": "A row added on one side while the other reorders lands after the row it followed on its side, in the reordered list; a row added first lands first, and rows added one after another keep their order",
+	"spec": [
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Qty",
+						"api_accessor": "qty",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "a"
+				},
+				{
+					"_id": "r2",
+					"cell": "b"
+				},
+				{
+					"_id": "r3",
+					"cell": "c"
+				}
+			],
+			"authors": [
+				{
+					"_id": "a1",
+					"name": "A"
+				},
+				{
+					"_id": "a2",
+					"name": "B"
+				},
+				{
+					"_id": "a3",
+					"name": "C"
+				}
+			]
+		},
+		"ours": {
+			"rows": [
+				{
+					"_id": "r3",
+					"cell": "c"
+				},
+				{
+					"_id": "r1",
+					"cell": "a"
+				},
+				{
+					"_id": "r2",
+					"cell": "b"
+				}
+			],
+			"authors": [
+				{
+					"_id": "n0",
+					"name": "N0"
+				},
+				{
+					"_id": "a1",
+					"name": "A"
+				},
+				{
+					"_id": "a2",
+					"name": "B"
+				},
+				{
+					"_id": "a3",
+					"name": "C"
+				}
+			]
+		},
+		"theirs": {
+			"rows": [
+				{
+					"_id": "r1",
+					"cell": "a"
+				},
+				{
+					"_id": "x1",
+					"cell": "x1"
+				},
+				{
+					"_id": "x2",
+					"cell": "x2"
+				},
+				{
+					"_id": "r2",
+					"cell": "b"
+				},
+				{
+					"_id": "r3",
+					"cell": "c"
+				}
+			],
+			"authors": [
+				{
+					"_id": "a3",
+					"name": "C"
+				},
+				{
+					"_id": "a2",
+					"name": "B"
+				},
+				{
+					"_id": "a1",
+					"name": "A"
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"rows": {
+				"merged": [
+					{
+						"_id": "r3",
+						"cell": "c"
+					},
+					{
+						"_id": "r1",
+						"cell": "a"
+					},
+					{
+						"_id": "x1",
+						"cell": "x1"
+					},
+					{
+						"_id": "x2",
+						"cell": "x2"
+					},
+					{
+						"_id": "r2",
+						"cell": "b"
+					}
+				]
+			},
+			"authors": {
+				"merged": [
+					{
+						"_id": "n0",
+						"name": "N0"
+					},
+					{
+						"_id": "a3",
+						"name": "C"
+					},
+					{
+						"_id": "a2",
+						"name": "B"
+					},
+					{
+						"_id": "a1",
+						"name": "A"
+					}
+				]
+			}
+		}
+	}
+}

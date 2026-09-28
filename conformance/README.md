@@ -41,6 +41,8 @@ conformance/
 | [`edges/`](unreleased/edges) | `edges` over the Resolved Spec: `media` edges at the root, in rows by `_id`, in Blocks and a resolved Fieldset; none for a `lookup` or any other type |
 | [`texts/`](unreleased/texts) | `texts` over the Resolved Spec: every type with text, each Field's own `search` weight inside rows as at the root (Unset is `D`, `off` excluded) |
 | [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value: Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep` |
+| [`compare/`](unreleased/compare) | `compare` through the versionkit adapter (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)): whole values equal whatever their spelling, with no detail; rows by `_id` with each row's status, `moved` and each changed child's detail nested; a Fieldset per child Field. Go only |
+| [`merge/`](unreleased/merge) | `merge` through the versionkit adapter: per row and per child Field, different columns of one row on each side, Conflicts by `_id` path, a reorder on one side taken, reorders on both sides at `_order`, an insert while the other side reorders; Blocks and a Fieldset. Go only |
 
 ## Fixture format
 
@@ -60,6 +62,9 @@ conformance/
   fixture may only use properties the Field model declares.
 - `data` — stored data (a Content's values) checked against `spec`; read by
   `validateValue`, `edges` and `texts`. Absent is `{}`.
+- `revisions` — named versions of the data, for the versionkit operations:
+  `a` and `b` for `compare`, `base`, `ours` and `theirs` for `merge`. Each is
+  stored data, as `data` is.
 - `releases` — what resolving `spec` fetches, as kind → Release id → the
   Release: a `blueprint` Release is its Fields (a Spec); any other kind is an
   opaque part. The resolve operations read it, and `edges` and `texts`, which walk the Resolved Spec. A Release it does not
@@ -69,7 +74,8 @@ conformance/
   testable without hundreds of Releases.
 - `expect` — the expected result of each operation, keyed by name. A runner
   fails a fixture that expects an operation it does not implement, so no
-  fixture is ever skipped by one side alone.
+  fixture is ever skipped by one side alone — save `compare` and `merge`,
+  which only Go implements and the TS runner recognises and skips.
 
 ### Operations
 
@@ -161,6 +167,21 @@ conformance/
   `virtual_table_row_spec_ambiguous`, and the inlined Fields' Positions are
   checked.
 
+- **`compare`** and **`merge`** — versionkit's Compare and Merge, run as
+  versionkit runs them (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)):
+  `spec` is resolved against `releases`, `SchemaFields` turns it into
+  versionkit's Fields, and each Field's `Type` gets its own `Settings` back.
+  `compare` expects `{ <accessor>: { equal, detail? } }` for exactly the
+  Fields both `a` and `b` hold; `detail` is compared as JSON, and absent means
+  none. `merge` expects `{ <accessor>: { merged } | { conflicts } }` for
+  exactly the Fields `base`, `ours` and `theirs` all hold whose type is a
+  Merger — versionkit merges the others as whole values itself; `merged` is
+  compared as JSON, `conflicts` in any order. **Only Go implements them**, as
+  no TS code compares or merges: the TS runner recognises both and runs
+  neither (its `GO_ONLY_OPERATIONS`). In a released version's folder a
+  `compare` binds, and a `merge` binds unless it expects a Conflict — a type
+  may yet merge finer.
+
 ## Paths
 
 Every error path is `/`-separated. In a Spec, a Field is its Accessor, with
@@ -191,6 +212,11 @@ place. The data itself is the empty path.
 | a required child of the row with `_id` `a1` | `/authors/a1/name` |
 | a row without an `_id`, the first of its array | `/authors/0` (`missing_id`) |
 | data that is not an object | the empty path |
+
+A Merge's Conflict is a path within the Field, in the same grammar but
+without the leading `/` or the Field's Accessor, which versionkit prefixes:
+`a1/name`, `a3/books/k1/title`, and `_order` for the order of a row array
+reordered differently on both sides (`a1/items/_order` inside a row).
 
 A segment holding `/` or `~` is escaped as in RFC 6901: `~` as `~0`, `/` as
 `~1`.

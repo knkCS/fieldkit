@@ -1,0 +1,127 @@
+{
+	"description": "Blocks merge per Block and per child Field of their Block Type, _type included: a Block one side retyped and the other edited merges",
+	"spec": [
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							},
+							{
+								"field_type": "text",
+								"config": {
+									"name": "By",
+									"api_accessor": "by",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"content": [
+				{
+					"_id": "c1",
+					"_type": "quote",
+					"text": "Hi",
+					"by": "Ada"
+				},
+				{
+					"_id": "c2",
+					"_type": "heading",
+					"text": "Body"
+				}
+			]
+		},
+		"ours": {
+			"content": [
+				{
+					"_id": "c1",
+					"_type": "quote",
+					"text": "Hello",
+					"by": "Ada"
+				},
+				{
+					"_id": "c2",
+					"_type": "quote",
+					"text": "Body"
+				}
+			]
+		},
+		"theirs": {
+			"content": [
+				{
+					"_id": "c1",
+					"_type": "quote",
+					"text": "Hi",
+					"by": "Ada Lovelace"
+				},
+				{
+					"_id": "c2",
+					"_type": "heading",
+					"text": "Body, theirs"
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"content": {
+				"merged": [
+					{
+						"_id": "c1",
+						"_type": "quote",
+						"text": "Hello",
+						"by": "Ada Lovelace"
+					},
+					{
+						"_id": "c2",
+						"_type": "quote",
+						"text": "Body, theirs"
+					}
+				]
+			}
+		}
+	}
+}

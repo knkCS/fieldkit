@@ -1,0 +1,179 @@
+{
+	"description": "Every type without rows or a record compares as a whole value: equal whatever the spelling (1 and 1.0, keys in any order), and no detail when not",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Count",
+				"api_accessor": "count",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Done",
+				"api_accessor": "done",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Tone",
+				"api_accessor": "tone",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"label": "A",
+						"value": "a"
+					},
+					{
+						"label": "B",
+						"value": "b"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"label": "X",
+						"value": "x"
+					},
+					{
+						"label": "Y",
+						"value": "y"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "array",
+			"config": {
+				"name": "Meta",
+				"api_accessor": "meta",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"keyed": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Entries",
+				"api_accessor": "entries",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "date",
+			"config": {
+				"name": "Due",
+				"api_accessor": "due",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"a": {
+			"title": "Hello",
+			"count": 1,
+			"done": false,
+			"tone": "a",
+			"tags": [
+				"x",
+				"y"
+			],
+			"meta": {
+				"k1": "v1",
+				"k2": "v2"
+			},
+			"entries": [
+				"one"
+			],
+			"due": "2026-01-01"
+		},
+		"b": {
+			"title": "Hello",
+			"count": 1.0,
+			"done": true,
+			"tone": "a",
+			"tags": [
+				"y",
+				"x"
+			],
+			"meta": {
+				"k2": "v2",
+				"k1": "v1"
+			},
+			"entries": [
+				"one",
+				"two"
+			],
+			"due": "2026-01-01"
+		}
+	},
+	"expect": {
+		"compare": {
+			"title": {
+				"equal": true
+			},
+			"count": {
+				"equal": true
+			},
+			"done": {
+				"equal": false
+			},
+			"tone": {
+				"equal": true
+			},
+			"tags": {
+				"equal": false
+			},
+			"meta": {
+				"equal": true
+			},
+			"entries": {
+				"equal": false
+			},
+			"due": {
+				"equal": true
+			}
+		}
+	}
+}
