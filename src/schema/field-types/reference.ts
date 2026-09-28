@@ -5,13 +5,14 @@ import { ReferenceField } from "../../renderer/fields/reference-field";
 import { ReferenceReadValue } from "../../renderer/fields/reference-read";
 import { ReferenceCell } from "../../table/cells/reference-cell";
 import type {
-	FieldContext,
+	Consumer,
 	FieldTypeCategory,
 	FieldTypePlugin,
+	Position,
 } from "../plugin";
 import type { PinMode } from "../reference";
 import { referenceTreeSchemaWith } from "../reference";
-import { attributesZodType } from "../reference-attributes";
+import { attributeFields, attributesZodType } from "../reference-attributes";
 import { countReferences, referencesPastDepth } from "../reference-tree";
 import type { Field } from "../types";
 
@@ -165,9 +166,14 @@ export interface ReferencePluginOptions {
 	 * Absent means no limit, as it does for every built-in type.
 	 */
 	maxPerSpec?: number;
-	/** Where the type may be used. Defaults to everywhere the built-in
-	 * `reference` may be used. */
-	availableIn?: FieldContext[];
+	/** The Consumers whose type picker offers the type (ADR-0022). Defaults to
+	 * every Consumer, as the built-in `reference` is offered. */
+	consumers?: Consumer[];
+	/** Where in a Spec a Field of the type may sit (ADR-0022). Defaults to
+	 * where the built-in `reference` may: the root and a Block Type — never a
+	 * Row Spec, which holds one flat value per cell, and never a Reference
+	 * Spec, the recursion nothing would catch. */
+	positions?: Position[];
 	/**
 	 * Settings a new Field of this type starts with, merged **over** the
 	 * reference defaults — so naming Blueprints does not silently turn pinning
@@ -199,7 +205,8 @@ export function createReferencePlugin({
 	icon = Link2,
 	category = "reference",
 	maxPerSpec,
-	availableIn = ["blueprint", "task", "form"],
+	consumers = ["blueprint", "task", "form"],
+	positions = ["root", "block_type"],
 	defaultSettings,
 }: ReferencePluginOptions): FieldTypePlugin<ReferenceSettings> {
 	return {
@@ -221,10 +228,9 @@ export function createReferencePlugin({
 
 		// The Attribute Spec is composed here rather than by the shared builder,
 		// which is the whole of ADR-0007: a plugin reaches into its own settings
-		// and nothing else does. Composing is not walking, so the boundary is
-		// unmoved — no duplicate-Accessor check, no empty-name check and no
-		// Fieldset resolution reaches an Attribute Field. See
-		// `../reference-attributes.ts`.
+		// and nothing else does. `validateSpec()` walks it only because this
+		// plugin names it (`heldSpecs` below); no Fieldset resolution reaches an
+		// Attribute Field. See `../reference-attributes.ts`.
 		//
 		// Both caps are checked here too, and for the same reason the Attributes
 		// are: only this plugin knows what its own settings mean. Minted types
@@ -293,7 +299,26 @@ export function createReferencePlugin({
 		defaultValue: () => [],
 
 		maxPerSpec,
-		availableIn,
+		consumers,
+		positions,
+
+		// The Reference Spec is a Spec in `reference_spec` Position, so
+		// `validateSpec()` walks it as it walks `children`, and every rule — the
+		// Position check among them — reaches an Attribute Field (ADR-0022).
+		// See `../reference-attributes.ts`.
+		heldSpecs: (field) => {
+			const spec = field.settings?.attributes;
+			const fields = Array.isArray(spec) ? attributeFields(spec) : [];
+			return fields.length === 0
+				? []
+				: [
+						{
+							segments: ["settings", "attributes"],
+							fields,
+							position: "reference_spec" as const,
+						},
+					];
+		},
 	};
 }
 

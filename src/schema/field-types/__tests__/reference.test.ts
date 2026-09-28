@@ -391,7 +391,7 @@ function tocReference(overrides: Partial<ReferencePluginOptions> = {}) {
 		description: "The publication tree this Content hangs in",
 		icon: BookOpen,
 		maxPerSpec: 1,
-		availableIn: ["blueprint"],
+		consumers: ["blueprint"],
 		...overrides,
 	});
 }
@@ -416,7 +416,7 @@ function mintedField(
 
 describe("createReferencePlugin", () => {
 	describe("what the Consumer says", () => {
-		it("carries the identity, the cap and the contexts it was given", () => {
+		it("carries the identity, the cap and the Consumers it was given", () => {
 			const plugin = tocReference();
 
 			expect(plugin.id).toBe("toc_reference");
@@ -426,7 +426,9 @@ describe("createReferencePlugin", () => {
 			);
 			expect(plugin.icon).toBe(BookOpen);
 			expect(plugin.maxPerSpec).toBe(1);
-			expect(plugin.availableIn).toEqual(["blueprint"]);
+			expect(plugin.consumers).toEqual(["blueprint"]);
+			// Where it may sit is the built-in reference's unless it says so.
+			expect(plugin.positions).toEqual(["root", "block_type"]);
 		});
 
 		it("needs nothing but an id and a name", () => {
@@ -438,7 +440,8 @@ describe("createReferencePlugin", () => {
 			// Nothing defaults a cap in: `reference` has none, and neither does a
 			// minted type that did not ask for one.
 			expect(plugin.maxPerSpec).toBeUndefined();
-			expect(plugin.availableIn).toEqual(["blueprint", "task", "form"]);
+			expect(plugin.consumers).toEqual(["blueprint", "task", "form"]);
+			expect(plugin.positions).toEqual(["root", "block_type"]);
 		});
 
 		it("merges the Consumer's default settings over the reference defaults", () => {

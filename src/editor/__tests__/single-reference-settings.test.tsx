@@ -252,7 +252,7 @@ describe("single_reference in the type picker", () => {
 			<ChakraProvider value={defaultSystem}>
 				<TypePicker
 					plugins={builtInFieldTypes}
-					context="blueprint"
+					consumer="blueprint"
 					onSelect={onSelect}
 				/>
 			</ChakraProvider>,

@@ -1,5 +1,7 @@
 package fieldkit
 
+import "strings"
+
 // ValidateSpec checks an authored Spec against the embedded Catalogue, with
 // the answers TS's validateSpec gives for the same rules:
 //
@@ -7,9 +9,17 @@ package fieldkit
 //     at the Field; its settings are then not checked);
 //   - every Field's settings are what its type's settings schema declares
 //     (CodeUnknownSetting, CodeInvalidSetting, at the setting);
+//   - every Field sits in a Position its type lists (CodePosition, ADR-0022):
+//     the root, a Row Spec, a Block Type. One check for every container —
+//     what a Row Spec may hold (ADR-0017) is the "row" Position;
+//   - no Accessor begins with "_" (CodeReservedAccessor);
+//   - config.search is off or A–D (CodeInvalidConfig), and only on a type
+//     the Catalogue marks as having text (CodeSearchWithoutText);
+//   - the card-marker rule at the top level (CodeLooseFieldInCardedTab);
 //   - the rules across settings a type has beside its schema (rules.go):
 //     a Virtual Table's Row Spec (ADR-0017), and a Blocks Field's Block
-//     Types.
+//     Types;
+//   - and whatever a caller's Policy adds (WithPolicy).
 //
 // It walks every Spec a Field holds, at every depth: its children, whatever
 // Field holds them, and a Blocks Field's Block Types' Fields, which live in its
@@ -18,33 +28,63 @@ package fieldkit
 // valid Spec.
 //
 // TS's validateSpec checks rules this does not implement yet — empty names
-// and Accessors, duplicate Accessors, the card-layout rule — and the
-// conformance fixtures stay clear of them.
+// and Accessors, duplicate Accessors — and the conformance fixtures stay clear
+// of them.
 //
 // The Catalogue lists only the types that already declare a settings schema.
 // Until every built-in type does, a Spec using one that does not yet —
 // reference, single_reference, rich_text — is valid in TS and reports
-// unknown_field_type here, and a Row Spec holding a single_reference reports
-// virtual_table_row_field_type here, since a type the Catalogue does not list
-// has no "row" Position. The conformance fixtures stay inside the Catalogue,
-// where the two agree.
-func ValidateSpec(spec Spec) []Error {
-	return DefaultCatalogue().ValidateSpec(spec)
+// unknown_field_type here. A type the Catalogue does not list has no
+// Positions and no text, so it is never reported as CodePosition (it is
+// unknown already), and a Reference Spec — which lives in a reference
+// Field's settings — is not walked here at all. The conformance fixtures stay
+// inside the Catalogue, where the two agree.
+func ValidateSpec(spec Spec, opts ...Option) []Error {
+	return DefaultCatalogue().ValidateSpec(spec, opts...)
+}
+
+// Policy is a caller's own rule, run on every Field at every depth beside
+// fieldkit's — where a service's policy lives (refusing localizable on a
+// content Blueprint, say), so that fieldkit ships none. path is the Field's
+// own, position where it sits. The errors' paths are relative to the Field:
+// "" is the Field itself, "/config/localizable" a key of it. TS's
+// validateSpec takes the same hook (its policy option).
+type Policy func(f Field, path, position string) []Error
+
+// Option configures ValidateSpec.
+type Option func(*options)
+
+type options struct {
+	policy Policy
+}
+
+// WithPolicy runs a caller's Policy on every Field.
+func WithPolicy(p Policy) Option {
+	return func(o *options) { o.policy = p }
 }
 
 // ValidateSpec is the package-level ValidateSpec against this Catalogue.
-func (c *Catalogue) ValidateSpec(spec Spec) []Error {
-	var errs []Error
-	c.validateFields(spec, "", &errs)
+func (c *Catalogue) ValidateSpec(spec Spec, opts ...Option) []Error {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+	errs := cardLayout(spec)
+	c.validateFields(spec, "", PositionRoot, &o, &errs)
 	return errs
 }
 
+// searchWeights are the values config.search accepts.
+var searchWeights = map[string]bool{"off": true, "A": true, "B": true, "C": true, "D": true} //nolint:gochecknoglobals
+
 // validateFields validates a list of Fields at list, the path of the list
-// itself: "" for the root, ".../children" for a Field's children.
-func (c *Catalogue) validateFields(fields []Field, list string, errs *[]Error) {
+// itself — "" for the root, ".../children" for a Field's children — sitting in
+// position.
+func (c *Catalogue) validateFields(fields []Field, list, position string, o *options, errs *[]Error) {
 	for _, f := range fields {
 		path := joinPath(list, f.Config.APIAccessor)
-		if _, ok := c.Type(f.FieldType); !ok {
+		t, known := c.Type(f.FieldType)
+		if !known {
 			*errs = append(*errs, Error{
 				Path:   path,
 				Code:   CodeUnknownFieldType,
@@ -56,6 +96,25 @@ func (c *Catalogue) validateFields(fields []Field, list string, errs *[]Error) {
 				e.Path = settingsPath + e.Path
 				*errs = append(*errs, e)
 			}
+			if !c.allowsPosition(f.FieldType, position) {
+				*errs = append(*errs, Error{
+					Path:   path,
+					Code:   CodePosition,
+					Params: map[string]any{"position": position, "field_type": f.FieldType},
+				})
+			}
+		}
+		if strings.HasPrefix(f.Config.APIAccessor, "_") {
+			*errs = append(*errs, Error{Path: path, Code: CodeReservedAccessor})
+		}
+		if f.Config.Search != "" {
+			searchPath := joinPath(path, "config", "search")
+			switch {
+			case !searchWeights[f.Config.Search]:
+				*errs = append(*errs, Error{Path: searchPath, Code: CodeInvalidConfig})
+			case known && !t.HasText:
+				*errs = append(*errs, Error{Path: searchPath, Code: CodeSearchWithoutText})
+			}
 		}
 		rules := rulesFor(f.FieldType)
 		if rules.field != nil {
@@ -65,8 +124,18 @@ func (c *Catalogue) validateFields(fields []Field, list string, errs *[]Error) {
 				*errs = append(*errs, e)
 			}
 		}
+		if o.policy != nil {
+			for _, e := range o.policy(f, path, position) {
+				e.Path = path + e.Path
+				*errs = append(*errs, e)
+			}
+		}
 		if len(f.Children) > 0 {
-			c.validateFields(f.Children, joinPath(path, "children"), errs)
+			childPosition := position
+			if rules.childrenPosition != "" {
+				childPosition = rules.childrenPosition
+			}
+			c.validateFields(f.Children, joinPath(path, "children"), childPosition, o, errs)
 		}
 		if rules.specs != nil {
 			held, specErrs := rules.specs(f.Settings)
@@ -75,7 +144,7 @@ func (c *Catalogue) validateFields(fields []Field, list string, errs *[]Error) {
 				*errs = append(*errs, e)
 			}
 			for _, h := range held {
-				c.validateFields(h.fields, path+h.path, errs)
+				c.validateFields(h.fields, path+h.path, h.position, o, errs)
 			}
 		}
 	}

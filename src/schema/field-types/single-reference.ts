@@ -68,5 +68,6 @@ export const singleReferencePlugin: FieldTypePlugin<SingleReferenceSettings> = {
 	// a missing key.
 	defaultValue: () => null,
 
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "block_type"],
 };

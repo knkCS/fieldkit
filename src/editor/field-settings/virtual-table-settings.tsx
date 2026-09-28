@@ -9,10 +9,7 @@ import { linkedBlueprintId } from "../../schema/blueprint-link";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { SettingsProps } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
-import {
-	isVirtualTableRowFieldType,
-	virtualTableRowSpecKind,
-} from "../../schema/virtual-table-row-spec";
+import { virtualTableRowSpecKind } from "../../schema/virtual-table-row-spec";
 import { createField } from "../draft-ops";
 import { TypePickerPopover } from "../type-picker-popover";
 import { BlueprintPicker } from "./blueprint-picker";
@@ -52,7 +49,7 @@ type RowSpecMode = "linked" | "embedded";
  * which is what keeps `virtual_table` available in every context.
  *
  * Adding a row Field is the ordinary type picker over the flat value types a
- * Row Spec may hold — read from `virtual-table-row-spec.ts`, never retyped
+ * Row Spec may hold — the `row` Position each plugin declares, never retyped
  * here — and configuring one is the config panel's incumbent drill-in, the
  * same Back button and three tabs a Group's child gets. What this component
  * owns is the choice, the list and the caps.
@@ -162,10 +159,6 @@ export function VirtualTableSettingsEditor({
 		);
 	}
 
-	// The flat value types a Row Spec may hold, and nothing else — no Marker,
-	// no container. The rule is ADR-0017's and lives in the schema layer; this
-	// is only where it reaches a picker.
-	const rowPlugins = plugins?.filter((p) => isVirtualTableRowFieldType(p.id));
 	// What the linked side shows, read the way the validator and the resolver
 	// read it — so a blank id is "no Blueprint" here too, rather than a link
 	// the picker claims and `virtualTableRowSpecKind` denies.
@@ -226,9 +219,14 @@ export function VirtualTableSettingsEditor({
 						<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
 							Row fields
 						</Text>
-						{rowPlugins && onChildrenChange && (
+						{plugins && onChildrenChange && (
 							<TypePickerPopover
-								plugins={rowPlugins}
+								plugins={plugins}
+								// The flat value types a Row Spec may hold, and nothing
+								// else — no Marker, no container: the `row` Position
+								// each type declares (ADR-0017, ADR-0022), the same rule
+								// the validator enforces.
+								position="row"
 								currentSpec={rowFields}
 								onPick={addRowField}
 								triggerLabel="Add row field"

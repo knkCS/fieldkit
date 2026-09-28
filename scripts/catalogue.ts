@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { builtInFieldTypes } from "../src/schema/field-types";
 import type { FieldTypePlugin } from "../src/schema/plugin";
-import { isVirtualTableRowFieldType } from "../src/schema/virtual-table-row-spec";
+import { POSITIONS } from "../src/schema/positions";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
@@ -112,27 +112,26 @@ function assertSupported(schema: JsonSchema, typeId: string, at: string) {
 }
 
 /**
- * Positions as today's mechanisms decide them — the Row Spec allow-list
- * (ADR-0017) and the `attribute` context — until ADR-0022's Position check
- * makes them the rule.
+ * Where a Field of the type may sit (ADR-0022), as the plugin declares it, in
+ * the order `POSITIONS` lists them. No default: Catalogue data is frozen once
+ * released (ADR-0019), so a type in it says where it may sit rather than
+ * inheriting a guess.
  */
 function positions(plugin: FieldTypePlugin): string[] {
-	const out = ["root"];
-	if (isVirtualTableRowFieldType(plugin.id)) out.push("row");
-	if (plugin.availableIn?.includes("attribute")) out.push("reference_spec");
-	return out;
+	if (!plugin.positions) {
+		throw new Error(`${plugin.id}: declares a settingsSchema but no positions`);
+	}
+	const declared = plugin.positions;
+	return POSITIONS.filter((position) => declared.includes(position));
 }
 
-/** Consumers are `availableIn` without `attribute`, which is a Position. */
+/** Which Consumers' pickers offer the type — advice only (ADR-0022). No
+ * default, for the reason `positions` has none. */
 function consumers(plugin: FieldTypePlugin): string[] {
-	// No default: Catalogue data is frozen once released (ADR-0019), so a
-	// type in it says which Consumers offer it rather than inheriting a guess.
-	if (!plugin.availableIn) {
-		throw new Error(`${plugin.id}: declares a settingsSchema but no availableIn`);
+	if (!plugin.consumers) {
+		throw new Error(`${plugin.id}: declares a settingsSchema but no consumers`);
 	}
-	return plugin.availableIn.filter(
-		(c) => c !== "attribute",
-	);
+	return [...plugin.consumers];
 }
 
 function buildCatalogue(plugins: FieldTypePlugin[]): Catalogue {

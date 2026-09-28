@@ -2,6 +2,7 @@ import { Boxes } from "lucide-react";
 import { z } from "zod";
 import { BlocksField } from "../../renderer/fields/blocks-field";
 import { BlocksCell } from "../../table/cells/blocks-cell";
+import { blockTypeSpecs } from "../block-types";
 import type { ComposeChildrenSchema, FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -123,5 +124,14 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 
 	defaultValue: () => [],
 
-	availableIn: ["blueprint", "task", "form"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "block_type"],
+	// Each Block Type's Fields are a Spec in `block_type` Position, walked by
+	// `validateSpec()` as `children` are (#208, ADR-0022).
+	heldSpecs: (field) =>
+		blockTypeSpecs(field).specs.map((spec) => ({
+			segments: spec.segments,
+			fields: spec.fields,
+			position: "block_type" as const,
+		})),
 };

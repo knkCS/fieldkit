@@ -501,16 +501,16 @@ describe("Integration: Plugin registry", () => {
 		}
 	});
 
-	it("should filter plugins by context", () => {
+	it("should filter plugins by Consumer", () => {
 		const registry = createRegistry();
 		registry.registerAll(builtInFieldTypes);
 
-		const formPlugins = registry.getByContext("form");
+		const formPlugins = registry.getByConsumer("form");
 		expect(formPlugins.length).toBeGreaterThan(0);
 		for (const p of formPlugins) {
-			expect(
-				p.availableIn === undefined || p.availableIn.includes("form"),
-			).toBe(true);
+			expect(p.consumers === undefined || p.consumers.includes("form")).toBe(
+				true,
+			);
 		}
 	});
 

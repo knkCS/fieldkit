@@ -92,5 +92,6 @@ export const lookupPlugin: FieldTypePlugin<LookupSettings> = {
 	// missing key.
 	defaultValue: () => null,
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };

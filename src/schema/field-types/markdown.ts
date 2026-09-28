@@ -49,5 +49,6 @@ export const markdownPlugin: FieldTypePlugin<MarkdownSettings> = {
 
 	defaultValue: () => "",
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };

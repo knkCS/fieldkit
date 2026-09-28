@@ -1,13 +1,12 @@
 import { blockTypeSpecs, duplicateBlockTypes } from "./block-types";
 import { partitionSchemaBySections } from "./partition";
 import { partitionTabByCards } from "./partition-cards";
-import type { FieldTypePlugin } from "./plugin";
+import type { FieldTypePlugin, Position } from "./plugin";
+import { allowedInPosition } from "./positions";
+import { isSearchWeight } from "./search";
 import type { Field } from "./types";
 import { toPath, validateSettings } from "./validate-settings";
-import {
-	isVirtualTableRowFieldType,
-	virtualTableRowSpecKind,
-} from "./virtual-table-row-spec";
+import { virtualTableRowSpecKind } from "./virtual-table-row-spec";
 
 export type SpecFieldErrorCode =
 	| "duplicate_accessor"
@@ -19,9 +18,20 @@ export type SpecFieldErrorCode =
 	| "virtual_table_row_spec_ambiguous"
 	/** A Virtual Table with neither a linked nor an embedded Row Spec. */
 	| "virtual_table_row_spec_missing"
-	/** A Field a Row Spec may not hold — a Marker, a container, or any type
-	 * outside `VIRTUAL_TABLE_ROW_FIELD_TYPES`. */
-	| "virtual_table_row_field_type"
+	/** A Field in a Position its type does not list (ADR-0022) — a Group in a
+	 * Row Spec, a Section in a Reference Spec. At that Field, with the
+	 * `position` and the `field_type` as params. It replaced the Row Spec's
+	 * own `virtual_table_row_field_type` before any Catalogue shipped. */
+	| "position"
+	/** An Accessor beginning with `_`: reserved in every Position for `_id`,
+	 * `_type`, `_order` and what value shapes need later (ADR-0022). */
+	| "reserved_accessor"
+	/** A `config` key holding a value it does not accept — a `search` other
+	 * than `off`, `A`, `B`, `C` or `D`. At the key. */
+	| "invalid_config"
+	/** `config.search` on a type the Catalogue marks as having no text. At
+	 * the key. */
+	| "search_without_text"
 	/** A Block Type of a Blocks Field repeating the `type` an earlier one
 	 * declared — reported at each repeat's `type`. */
 	| "duplicate_block_type"
@@ -35,7 +45,8 @@ export type SpecFieldErrorCode =
 
 export interface SpecFieldError {
 	accessor: string;
-	code: SpecFieldErrorCode;
+	/** One of fieldkit's codes, or one a caller's `policy` reports. */
+	code: SpecFieldErrorCode | (string & {});
 	message: string;
 	/**
 	 * Where in the Spec the error is, `/`-separated: the Accessor of each
@@ -57,9 +68,38 @@ export interface SpecValidationResult {
 	fieldErrors: SpecFieldError[];
 }
 
+/**
+ * An error a caller's policy reports about one Field. `path` is relative to
+ * the Field: `""`, the default, is the Field itself, `/config/localizable` a
+ * key of it.
+ */
+export interface SpecPolicyError {
+	code: string;
+	message: string;
+	path?: string;
+	params?: Record<string, unknown>;
+}
+
+/**
+ * A caller's own rules, run on every Field at every depth beside fieldkit's —
+ * where a Consumer's policy goes (refusing `localizable: true` on a content
+ * Blueprint, say), so that fieldkit ships none. `path` is the Field's own and
+ * `position` where it sits. Go's `ValidateSpec` takes the same hook
+ * (`WithPolicy`).
+ */
+export type SpecPolicy = (
+	field: Field,
+	at: { path: string; position: Position },
+) => SpecPolicyError[];
+
+export interface ValidateSpecOptions {
+	policy?: SpecPolicy;
+}
+
 export function validateSpec(
 	fields: Field[],
 	plugins: Map<string, FieldTypePlugin>,
+	options: ValidateSpecOptions = {},
 ): SpecValidationResult {
 	const errors: string[] = [];
 	const fieldErrors: SpecFieldError[] = [];
@@ -85,21 +125,21 @@ export function validateSpec(
 
 	// Every check below but the card-layout rule walks every Spec a Field
 	// holds (`nestedSpecs`): a Group's or a Virtual Table's `children`, and
-	// the Fields of each Block Type of a Blocks Field, which live in its
-	// settings (`allowed_blocks[].fields`) rather than in `children`. Each
+	// the Specs a type holds in its settings — a Block Type's Fields, a
+	// Reference Spec — which it names through its plugin's `heldSpecs`. Each
 	// field list is its OWN duplicate-accessor namespace: the same accessor
 	// reused in a sibling group, in a Block Type, or at a different nesting
 	// level is NOT a collision, so `seen` is never shared across lists.
 	//
-	// Walking Block Types moves the line ADR-0007 drew for this function,
-	// which walked `children` only and so left a duplicate accessor among a
-	// Block Type's Fields unreported (#208). The settings' shape is still read
-	// by the Blocks Field's own module (`block-types.ts`), never here.
-	checkAccessors(fields, [], fieldErrors);
+	// Walking settings moves the line ADR-0007 drew for this function, which
+	// walked `children` only (#208 for Block Types, ADR-0022 for the Reference
+	// Spec). The settings' shape is still read by each plugin, never here.
+	checkAccessors(fields, [], plugins, fieldErrors);
 	checkCardLayout(fields, fieldErrors);
-	checkVirtualTables(fields, [], fieldErrors);
+	checkVirtualTables(fields, [], plugins, fieldErrors);
 	checkTypesAndSettings(fields, [], plugins, fieldErrors);
-	checkBlockTypes(fields, [], fieldErrors);
+	checkBlockTypes(fields, [], plugins, fieldErrors);
+	checkFields(fields, [], "root", plugins, options.policy, fieldErrors);
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -109,23 +149,46 @@ export function validateSpec(
 
 type Segments = readonly (string | number)[];
 
+interface NestedSpec {
+	list: Segments;
+	fields: Field[];
+	position: Position;
+}
+
 /**
  * The field lists a Field holds, each with the path segments of the list
- * itself: its `children` at `…/children`, and — for a Blocks Field — each
- * Block Type's Fields at `…/settings/allowed_blocks/<i>/fields`. A Field in a
- * list sits at the list's segments plus its Accessor: the path grammar
- * `conformance/README.md` states and Go's `ValidateSpec` shares.
+ * itself and the Position its Fields sit in: its `children` at `…/children`,
+ * in the Position its type names for them (`childrenPosition`) or else its
+ * own, and each Spec its type holds in settings (`heldSpecs`) — a Block Type's
+ * Fields at `…/settings/allowed_blocks/<i>/fields`, a Reference Spec at
+ * `…/settings/attributes`. A Field in a list sits at the list's segments plus
+ * its Accessor: the path grammar `conformance/README.md` states and Go's
+ * `ValidateSpec` shares.
+ *
+ * Only a registered type's settings are walked — an unknown type's settings
+ * mean nothing to anyone — but its `children` are, as they always were.
  */
 function nestedSpecs(
 	field: Field,
 	segments: Segments,
-): { list: Segments; fields: Field[] }[] {
-	const lists: { list: Segments; fields: Field[] }[] = [];
+	position: Position,
+	plugins: Map<string, FieldTypePlugin>,
+): NestedSpec[] {
+	const plugin = plugins.get(field.field_type);
+	const lists: NestedSpec[] = [];
 	if (field.children?.length) {
-		lists.push({ list: [...segments, "children"], fields: field.children });
+		lists.push({
+			list: [...segments, "children"],
+			fields: field.children,
+			position: plugin?.childrenPosition ?? position,
+		});
 	}
-	for (const spec of blockTypeSpecs(field).specs) {
-		lists.push({ list: [...segments, ...spec.segments], fields: spec.fields });
+	for (const spec of plugin?.heldSpecs?.(field) ?? []) {
+		lists.push({
+			list: [...segments, ...spec.segments],
+			fields: spec.fields,
+			position: spec.position,
+		});
 	}
 	return lists;
 }
@@ -133,6 +196,7 @@ function nestedSpecs(
 function checkAccessors(
 	fields: Field[],
 	list: Segments,
+	plugins: Map<string, FieldTypePlugin>,
 	fieldErrors: SpecFieldError[],
 ): void {
 	const seen = new Map<string, number>();
@@ -161,8 +225,19 @@ function checkAccessors(
 		} else {
 			seen.set(accessor, (seen.get(accessor) ?? 0) + 1);
 		}
-		for (const nested of nestedSpecs(field, segments)) {
-			checkAccessors(nested.fields, nested.list, fieldErrors);
+		// Reserved in every Position (ADR-0022): `_id`, `_type` and `_order`
+		// sit beside a row's or a Block's values, and a Field named like one
+		// would collide with it. Go's `ValidateSpec` has the same rule.
+		if (accessor.startsWith("_")) {
+			fieldErrors.push({
+				accessor,
+				code: "reserved_accessor",
+				message: `Accessor "${accessor}" must not begin with "_"`,
+				path,
+			});
+		}
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
+			checkAccessors(nested.fields, nested.list, plugins, fieldErrors);
 		}
 	}
 	for (const [accessor, count] of seen) {
@@ -186,6 +261,11 @@ function checkAccessors(
  * rule catches hand-written schemas. The renderer still degrades gracefully (implicit
  * untitled card) — a schema is data; this rule only reports the violation.
  * Top-level only: cards inside groups are a non-goal.
+ *
+ * Go's `ValidateSpec` enforces the same rule (`cardLayout` in
+ * `go/cards.go`), so it agrees with `commons/fieldspec`'s system-field
+ * merge, which places a missing system Field after a leading card rather than
+ * manufacture this state.
  */
 function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
 	for (const tab of partitionSchemaBySections(fields).tabs) {
@@ -209,12 +289,13 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
 /**
  * ADR-0017: a Virtual Table declares its Row Spec in exactly one of two ways —
  * a linked Blueprint in `settings.blueprint`, or an embedded one in its own
- * `children` — and a Row Spec holds only flat value Fields.
+ * `children`. What a Row Spec may hold is the `row` Position (ADR-0022),
+ * which `checkFields` enforces for every container alike.
  *
- * Both rules are checked here rather than in the plugin's `toZodType`, because
- * an authored Spec with two Row Specs or a Group in one is a Spec the Author
- * must fix before saving, not a value to reject at submit: the editor shows
- * these against the offending Field the way it shows a duplicate Accessor.
+ * Checked here rather than in the plugin's `toZodType`, because an authored
+ * Spec with two Row Specs is a Spec the Author must fix before saving, not a
+ * value to reject at submit: the editor shows these against the offending
+ * Field the way it shows a duplicate Accessor.
  *
  * Walks every nested Spec like the accessor check, so a Virtual Table inside a
  * Group, or declared among a Block Type's Fields, is checked too.
@@ -222,15 +303,13 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  * **Takes an authored Spec**, as every check here does. `resolveSpec()` puts a
  * linked Row Spec into `children` (ADR-0004), so a *Resolved* linked Virtual
  * Table names a Blueprint and has children at once and is reported ambiguous.
- * That is not a contradiction with the Field-type check below reading those
- * same `children`: an authored Field's children are its embedded Row Spec, and
- * the check is about what an Author declared. A Resolved Spec is the renderer's
- * and the Schema builder's input, never this function's — validate before you
- * resolve.
+ * A Resolved Spec is the renderer's and the Schema builder's input, never this
+ * function's — validate before you resolve.
  */
 function checkVirtualTables(
 	fields: Field[],
 	list: Segments,
+	plugins: Map<string, FieldTypePlugin>,
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
@@ -238,8 +317,8 @@ function checkVirtualTables(
 		if (field.field_type === "virtual_table") {
 			checkVirtualTable(field, segments, fieldErrors);
 		}
-		for (const nested of nestedSpecs(field, segments)) {
-			checkVirtualTables(nested.fields, nested.list, fieldErrors);
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
+			checkVirtualTables(nested.fields, nested.list, plugins, fieldErrors);
 		}
 	}
 }
@@ -268,20 +347,6 @@ function checkVirtualTable(
 			path,
 		});
 	}
-
-	// Checked whichever way the Row Spec was declared: an embedded one is the
-	// Author's to fix, and a linked one resolved into `children` would be the
-	// Blueprint's — reported either way rather than silently rendering a Field
-	// no cell can draw.
-	for (const rowField of field.children ?? []) {
-		if (isVirtualTableRowFieldType(rowField.field_type)) continue;
-		fieldErrors.push({
-			accessor: rowField.config.api_accessor,
-			code: "virtual_table_row_field_type",
-			message: `Field "${rowField.config.api_accessor}" of type "${rowField.field_type}" is not allowed in a Row Spec`,
-			path: toPath([...segments, "children", rowField.config.api_accessor]),
-		});
-	}
 }
 
 /**
@@ -293,8 +358,8 @@ function checkVirtualTable(
  * A type without a `settingsSchema` accepts any settings, as every type did
  * before the Catalogue. A Field of an unknown type is reported once and its
  * settings are left alone; its children are still walked, as every check here
- * walks `children` whatever holds them. A Block Type's Fields are walked the
- * same way, each against its own type.
+ * walks `children` whatever holds them. A Spec held in settings is walked the
+ * same way, each Field against its own type.
  */
 function checkTypesAndSettings(
 	fields: Field[],
@@ -331,7 +396,7 @@ function checkTypesAndSettings(
 				});
 			}
 		}
-		for (const nested of nestedSpecs(field, segments)) {
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
 			checkTypesAndSettings(nested.fields, nested.list, plugins, fieldErrors);
 		}
 	}
@@ -347,6 +412,7 @@ function checkTypesAndSettings(
 function checkBlockTypes(
 	fields: Field[],
 	list: Segments,
+	plugins: Map<string, FieldTypePlugin>,
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
@@ -374,8 +440,85 @@ function checkBlockTypes(
 				path: toPath([...segments, ...invalid]),
 			});
 		}
-		for (const nested of nestedSpecs(field, segments)) {
-			checkBlockTypes(nested.fields, nested.list, fieldErrors);
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
+			checkBlockTypes(nested.fields, nested.list, plugins, fieldErrors);
+		}
+	}
+}
+
+/**
+ * The rules that need to know where a Field sits, then the caller's policy —
+ * one walk that carries the Position down.
+ *
+ * - **Position** (ADR-0022): a Field whose type does not list the Position it
+ *   sits in is `position`. One check for every container: it is the Row
+ *   Spec's allow-list (ADR-0017) and the Reference Spec's rule, each
+ *   expressed as the Positions a type declares, and whatever the next
+ *   container needs. An unregistered type is `unknown_field_type` already
+ *   and is not reported twice.
+ * - **`config.search`**: `off` or a weight `A`–`D`, and only on a type the
+ *   Catalogue marks as having text (`catalogue.hasText`). Unset — `null`,
+ *   `""` — is absent (ADR-0021).
+ */
+function checkFields(
+	fields: Field[],
+	list: Segments,
+	position: Position,
+	plugins: Map<string, FieldTypePlugin>,
+	policy: SpecPolicy | undefined,
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		const accessor = field.config.api_accessor;
+		const segments = [...list, accessor];
+		const path = toPath(segments);
+		const plugin = plugins.get(field.field_type);
+		if (plugin && !allowedInPosition(plugin, position)) {
+			fieldErrors.push({
+				accessor,
+				code: "position",
+				message: `Field "${accessor}" of type "${field.field_type}" is not allowed in position "${position}"`,
+				path,
+				params: { position, field_type: field.field_type },
+			});
+		}
+		const search: unknown = field.config.search;
+		if (search !== undefined && search !== null && search !== "") {
+			const searchPath = toPath([...segments, "config", "search"]);
+			if (!isSearchWeight(search)) {
+				fieldErrors.push({
+					accessor,
+					code: "invalid_config",
+					message: `Field "${accessor}" has an invalid search setting`,
+					path: searchPath,
+				});
+			} else if (plugin && !plugin.catalogue?.hasText) {
+				fieldErrors.push({
+					accessor,
+					code: "search_without_text",
+					message: `Field "${accessor}" of type "${field.field_type}" has no text to search`,
+					path: searchPath,
+				});
+			}
+		}
+		for (const error of policy?.(field, { path, position }) ?? []) {
+			fieldErrors.push({
+				accessor,
+				code: error.code,
+				message: error.message,
+				path: path + (error.path ?? ""),
+				...(error.params ? { params: error.params } : {}),
+			});
+		}
+		for (const nested of nestedSpecs(field, segments, position, plugins)) {
+			checkFields(
+				nested.fields,
+				nested.list,
+				nested.position,
+				plugins,
+				policy,
+				fieldErrors,
+			);
 		}
 	}
 }

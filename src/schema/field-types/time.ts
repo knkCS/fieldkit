@@ -29,5 +29,6 @@ export const timePlugin: FieldTypePlugin<null> = {
 
 	catalogue: { since: "0.18.0", hasText: false, pins: [] },
 
-	availableIn: ["blueprint", "task", "form", "attribute"],
+	consumers: ["blueprint", "task", "form"],
+	positions: ["root", "row", "reference_spec", "block_type"],
 };

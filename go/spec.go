@@ -25,16 +25,20 @@ type Field struct {
 
 // Config is the configuration every Field Type shares.
 type Config struct {
-	Name           string          `json:"name"`
-	APIAccessor    string          `json:"api_accessor"`
-	Required       bool            `json:"required"`
-	Instructions   string          `json:"instructions"`
-	DefaultValue   json.RawMessage `json:"default_value,omitempty"`
-	Unique         *bool           `json:"unique,omitempty"`
-	Localizable    *bool           `json:"localizable,omitempty"`
-	Hidden         *bool           `json:"hidden,omitempty"`
-	ReadOnly       *bool           `json:"read_only,omitempty"`
-	Condition      *Condition      `json:"condition,omitempty"`
+	Name         string          `json:"name"`
+	APIAccessor  string          `json:"api_accessor"`
+	Required     bool            `json:"required"`
+	Instructions string          `json:"instructions"`
+	DefaultValue json.RawMessage `json:"default_value,omitempty"`
+	Unique       *bool           `json:"unique,omitempty"`
+	Localizable  *bool           `json:"localizable,omitempty"`
+	Hidden       *bool           `json:"hidden,omitempty"`
+	ReadOnly     *bool           `json:"read_only,omitempty"`
+	Condition    *Condition      `json:"condition,omitempty"`
+	// Search is how the Field's text weighs in Delivery Search: "off", or a
+	// weight "A" to "D". "" is Unset. Valid only on a type the Catalogue
+	// marks as having text.
+	Search         string          `json:"search,omitempty"`
 	LockedSettings []LockedSetting `json:"locked_settings,omitempty"`
 }
 

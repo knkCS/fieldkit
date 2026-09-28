@@ -226,7 +226,9 @@ describe("the Attribute Spec in a Reference Field's Schema", () => {
 });
 
 describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
-	it("reports no duplicate Accessor between two Attributes", () => {
+	// validateSpec walks the Reference Spec since ADR-0022 made it a Position:
+	// the plugin names it (`heldSpecs`), so every rule reaches an Attribute.
+	it("reports a duplicate Accessor between two Attributes", () => {
 		const field = referenceField([
 			attribute("text", "page", "Page"),
 			attribute("number", "page", "Page again"),
@@ -236,18 +238,26 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 			[field],
 			new Map(builtInFieldTypes.map((p) => [p.id, p])),
 		);
-		expect(result.valid).toBe(true);
-		expect(result.fieldErrors).toEqual([]);
+		expect(result.valid).toBe(false);
+		expect(result.fieldErrors.map((e) => [e.code, e.path])).toEqual([
+			[
+				"duplicate_accessor",
+				`/${field.config.api_accessor}/settings/attributes/page`,
+			],
+		]);
 	});
 
-	it("reports no empty name and no empty Accessor on an Attribute", () => {
+	it("reports an empty name and an empty Accessor on an Attribute", () => {
 		const field = referenceField([attribute("text", "", "")]);
 
 		const result = validateSpec(
 			[field],
 			new Map(builtInFieldTypes.map((p) => [p.id, p])),
 		);
-		expect(result.valid).toBe(true);
+		expect(result.fieldErrors.map((e) => e.code).sort()).toEqual([
+			"empty_accessor",
+			"empty_name",
+		]);
 	});
 
 	it("never resolves a Fieldset declared as an Attribute", async () => {

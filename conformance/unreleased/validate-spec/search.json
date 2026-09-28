@@ -1,0 +1,222 @@
+{
+	"description": "config.search is off or a weight A-D, and valid only on a type the Catalogue marks as having text: any other value is invalid_config, and any value on a type without text is search_without_text, at the key; Unset (null, \"\") is absent",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Title",
+				"api_accessor": "title",
+				"required": false,
+				"instructions": "",
+				"search": "A"
+			},
+			"system": false
+		},
+		{
+			"field_type": "textarea",
+			"config": {
+				"name": "Summary",
+				"api_accessor": "summary",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "markdown",
+			"config": {
+				"name": "Body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": "",
+				"search": "D"
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": "",
+				"search": "C"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Subtitle",
+				"api_accessor": "subtitle",
+				"required": false,
+				"instructions": "",
+				"search": null
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Caption",
+				"api_accessor": "caption",
+				"required": false,
+				"instructions": "",
+				"search": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Lowercase",
+				"api_accessor": "lowercase",
+				"required": false,
+				"instructions": "",
+				"search": "a"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Heavy",
+				"api_accessor": "heavy",
+				"required": false,
+				"instructions": "",
+				"search": "E"
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Price",
+				"api_accessor": "price",
+				"required": false,
+				"instructions": "",
+				"search": "B"
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Flag",
+				"api_accessor": "flag",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Meta",
+				"api_accessor": "meta",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "url",
+					"config": {
+						"name": "Link",
+						"api_accessor": "link",
+						"required": false,
+						"instructions": "",
+						"search": "B"
+					},
+					"system": false
+				},
+				{
+					"field_type": "date",
+					"config": {
+						"name": "When",
+						"api_accessor": "when",
+						"required": false,
+						"instructions": "",
+						"search": "A"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "slug",
+					"config": {
+						"name": "Handle",
+						"api_accessor": "handle",
+						"required": false,
+						"instructions": "",
+						"search": "C"
+					},
+					"system": false
+				},
+				{
+					"field_type": "select",
+					"config": {
+						"name": "State",
+						"api_accessor": "state",
+						"required": false,
+						"instructions": "",
+						"search": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "legacy",
+			"config": {
+				"name": "Old",
+				"api_accessor": "old",
+				"required": false,
+				"instructions": "",
+				"search": "A"
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/lowercase/config/search",
+				"code": "invalid_config"
+			},
+			{
+				"path": "/heavy/config/search",
+				"code": "invalid_config"
+			},
+			{
+				"path": "/price/config/search",
+				"code": "search_without_text"
+			},
+			{
+				"path": "/flag/config/search",
+				"code": "search_without_text"
+			},
+			{
+				"path": "/meta/children/when/config/search",
+				"code": "search_without_text"
+			},
+			{
+				"path": "/old",
+				"code": "unknown_field_type"
+			}
+		]
+	}
+}

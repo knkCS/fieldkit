@@ -1,0 +1,193 @@
+{
+	"description": "Once a tab holds a card marker every Field in it lives in a card: a Field before the tab's first card is loose_field_in_carded_tab; each section opens a new tab; a tab without cards, and cards inside a Group, are not checked",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Intro",
+				"api_accessor": "intro",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "number",
+			"config": {
+				"name": "Rank",
+				"api_accessor": "rank",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "",
+				"api_accessor": "first_card",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Carded",
+				"api_accessor": "carded",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "section",
+			"config": {
+				"name": "Plain",
+				"api_accessor": "plain_tab",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "Free",
+				"api_accessor": "free",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Grouped",
+				"api_accessor": "grouped",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Before_inner_card",
+						"api_accessor": "before_inner_card",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "card",
+					"config": {
+						"name": "Inner",
+						"api_accessor": "inner_card",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "section",
+			"config": {
+				"name": "Carded",
+				"api_accessor": "carded_tab",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "boolean",
+			"config": {
+				"name": "Stray",
+				"api_accessor": "stray",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "Second",
+				"api_accessor": "second_card",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "date",
+			"config": {
+				"name": "Due",
+				"api_accessor": "due",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "Third",
+				"api_accessor": "third_card",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "section",
+			"config": {
+				"name": "Leading card",
+				"api_accessor": "leading_card_tab",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "card",
+			"config": {
+				"name": "",
+				"api_accessor": "leading_card",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "email",
+			"config": {
+				"name": "Contact",
+				"api_accessor": "contact",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/intro",
+				"code": "loose_field_in_carded_tab"
+			},
+			{
+				"path": "/rank",
+				"code": "loose_field_in_carded_tab"
+			},
+			{
+				"path": "/stray",
+				"code": "loose_field_in_carded_tab"
+			}
+		]
+	}
+}

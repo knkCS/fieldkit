@@ -465,7 +465,7 @@ describe("a Virtual Table in the config panel", () => {
 		renderPanel(lineItems({}, [rowField("addresses", "group")]));
 
 		expect(screen.getByTestId("panel-field-errors")).toHaveTextContent(
-			/is not allowed in a Row Spec/,
+			/is not allowed in position "row"/,
 		);
 	});
 

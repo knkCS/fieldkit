@@ -163,18 +163,18 @@ describe("TypePicker", () => {
 		expect(onSelect).toHaveBeenCalledWith("number");
 	});
 
-	it("filters plugins by context", () => {
+	it("filters plugins by Consumer", () => {
 		const blueprintOnly = makePlugin({
 			id: "bp",
 			name: "BlueprintOnly",
 			category: "text",
-			availableIn: ["blueprint"],
+			consumers: ["blueprint"],
 		});
 		const taskOnly = makePlugin({
 			id: "task",
 			name: "TaskOnly",
 			category: "text",
-			availableIn: ["task"],
+			consumers: ["task"],
 		});
 		const noRestriction = makePlugin({
 			id: "any",
@@ -187,7 +187,7 @@ describe("TypePicker", () => {
 			<ChakraProvider value={defaultSystem}>
 				<TypePicker
 					plugins={[blueprintOnly, taskOnly, noRestriction]}
-					context="blueprint"
+					consumer="blueprint"
 					onSelect={onSelect}
 				/>
 			</ChakraProvider>,
@@ -196,6 +196,41 @@ describe("TypePicker", () => {
 		expect(screen.getByText("BlueprintOnly")).toBeInTheDocument();
 		expect(screen.getByText("AnyContext")).toBeInTheDocument();
 		expect(screen.queryByText("TaskOnly")).not.toBeInTheDocument();
+	});
+
+	it("filters plugins by Position", () => {
+		const rowFit = makePlugin({
+			id: "cell",
+			name: "RowFit",
+			category: "text",
+			positions: ["root", "row"],
+		});
+		const rootOnly = makePlugin({
+			id: "container",
+			name: "RootOnly",
+			category: "text",
+			positions: ["root"],
+		});
+		const undeclared = makePlugin({
+			id: "custom",
+			name: "Undeclared",
+			category: "text",
+		});
+
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<TypePicker
+					plugins={[rowFit, rootOnly, undeclared]}
+					position="row"
+					onSelect={vi.fn()}
+				/>
+			</ChakraProvider>,
+		);
+
+		expect(screen.getByText("RowFit")).toBeInTheDocument();
+		expect(screen.queryByText("RootOnly")).not.toBeInTheDocument();
+		// A type that names no Positions is kept out of the narrow ones.
+		expect(screen.queryByText("Undeclared")).not.toBeInTheDocument();
 	});
 
 	it("disables types at maxPerSpec limit", () => {
