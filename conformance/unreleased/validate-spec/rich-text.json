@@ -1,0 +1,117 @@
+{
+	"description": "rich_text's settings are a Text Type Release Pin in text_type and a view_mode: the legacy editor_spec is an unknown_setting — a Spec to migrate by renaming it to text_type and naming a Text Type Release — a text_type that is not a string and a view_mode outside full and compact are invalid, search is valid since rich text has text, and rich_text is no Row Spec column",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": "",
+				"search": "A"
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "legacy",
+				"api_accessor": "legacy",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"editor_spec": "default",
+				"view_mode": "full"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "numbered",
+				"api_accessor": "numbered",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": 3
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "wide",
+				"api_accessor": "wide",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"view_mode": "wide"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "plain",
+				"api_accessor": "plain",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"view_mode": "compact"
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "cell",
+						"api_accessor": "cell",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/legacy/settings/editor_spec",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/numbered/settings/text_type",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/wide/settings/view_mode",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/rows/children/cell",
+				"code": "position"
+			}
+		]
+	}
+}

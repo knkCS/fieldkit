@@ -45,6 +45,7 @@ src/
 │   ├── validate-settings.ts # validateSettings() — one Field's settings against a strict `settingsSchema` (`unknown_setting`, `invalid_setting`), Unset stripped first (ADR-0021); the path grammar
 │   ├── resolve-spec.ts  # resolveSpec() — every Pin (read from the plugins' Catalogue `pins`, a key being a settings path where `*` is every list item) into the Resolved Spec envelope `{catalogue, vocabulary, fields, parts}` (ADR-0020): Blueprint Releases inlined as children — or, for a Pin inside a settings entry (a linked Reference Spec), as that entry's `spec` — opaque parts stored once; walks children and `heldSpecs`; fetches each Release once, rejects with ResolveSpecError on a cycle or past RESOLVE_CAPS; specPins() — Go's Pins; specNeedsResolution() — internal, would it fetch anything?
 │   ├── catalogue-version.ts # CATALOGUE_VERSION — written into go/catalogue.json by scripts/catalogue.ts and stamped on every Resolved Spec
+│   ├── vocabulary-version.ts # The Resolved Spec's `vocabulary`: the highest `minimumVocabularyVersion` among its Text Types, compared as knkeditor compares versions
 │   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021); `targetBlueprint` (ValueContext) says which Reference Spec a Reference follows
 │   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)
 │   ├── zod-builder.ts   # specToZodSchema() — its parsed output is canonical, Unset keys stripped — and getDefaultValues()
@@ -129,12 +130,13 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)
 ├── value_containers.go  # group/virtual_table/blocks/fieldset value rules, the rows' `_id`s (missing_id, duplicate_id) and itemSegments — the `_id` path grammar (ADR-0023)
 ├── walk.go              # The walk Edges and Texts share: every Field with its value, containers entered through heldRecords (ADR-0007)
-├── edges.go             # Edges — Content Graph edges {path, kind, target} (contenthub ADR 0009); one edgeRule per type that points at something (media, reference, single_reference)
+├── edges.go             # Edges — Content Graph edges {path, kind, target} (contenthub ADR 0009); one edgeRule per type that points at something (media, reference, single_reference, rich_text)
 ├── texts.go             # Texts and ValueText — plain text per Field with its search weight (contenthub ADR 0019); one textRule per type the Catalogue marks has_text
 ├── mint.go              # MintIDs — deterministic UUIDv5 `_id`s for importers, from a seed and each row's or node's place; nothing else mints
 ├── schemas.go           # SchemaFields — the versionkit adapter: Settings = the whole resolved Field + its pinned parts, Type = Comparer/Merger, versionkit's interfaces by shape, never imported (docs/compare-and-merge.md)
 ├── compare.go           # Compare/Merge composer (ADR-0023): whole values by equality; rows by `_id` (detail, per-child merge, `_order`), a Fieldset per child, Reference trees (reference_compare.go) — finerRuleFor is where rich_text plugs in
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
+├── rich_text.go         # rich_text delegated to knkeditor's Go module (github.com/knkcms/knkeditor/go, the module's one external dependency): validation (invalid_rich_text), edges, text, Compare/Merge, the Text Type read from the Resolved Spec's parts
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md
 ├── unreleased/<area>/*.json

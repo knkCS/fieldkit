@@ -35,12 +35,9 @@ import (
 // and Accessors, duplicate Accessors — and the conformance fixtures stay clear
 // of them.
 //
-// The Catalogue lists only the types that already declare a settings schema.
-// Until every built-in type does, a Spec using one that does not yet —
-// rich_text — is valid in TS and reports unknown_field_type here. A type the
-// Catalogue does not list has no Positions and no text, so it is never
-// reported as CodePosition (it is unknown already). The conformance fixtures
-// stay inside the Catalogue, where the two agree.
+// The Catalogue lists every built-in type. A type it does not list — a
+// Consumer's own — reports unknown_field_type here, and has no Positions and
+// no text, so it is never reported as CodePosition as well.
 func ValidateSpec(spec Spec, opts ...Option) []Error {
 	return DefaultCatalogue().ValidateSpec(spec, opts...)
 }

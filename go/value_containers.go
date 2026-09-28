@@ -34,6 +34,9 @@ func containerRuleFor(fieldType string) (containerRule, bool) {
 		return referenceTreeValue, true
 	case "single_reference":
 		return singleReferenceValue, true
+	case "rich_text":
+		// No container, but checked with its absolute path (rich_text.go).
+		return richTextValue, true
 	}
 	return nil, false
 }

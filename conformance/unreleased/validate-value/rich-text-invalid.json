@@ -1,0 +1,279 @@
+{
+	"description": "Go only (TS has no knkeditor validator): each error knkeditor's Validate reports under the Field's Text Type is invalid_rich_text at the Field's path followed by knkeditor's JSON Pointer — a node the Text Type does not enable, a node the vocabulary does not know, a content link without its Content — in a group's rows by _id; and a value that does not survive a JSON round trip (a lone surrogate, a number beyond float64) is found in the stored JSON text and reported alone",
+	"goOnly": [
+		"validateValue"
+	],
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "links",
+				"api_accessor": "links",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "broken",
+				"api_accessor": "broken",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "huge",
+				"api_accessor": "huge",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					},
+					"footnote": {
+						"options": {}
+					},
+					"inlineImage": {
+						"options": {}
+					}
+				},
+				"marks": {
+					"contentLink": {
+						"options": {}
+					}
+				}
+			},
+			"plain@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins."
+						}
+					]
+				},
+				{
+					"type": "paragraph"
+				},
+				{
+					"type": "bogus"
+				}
+			]
+		},
+		"links": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "ohne Ziel",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"anchor": "n7"
+									}
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		"broken": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "x\ud800"
+						},
+						{
+							"type": "bogus"
+						}
+					]
+				}
+			]
+		},
+		"huge": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": 1e400
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "x"
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "x"
+								}
+							]
+						},
+						{
+							"type": "bogus"
+						}
+					]
+				}
+			}
+		]
+	},
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/body/content/1",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/body/content/2",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/links/content/0/content/0/marks/0/attrs/id",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/broken/content/0/content/0/text",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/huge/content/0/attrs/id",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/sections/s1/body/content/1",
+				"code": "invalid_rich_text"
+			}
+		]
+	}
+}

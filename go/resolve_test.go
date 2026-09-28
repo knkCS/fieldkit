@@ -147,7 +147,7 @@ func TestResolveStoresOpaquePartsOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	fetcher := &releases{byKind: map[string]map[string]string{
-		"text_type": {"article@3": `{"nodes":["paragraph"]}`},
+		"text_type": {"article@3": textTypeArticle},
 	}}
 	spec := mustSpec(t, list(field("prose", "intro", `{"text_type":"article@3"}`), field("prose", "body", `{"text_type":"article@3"}`)))
 	if got := c.Pins(spec); len(got) != 2 || got[0].Kind != "text_type" || got[0].Release != "article@3" {
@@ -163,7 +163,7 @@ func TestResolveStoresOpaquePartsOnce(t *testing.T) {
 	if len(fetcher.calls) != 1 {
 		t.Errorf("calls = %v", fetcher.calls)
 	}
-	if string(resolved.Part("text_type", "article@3")) != `{"nodes":["paragraph"]}` {
+	if string(resolved.Part("text_type", "article@3")) != textTypeArticle {
 		t.Errorf("parts = %v", resolved.Parts)
 	}
 	if resolved.Fields[0].Children != nil {

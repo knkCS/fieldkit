@@ -18,6 +18,12 @@
 # checked nothing. ci.yml runs the module's real checks meanwhile
 # (`npm run verify:go`).
 #
+# PRIVATE MODULES: the module depends on github.com/knkcms/knkeditor/go
+# (#216), in the knkcms org. The shared workflow's configure-private-modules
+# sets GOPRIVATE=github.com/knkcs/* only, so fetching it fails until that
+# action also covers knkcms (change it in knkCS/workflows, not here) and
+# CI_TOKEN can read knkcms/knkeditor. ci.yml sets both itself meanwhile.
+#
 # Pinned to @v1, which (at 7d6dc74) declares every other input used here —
 # `check-gofmt` included. Pin to the commit that adds `working-directory`
 # when it lands, per the conventions doc's "Pinning" rule.

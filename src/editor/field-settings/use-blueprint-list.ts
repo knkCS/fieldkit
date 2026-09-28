@@ -26,7 +26,9 @@ export interface BlueprintList {
  * be memoized — the hook latches the latest callback.
  */
 export function useBlueprintList(
-	adapter: FieldKitAdapters["blueprint"],
+	adapter:
+		| FieldKitAdapters["blueprint"]
+		| { list?: () => Promise<BlueprintSummary[]> },
 	onFailure?: (error: Error) => void,
 ): BlueprintList {
 	const [blueprints, setBlueprints] = useState<BlueprintSummary[] | null>(null);

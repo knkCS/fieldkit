@@ -1,0 +1,254 @@
+{
+	"description": "rich_text values knkeditor accepts under the Field's Text Type (Example_fieldkitRichText's shapes): paragraphs with node ids, content links with and without an Anchor, a footnote and an inline image, at the root and in a group's rows; an optional one absent",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "summary",
+				"api_accessor": "summary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "aside",
+				"api_accessor": "aside",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					},
+					"footnote": {
+						"options": {}
+					},
+					"inlineImage": {
+						"options": {}
+					}
+				},
+				"marks": {
+					"contentLink": {
+						"options": {}
+					}
+				}
+			},
+			"plain@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Siehe "
+						},
+						{
+							"type": "text",
+							"text": "§ 3",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c1"
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " und "
+						},
+						{
+							"type": "text",
+							"text": "Rn. 12",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c2",
+										"anchor": "n7"
+									}
+								}
+							]
+						},
+						{
+							"type": "footnote",
+							"attrs": {
+								"contentId": "c3"
+							}
+						},
+						{
+							"type": "inlineImage",
+							"attrs": {
+								"assetId": "as1"
+							}
+						},
+						{
+							"type": "text",
+							"text": "."
+						}
+					]
+				}
+			]
+		},
+		"summary": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins."
+						}
+					]
+				},
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "b"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Zwei."
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"heading": "Eins",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Eins, geändert."
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "b"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Zwei."
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	},
+	"expect": {
+		"validateValue": []
+	}
+}

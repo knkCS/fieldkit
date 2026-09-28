@@ -1,0 +1,238 @@
+{
+	"description": "Go only (TS has no knkeditor reader): a rich_text Field's edges are knkeditor's — a link to each Content a content link names, with its Anchor when it names one, a footnote to each footnote's Content, a media edge to each image's Asset — each once, at the Field, at the root and in a group's rows by _id",
+	"goOnly": [
+		"edges"
+	],
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					},
+					"footnote": {
+						"options": {}
+					},
+					"inlineImage": {
+						"options": {}
+					}
+				},
+				"marks": {
+					"contentLink": {
+						"options": {}
+					}
+				}
+			}
+		}
+	},
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Siehe "
+						},
+						{
+							"type": "text",
+							"text": "§ 3",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c1"
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " und "
+						},
+						{
+							"type": "text",
+							"text": "Rn. 12",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c2",
+										"anchor": "n7"
+									}
+								}
+							]
+						},
+						{
+							"type": "footnote",
+							"attrs": {
+								"contentId": "c3"
+							}
+						},
+						{
+							"type": "inlineImage",
+							"attrs": {
+								"assetId": "as1"
+							}
+						},
+						{
+							"type": "text",
+							"text": "."
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "§ 3",
+									"marks": [
+										{
+											"type": "contentLink",
+											"attrs": {
+												"id": "c1"
+											}
+										}
+									]
+								},
+								{
+									"type": "inlineImage",
+									"attrs": {
+										"assetId": "as1"
+									}
+								},
+								{
+									"type": "inlineImage",
+									"attrs": {
+										"assetId": "as1"
+									}
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	},
+	"expect": {
+		"edges": [
+			{
+				"path": "/body",
+				"kind": "link",
+				"target": {
+					"content": "c1"
+				}
+			},
+			{
+				"path": "/body",
+				"kind": "link",
+				"target": {
+					"content": "c2",
+					"anchor": "n7"
+				}
+			},
+			{
+				"path": "/body",
+				"kind": "footnote",
+				"target": {
+					"content": "c3"
+				}
+			},
+			{
+				"path": "/body",
+				"kind": "media",
+				"target": {
+					"asset": "as1"
+				}
+			},
+			{
+				"path": "/sections/s1/body",
+				"kind": "link",
+				"target": {
+					"content": "c1"
+				}
+			},
+			{
+				"path": "/sections/s1/body",
+				"kind": "media",
+				"target": {
+					"asset": "as1"
+				}
+			}
+		]
+	}
+}

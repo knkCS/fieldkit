@@ -1,0 +1,309 @@
+{
+	"description": "Go only (TS has no knkeditor reader): a rich_text Field's text is knkeditor's reading text — each paragraph a line, footnote markers and images read as nothing — weighed by its own search, Unset being D and off yielding none, in rows as at the root",
+	"goOnly": [
+		"texts"
+	],
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": "",
+				"search": "A"
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "summary",
+				"api_accessor": "summary",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "hidden",
+				"api_accessor": "hidden",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"settings": {
+				"text_type": "plain@1"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"text_type": "article@3"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					},
+					"footnote": {
+						"options": {}
+					},
+					"inlineImage": {
+						"options": {}
+					}
+				},
+				"marks": {
+					"contentLink": {
+						"options": {}
+					}
+				}
+			},
+			"plain@1": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Siehe "
+						},
+						{
+							"type": "text",
+							"text": "§ 3",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c1"
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " und "
+						},
+						{
+							"type": "text",
+							"text": "Rn. 12",
+							"marks": [
+								{
+									"type": "contentLink",
+									"attrs": {
+										"id": "c2",
+										"anchor": "n7"
+									}
+								}
+							]
+						},
+						{
+							"type": "footnote",
+							"attrs": {
+								"contentId": "c3"
+							}
+						},
+						{
+							"type": "inlineImage",
+							"attrs": {
+								"assetId": "as1"
+							}
+						},
+						{
+							"type": "text",
+							"text": "."
+						}
+					]
+				}
+			]
+		},
+		"summary": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins."
+						}
+					]
+				},
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "b"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Zwei."
+						}
+					]
+				}
+			]
+		},
+		"hidden": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins."
+						}
+					]
+				},
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "b"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Zwei."
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"heading": "Eins",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Eins, geändert."
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "b"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Zwei."
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	},
+	"expect": {
+		"texts": [
+			{
+				"path": "/body",
+				"weight": "A",
+				"text": "Siehe § 3 und Rn. 12."
+			},
+			{
+				"path": "/summary",
+				"weight": "D",
+				"text": "Eins.\nZwei."
+			},
+			{
+				"path": "/sections/s1/heading",
+				"weight": "D",
+				"text": "Eins"
+			},
+			{
+				"path": "/sections/s1/body",
+				"weight": "D",
+				"text": "Eins, geändert.\nZwei."
+			}
+		]
+	}
+}

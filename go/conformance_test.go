@@ -40,6 +40,10 @@ type fixture struct {
 		MaxFetches *int `json:"maxFetches,omitempty"`
 		MaxDepth   *int `json:"maxDepth,omitempty"`
 	} `json:"resolveOptions,omitempty"`
+	// GoOnly are operations of this fixture the TS runner skips: rich text,
+	// which only Go reads through knkeditor (#216). This runner runs them
+	// all, and only checks that each is expected.
+	GoOnly []string `json:"goOnly,omitempty"`
 	// Targets are the Blueprint of each referenced Content, by its id, for
 	// the value operations (WithTargetBlueprints).
 	Targets map[string]string          `json:"targets,omitempty"`
@@ -89,6 +93,11 @@ func TestConformance(t *testing.T) {
 			}
 			if len(fx.Expect) == 0 {
 				t.Fatal("fixture expects nothing")
+			}
+			for _, op := range fx.GoOnly {
+				if _, ok := fx.Expect[op]; !ok {
+					t.Errorf("goOnly %q is not expected", op)
+				}
 			}
 			version := strings.SplitN(filepath.ToSlash(name), "/", 2)[0]
 			bound := 0
@@ -232,8 +241,18 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
+	errs := ValidateValue(spec, fx.Data, fx.valueOptions()...)
+	// A fixture with releases validates against its Resolved Spec: a
+	// rich_text Field's Text Type is in its parts.
+	if len(fx.Releases) > 0 {
+		resolved, err := resolveFixture(t, fx)
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		errs = ValidateResolvedValue(resolved, fx.Data, fx.valueOptions()...)
+	}
 	got := []expectedError{}
-	for _, e := range ValidateValue(spec, fx.Data, fx.valueOptions()...) {
+	for _, e := range errs {
 		got = append(got, expectedError{Path: e.Path, Code: e.Code})
 	}
 	if want == nil {

@@ -39,6 +39,19 @@ export interface BlueprintPickerProps {
 	selectPlaceholder: string;
 	idInputPlaceholder: string;
 	idInputTestId: string;
+	/**
+	 * Where the choices come from, when they are not Blueprints: anything that
+	 * lists `{id, name}` Releases, with the same optional `list` and the same
+	 * degrade to id entry without one. The rich_text settings pass the Text
+	 * Type Releases this way (#216). Absent: `adapters.blueprint`.
+	 */
+	source?: { list?: () => Promise<BlueprintSummary[]> };
+	/** What the Author reads when their search matches nothing, and when there
+	 * is nothing to pick at all. Default: the Blueprint wording. */
+	noMatchMessage?: string;
+	noneMessage?: string;
+	/** What an Adapter failure to list is reported as. */
+	failureMessage?: string;
 }
 
 /**
@@ -62,14 +75,18 @@ export function BlueprintPicker({
 	selectPlaceholder,
 	idInputPlaceholder,
 	idInputTestId,
+	source,
+	noMatchMessage = "No blueprint matches",
+	noneMessage = "No blueprints available",
+	failureMessage = "Blueprint list fetch failed",
 }: BlueprintPickerProps) {
 	const lock = useSettingLock(settingsKey);
 	const { adapters } = useFieldKit();
-	const report = useAdapterErrorReporter(
-		fieldId,
-		"Blueprint list fetch failed",
+	const report = useAdapterErrorReporter(fieldId, failureMessage);
+	const { blueprints, status } = useBlueprintList(
+		source ?? adapters.blueprint,
+		report,
 	);
-	const { blueprints, status } = useBlueprintList(adapters.blueprint, report);
 	const inputId = useId();
 
 	const options = toOptions(blueprints, value);
@@ -140,7 +157,7 @@ export function BlueprintPicker({
 					// whose search matched nothing must not be told they have no
 					// blueprints at all.
 					noOptionsMessage={({ inputValue }) =>
-						inputValue ? "No blueprint matches" : "No blueprints available"
+						inputValue ? noMatchMessage : noneMessage
 					}
 				/>
 			)}

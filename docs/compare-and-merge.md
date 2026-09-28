@@ -16,7 +16,7 @@ the fixtures are `conformance/unreleased/compare/` and `merge/`.
 | `Accessor` | the Field's `api_accessor` |
 | `TypeID` | its `field_type` |
 | `Settings` | `{"field": <the whole resolved Field>, "parts": {<kind>: {<release>: <part>}}}` — `parts` only the opaque parts the Field pins, at any depth, and absent when it pins none (`SchemaSettings`, `DecodeSchemaSettings`) |
-| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference` and `single_reference` |
+| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` |
 
 fieldkit never imports versionkit (versionkit ADR 0002). `Comparer` and
 `Merger` have exactly versionkit's `FieldType` and `FieldMerger` method sets,
@@ -44,8 +44,9 @@ included: a reorder alone is a change.
 
 ## Detail
 
-Every type but the six below compares as a whole value: `equal` only, and
-**no detail**. The six answer with detail when not equal:
+Every type but the six below and `rich_text` compares as a whole value:
+`equal` only, and **no detail**. The six answer with detail when not equal,
+and `rich_text` with knkeditor's (see [Rich text](#rich-text)):
 
 ```ts
 // group, virtual_table, blocks — and reference, over every node of the tree
@@ -127,7 +128,8 @@ node is a whole value.
 
 ## Merge
 
-Whole-value types have no `Merge`: versionkit merges them itself. The six
+Whole-value types have no `Merge`: versionkit merges them itself. `rich_text`
+merges by knkeditor (see [Rich text](#rich-text)). The six
 types above merge finer, and Merge is called only when both sides changed a
 Field:
 
@@ -189,8 +191,30 @@ handed in. versionkit aborts the call on one.
 A tree whose nodes are not objects each with a well-formed `_id` no other node
 at any level holds, or whose `children` are not a list, is an `err` too.
 
-## Still to come
+## Rich text
 
-`rich_text` (#216) plugs into the same composer (`finerRuleFor` in
-`go/compare.go`), delegating to knkeditor with the Text Type from `parts`.
-Until then it compares and merges as a whole value.
+`rich_text` delegates both to knkeditor's Go module
+(`github.com/knkcms/knkeditor/go`, fieldkit#216; `go/rich_text.go`):
+
+- **Compare** is knkeditor's `Compare`. `equal` is its `unchanged` — nodes
+  matched by node id, attributes read with their defaults, marks in any
+  order — and the detail is its `Comparison` nested unchanged, at the top of
+  the Field and as a changed rich-text child inside a row's `fields`:
+
+  ```json
+  {
+  	"status": "changed",
+  	"nodes": [
+  		{ "status": "changed", "id": "a", "type": "textWrapper", "a": 0, "b": 0, "content": true },
+  		{ "status": "unchanged", "id": "b", "type": "textWrapper", "a": 1, "b": 1 }
+  	]
+  }
+  ```
+
+- **Merge** is knkeditor's `NewMerger(vocabulary, textType).MergeJSON`, per
+  top-level node by node id, with the result validated under the Field's
+  Text Type — the part its `text_type` pins, which the Settings' `parts`
+  must hold (a Merge without it is an `err`). A Conflict is the node's id
+  below the Field's path (`body/a`, `r1/body/a` in a row), a JSON Pointer
+  into the merged document for an invalid merge outside such a node, or the
+  Field itself.

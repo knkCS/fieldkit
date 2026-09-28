@@ -295,7 +295,11 @@ func referenceNode(settings map[string]any, node any, path string, errs *valueEr
 
 	var fields []Field
 	known := false
-	if lookup := errs.targetBlueprint; lookup != nil && linksReferenceSpec(settings) {
+	var lookup func(string) string
+	if errs.ctx != nil {
+		lookup = errs.ctx.targetBlueprint
+	}
+	if lookup != nil && linksReferenceSpec(settings) {
 		if !idOK {
 			return obj
 		}

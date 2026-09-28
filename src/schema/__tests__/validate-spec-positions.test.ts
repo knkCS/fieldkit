@@ -147,12 +147,20 @@ describe("validateSpec — a plugin that declares no Positions", () => {
 
 describe("validateSpec — config.search on a type outside the Catalogue", () => {
 	it("is search_without_text until the type's Catalogue facts say it has text", () => {
-		// rich_text has text but no Catalogue entry yet (#216); until it has one,
-		// TS and Go agree it may not carry `search`.
-		const body = field("rich_text", "body");
+		// A type with no Catalogue entry has no text as far as TS and Go agree,
+		// so it may not carry `search` — as rich_text could not before its
+		// entry (#216).
+		const plugins = new Map(builtIns);
+		plugins.set("prose", mockPlugin("prose"));
+		const body = field("prose", "body");
 		body.config.search = "A";
 		expect(
-			validateSpec([body], builtIns).fieldErrors.map((e) => [e.path, e.code]),
+			validateSpec([body], plugins).fieldErrors.map((e) => [e.path, e.code]),
 		).toEqual([["/body/config/search", "search_without_text"]]);
+
+		// rich_text's entry says it has text.
+		const prose = field("rich_text", "prose");
+		prose.config.search = "A";
+		expect(validateSpec([prose], builtIns).fieldErrors).toEqual([]);
 	});
 });

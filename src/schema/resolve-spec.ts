@@ -6,6 +6,11 @@ import { builtInFieldTypes } from "./field-types";
 import type { FieldTypePlugin } from "./plugin";
 import type { Field, Schema } from "./types";
 import { toPath } from "./validate-settings";
+import {
+	higherVocabulary,
+	TEXT_TYPE_KIND,
+	textTypeMinimum,
+} from "./vocabulary-version";
 
 /** The one adapter capability resolution needs for a Blueprint Pin: a
  * **Blueprint Release id** in, that Release's Fields out (ADR-0020).
@@ -75,8 +80,9 @@ export interface SpecPin {
 export interface ResolvedSpec {
 	/** The Catalogue version it was resolved against. */
 	catalogue: string;
-	/** The knkeditor vocabulary version its rich text needs; `""` while it
-	 * pins no rich-text part, which no built-in type does yet. */
+	/** The knkeditor vocabulary version its rich text needs: the highest
+	 * `minimumVocabularyVersion` among the Text Types it pins (`parts.text_type`),
+	 * `""` when none states one. */
 	vocabulary: string;
 	/** The Spec, each pinned Blueprint Release inlined as the pinning Field's
 	 * `children`. The Field keeps its Pin. What a renderer, a Schema and a
@@ -267,7 +273,10 @@ export function specPins(
  * `resolve_fetch_failed` wrapping an adapter's rejection, which is never
  * swallowed into empty children; `resolve_invalid_release` for a Blueprint
  * Release that is not a list of objects with a `config` object (Go, which
- * decodes strictly, also refuses a stray property). Sibling Pins resolve
+ * decodes strictly, also refuses a stray property), and for a Text Type
+ * part whose `minimumVocabularyVersion` is neither `null` nor a semantic
+ * version (Go, reading it with knkeditor's `ParseTextType`, refuses more).
+ * The envelope's `vocabulary` is the highest of those minimums. Sibling Pins resolve
  * concurrently here and in document order in Go, so on a Spec over a cap the
  * two agree on the code but may name different Pins.
  */
@@ -278,9 +287,13 @@ export async function resolveSpec(
 ): Promise<ResolvedSpec> {
 	const resolver = new Resolver(adapters, options);
 	const fields = await resolver.fields(spec, [], []);
+	let vocabulary = "";
+	for (const part of Object.values(resolver.parts[TEXT_TYPE_KIND] ?? {})) {
+		vocabulary = higherVocabulary(vocabulary, textTypeMinimum(part) ?? "");
+	}
 	return {
 		catalogue: CATALOGUE_VERSION,
-		vocabulary: "",
+		vocabulary,
 		fields,
 		parts: resolver.parts,
 	};
@@ -380,7 +393,19 @@ class Resolver {
 			if (pin.kind !== BLUEPRINT_PIN.kind) {
 				const fetchPart = this.adapters.parts?.[pin.kind];
 				if (!fetchPart) continue;
-				const part = await this.fetch(pin, chain, () => fetchPart(pin.release));
+				const part = await this.fetch(pin, chain, async () => {
+					const part = await fetchPart(pin.release);
+					// A Text Type fills in the Resolved Spec's vocabulary, so its
+					// minimum must be one knkeditor can compare (Go reads the whole
+					// part with knkeditor's ParseTextType).
+					if (
+						pin.kind === TEXT_TYPE_KIND &&
+						textTypeMinimum(part) === undefined
+					) {
+						throw new ResolveSpecError("resolve_invalid_release", pin);
+					}
+					return part;
+				});
 				this.parts[pin.kind] ??= {};
 				this.parts[pin.kind][pin.release] = part;
 				continue;

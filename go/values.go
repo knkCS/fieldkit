@@ -68,16 +68,33 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // ignores them; hidden Fields and the Markers are not checked. Data that is
 // not a JSON object is one CodeInvalidType at ""; empty data is {}.
 //
+// A rich_text value is checked by knkeditor (rich_text.go). Without a
+// Resolved Spec there is no Text Type to narrow it by, so it is checked
+// against knkeditor's vocabulary alone: ValidateResolvedValue checks it
+// against the Text Type its Field pins.
+//
 // A Reference's value carries no Blueprint id (ADR-0008, amended), so a
 // Reference Field that links a Reference Spec for some Blueprints needs to be
 // told whose Blueprint each target is (WithTargetBlueprints) to check its
 // References' values; without it those values are an opaque record.
-//
-// Not yet implemented, and skipped: the types the Catalogue does not list
-// (rich_text). TS validates them; the conformance fixtures stay clear of them
-// until Go does.
 func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
+	return validateValue(spec, data, &richTextContext{}, valueOptionsOf(opts))
+}
+
+// ValidateResolvedValue is ValidateValue against a Resolved Spec (ADR-0020):
+// its Fields, and — for each rich_text Field — the Text Type its text_type
+// setting pins, from the Resolved Spec's parts. A Text Type the parts do not
+// hold, or one knkeditor cannot use, is one CodeInvalidRichText at the Field.
+// A nil Resolved Spec has no Fields. opts are ValidateValue's.
+func ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) []Error {
 	o := valueOptionsOf(opts)
+	if resolved == nil {
+		return validateValue(nil, data, &richTextContext{strict: true}, o)
+	}
+	return validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true}, o)
+}
+
+func validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o valueOptions) []Error {
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(data))
@@ -94,7 +111,7 @@ func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error
 
 	// The caps come first and cover the whole document, keys the Spec does
 	// not name included: nothing else walks a document beyond them.
-	errs := &valueErrors{targetBlueprint: o.targetBlueprint}
+	errs := &valueErrors{ctx: &valueContext{data: bytes.TrimSpace(data), decoded: obj, richText: richText, targetBlueprint: o.targetBlueprint}}
 	if capErrors(obj, "", errs) {
 		return errs.list
 	}
@@ -139,7 +156,7 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 			container(f, settingsObj, value, at, errs)
 			continue
 		}
-		sub := &valueErrors{}
+		sub := &valueErrors{ctx: errs.ctx}
 		rule(f, settingsObj, value, sub)
 		for _, e := range sub.list {
 			errs.add(at+e.Path, e.Code, e.Params)
@@ -175,8 +192,9 @@ func valueOptionsOf(opts []ValueOption) valueOptions {
 type valueErrors struct {
 	list []Error
 	seen map[string]bool
-	// targetBlueprint is WithTargetBlueprints', nil when not given.
-	targetBlueprint func(contentID string) string
+	// ctx is what the whole run shares, for the rules that need more than
+	// their value: rich_text's (rich_text.go).
+	ctx *valueContext
 }
 
 func (v *valueErrors) add(path, code string, params map[string]any) {

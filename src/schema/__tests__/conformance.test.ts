@@ -38,6 +38,15 @@ const OPERATIONS = [
  * exception to "no fixture is skipped by one runner alone". */
 const GO_ONLY_OPERATIONS = ["compare", "merge"];
 
+/** The operations one fixture marks Go-only in its `goOnly`: TS implements
+ * them, but not for what this fixture holds — rich text knkeditor reads,
+ * which TS has no reader for (#216). The same exception as
+ * GO_ONLY_OPERATIONS, narrowed to one fixture, and listed in it so the gap
+ * is visible where the case is. */
+function goOnlyIn(fixture: Fixture): string[] {
+	return fixture.goOnly ?? [];
+}
+
 interface ExpectedError {
 	path: string;
 	code: string;
@@ -55,6 +64,8 @@ interface Fixture {
 	/** The Blueprint of each referenced Content, by its id, for the value
 	 * operations (`ValueContext.targetBlueprint`). */
 	targets?: Record<string, string>;
+	/** Operations of this fixture only Go runs (see goOnlyIn). */
+	goOnly?: string[];
 	expect: Record<string, unknown>;
 }
 
@@ -183,9 +194,15 @@ describe("conformance fixtures", () => {
 					`unknown operation ${operation}`,
 				).toContain(operation);
 			}
+			for (const operation of goOnlyIn(fixture)) {
+				expect(operations, `goOnly ${operation} is not expected`).toContain(
+					operation,
+				);
+			}
 			const bound = operations.filter(
 				(operation) =>
 					!GO_ONLY_OPERATIONS.includes(operation) &&
+					!goOnlyIn(fixture).includes(operation) &&
 					binds(version, operation, fixture.expect[operation]),
 			);
 			// A released invalid case, kept as history, or a fixture of Go-only

@@ -32,6 +32,8 @@ const OrderSegment = "_order"
 //     reference tree the same, one per node at every level.
 //   - A record — fieldset, and a single_reference holding one node on both
 //     sides — is {status, fields: {...}}.
+//   - rich_text is knkeditor's Comparison, {status, nodes: [...]}, as it
+//     comes (rich_text.go).
 //   - A child Field of any other type is {status} alone.
 //
 // At the top of a Field Status is always "changed": versionkit calls Compare
@@ -42,6 +44,9 @@ type CompareDetail struct {
 	Status string                   `json:"status"`
 	Items  []CompareItem            `json:"items,omitempty"`
 	Fields map[string]CompareDetail `json:"fields,omitempty"`
+	// Nodes is a rich_text value's match tree, knkeditor's Comparison.Nodes
+	// as it comes, so the detail is knkeditor's {status, nodes} unchanged.
+	Nodes json.RawMessage `json:"nodes,omitempty"`
 }
 
 // CompareItem is one row of a row array in a CompareDetail, by its _id.
@@ -62,7 +67,7 @@ type CompareItem struct {
 // finerRule is a type's Compare and Merge finer than a whole value. It hands
 // what it holds to the composer, so it never learns its children's types
 // (ADR-0007): the reference types' (reference_compare.go) are here, and
-// rich_text (#216) plugs in beside them.
+// rich_text (rich_text.go), which delegates to knkeditor.
 type finerRule struct {
 	compare func(c *composer, f *Field, a, b any) (bool, *CompareDetail, error)
 	merge   func(c *composer, f *Field, base, ours, theirs any, path string) (any, error)
@@ -82,14 +87,16 @@ func finerRuleFor(fieldType string) (finerRule, bool) {
 		return finerRule{compare: compareReferenceTree, merge: mergeReferenceTree}, true
 	case "single_reference":
 		return finerRule{compare: compareSingleReference, merge: mergeSingleReference}, true
+	case "rich_text":
+		return richTextRule, true
 	}
 	return finerRule{}, false
 }
 
 // composer compares and merges a value by its Field's type, dispatching
 // children to their own types (ADR-0007). It holds the parts the Field pins,
-// for the types that will need them (rich_text's Text Type), and the Merge's
-// conflicts.
+// for the types that need them (rich_text's Text Type, which its Merge
+// validates under), and the Merge's conflicts.
 type composer struct {
 	parts     map[string]map[string]json.RawMessage
 	conflicts []string
