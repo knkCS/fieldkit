@@ -394,9 +394,47 @@ function formatProvenance(e: ExportInfo): string {
 	return `${decl} (via ${via})`;
 }
 
+/**
+ * Every tsup entry `x/index` must be a subpath `./x` of package.json's
+ * `exports`, pointing at the built files — else an entry is built, verified
+ * and shipped, but no consumer can import it. Returns what is wrong.
+ */
+function unexportedEntries(entries: EntrySpec[]): string[] {
+	const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
+	const exportsMap = (pkg.exports ?? {}) as Record<string, unknown>;
+	const problems: string[] = [];
+	for (const entry of entries) {
+		const subpath = `./${entry.name.replace(/\/index$/, "")}`;
+		const target = exportsMap[subpath] as Record<string, string> | undefined;
+		const want = {
+			types: `./dist/${entry.name}.d.ts`,
+			import: `./dist/${entry.name}.js`,
+		};
+		if (!target) {
+			problems.push(`entry "${entry.name}" has no "${subpath}" in package.json exports`);
+			continue;
+		}
+		for (const [condition, file] of Object.entries(want)) {
+			if (target[condition] !== file) {
+				problems.push(
+					`package.json exports "${subpath}".${condition} is ${JSON.stringify(target[condition])}, not "${file}"`,
+				);
+			}
+		}
+	}
+	return problems;
+}
+
 function runVerification(): number {
 	const tsupCfg = resolve(ROOT, "tsup.config.ts");
 	const entries = readTsupEntries(tsupCfg);
+
+	const unexported = unexportedEntries(entries);
+	if (unexported.length > 0) {
+		for (const p of unexported) console.error(`✗ ${p}`);
+		console.error("\nverify-exports: FAILED — a tsup entry is not a package subpath.");
+		return 1;
+	}
 
 	const reports: MissingReport[] = [];
 	for (const entry of entries) {

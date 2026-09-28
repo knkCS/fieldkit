@@ -14,6 +14,7 @@ Both run in `npm run verify`.
 conformance/
   <version>/          one folder per released version, and unreleased/
     catalogue.json    a released version's frozen Catalogue (not a fixture)
+    catalogue.publishing.json   its frozen publishing section (not a fixture)
     <area>/           one folder per operation or rule family
       <name>.json     a fixture (format below)
 ```
@@ -26,7 +27,8 @@ conformance/
   Both runners replay a released folder's valid cases only (`binds` in each
   runner) and skip its invalid ones.
 - A final release copies `unreleased/` to its version folder, together with
-  the Catalogue as `<version>/catalogue.json` — the baseline
+  the Catalogue as `<version>/catalogue.json` and each opt-in package's
+  section beside it (`catalogue.publishing.json`) — the baseline
   `npm run catalogue:compat` compares against (`npm run release`, see
   [docs/releasing.md](../docs/releasing.md)).
 - A fixture is a `.json` file directly inside an area folder. Both runners
@@ -36,11 +38,11 @@ conformance/
 
 | Area | Contents |
 |---|---|
-| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types, a Reference Field's duplicate Blueprints — and a Block Type's Fields and a Reference Spec validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022); `rich_text`'s `text_type` Pin and its legacy `editor_spec` as an `unknown_setting` |
-| [`resolve/`](unreleased/resolve) | `resolve`, `pins` and `validateResolvedSpec` (ADR-0020): Blueprint Releases inlined as children, at any depth and in a Block Type's Fields; a linked Reference Spec inlined into its `blueprints` entry's `spec`; each Release fetched once; already-resolved Fields left alone; the refusals (`resolve_cycle`, `resolve_too_deep`, `resolve_too_many_fetches`); a linked Blueprint's Positions checked on the Resolved Spec; Text Types stored once in `parts` and the `vocabulary` they need |
+| [`validate-spec/`](unreleased/validate-spec) | `validateSpec` over the types the Catalogue lists: unknown Field Types, unknown and invalid settings at every depth, Unset settings, numbers beyond float64 (read as JS reads them, ±Infinity), path escaping; the containers' rules across settings — a Virtual Table's Row Spec (ADR-0017), duplicate Block Types, a Reference Field's duplicate Blueprints — and a Block Type's Fields and a Reference Spec validated like children; Positions, reserved `_` Accessors, the card-marker rule and `config.search` (ADR-0022); `rich_text`'s `text_type` Pin and its legacy `editor_spec` as an `unknown_setting`; the publishing types unknown without their package, and `reference_filter`'s one Position with it (`publishing-…`) |
+| [`resolve/`](unreleased/resolve) | `resolve`, `pins` and `validateResolvedSpec` (ADR-0020): Blueprint Releases inlined as children, at any depth and in a Block Type's Fields; a linked Reference Spec inlined into its `blueprints` entry's `spec`; each Release fetched once; already-resolved Fields left alone; the refusals (`resolve_cycle`, `resolve_too_deep`, `resolve_too_many_fetches`); a linked Blueprint's Positions checked on the Resolved Spec; Text Types stored once in `parts` and the `vocabulary` they need; a `reference_filter` in a linked Reference Spec, and out of place once a Fieldset inlines it |
 | [`edges/`](unreleased/edges) | `edges` over the Resolved Spec: `media` edges at the root, in rows by `_id`, in Blocks and a resolved Fieldset; `reference` edges per node, with their Pin; none for a `lookup` or any other type; `rich_text`'s `link`, `footnote` and `media` edges (Go only) |
 | [`texts/`](unreleased/texts) | `texts` over the Resolved Spec: every type with text, each Field's own `search` weight inside rows as at the root (Unset is `D`, `off` excluded), and in a Reference's values against its Reference Spec; `rich_text`'s reading text (Go only) |
-| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value — rich text against its Text Type (Go only past its shape): Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep`; Reference nodes, their tree-wide `_id`s, caps and values against the right Reference Spec per target |
+| [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value — rich text against its Text Type (Go only past its shape): Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep`; Reference nodes, their tree-wide `_id`s, caps and values against the right Reference Spec per target; a `reference_filter` in a Reference's values (`publishing-…`) |
 | [`compare/`](unreleased/compare) | `compare` through the versionkit adapter (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)): whole values equal whatever their spelling, with no detail; rows by `_id` with each row's status, `moved` and each changed child's detail nested; a Fieldset per child Field; a Reference Tree per node, parent and position as fields; `rich_text` by knkeditor, its detail nested unchanged. Go only |
 | [`merge/`](unreleased/merge) | `merge` through the versionkit adapter: per row and per child Field, different columns of one row on each side, Conflicts by `_id` path, a reorder on one side taken, reorders on both sides at `_order`, an insert while the other side reorders; Blocks and a Fieldset; a Reference Tree per node — a move on one side and a values edit on the other clean, moves on both sides at `_parent`; `rich_text` by knkeditor's Merger, Conflicts by node id. Go only |
 
@@ -79,6 +81,16 @@ conformance/
   in `expect`: what it holds is rich text, which Go reads through knkeditor
   and TS cannot (#216). The TS runner skips them as it skips `compare` and
   `merge`; everything else in the fixture binds both.
+- `packages` — the opt-in packages whose Catalogue section every operation of
+  the fixture runs against, beside the core one: `["publishing"]` for the
+  publishing package's types (ADR-0002, amended). Absent, a fixture sees the
+  core Catalogue only, and a publishing type is `unknown_field_type`, as it
+  is to a Consumer that never opted in. The TS runner adds the package's
+  plugins (its `PACKAGES`); the Go runner runs against
+  `DefaultCatalogue().With(section)`, the sections reaching it through
+  `ConformancePackages`, which `go/conformance_packages_test.go` fills — the
+  runner cannot import a package that imports `fieldkit`. A fixture of a
+  publishing type is named `publishing-…` in the area of its operation.
 - `resolveOptions` — `{ maxFetches, maxDepth }`, overriding the caps
   (TS `RESOLVE_CAPS`, Go `DefaultMaxFetches` / `DefaultMaxDepth`) so a cap is
   testable without hundreds of Releases.
@@ -93,8 +105,9 @@ conformance/
 - **`validateSpec`** — the complete set of `{path, code}` errors, in any
   order; `[]` for a valid Spec. `params` is not compared. Both runners validate
   against the Catalogue's types only — the TS runner hands `validateSpec` just
-  the plugins that declare a `settingsSchema` — so a type outside the
-  Catalogue is `unknown_field_type` on both sides. TS's `validateSpec` also
+  the plugins that declare a `settingsSchema`, plus the sections the fixture's
+  `packages` name — so a type outside the Catalogue is `unknown_field_type` on
+  both sides. TS's `validateSpec` also
   checks rules Go does not implement yet (empty names, duplicate Accessors);
   a fixture must not break those until both sides do. A Reference Spec —
   a Reference Field's embedded `settings.spec`, and each resolved

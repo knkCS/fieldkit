@@ -40,7 +40,7 @@ func resolveFixture(t *testing.T, fx fixture) (*ResolvedSpec, error) {
 			opts = append(opts, WithMaxDepth(*o.MaxDepth))
 		}
 	}
-	return Resolve(context.Background(), spec, fixtureFetcher(fx), opts...)
+	return fx.catalogue.Resolve(context.Background(), spec, fixtureFetcher(fx), opts...)
 }
 
 // runResolve compares the envelope with the expected one — whose catalogue
@@ -95,7 +95,7 @@ func runPins(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
-	got := Pins(spec)
+	got := fx.catalogue.Pins(spec)
 	if want == nil {
 		want = []Pin{}
 	}
@@ -118,7 +118,7 @@ func runValidateResolvedSpec(t *testing.T, fx fixture, raw json.RawMessage) {
 		t.Fatalf("resolve: %v", err)
 	}
 	got := []expectedError{}
-	for _, e := range ValidateResolvedSpec(resolved) {
+	for _, e := range fx.catalogue.ValidateResolvedSpec(resolved) {
 		got = append(got, expectedError{Path: e.Path, Code: e.Code})
 	}
 	if want == nil {

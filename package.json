@@ -35,11 +35,18 @@
       "import": "./dist/rich-text-spec/index.js",
       "default": "./dist/rich-text-spec/index.js"
     },
-    "./catalogue.json": "./go/catalogue.json"
+    "./publishing": {
+      "types": "./dist/publishing/index.d.ts",
+      "import": "./dist/publishing/index.js",
+      "default": "./dist/publishing/index.js"
+    },
+    "./catalogue.json": "./go/catalogue.json",
+    "./publishing/catalogue.json": "./go/publishing/catalogue.json"
   },
   "files": [
     "dist",
-    "go/catalogue.json"
+    "go/catalogue.json",
+    "go/publishing/catalogue.json"
   ],
   "scripts": {
     "dev": "storybook dev -p 6007",

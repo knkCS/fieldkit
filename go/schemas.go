@@ -126,27 +126,33 @@ func (c *Catalogue) SchemaFields(resolved *ResolvedSpec) ([]SchemaField, error) 
 			Accessor: f.Config.APIAccessor,
 			TypeID:   f.FieldType,
 			Settings: raw,
-			Type:     typeFor(f.FieldType),
+			Type:     c.typeFor(f.FieldType),
 		})
 	}
 	return out, nil
 }
 
-// typeFor is the Type a Field Type's values compare and merge by.
-func typeFor(fieldType string) Comparer {
+// typeFor is the Type a Field Type's values compare and merge by. A
+// Catalogue section's type that compares finer but has no Merge of its own is
+// a whole-value Type to versionkit, which then merges it as a whole value.
+func (c *Catalogue) typeFor(fieldType string) Comparer {
 	if _, finer := finerRuleFor(fieldType); finer {
-		return finerValueType{}
+		return finerValueType{wholeValueType{c}}
 	}
-	return wholeValueType{}
+	if tc, ok := c.codeOf(fieldType); ok && tc.Compare != nil && tc.Merge != nil {
+		return finerValueType{wholeValueType{c}}
+	}
+	return wholeValueType{c}
 }
 
 // wholeValueType compares any Field by the composer, which for every type
 // without a finer rule is equality of the whole value. It has no Merge, so
-// versionkit merges such a Field as a whole value.
-type wholeValueType struct{}
+// versionkit merges such a Field as a whole value. catalogue is the one
+// SchemaFields ran against, whose sections' types compare by their code.
+type wholeValueType struct{ catalogue *Catalogue }
 
 // Compare compares a and b under settings.
-func (wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawMessage, error) {
+func (t wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawMessage, error) {
 	s, err := DecodeSchemaSettings(settings)
 	if err != nil {
 		return false, nil, err
@@ -159,7 +165,7 @@ func (wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawMes
 	if err != nil {
 		return false, nil, err
 	}
-	c := composer{parts: s.Parts}
+	c := composer{catalogue: t.catalogue, parts: s.Parts}
 	equal, detail, err := c.compare(&s.Field, va, vb)
 	if err != nil || equal || detail == nil {
 		return equal, nil, err
@@ -177,7 +183,7 @@ func (wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawMes
 type finerValueType struct{ wholeValueType }
 
 // Merge three-way merges base, ours and theirs under settings.
-func (finerValueType) Merge(settings, base, ours, theirs json.RawMessage) (json.RawMessage, []string, error) {
+func (t finerValueType) Merge(settings, base, ours, theirs json.RawMessage) (json.RawMessage, []string, error) {
 	s, err := DecodeSchemaSettings(settings)
 	if err != nil {
 		return nil, nil, err
@@ -188,7 +194,7 @@ func (finerValueType) Merge(settings, base, ours, theirs json.RawMessage) (json.
 			return nil, nil, err
 		}
 	}
-	c := composer{parts: s.Parts}
+	c := composer{catalogue: t.catalogue, parts: s.Parts}
 	merged, err := c.merge(&s.Field, values[0], values[1], values[2], "")
 	if err != nil {
 		return nil, nil, err

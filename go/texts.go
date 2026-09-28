@@ -121,7 +121,13 @@ func compareUTF16(a, b string) int {
 // Texts reads its children. It has no Resolved Spec, so a rich_text Field's
 // custom symbols read as nothing: Texts reads them through its Text Type.
 func ValueText(f Field, value json.RawMessage) string {
-	rule, ok := textRules[f.FieldType]
+	return DefaultCatalogue().ValueText(f, value)
+}
+
+// ValueText is the package-level ValueText against this Catalogue, whose
+// sections' types yield their text too.
+func (c *Catalogue) ValueText(f Field, value json.RawMessage) string {
+	rule, ok := c.textRule(f.FieldType)
 	if !ok || len(bytes.TrimSpace(value)) == 0 {
 		return ""
 	}
@@ -161,9 +167,15 @@ func ValueText(f Field, value json.RawMessage) string {
 // hidden Fields yield none, as ValidateValue skips them. Data that is not a
 // JSON object is an error; empty data is {}.
 func Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
+	return DefaultCatalogue().Texts(resolved, data, opts...)
+}
+
+// Texts is the package-level Texts against this Catalogue, whose sections'
+// types yield their text too.
+func (c *Catalogue) Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
 	texts := []FieldText{}
 	err := walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
-		rule, ok := textRules[f.FieldType]
+		rule, ok := c.textRule(f.FieldType)
 		if !ok {
 			return
 		}

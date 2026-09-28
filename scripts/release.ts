@@ -31,14 +31,16 @@ import {
 	freezeRelease,
 	frozenDrift,
 	lastReleasedCatalogue,
-	readCatalogue,
+	readCatalogueSections,
 	tagCommands,
 } from "./lib/releases";
+import { sectionFiles } from "./lib/catalogue-sections";
 import { compareVersions, isFinalVersion, parseVersion } from "./lib/versions";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CONFORMANCE = resolve(ROOT, "conformance");
-const CATALOGUE_FILE = resolve(ROOT, "go/catalogue.json");
+// Every Catalogue section's committed file (scripts/lib/catalogue-sections.ts).
+const CATALOGUE_FILES = sectionFiles(ROOT);
 
 function fail(message: string, details: string[] = []): never {
 	console.error(`release: ${message}`);
@@ -73,7 +75,7 @@ function requireFreshCatalogue() {
 			stdio: "inherit",
 		});
 	} catch {
-		fail("go/catalogue.json is stale: run `npm run catalogue` and commit it");
+		fail("the Catalogue is stale: run `npm run catalogue` and commit it");
 	}
 }
 
@@ -88,7 +90,7 @@ function prepare(version: string | undefined) {
 	}
 	requireFreshCatalogue();
 
-	const catalogue = readCatalogue(CATALOGUE_FILE);
+	const catalogue = readCatalogueSections(CATALOGUE_FILES);
 	const baseline = lastReleasedCatalogue(CONFORMANCE, version);
 	const problems = catalogueReleaseProblems(
 		catalogue,
@@ -107,13 +109,13 @@ function prepare(version: string | undefined) {
 	});
 
 	const final = isFinalVersion(version);
-	if (final) freezeRelease(CONFORMANCE, CATALOGUE_FILE, version);
+	if (final) freezeRelease(CONFORMANCE, CATALOGUE_FILES, version);
 
 	console.log(`release: prepared ${version}
   - package.json and package-lock.json: ${current} → ${version}
   - ${
 		final
-			? `conformance/${version}/: froze conformance/unreleased/ and the Catalogue (${catalogue.version})`
+			? `conformance/${version}/: froze conformance/unreleased/ and the Catalogue (${catalogue.core.version})`
 			: "a release candidate freezes nothing: its final release does"
 	}
 
@@ -142,12 +144,12 @@ function tags() {
 
 	const problems: string[] = [];
 	if (isFinalVersion(version)) {
-		problems.push(...frozenDrift(CONFORMANCE, CATALOGUE_FILE, version));
+		problems.push(...frozenDrift(CONFORMANCE, CATALOGUE_FILES, version));
 	}
 	const baseline = lastReleasedCatalogue(CONFORMANCE, version);
 	problems.push(
 		...catalogueReleaseProblems(
-			readCatalogue(CATALOGUE_FILE),
+			readCatalogueSections(CATALOGUE_FILES),
 			version,
 			baseline?.catalogue,
 		),

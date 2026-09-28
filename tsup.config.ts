@@ -7,6 +7,7 @@ export default defineConfig({
     "renderer/index": "src/renderer/index.ts",
     "table/index": "src/table/index.ts",
     "rich-text-spec/index": "src/rich-text-spec/index.ts",
+    "publishing/index": "src/publishing/index.ts",
   },
   format: ["esm"],
   dts: true,

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Catalogue } from "../lib/catalogue-compat";
+import type { CatalogueSections } from "../lib/catalogue-sections";
 import {
 	catalogueReleaseProblems,
 	freezeRelease,
@@ -35,9 +36,29 @@ function catalogue(version: string, ids: string[] = ["text"]): Catalogue {
 	};
 }
 
+/** A whole Catalogue: `core` as the core section, and a publishing section
+ * holding `publishing` (none by default) under the same version. */
+function sections(
+	core: Catalogue,
+	publishing: Catalogue = { version: core.version, types: [] },
+): CatalogueSections {
+	return { core, publishing };
+}
+
+/** catalogueReleaseProblems for a Catalogue whose opt-in sections are empty. */
+function whole(current: Catalogue, release: string, baseline?: Catalogue) {
+	return catalogueReleaseProblems(
+		sections(current),
+		release,
+		baseline && sections(baseline),
+	);
+}
+
 let root: string;
 let conformance: string;
 let catalogueFile: string;
+let publishingFile: string;
+let catalogueFiles: Record<string, string>;
 
 function write(file: string, content: unknown) {
 	mkdirSync(path.dirname(file), { recursive: true });
@@ -56,6 +77,9 @@ beforeEach(() => {
 	});
 	writeFileSync(path.join(conformance, "README.md"), "# fixtures\n");
 	write(catalogueFile, catalogue("0.18.0"));
+	publishingFile = path.join(root, "go", "publishing", "catalogue.json");
+	write(publishingFile, catalogue("0.18.0", ["reference_filter"]));
+	catalogueFiles = { core: catalogueFile, publishing: publishingFile };
 });
 
 afterEach(() => {
@@ -92,12 +116,16 @@ describe("versions", () => {
 
 describe("freezeRelease", () => {
 	it("copies the current fixtures and the Catalogue into a version folder", () => {
-		freezeRelease(conformance, catalogueFile, "0.18.0");
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
 		const frozen = path.join(conformance, "0.18.0");
 		expect(readdirSync(frozen).sort()).toEqual([
 			"catalogue.json",
+			"catalogue.publishing.json",
 			"validate-spec",
 		]);
+		expect(
+			readFileSync(path.join(frozen, "catalogue.publishing.json"), "utf8"),
+		).toBe(readFileSync(publishingFile, "utf8"));
 		expect(readdirSync(path.join(frozen, "validate-spec")).sort()).toEqual([
 			"bad.json",
 			"valid.json",
@@ -109,22 +137,22 @@ describe("freezeRelease", () => {
 		expect(readdirSync(path.join(conformance, "unreleased"))).toEqual([
 			"validate-spec",
 		]);
-		expect(frozenDrift(conformance, catalogueFile, "0.18.0")).toEqual([]);
+		expect(frozenDrift(conformance, catalogueFiles, "0.18.0")).toEqual([]);
 	});
 
 	it("never edits a released folder", () => {
-		freezeRelease(conformance, catalogueFile, "0.18.0");
-		expect(() => freezeRelease(conformance, catalogueFile, "0.18.0")).toThrow(
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
+		expect(() => freezeRelease(conformance, catalogueFiles, "0.18.0")).toThrow(
 			/never edited/,
 		);
 	});
 
 	it("freezes only a final release, and only a newer one", () => {
 		expect(() =>
-			freezeRelease(conformance, catalogueFile, "0.18.0-rc.1"),
+			freezeRelease(conformance, catalogueFiles, "0.18.0-rc.1"),
 		).toThrow(/only a final release/);
-		freezeRelease(conformance, catalogueFile, "0.18.0");
-		expect(() => freezeRelease(conformance, catalogueFile, "0.17.5")).toThrow(
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
+		expect(() => freezeRelease(conformance, catalogueFiles, "0.17.5")).toThrow(
 			/not newer than the last release 0.18.0/,
 		);
 	});
@@ -135,9 +163,9 @@ describe("released versions", () => {
 		expect(releasedVersions(conformance)).toEqual([]);
 		expect(lastReleasedCatalogue(conformance)).toBeUndefined();
 
-		freezeRelease(conformance, catalogueFile, "0.18.0");
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
 		write(catalogueFile, catalogue("0.19.0", ["text", "url"]));
-		freezeRelease(conformance, catalogueFile, "0.19.0");
+		freezeRelease(conformance, catalogueFiles, "0.19.0");
 		// A stray candidate-named folder is not a release.
 		mkdirSync(path.join(conformance, "0.20.0-rc.1"));
 
@@ -158,16 +186,16 @@ describe("released versions", () => {
 
 describe("frozenDrift", () => {
 	it("reports a frozen folder that no longer matches its sources", () => {
-		freezeRelease(conformance, catalogueFile, "0.18.0");
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
 		write(path.join(conformance, "unreleased", "validate-spec", "new.json"), {
 			description: "added after the freeze",
 		});
 		write(catalogueFile, catalogue("0.19.0", ["text", "url"]));
-		expect(frozenDrift(conformance, catalogueFile, "0.18.0")).toEqual([
+		expect(frozenDrift(conformance, catalogueFiles, "0.18.0")).toEqual([
 			"conformance/0.18.0/validate-spec/new.json is missing",
 			"conformance/0.18.0/catalogue.json differs from its source",
 		]);
-		expect(frozenDrift(conformance, catalogueFile, "0.19.0")).toEqual([
+		expect(frozenDrift(conformance, catalogueFiles, "0.19.0")).toEqual([
 			"conformance/0.19.0/ does not exist",
 		]);
 	});
@@ -175,20 +203,20 @@ describe("frozenDrift", () => {
 
 describe("catalogueReleaseProblems — the Catalogue version at release", () => {
 	it("lets the first Catalogue ship under the release's version, or its candidate's", () => {
-		expect(catalogueReleaseProblems(catalogue("0.18.0"), "0.18.0", undefined)).toEqual([]);
+		expect(whole(catalogue("0.18.0"), "0.18.0", undefined)).toEqual([]);
 		expect(
-			catalogueReleaseProblems(catalogue("0.18.0"), "0.18.0-rc.1", undefined),
+			whole(catalogue("0.18.0"), "0.18.0-rc.1", undefined),
 		).toEqual([]);
 	});
 
 	it("fails a first Catalogue under another version", () => {
 		expect(
-			catalogueReleaseProblems(catalogue("0.18.0"), "0.19.0", undefined),
+			whole(catalogue("0.18.0"), "0.19.0", undefined),
 		).toEqual([
 			"the first released Catalogue must carry the release's version 0.19.0, not 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
 		]);
 		expect(
-			catalogueReleaseProblems(catalogue("0.18.0"), "0.17.1", undefined),
+			whole(catalogue("0.18.0"), "0.17.1", undefined),
 		).toEqual([
 			"the Catalogue says 0.18.0, newer than the release 0.17.1 that would ship it",
 			"the first released Catalogue must carry the release's version 0.17.1, not 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
@@ -198,25 +226,25 @@ describe("catalogueReleaseProblems — the Catalogue version at release", () => 
 	it("fails a type newer than its Catalogue", () => {
 		const ahead = catalogue("0.18.0");
 		ahead.types[0].since = "0.19.0";
-		expect(catalogueReleaseProblems(ahead, "0.18.0", undefined)).toEqual([
+		expect(whole(ahead, "0.18.0", undefined)).toEqual([
 			"text: since 0.19.0 is newer than the Catalogue version 0.18.0",
 		]);
 	});
 
 	it("keeps an unchanged Catalogue's version across a release", () => {
 		expect(
-			catalogueReleaseProblems(catalogue("0.18.0"), "0.19.0", catalogue("0.18.0")),
+			whole(catalogue("0.18.0"), "0.19.0", catalogue("0.18.0")),
 		).toEqual([]);
 	});
 
 	it("ships a changed Catalogue under the release's version", () => {
 		const grown = catalogue("0.19.0", ["text", "url"]);
-		expect(catalogueReleaseProblems(grown, "0.19.0", catalogue("0.18.0"))).toEqual(
+		expect(whole(grown, "0.19.0", catalogue("0.18.0"))).toEqual(
 			[],
 		);
 		const skipped = catalogue("0.19.0", ["text", "url"]);
 		expect(
-			catalogueReleaseProblems(skipped, "0.20.0", catalogue("0.18.0")),
+			whole(skipped, "0.20.0", catalogue("0.18.0")),
 		).toEqual([
 			"the Catalogue changed since 0.18.0, so it ships as 0.20.0, not 0.19.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts",
 		]);
@@ -224,8 +252,66 @@ describe("catalogueReleaseProblems — the Catalogue version at release", () => 
 
 	it("refuses a release whose Catalogue breaks the last one", () => {
 		expect(
-			catalogueReleaseProblems(catalogue("0.19.0", []), "0.19.0", catalogue("0.18.0")),
+			whole(catalogue("0.19.0", []), "0.19.0", catalogue("0.18.0")),
 		).toEqual(["text: the type was removed"]);
+	});
+});
+
+describe("Catalogue sections — one Catalogue, judged whole", () => {
+	it("reads a section a release had not got yet as empty", () => {
+		freezeRelease(conformance, catalogueFiles, "0.18.0");
+		rmSync(path.join(conformance, "0.18.0", "catalogue.publishing.json"));
+		expect(lastReleasedCatalogue(conformance)?.catalogue.publishing).toEqual({
+			version: "0.18.0",
+			types: [],
+		});
+	});
+
+	it("ships a grown opt-in section under a new version, as a grown core one", () => {
+		const released = sections(catalogue("0.18.0"));
+		const grown = sections(
+			catalogue("0.19.0"),
+			catalogue("0.19.0", ["reference_filter"]),
+		);
+		expect(catalogueReleaseProblems(grown, "0.19.0", released)).toEqual([]);
+		const unmoved = sections(
+			catalogue("0.18.0"),
+			catalogue("0.18.0", ["reference_filter"]),
+		);
+		expect(catalogueReleaseProblems(unmoved, "0.19.0", released)).toEqual([
+			"the Catalogue changed since 0.18.0 but its version is still 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts to the release that will ship it",
+		]);
+	});
+
+	it("refuses a type leaving the section it was released in", () => {
+		const released = sections(
+			catalogue("0.18.0"),
+			catalogue("0.18.0", ["reference_filter"]),
+		);
+		const moved = sections(catalogue("0.18.0", ["text", "reference_filter"]));
+		moved.core.types[1].since = "0.18.0";
+		expect(catalogueReleaseProblems(moved, "0.19.0", released)).toEqual([
+			"reference_filter: moved from the publishing section to the core section",
+		]);
+	});
+
+	it("refuses sections that disagree", () => {
+		expect(
+			catalogueReleaseProblems(
+				sections(catalogue("0.18.0"), catalogue("0.17.0", [])),
+				"0.18.0",
+				undefined,
+			),
+		).toEqual([
+			"the publishing section says 0.17.0, but the Catalogue is 0.18.0: every section carries CATALOGUE_VERSION",
+		]);
+		expect(
+			catalogueReleaseProblems(
+				sections(catalogue("0.18.0"), catalogue("0.18.0", ["text"])),
+				"0.18.0",
+				undefined,
+			),
+		).toEqual(["text: listed in both the core and the publishing section"]);
 	});
 });
 
