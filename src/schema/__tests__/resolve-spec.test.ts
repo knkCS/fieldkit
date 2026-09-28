@@ -78,13 +78,13 @@ describe("resolveSpec", () => {
 		const resolved = await resolveSpec(spec, { blueprint });
 
 		expect(blueprint.getSchema).toHaveBeenCalledWith("address_bp");
-		expect(resolved[1].children).toEqual([
+		expect(resolved.fields[1].children).toEqual([
 			textField("Street", "street"),
 			textField("City", "city"),
 		]);
 		// Everything else survives the walk untouched.
-		expect(resolved[0]).toEqual(spec[0]);
-		expect(resolved[1].config).toEqual(spec[1].config);
+		expect(resolved.fields[0]).toEqual(spec[0]);
+		expect(resolved.fields[1].config).toEqual(spec[1].config);
 	});
 
 	it("resolves a Fieldset nested inside another Fieldset's Blueprint", async () => {
@@ -97,7 +97,7 @@ describe("resolveSpec", () => {
 			blueprint,
 		});
 
-		const nested = resolved[0].children?.[1];
+		const nested = resolved.fields[0].children?.[1];
 		expect(nested?.field_type).toBe("fieldset");
 		expect(nested?.children).toEqual([textField("Street", "street")]);
 	});
@@ -112,7 +112,7 @@ describe("resolveSpec", () => {
 
 		const resolved = await resolveSpec(spec, { blueprint });
 
-		expect(resolved[0].children?.[0].children).toEqual([
+		expect(resolved.fields[0].children?.[0].children).toEqual([
 			textField("Street", "street"),
 		]);
 	});
@@ -129,21 +129,31 @@ describe("resolveSpec", () => {
 		const resolved = await resolveSpec(spec, { blueprint });
 
 		expect(blueprint.getSchema).toHaveBeenCalledTimes(1);
-		expect(resolved[0].children).toEqual([textField("Street", "street")]);
-		expect(resolved[1].children).toEqual([textField("Street", "street")]);
+		expect(resolved.fields[0].children).toEqual([
+			textField("Street", "street"),
+		]);
+		expect(resolved.fields[1].children).toEqual([
+			textField("Street", "street"),
+		]);
 	});
 
-	it("throws naming the chain when a Blueprint embeds itself", async () => {
+	it("refuses a Blueprint Release that embeds itself, at the Pin", async () => {
 		const blueprint = blueprintAdapter({
 			node_bp: [textField("Label", "label"), fieldset("child", "node_bp")],
 		});
 
 		await expect(
 			resolveSpec([fieldset("root", "node_bp")], { blueprint }),
-		).rejects.toThrow("node_bp → node_bp");
+		).rejects.toMatchObject({
+			code: "resolve_cycle",
+			pin: {
+				path: "/root/children/child/settings/blueprint",
+				release: "node_bp",
+			},
+		});
 	});
 
-	it("throws naming the whole chain when the cycle runs through another Blueprint", async () => {
+	it("refuses a cycle running through another Release, at the Pin closing it", async () => {
 		const blueprint = blueprintAdapter({
 			person_bp: [fieldset("address", "address_bp")],
 			address_bp: [fieldset("resident", "person_bp")],
@@ -151,10 +161,15 @@ describe("resolveSpec", () => {
 
 		await expect(
 			resolveSpec([fieldset("author", "person_bp")], { blueprint }),
-		).rejects.toThrow("person_bp → address_bp → person_bp");
+		).rejects.toMatchObject({
+			code: "resolve_cycle",
+			pin: {
+				path: "/author/children/address/children/resident/settings/blueprint",
+			},
+		});
 	});
 
-	it("propagates an adapter rejection rather than resolving to empty children", async () => {
+	it("rejects with the adapter's error as the cause rather than resolving to empty children", async () => {
 		const blueprint = {
 			getSchema: vi.fn().mockRejectedValue(new Error("Network error")),
 			getData: vi.fn(),
@@ -162,7 +177,10 @@ describe("resolveSpec", () => {
 
 		await expect(
 			resolveSpec([fieldset("address", "address_bp")], { blueprint }),
-		).rejects.toThrow("Network error");
+		).rejects.toMatchObject({
+			code: "resolve_fetch_failed",
+			cause: new Error("Network error"),
+		});
 	});
 
 	it("returns the same Spec when there is nothing to resolve", async () => {
@@ -174,7 +192,7 @@ describe("resolveSpec", () => {
 
 		const resolved = await resolveSpec(spec, { blueprint });
 
-		expect(resolved).toBe(spec);
+		expect(resolved.fields).toBe(spec);
 		expect(blueprint.getSchema).not.toHaveBeenCalled();
 	});
 
@@ -184,7 +202,7 @@ describe("resolveSpec", () => {
 
 		const resolved = await resolveSpec(spec, { blueprint });
 
-		expect(resolved).toEqual(spec);
+		expect(resolved.fields).toEqual(spec);
 		expect(blueprint.getSchema).not.toHaveBeenCalled();
 	});
 
@@ -193,7 +211,7 @@ describe("resolveSpec", () => {
 
 		const resolved = await resolveSpec(spec, {});
 
-		expect(resolved).toEqual(spec);
+		expect(resolved.fields).toEqual(spec);
 	});
 
 	it("does not mutate the Spec it was given", async () => {
@@ -218,7 +236,7 @@ describe("resolveSpec", () => {
 
 		const resolved = await resolveSpec(spec, { blueprint });
 
-		expect(resolved).toBe(spec);
+		expect(resolved.fields).toBe(spec);
 		expect(blueprint.getSchema).not.toHaveBeenCalled();
 	});
 
@@ -231,11 +249,11 @@ describe("resolveSpec", () => {
 			blueprint,
 		});
 
-		const twice = await resolveSpec(once, { blueprint });
+		const twice = await resolveSpec(once.fields, { blueprint });
 
 		// Same array, same Fields — a Consumer resolving from an effect keyed
 		// on the Spec settles instead of looping.
-		expect(twice).toBe(once);
+		expect(twice.fields).toBe(once.fields);
 		expect(blueprint.getSchema).toHaveBeenCalledTimes(2);
 	});
 
@@ -248,7 +266,7 @@ describe("resolveSpec", () => {
 
 		// null would read as "not resolved" and send the renderer back to the
 		// adapter for a Blueprint that has nothing to give.
-		expect(resolved[0].children).toEqual([]);
+		expect(resolved.fields[0].children).toEqual([]);
 	});
 });
 
@@ -339,7 +357,7 @@ describe("resolveSpec — a Virtual Table's Row Spec", () => {
 		);
 
 		expect(blueprint.getSchema).toHaveBeenCalledWith("line_item_bp");
-		expect(resolved[0].children).toEqual(lineItemBlueprint);
+		expect(resolved.fields[0].children).toEqual(lineItemBlueprint);
 	});
 
 	it("leaves an embedded Row Spec untouched and fetches nothing", async () => {
@@ -352,7 +370,7 @@ describe("resolveSpec — a Virtual Table's Row Spec", () => {
 
 		const resolved = await resolveSpec(spec, { blueprint });
 
-		expect(resolved).toBe(spec);
+		expect(resolved.fields).toBe(spec);
 		expect(blueprint.getSchema).not.toHaveBeenCalled();
 	});
 
@@ -368,7 +386,9 @@ describe("resolveSpec — a Virtual Table's Row Spec", () => {
 			{ blueprint },
 		);
 
-		expect(resolved[0].children?.[0].children).toEqual(lineItemBlueprint);
+		expect(resolved.fields[0].children?.[0].children).toEqual(
+			lineItemBlueprint,
+		);
 	});
 
 	it("shares one fetch with a Fieldset naming the same Blueprint", async () => {
@@ -385,7 +405,7 @@ describe("resolveSpec — a Virtual Table's Row Spec", () => {
 		expect(blueprint.getSchema).toHaveBeenCalledTimes(1);
 	});
 
-	it("throws naming the chain when a linked Row Spec cycles back", async () => {
+	it("refuses a linked Row Spec that cycles back", async () => {
 		const blueprint = blueprintAdapter({
 			line_item_bp: [
 				textField("Description", "description"),
@@ -397,7 +417,10 @@ describe("resolveSpec — a Virtual Table's Row Spec", () => {
 			resolveSpec([virtualTable("line_items", { blueprint: "line_item_bp" })], {
 				blueprint,
 			}),
-		).rejects.toThrow("line_item_bp → line_item_bp");
+		).rejects.toMatchObject({
+			code: "resolve_cycle",
+			pin: { path: "/line_items/children/sub_items/settings/blueprint" },
+		});
 	});
 
 	it("needs resolution only while a linked Row Spec has no children", () => {

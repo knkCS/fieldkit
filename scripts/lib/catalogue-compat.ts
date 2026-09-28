@@ -84,7 +84,7 @@ function versionBreaks(released: Catalogue, next: Catalogue): string[] {
 	const changed = !sameJson(released.types, next.types);
 	if (changed && order === 0) {
 		return [
-			`the Catalogue changed since ${released.version} but its version is still ${next.version}: set CATALOGUE_VERSION in scripts/catalogue.ts to the release that will ship it`,
+			`the Catalogue changed since ${released.version} but its version is still ${next.version}: set CATALOGUE_VERSION in src/schema/catalogue-version.ts to the release that will ship it`,
 		];
 	}
 	if (!changed && order > 0) {

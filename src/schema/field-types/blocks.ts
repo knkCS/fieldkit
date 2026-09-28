@@ -58,11 +58,11 @@ export const blocksPlugin: FieldTypePlugin<BlocksSettings> = {
 	//
 	// A block type's fields live in `settings.allowed_blocks[].fields` rather
 	// than in `children`, and composing them does not move the line shared
-	// traversal draws: `resolveSpec()` and `resolveMarkerConvention()` still
-	// walk `Field.children` only. What a Consumer meets, spelled out in
-	// ADR-0007 and in blocks-field.mdx: a Fieldset declared inside a block type
-	// is never resolved, and composes as the opaque record any unresolved
-	// Fieldset does. `validateSpec()` does reach these fields since #208,
+	// traversal draws: `resolveMarkerConvention()` still walks
+	// `Field.children` only. `resolveSpec()` reaches these fields through
+	// `heldSpecs` since #212, so a Fieldset declared inside a block type is
+	// resolved and composes its children here like any resolved Fieldset.
+	// `validateSpec()` does reach these fields since #208,
 	// through `block-types.ts`, so a duplicate Accessor between two of them is
 	// reported rather than silently winning the composed shape.
 	toZodType(field: Field<BlocksSettings>, composeChildren) {

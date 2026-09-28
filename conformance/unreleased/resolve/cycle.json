@@ -1,0 +1,57 @@
+{
+	"description": "A Blueprint Release that pins, however indirectly, itself is resolve_cycle",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "root",
+				"api_accessor": "root",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-a@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-a@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "b",
+						"api_accessor": "b",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-b@1"
+					},
+					"system": false
+				}
+			],
+			"bp-b@1": [
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "a",
+						"api_accessor": "a",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-a@1"
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"resolve": {
+			"error": "resolve_cycle"
+		}
+	}
+}

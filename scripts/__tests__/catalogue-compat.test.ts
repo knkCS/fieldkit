@@ -262,7 +262,7 @@ describe("compareCatalogues — the Catalogue version", () => {
 	it("fails a changed Catalogue that still carries the released version", () => {
 		const next = catalogue([type(), type({ id: "url", since: "0.18.0" })]);
 		expect(compareCatalogues(released, next)).toEqual([
-			"the Catalogue changed since 0.18.0 but its version is still 0.18.0: set CATALOGUE_VERSION in scripts/catalogue.ts to the release that will ship it",
+			"the Catalogue changed since 0.18.0 but its version is still 0.18.0: set CATALOGUE_VERSION in src/schema/catalogue-version.ts to the release that will ship it",
 		]);
 	});
 

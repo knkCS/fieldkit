@@ -50,7 +50,12 @@ export interface TryItViewProps {
  */
 export function TryItView({ schema, plugins, labels }: TryItViewProps) {
 	const { adapters, onError } = useFieldKit();
-	const resolution = useResolvedDraft(schema, adapters.blueprint, onError);
+	const resolution = useResolvedDraft(
+		schema,
+		adapters.blueprint,
+		plugins,
+		onError,
+	);
 	// `useForm` seeds its defaults once per mount, so the scratch form must be
 	// remounted whenever the Spec beneath it changes — otherwise it validates
 	// against the new draft while still holding the old one's seeded values.
@@ -118,20 +123,28 @@ type Resolution =
  * Keyed on `adapters.blueprint` rather than the whole adapters object, for the
  * reason `FieldsetField` is: the wrapper's identity is not stable across a
  * host's renders, and only this capability is read.
+ *
+ * The plugins say which settings hold a Pin (their Catalogue `pins`). They are
+ * read through a ref rather than keyed on: a host passing a fresh array each
+ * render must not restart resolution, and a type's Pins never change.
  */
 function useResolvedDraft(
 	schema: Schema,
 	blueprint: BlueprintSchemaAdapter | undefined,
+	plugins: FieldTypePlugin[],
 	onError: ((error: Error, fieldId: string) => void) | undefined,
 ): Resolution {
+	const pluginsRef = useRef(plugins);
+	pluginsRef.current = plugins;
 	const [resolution, setResolution] = useState<Resolution>(() =>
-		specNeedsResolution(schema, { blueprint })
+		specNeedsResolution(schema, { blueprint }, plugins)
 			? { status: "loading" }
 			: { status: "ready", schema },
 	);
 
 	useEffect(() => {
-		if (!specNeedsResolution(schema, { blueprint })) {
+		const plugins = pluginsRef.current;
+		if (!specNeedsResolution(schema, { blueprint }, plugins)) {
 			// Identity-guarded, here and below, so the mount pass — where the
 			// initializer above already reached this answer — costs no second
 			// render, and a re-run for an unchanged draft doesn't remount the
@@ -148,9 +161,13 @@ function useResolvedDraft(
 		setResolution((current) =>
 			current.status === "loading" ? current : { status: "loading" },
 		);
-		resolveSpec(schema, { blueprint })
+		resolveSpec(schema, { blueprint }, { plugins })
 			.then((resolved) => {
-				if (!cancelled) setResolution({ status: "ready", schema: resolved });
+				// The form takes the Resolved Spec's Fields; Preview renders no
+				// opaque part yet, so `parts` is not read.
+				if (!cancelled) {
+					setResolution({ status: "ready", schema: resolved.fields });
+				}
 			})
 			.catch((error) => {
 				if (cancelled) return;

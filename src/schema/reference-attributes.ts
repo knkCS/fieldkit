@@ -18,14 +18,11 @@
  * an empty name and a type that may not sit there are all reported. The Go
  * module does not yet: `reference` is not in the Catalogue until #215.
  *
- * `resolveSpec()` and `resolveMarkerConvention()` still walk `Field.children`
- * only, which is ADR-0007's boundary for them. Concretely, and this is the
- * reason it is written down rather than left implicit:
- *
- * - A Fieldset declared as an Attribute is never resolved, and composes as the
- *   opaque record any unresolved Fieldset does. `fieldset` therefore does not
- *   list `reference_spec` — see `Position` — and `validateSpec()` refuses
- *   one there.
+ * `resolveMarkerConvention()` still walks `Field.children` only, which is
+ * ADR-0007's boundary for it. `resolveSpec()` and `specPins()` walk this Spec
+ * as `validateSpec()` does (#212), so a Pin in it is listed and resolved; a
+ * Fieldset declared as an Attribute is still refused by `validateSpec()`,
+ * since `fieldset` does not list `reference_spec` — see `Position`.
  *
  * The reference plugin composes these Fields itself, exactly as the Blocks
  * plugin composes a block type's. Composing is not walking, so it does not move

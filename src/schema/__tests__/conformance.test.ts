@@ -4,8 +4,15 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { CATALOGUE_VERSION } from "../catalogue-version";
 import { builtInFieldTypes } from "../field-types";
 import type { FieldTypePlugin } from "../plugin";
+import {
+	type ResolvedSpec,
+	resolveSpec,
+	type SpecPin,
+	specPins,
+} from "../resolve-spec";
 import type { Field } from "../types";
 import { validateSpec } from "../validate-spec";
 import { validateValue } from "../validate-value";
@@ -14,7 +21,13 @@ const CONFORMANCE = path.resolve(__dirname, "../../../conformance");
 
 /** The operations this runner implements. A fixture expecting another fails,
  * so no fixture is ever skipped by one runner alone. */
-const OPERATIONS = ["validateSpec", "validateValue"];
+const OPERATIONS = [
+	"validateSpec",
+	"validateValue",
+	"resolve",
+	"pins",
+	"validateResolvedSpec",
+];
 
 interface ExpectedError {
 	path: string;
@@ -26,6 +39,10 @@ interface Fixture {
 	spec: Field[];
 	/** The stored data `validateValue` checks against `spec`. */
 	data?: unknown;
+	/** What resolving `spec` fetches: kind → Release id → Release. */
+	releases?: Record<string, Record<string, unknown>>;
+	/** Resolution's caps, overriding `RESOLVE_CAPS`. */
+	resolveOptions?: { maxFetches?: number; maxDepth?: number };
 	expect: Record<string, unknown>;
 }
 
@@ -36,6 +53,33 @@ const cataloguePlugins = new Map<string, FieldTypePlugin>(
 		.filter((plugin) => plugin.settingsSchema)
 		.map((plugin) => [plugin.id, plugin]),
 );
+
+/** Resolves a fixture's Spec against its releases, with its caps. Every kind
+ * but `blueprint` is an opaque part. */
+function resolveFixture(fixture: Fixture): Promise<ResolvedSpec> {
+	const releases = fixture.releases ?? {};
+	const fetch = async (kind: string, id: string) => {
+		const release = releases[kind]?.[id];
+		if (release === undefined) {
+			throw new Error(`the fixture has no ${kind} Release "${id}"`);
+		}
+		return release;
+	};
+	return resolveSpec(
+		fixture.spec,
+		{
+			blueprint: {
+				getSchema: async (id) => (await fetch("blueprint", id)) as Field[],
+			},
+			parts: Object.fromEntries(
+				Object.keys(releases)
+					.filter((kind) => kind !== "blueprint")
+					.map((kind) => [kind, (id: string) => fetch(kind, id)]),
+			),
+		},
+		{ plugins: cataloguePlugins, ...fixture.resolveOptions },
+	);
+}
 
 function dirs(at: string): string[] {
 	return readdirSync(at).filter((name) =>
@@ -74,7 +118,15 @@ function binds(version: string, operation: string, expected: unknown): boolean {
 		// empty one.
 		case "validateSpec":
 		case "validateValue":
+		case "validateResolvedSpec":
 			return Array.isArray(expected) && expected.length === 0;
+		// A refusal may loosen, as an invalid case may; an envelope binds.
+		case "resolve":
+			return !(
+				typeof expected === "object" &&
+				expected !== null &&
+				"error" in expected
+			);
 		default:
 			return true;
 	}
@@ -102,7 +154,7 @@ describe("conformance fixtures", () => {
 	for (const file of files) {
 		const name = path.relative(CONFORMANCE, file);
 		const version = name.split(path.sep)[0];
-		it(name, (ctx) => {
+		it(name, async (ctx) => {
 			const fixture = JSON.parse(readFileSync(file, "utf8")) as Fixture;
 			expect(fixture.description, "description").toBeTruthy();
 			const operations = Object.keys(fixture.expect ?? {});
@@ -127,6 +179,38 @@ describe("conformance fixtures", () => {
 			if (bound.includes("validateValue")) {
 				const want = fixture.expect.validateValue as ExpectedError[];
 				const got = validateValue(fixture.spec, fixture.data, cataloguePlugins);
+				expect(sorted(got)).toEqual(sorted(want));
+			}
+
+			if (bound.includes("pins")) {
+				const want = fixture.expect.pins as SpecPin[];
+				const byPath = (a: SpecPin, b: SpecPin) =>
+					a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+				const got = specPins(fixture.spec, cataloguePlugins);
+				expect([...got].sort(byPath)).toEqual([...want].sort(byPath));
+			}
+
+			if (bound.includes("resolve")) {
+				const want = fixture.expect.resolve as Record<string, unknown>;
+				if ("error" in want) {
+					await expect(resolveFixture(fixture)).rejects.toMatchObject({
+						code: want.error,
+					});
+				} else {
+					// The fixture leaves the Catalogue version out: it is always the
+					// running Catalogue's.
+					const { catalogue, ...got } = await resolveFixture(fixture);
+					expect(catalogue).toBe(CATALOGUE_VERSION);
+					expect(got).toEqual(want);
+				}
+			}
+
+			if (bound.includes("validateResolvedSpec")) {
+				const want = fixture.expect.validateResolvedSpec as ExpectedError[];
+				const resolved = await resolveFixture(fixture);
+				const got = validateSpec(resolved.fields, cataloguePlugins, {
+					resolved: true,
+				}).fieldErrors;
 				expect(sorted(got)).toEqual(sorted(want));
 			}
 		});

@@ -31,9 +31,9 @@ export type VirtualTableRowSpecKind =
  * Reads an **authored** Spec. `resolveSpec()` attaches a linked Row Spec's
  * Fields as `children` (ADR-0004), so a *Resolved* linked Virtual Table
  * carries a blueprint and children at once and reads as `both` here. That is
- * deliberate and costs nothing: validation runs on the Spec an Author saves,
- * and a Resolved Spec is never re-validated — it is the shape the renderer,
- * the table cell and the Schema builder consume.
+ * deliberate: only the authored Spec can tell two Row Specs from a resolved
+ * one, so `validateSpec()` reports `both` there and, given `resolved: true`
+ * for a Resolved Spec (ADR-0020), reads it as resolved.
  *
  * An empty `children` array is not an embedded Row Spec: a Row Spec with no
  * Fields declares nothing, and resolving an empty Blueprint leaves exactly

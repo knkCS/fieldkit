@@ -19,8 +19,11 @@ type Field struct {
 	Config     Config          `json:"config"`
 	Validation *Validation     `json:"validation,omitempty"`
 	Settings   json.RawMessage `json:"settings,omitempty"`
-	Children   []Field         `json:"children,omitempty"`
-	System     bool            `json:"system"`
+	// Children are kept when empty: a Fieldset or a linked Virtual Table
+	// resolved from a Blueprint Release with no Fields holds [], and
+	// "children present" is what resolved means (Resolve).
+	Children []Field `json:"children,omitzero"`
+	System   bool    `json:"system"`
 }
 
 // Config is the configuration every Field Type shares.

@@ -94,6 +94,15 @@ export type SpecPolicy = (
 
 export interface ValidateSpecOptions {
 	policy?: SpecPolicy;
+	/**
+	 * The Spec is a Resolved Spec's `fields` (ADR-0020), validated when a
+	 * Release is cut: every rule applies, now also to the Fields each pinned
+	 * Blueprint Release was inlined as — so a linked part's Positions are
+	 * checked once it is known what it is linked as. A Virtual Table that
+	 * links a Blueprint and has children is then resolved, not ambiguous;
+	 * that rule is the authored Spec's. Go's `ValidateResolvedSpec`.
+	 */
+	resolved?: boolean;
 }
 
 export function validateSpec(
@@ -136,7 +145,13 @@ export function validateSpec(
 	// Spec). The settings' shape is still read by each plugin, never here.
 	checkAccessors(fields, [], plugins, fieldErrors);
 	checkCardLayout(fields, fieldErrors);
-	checkVirtualTables(fields, [], plugins, fieldErrors);
+	checkVirtualTables(
+		fields,
+		[],
+		plugins,
+		options.resolved ?? false,
+		fieldErrors,
+	);
 	checkTypesAndSettings(fields, [], plugins, fieldErrors);
 	checkBlockTypes(fields, [], plugins, fieldErrors);
 	checkFields(fields, [], "root", plugins, options.policy, fieldErrors);
@@ -300,25 +315,32 @@ function checkCardLayout(fields: Field[], fieldErrors: SpecFieldError[]): void {
  * Walks every nested Spec like the accessor check, so a Virtual Table inside a
  * Group, or declared among a Block Type's Fields, is checked too.
  *
- * **Takes an authored Spec**, as every check here does. `resolveSpec()` puts a
- * linked Row Spec into `children` (ADR-0004), so a *Resolved* linked Virtual
- * Table names a Blueprint and has children at once and is reported ambiguous.
- * A Resolved Spec is the renderer's and the Schema builder's input, never this
- * function's — validate before you resolve.
+ * `resolveSpec()` puts a linked Row Spec into `children` (ADR-0004), so a
+ * *Resolved* linked Virtual Table names a Blueprint and has children at once.
+ * On an authored Spec that is two Row Specs; with `resolved`, the Spec is a
+ * Resolved Spec's `fields` and it is one resolved Row Spec, whose Fields the
+ * Position check then reaches (ADR-0020).
  */
 function checkVirtualTables(
 	fields: Field[],
 	list: Segments,
 	plugins: Map<string, FieldTypePlugin>,
+	resolved: boolean,
 	fieldErrors: SpecFieldError[],
 ): void {
 	for (const field of fields) {
 		const segments = [...list, field.config.api_accessor];
 		if (field.field_type === "virtual_table") {
-			checkVirtualTable(field, segments, fieldErrors);
+			checkVirtualTable(field, segments, resolved, fieldErrors);
 		}
 		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
-			checkVirtualTables(nested.fields, nested.list, plugins, fieldErrors);
+			checkVirtualTables(
+				nested.fields,
+				nested.list,
+				plugins,
+				resolved,
+				fieldErrors,
+			);
 		}
 	}
 }
@@ -326,13 +348,14 @@ function checkVirtualTables(
 function checkVirtualTable(
 	field: Field,
 	segments: Segments,
+	resolved: boolean,
 	fieldErrors: SpecFieldError[],
 ): void {
 	const accessor = field.config.api_accessor;
 	const path = toPath(segments);
 	const kind = virtualTableRowSpecKind(field);
 
-	if (kind === "both") {
+	if (kind === "both" && !resolved) {
 		fieldErrors.push({
 			accessor,
 			code: "virtual_table_row_spec_ambiguous",

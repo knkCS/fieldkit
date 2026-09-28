@@ -81,11 +81,10 @@ Renders the block count via `BlocksCell`.
 ## Known Limitations
 
 - A block type's fields live in `settings.allowed_blocks[].fields`, not in
-  `children`. `resolveSpec()` and `resolveMarkerConvention()` walk
-  `Field.children` only (ADR-0007), so a Fieldset declared inside a block type
-  is never resolved — it validates as the opaque record any unresolved
-  Fieldset does, though the renderer still self-resolves it for display.
-  `validateSpec()` does walk them (#208), in TS and in Go: each block type's
+  `children`. `resolveMarkerConvention()` walks `Field.children` only
+  (ADR-0007). `resolveSpec()` walks them since #212, as Go's `Resolve` does, so
+  a Fieldset declared inside a block type is resolved and validates like any
+  resolved Fieldset. `validateSpec()` walks them too (#208), in TS and in Go: each block type's
   fields are checked like `children` — types, settings, accessors — and errors
   report at `/content/settings/allowed_blocks/0/fields/title`. Two block types
   sharing a `type` are `duplicate_block_type`.

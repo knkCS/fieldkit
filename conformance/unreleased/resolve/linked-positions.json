@@ -1,0 +1,117 @@
+{
+	"description": "A Blueprint Release linked as a Row Spec is checked in the row Position once resolved: the authored Spec is valid, the Resolved Spec reports the group and the fieldset in the Row Spec as position; a Fieldset's Fields sit where it does, so the same Release as a Fieldset is valid",
+	"spec": [
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "lines",
+				"api_accessor": "lines",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-row@5"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "as_fieldset",
+				"api_accessor": "as_fieldset",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-row@5"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-row@5": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "sku",
+						"api_accessor": "sku",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "dimensions",
+						"api_accessor": "dimensions",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "width",
+								"api_accessor": "width",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "fieldset",
+					"config": {
+						"name": "origin",
+						"api_accessor": "origin",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-address@2"
+					},
+					"system": false
+				}
+			],
+			"bp-address@2": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "street",
+						"api_accessor": "street",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "city",
+						"api_accessor": "city",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/lines/children/dimensions",
+				"code": "position"
+			},
+			{
+				"path": "/lines/children/origin",
+				"code": "position"
+			}
+		]
+	}
+}

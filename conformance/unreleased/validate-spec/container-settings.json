@@ -1,5 +1,5 @@
 {
-	"description": "Unknown and invalid settings of fieldset, virtual_table and blocks, down to a Block Type's own keys; core's inline `fields` on a virtual_table is unknown",
+	"description": "Unknown and invalid settings of fieldset, virtual_table and blocks, down to a Block Type's own keys; core's inline `fields` and `always_latest` (a Pin is always a fixed Release, ADR-0020) on a virtual_table are unknown",
 	"spec": [
 		{
 			"field_type": "fieldset",
@@ -100,7 +100,7 @@
 			},
 			{
 				"path": "/prices/settings/always_latest",
-				"code": "invalid_setting"
+				"code": "unknown_setting"
 			},
 			{
 				"path": "/prices/settings/min_items",
