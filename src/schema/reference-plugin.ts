@@ -409,8 +409,10 @@ export function mintSingleReference(
 }
 
 /** Each node of a tree value with its path segments below the Field — its
- * `_id`, through `children` (ADR-0023) — in document order. */
-function eachNode(
+ * `_id`, through `children` (ADR-0023) — in document order. Shared by every
+ * tree-valued type (a Reference Tree, and the publishing package's trees);
+ * Go's `EachTreeNode`. */
+export function eachTreeNode(
 	value: unknown,
 	visit: (node: Record<string, unknown>, segments: string[]) => void,
 ): void {
@@ -443,7 +445,7 @@ function nodeEdge(
  * path, carrying its target and its Pin (Go's `referenceTreeEdges`). */
 export function referenceTreeEdges(value: unknown): ValueEdge[] {
 	const edges: ValueEdge[] = [];
-	eachNode(value, (node, segments) => {
+	eachTreeNode(value, (node, segments) => {
 		const edge = nodeEdge(node, segments);
 		if (edge) edges.push(edge);
 	});
@@ -482,7 +484,7 @@ export function referenceTreeRecords(
 	context?: ValueContext,
 ): HeldRecord[] {
 	const records: HeldRecord[] = [];
-	eachNode(value, (node, segments) => {
+	eachTreeNode(value, (node, segments) => {
 		const record = nodeRecord(node, segments, field.settings, context);
 		if (record) records.push(record);
 	});

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	vocabulary "github.com/knkcms/knkeditor/go"
@@ -42,11 +43,24 @@ const maxSafeInteger = 1<<53 - 1
 // tiOverlay is ti_overlay: a Title's typesetting instructions (contenthub ADR
 // 0012) — {entries: [...]}, each entry a row with its _id, knkeditor's inline
 // anchor, a command of the pinned TI Set, params, a source and notes. No
-// text, no edges; its entries compare and merge by _id, as a Group's rows.
+// text, no edges; its entries compare, merge and are minted by _id, as a
+// Group's rows.
 var tiOverlay = fieldkit.TypeCode{ //nolint:gochecknoglobals
 	Value:   tiOverlayValue,
 	Compare: tiOverlayCompare,
 	Merge:   tiOverlayMerge,
+	MintIDs: tiOverlayMint,
+}
+
+// tiOverlayMint gives every entry an _id where it has none, deterministically
+// (ADR-0023): the overlay is minted as a record whose entries are a Group's
+// rows, which hold nothing further to mint. A value that is not an object is
+// returned as it is. TS's mintIds.
+func tiOverlayMint(_ fieldkit.Field, value any, env fieldkit.TypeEnv) any {
+	if record, ok := value.(map[string]any); ok {
+		env.MintRecord([]fieldkit.Field{{FieldType: "group", Config: fieldkit.Config{Name: "entries", APIAccessor: "entries"}}}, record, "")
+	}
+	return value
 }
 
 var (
@@ -270,8 +284,7 @@ func isString(v any) bool {
 }
 
 // duplicateIDs are the indices of the rows repeating a well-formed _id an
-// earlier row holds, as fieldkit's row arrays report them. isRowID, idLength
-// and itemSegments are outline_tree.go's, which read _ids the same way.
+// earlier row holds, as fieldkit's row arrays report them.
 func duplicateIDs(rows []any) []int {
 	var out []int
 	seen := map[string]bool{}
@@ -386,4 +399,39 @@ func tiOverlayMerge(f fieldkit.Field, base, ours, theirs any, _ fieldkit.TypeEnv
 		return nil, nil, err
 	}
 	return value, nil, nil
+}
+
+// isRowID, idLength and itemSegments read an entry's _id as fieldkit reads a
+// row's; fieldkit exports no reading of a flat row array, so they are copies
+// of its own (#270). A tree reads through fieldkit.EachTreeNode and TypeEnv.
+
+// isRowID reports whether a value is a well-formed _id: a non-empty string of
+// at most fieldkit.MaxIDLength characters.
+func isRowID(id string) bool {
+	return id != "" && idLength(id) <= fieldkit.MaxIDLength
+}
+
+// idLength is a string's length as JS counts it, in UTF-16 code units.
+func idLength(s string) int {
+	return len(utf16.Encode([]rune(s)))
+}
+
+// itemSegments are the path segments of an array's items (ADR-0023): an
+// item's _id when it is an object holding a well-formed one no earlier item
+// holds, its index otherwise — fieldkit's own grammar for every value path.
+func itemSegments(items []any) []string {
+	segments := make([]string, len(items))
+	seen := map[string]bool{}
+	for i, item := range items {
+		segments[i] = strconv.Itoa(i)
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := obj["_id"].(string); ok && isRowID(id) && !seen[id] {
+			seen[id] = true
+			segments[i] = id
+		}
+	}
+	return segments
 }

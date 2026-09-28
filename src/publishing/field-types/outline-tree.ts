@@ -2,8 +2,15 @@ import { ListTree } from "lucide-react";
 import { z } from "zod";
 import { BLUEPRINT_PIN } from "../../schema/blueprint-link";
 import { TEXT_TYPE_PIN } from "../../schema/field-types/rich-text";
-import type { FieldTypePlugin, MintIdsContext } from "../../schema/plugin";
-import { ReferenceTreeZodArray } from "../../schema/reference-plugin";
+import type {
+	FieldTypePlugin,
+	HeldRecord,
+	MintIdsContext,
+} from "../../schema/plugin";
+import {
+	eachTreeNode,
+	ReferenceTreeZodArray,
+} from "../../schema/reference-plugin";
 import { referenceValuesZodType } from "../../schema/reference-spec";
 import { isRowId, mintId, rowIdSchema } from "../../schema/row-ids";
 import type { Field } from "../../schema/types";
@@ -63,8 +70,8 @@ const NODE_POSITION = "reference_spec" as const;
  *
  * Its value is `OutlineNode[]`. Unresolved — no `children` — a node's
  * `values` are an opaque record. It has no text or edges of its own; its
- * nodes' values will yield theirs once the Go seam walks a publishing type's
- * records (#219), which both languages then do together.
+ * nodes' values yield theirs, through `records`, as Go's `outlineTreeRecords`
+ * does.
  *
  * Its editing UI is not ported yet (#267): the control shows how many nodes
  * the outline holds, and a Consumer attaches its own `fieldComponent`.
@@ -118,11 +125,36 @@ export const outlineTreePlugin: FieldTypePlugin<OutlineTreeSettings> = {
 	defaultValue: () => [],
 
 	mintIds: mintOutlineTree,
+	records: outlineTreeRecords,
 
 	consumers: ["blueprint"],
 	positions: ["root"],
 	childrenPosition: NODE_POSITION,
 };
+
+/**
+ * An outline's records: each node's `values` against the Field's `children` —
+ * the node Fields its Blueprint Release declares — at every level, for
+ * `texts()` and `edges()`. Unresolved (no `children`), a node's values are
+ * opaque and hold none. Go's `outlineTreeRecords`.
+ */
+export function outlineTreeRecords(
+	field: Field<OutlineTreeSettings>,
+	value: unknown,
+): HeldRecord[] {
+	const fields = field.children;
+	if (!fields?.length) return [];
+	const records: HeldRecord[] = [];
+	eachTreeNode(value, (node, segments) => {
+		if (!isPlainObject(node.values)) return;
+		records.push({
+			fields,
+			record: node.values,
+			segments: [...segments, "values"],
+		});
+	});
+	return records;
+}
 
 /**
  * The `mintIds` of an outline (ADR-0023): every node at every level given an
