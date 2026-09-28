@@ -1,0 +1,126 @@
+{
+	"description": "With the publishing package, an outline_tree holds a tree of nodes {_id, values?, children?}, each _id unique across the tree, each node's values checked against the Blueprint Release its Field resolved to; unresolved, a node's values are an opaque record,",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Number",
+						"api_accessor": "number",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Draft",
+				"api_accessor": "draft",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"outline": [
+			{
+				"_id": "n1",
+				"values": {
+					"kind": "part",
+					"title": "One"
+				},
+				"children": [
+					{
+						"_id": "n2",
+						"values": {
+							"kind": "chapter",
+							"title": "One.One",
+							"number": 1
+						},
+						"children": [
+							{
+								"_id": "n3",
+								"values": {
+									"title": "One.One.One"
+								}
+							}
+						]
+					}
+				]
+			},
+			{
+				"_id": "n4",
+				"values": {
+					"title": "Two"
+				}
+			}
+		],
+		"draft": [
+			{
+				"_id": "d1",
+				"values": {
+					"anything": [
+						1,
+						2
+					]
+				},
+				"children": [
+					{
+						"_id": "d2"
+					}
+				]
+			}
+		]
+	},
+	"expect": {
+		"validateValue": []
+	}
+}

@@ -9,10 +9,17 @@
 // Go package `github.com/knkcs/fieldkit/go/publishing`.
 
 import type { FieldTypePlugin } from "../schema/plugin";
+import { outlineTreePlugin } from "./field-types/outline-tree";
 import { referenceFilterPlugin } from "./field-types/reference-filter";
+import { templateTextPlugin } from "./field-types/template-text";
 import { tiOverlayPlugin } from "./field-types/ti-overlay";
 
+export type {
+	OutlineNode,
+	OutlineTreeSettings,
+} from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
+export type { TemplateTextSettings } from "./field-types/template-text";
 export type {
 	InlineAnchor,
 	TiOverlayEntry,
@@ -29,11 +36,14 @@ export {
 	tiOverlayEntrySchema,
 	tiOverlayPlugin,
 } from "./field-types/ti-overlay";
-export { referenceFilterPlugin };
+export { OutlineTreeCell, OutlineTreeField } from "./fields/outline-tree-view";
+export { outlineTreePlugin, referenceFilterPlugin, templateTextPlugin };
 
 /** Every publishing type: the publishing Catalogue section's plugins. */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous plugin array requires widening the generic
 export const publishingFieldTypes: FieldTypePlugin<any>[] = [
 	referenceFilterPlugin,
+	outlineTreePlugin,
+	templateTextPlugin,
 	tiOverlayPlugin,
 ];

@@ -32,6 +32,20 @@ type TypeCode struct {
 	// schema. It receives the canonical settings — Unset stripped at every
 	// depth (ADR-0021), numbers as float64 — whatever the schema reported.
 	Settings func(settings any) []Error
+	// HeldSpecs returns the Specs the Field holds in its settings rather
+	// than in children, so ValidateSpec, Pins and Resolve walk them as they
+	// walk children — each in its own Position (the built-in types' heldSpec,
+	// exported: a Block Type's Fields, a Reference Spec). A setting that
+	// should hold a Spec but does not decode as one is the hook's error to
+	// report, at that setting, and is not walked. It receives the raw
+	// settings; paths are relative to the Field.
+	HeldSpecs func(settings json.RawMessage) ([]HeldSpec, []Error)
+	// ChildrenPosition is the Position of the Fields in the type's
+	// children — authored, or a pinned Blueprint Release Resolve inlined —
+	// when it is not the Field's own (ADR-0022): a Virtual Table's children
+	// are its Row Spec. "" means the container is transparent, and its
+	// children sit where it does.
+	ChildrenPosition string
 	// Value checks a value, already canonical and not Unset, by exactly what
 	// the type's toZodType checks in TS. Unset, required, not_canonical and
 	// the caps are checked before it, for every type alike.
@@ -59,6 +73,29 @@ type TypeEnv struct {
 	// never nil with one — empty when it pins nothing — so a hook can tell a
 	// part the Resolved Spec lacks from having no Resolved Spec at all.
 	Parts map[string]map[string]json.RawMessage
+	// ValidateFields is the composer (ADR-0007), for Value: it checks a
+	// record the value holds against the Fields that describe it, each by
+	// its own type — Unset and required, every container, the Catalogue's
+	// sections — exactly as a group's row is checked. Paths are relative to
+	// the record, which Value places inside its value. Nil outside Value.
+	ValidateFields func(fields []Field, record map[string]any) []Error
+}
+
+// HeldSpec is one Spec a Field holds in its settings, and where: what a
+// TypeCode's HeldSpecs returns.
+type HeldSpec struct {
+	// Path is the list's path relative to the Field:
+	// "/settings/allowed_blocks/0/fields". A Field in it is at Path plus its
+	// Accessor.
+	Path string
+	// At is the list's segments inside the Field's settings:
+	// {"allowed_blocks", "0", "fields"}. Resolve writes a resolved list back
+	// there.
+	At []string
+	// Fields are the Spec.
+	Fields []Field
+	// Position is the Position its Fields sit in (ADR-0022).
+	Position string
 }
 
 // JoinPath appends segments to a /-separated path, escaping each as RFC 6901
@@ -178,7 +215,18 @@ func (c *Catalogue) rulesFor(fieldType string) typeRules {
 		return rules
 	}
 	if tc, ok := c.codeOf(fieldType); ok {
-		return typeRules{settings: tc.Settings}
+		rules := typeRules{settings: tc.Settings, childrenPosition: tc.ChildrenPosition}
+		if tc.HeldSpecs != nil {
+			rules.specs = func(settings json.RawMessage) ([]heldSpec, []Error) {
+				held, errs := tc.HeldSpecs(settings)
+				out := make([]heldSpec, 0, len(held))
+				for _, h := range held {
+					out = append(out, heldSpec{path: h.Path, at: h.At, fields: h.Fields, position: h.Position})
+				}
+				return out, errs
+			}
+		}
+		return rules
 	}
 	return typeRules{}
 }
@@ -194,7 +242,11 @@ func (c *Catalogue) valueRule(fieldType string) (valueRule, bool) {
 		return nil, false
 	}
 	return func(f Field, settings map[string]any, value any, errs *valueErrors) {
-		var env TypeEnv
+		env := TypeEnv{ValidateFields: func(fields []Field, record map[string]any) []Error {
+			sub := &valueErrors{ctx: errs.ctx}
+			validateFields(fields, record, "", sub)
+			return sub.list
+		}}
 		if errs.ctx != nil && errs.ctx.richText != nil {
 			env.Parts = errs.ctx.richText.parts
 			// A Resolved Spec's parts are never nil to a hook, even when it

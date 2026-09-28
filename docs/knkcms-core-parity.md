@@ -48,7 +48,7 @@ Ranked by seeded data affected.
 
 **88 `rich_text` fields** across the two Boorberg derivations. In seeded SQL `view_mode` appears 32 times — 18 `"default"`, 14 `"minimal"`. **Neither value is legal in fieldkit.** Every seeded rich-text field needs a fieldkit change or a data migration.
 
-A third spelling exists: core's `outline_tree` reads `settings.text_type_id`, and `title_scope` reads `settings.text_type`.
+A third spelling exists: core's `outline_tree` reads `settings.text_type_id`, and `title_scope` reads `settings.text_type`. fieldkit's `outline_tree` (publishing package, #220) spells it `text_type`, a Text Type Release Pin like `rich_text`'s.
 
 ### B2. `reference` — the settings nearly match; the value does not
 
@@ -106,15 +106,42 @@ Being a subset means core's stored specs load into fieldkit unchanged, which is 
 | `title_data` | 0 (used in `migration/legal_norm/`) | `blueprint`, `title_blueprint`, `allow_default` |
 | `title_scope` | 0 (used in `boorberg_conware_erfassung`) | `target_fields`, `text_type` |
 | `ti_overlay` | 0 (whole `typesetting_instructions` track) | — (since 0.18.0 fieldkit's publishing package: `ti_set`, see below) |
-| `outline_tree` | 0 | `levels`, `text_type_id` |
+| `outline_tree` | 0 | `blueprint`, `text_type_id` (`levels` retired from core) |
 | `manipulation_tree` | 0 | `blueprints`, `replacement_blueprints`, `always_latest`, `max_items`, plus frontend-only `enable_validity_filtering`, `latest_release_strategy`, `max_items_per_page` |
+| `template_text` | 0 (restricted to `generated_content` Blueprints) | `context_blueprints` |
 | `toc_reference` | 0 | none the backend interprets, and no config UI — core addresses the type *by id* to expand a publication subtree |
 
-**None has derivation-level demand.** All six are knkCMS publishing machinery. Per **ADR-0002** they belong to the Consumer, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
+**None has derivation-level demand.** All of them are knkCMS publishing machinery. **ADR-0002** first gave them to the Consumer; its amendment moves `manipulation_tree`, `outline_tree`, `ti_overlay` and `template_text` into fieldkit's opt-in publishing package after all, because blueprinthub and contenthub both need their Go side — `outline_tree` and `template_text` are there since #220 (see *Migrating core's publishing types* below), and `title_data` and `title_scope` go. For the rest, and **ADR-0010** established the corollary: fieldkit exports the parts to assemble a domain type rather than leaving each Consumer to build one from nothing.
 
 `toc_reference` joined this list on 2026-08-04, and is the corollary's first user: core mints it with `createReferencePlugin({ id: "toc_reference", name: …, maxPerSpec: 1, availableIn: ["blueprint"] })` (since 0.18.0 `consumers: ["blueprint"]`, ADR-0022) and gets fieldkit's Reference Tree, browse drawer, count cell, settings editor and Zod schema. The other five still have to be written by hand.
 
-`ti_overlay` has since left this list for fieldkit's opt-in publishing package (ADR-0002, amended; #221), with a value that is **not core's**. Per contenthub ADR 0012 typesetting instructions are ordinary Title saves, so the value is flat: `{entries: [{_id, anchor, command, params?, source, notes?}]}`, and the Field pins a Typesetting Instruction Set Release in `settings.ti_set`, carried in the Resolved Spec's `parts.ti_set`. Migration notes for core's stored data (0.18.0):
+### Migrating core's publishing types (0.18.0)
+
+The publishing package's types keep core's type ids but not always its shapes. What a mapper does at core's save/load boundary, per type — each a Spec or data migration, since the settings are strict (ADR-0018) and the data contract only grows (ADR-0019):
+
+**`outline_tree`** (#220)
+
+| | core | fieldkit |
+|---|---|---|
+| settings | `blueprint` (a Blueprint id), `text_type_id` (a Text Type id); older Specs `levels` | `blueprint` — a **Blueprint Release** Pin, inlined as the Field's `children` by Resolve; `text_type` — a **Text Type Release** Pin, stored in the Resolved Spec's `parts` (ADR-0020). `levels` and `text_type_id` are `unknown_setting` |
+| value | nested nodes `{kind, …fields, source?, generated?, overridden?, children?}`, a node's Fields spread onto the node itself | nested nodes `{_id, values?, children?}`: an `_id` unique across the whole tree (ADR-0023), the node's Fields — `kind` among them — keyed by Accessor in `values`, the branch in `children` |
+
+Migrating a Spec: point `blueprint` at a Release of the outline Blueprint, rename `text_type_id` to `text_type` and point it at a Text Type Release, and drop `levels` (the node types live in the Blueprint's `kind` select now). Migrating a value: move every key but `children` into `values`, and mint an `_id` per node (TS `mintMissingIds` does on load; Go's `MintIDs` for importers reaches a publishing type once the Go seam can mint into one, #219). core's TOC-generation keys `source`, `generated` and `overridden` have no place in fieldkit's node yet; a node key can be added later without refusing anything stored today, and until then they are dropped or kept by the Consumer beside the value.
+
+Why `text_type` is a Pin rather than a bare id: the export service stamps the outline's rich text with it, so a Blueprint Release must carry the Text Type it was cut with, not follow a moving one — the same reasoning that made `rich_text.text_type` a Release Pin (#216). The node Fields sit in the `reference_spec` Position — a node is filled in a drawer, as a Reference's values are — so a node holds no container, no Marker and no tree of its own.
+
+**`template_text`** (#220)
+
+| | core | fieldkit |
+|---|---|---|
+| settings | `context_blueprints` (Blueprint ids), maintained on the `template` Field and read through by its `template_two`/`template_many` siblings | `context_blueprints`, a list of non-blank Blueprint ids — not Pins: they steer an editor's placeholder picker, and nothing reading the Content needs them resolved. The sibling read-through stays core's |
+| value | a Go `text/template` source string | the same string, unchanged. Whether it parses, and what it may name, is the rendering service's check (core's `ValidateTemplateText`), not fieldkit's |
+
+No migration: core's Specs and values load as they are. It has no text — a template's source is not what a reader searches — and sits at the root only; that its Blueprint be a generated Content's is the Consumer's Policy.
+
+**`ti_overlay`** (#221)
+
+The value is **not core's**. Per contenthub ADR 0012 typesetting instructions are ordinary Title saves, so the value is flat: `{entries: [{_id, anchor, command, params?, source, notes?}]}`, and the Field pins a Typesetting Instruction Set Release in `settings.ti_set`, carried in the Resolved Spec's `parts.ti_set`. What a mapper does:
 
 - **Removed keys.** `published`, `drafts`, and each revision's `label`, `base_revision_id`, `oasys_response`, `created_at`, `created_by` are gone, and so is each entry's stored `status` (active / unresolved / orphaned is found by resolving the anchor when reading). The value is a strict object, as is each entry: a leftover key is `invalid_value`. Keep the entries of `published`; drafts are Revisions on the Title's Branch, not part of the value.
 - **`id` is `_id`.** An entry's id is its row `_id` (ADR-0023) — unique within the value, at most 64 UTF-16 code units — and there is no second id. Rename core's `id` to `_id`.

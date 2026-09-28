@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"unicode/utf16"
 	"unicode/utf8"
 
 	vocabulary "github.com/knkcms/knkeditor/go"
@@ -39,9 +38,6 @@ const TISetKind = "ti_set"
 // maxSafeInteger is JS's Number.MAX_SAFE_INTEGER: the largest offset TS's
 // inlineAnchorSchema, and knkeditor's InlineAnchor, accept.
 const maxSafeInteger = 1<<53 - 1
-
-// maxIDLength is fieldkit.MaxIDLength's reading, in UTF-16 code units.
-const maxIDLength = fieldkit.MaxIDLength
 
 // tiOverlay is ti_overlay: a Title's typesetting instructions (contenthub ADR
 // 0012) — {entries: [...]}, each entry a row with its _id, knkeditor's inline
@@ -110,7 +106,7 @@ func tiOverlayValue(_ fieldkit.Field, settings map[string]any, value any, env fi
 			add(at, fieldkit.CodeMissingID)
 		case !isString(id):
 			add(at+"/_id", fieldkit.CodeInvalidType)
-		case utf16Length(id.(string)) > maxIDLength:
+		case idLength(id.(string)) > fieldkit.MaxIDLength:
 			add(at+"/_id", fieldkit.CodeTooBig)
 		}
 		errs = append(errs, anchorErrors(entry, at)...)
@@ -273,28 +269,21 @@ func isString(v any) bool {
 	return ok
 }
 
-func utf16Length(s string) int {
-	return len(utf16.Encode([]rune(s)))
-}
-
-// isRowID is a well-formed _id (ADR-0023): a string of 1 to MaxIDLength
-// UTF-16 code units.
-func isRowID(v any) bool {
-	s, ok := v.(string)
-	return ok && s != "" && utf16Length(s) <= maxIDLength
-}
-
 // duplicateIDs are the indices of the rows repeating a well-formed _id an
-// earlier row holds, as fieldkit's row arrays report them.
+// earlier row holds, as fieldkit's row arrays report them. isRowID, idLength
+// and itemSegments are outline_tree.go's, which read _ids the same way.
 func duplicateIDs(rows []any) []int {
 	var out []int
 	seen := map[string]bool{}
 	for i, row := range rows {
 		obj, ok := row.(map[string]any)
-		if !ok || !isRowID(obj["_id"]) {
+		if !ok {
 			continue
 		}
-		id := obj["_id"].(string)
+		id, ok := obj["_id"].(string)
+		if !ok || !isRowID(id) {
+			continue
+		}
 		if seen[id] {
 			out = append(out, i)
 			continue
@@ -302,25 +291,6 @@ func duplicateIDs(rows []any) []int {
 		seen[id] = true
 	}
 	return out
-}
-
-// itemSegments is each row's path segment (ADR-0023): its _id when it holds
-// a well-formed one no earlier row holds, its index otherwise.
-func itemSegments(rows []any) []string {
-	segments := make([]string, len(rows))
-	seen := map[string]bool{}
-	for i, row := range rows {
-		segments[i] = strconv.Itoa(i)
-		obj, ok := row.(map[string]any)
-		if !ok || !isRowID(obj["_id"]) {
-			continue
-		}
-		if id := obj["_id"].(string); !seen[id] {
-			seen[id] = true
-			segments[i] = id
-		}
-	}
-	return segments
 }
 
 // entryFields describe an entry to the Compare and Merge composer: each key
