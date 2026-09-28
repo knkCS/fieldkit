@@ -1,0 +1,24 @@
+# Conventional-commit linting, from the org's shared workflows (knkCS/workflows).
+#
+# Pinned to @v1, the moving major-version tag. That is the right pin for this
+# workflow: it takes no inputs, so the "a reusable workflow ignores an input it
+# does not declare" trap that makes taskhub pin go-service-ci to a commit does
+# not apply here.
+#
+# Note: Actions in this org are currently blocked by a billing issue, so this
+# will not run until that is resolved. It is committed now so that the gate is
+# in place the moment it is, rather than being remembered later. Until then the
+# merge bar is `npm run verify`, run locally (CLAUDE.md), and nothing checks
+# commit messages but review.
+name: Commitlint
+on:
+  pull_request:
+
+# pull-requests: read lets the reusable workflow list the PR's commits.
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commitlint:
+    uses: knkcs/workflows/.github/workflows/commitlint.yml@v1

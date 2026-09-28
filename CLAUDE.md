@@ -149,18 +149,25 @@ There is no manual renderer registration: `FieldComponent` resolves `plugin.fiel
 
 Backend-dependent features (reference lookup, media upload, blueprint data, textType data) are injected through the `FieldKitProvider` `adapters` prop. Never import from service codebases — use the adapter interfaces defined in `src/renderer/adapters.ts`.
 
-## Git Conventions
+## Conventions
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/). All commit messages MUST follow the format:
+The org's shared ground is in [docs/conventions.md](./docs/conventions.md), with fieldkit's deviations marked **This repo**. These bind every change:
 
-```
-<type>(<scope>): <description>
-```
+- **Conventional Commits, always**: `type(scope): subject`. Commit types decide the next version and the changelog; fieldkit has no `release-please` yet, so a person reads them for a `chore(release)` commit and a `v*` tag (`publish-fieldkit.yml` publishes to npm) — a mislabelled commit still ships a wrong version. The shared commitlint workflow (`.github/workflows/commitlint.yml`) gates it once Actions run again; until then, review does.
+  - **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
+  - **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
+  - Keep the subject line under 72 characters, in the imperative mood ("add feature" not "added feature")
+  - The API stays on 0.x and the data contract only grows (ADR-0019)
+- **Reuse CI from [`knkCS/workflows`](https://github.com/knkCS/workflows).** Pin `@v1`, or a commit when you depend on a recently added input, because a reusable workflow *silently ignores* an input it doesn't declare. If CI needs something new, change it **there**, not here. fieldkit's own `ci.yml`, `publish-fieldkit.yml` and `storybook.yml` predate this and are a deviation, not a precedent.
+- **The merge bar is `npm run verify`, run locally, while Actions is blocked** — see the local-gate paragraph under [Commands](#commands).
+- **Reach for [`knkCS/commons`](https://github.com/knkCS/commons) first** in Go. Only `commons/fieldspec` overlaps fieldkit, and it stays in commons (ADR-0018).
+- **UI follows anker.** Read `node_modules/@knkcs/anker/CLAUDE-ANKER.md` (see [Reference Docs](#reference-docs)) before any UI work. Semantic tokens, never hex; anker components before raw Chakra. See principle 8 in `docs/conventions.md`.
 
-- **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
-- **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
-- Keep the subject line under 72 characters
-- Use imperative mood ("add feature" not "added feature")
+And the house style, in full in `docs/conventions.md`:
+- a `CONTEXT.md` glossary with `_Avoid_` lines;
+- numbered ADRs cited by number (`ADR-0014`), and contradicted only explicitly;
+- comments that record *why* rather than *what*;
+- a data contract that only grows, fieldkit's counterpart to survivable migrations (ADR-0019).
 
 ## Agent skills
 
