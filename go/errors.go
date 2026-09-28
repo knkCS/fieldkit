@@ -17,6 +17,18 @@ const (
 	// CodeInvalidSetting is a declared setting whose value the type's settings
 	// schema refuses: a wrong type, or a number or length out of range.
 	CodeInvalidSetting = "invalid_setting"
+	// CodeVirtualTableRowSpecAmbiguous is a Virtual Table that links a
+	// Blueprint and has children: two Row Specs where ADR-0017 allows one.
+	CodeVirtualTableRowSpecAmbiguous = "virtual_table_row_spec_ambiguous"
+	// CodeVirtualTableRowSpecMissing is a Virtual Table with neither a linked
+	// nor an embedded Row Spec.
+	CodeVirtualTableRowSpecMissing = "virtual_table_row_spec_missing"
+	// CodeVirtualTableRowFieldType is a Field a Row Spec may not hold,
+	// reported at that Field.
+	CodeVirtualTableRowFieldType = "virtual_table_row_field_type"
+	// CodeDuplicateBlockType is a Block Type repeating the type an earlier
+	// Block Type of the same Blocks Field declared, reported at its type.
+	CodeDuplicateBlockType = "duplicate_block_type"
 )
 
 // Error is one validation error, in the shape TS reports it: where, which

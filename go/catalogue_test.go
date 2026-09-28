@@ -28,6 +28,34 @@ func TestDefaultCatalogue(t *testing.T) {
 	}
 }
 
+func TestCatalogueRecordsPins(t *testing.T) {
+	c := DefaultCatalogue()
+	want := map[string][]CataloguePin{
+		// A Fieldset's Blueprint and a linked Row Spec's Blueprint (ADR-0020).
+		"fieldset":      {{Key: "blueprint", Kind: pinKindBlueprint}},
+		"virtual_table": {{Key: "blueprint", Kind: pinKindBlueprint}},
+		// A Block Type's Fields may pin, but in Fields of their own.
+		"blocks": {},
+		"group":  {},
+	}
+	for id, pins := range want {
+		typ, ok := c.Type(id)
+		if !ok {
+			t.Errorf("the Catalogue does not list %q", id)
+			continue
+		}
+		if len(typ.Pins) != len(pins) {
+			t.Errorf("%q pins %v, want %v", id, typ.Pins, pins)
+			continue
+		}
+		for i := range pins {
+			if typ.Pins[i] != pins[i] {
+				t.Errorf("%q pins %v, want %v", id, typ.Pins, pins)
+			}
+		}
+	}
+}
+
 func TestParseCatalogueIsStrict(t *testing.T) {
 	cases := map[string]struct {
 		json string

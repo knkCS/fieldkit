@@ -14,8 +14,9 @@
  *
  * In `settings.attributes`, following the Blocks precedent — and inheriting
  * ADR-0007's boundary verbatim. `resolveSpec()`, `validateSpec()` and
- * `resolveMarkerConvention()` walk `Field.children` only, so **nothing shared
- * reaches an Attribute Field**. Concretely, and this is the reason it is
+ * `resolveMarkerConvention()` walk `Field.children` (and `validateSpec()` a
+ * Block Type's Fields, #208) but not `settings.attributes`, so **nothing
+ * shared reaches an Attribute Field**. Concretely, and this is the reason it is
  * written down rather than left implicit:
  *
  * - A duplicate Accessor between two Attributes is never reported. The later

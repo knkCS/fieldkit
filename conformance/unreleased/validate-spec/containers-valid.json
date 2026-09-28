@@ -1,0 +1,180 @@
+{
+	"description": "A valid fieldset, linked and embedded virtual_tables and a blocks Field whose Block Types hold Fields, each setting set: no errors",
+	"spec": [
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address",
+				"collapsible": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Prices",
+				"api_accessor": "prices",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-price",
+				"always_latest": false,
+				"max_records_per_page": 10,
+				"min_items": 0,
+				"max_items": 50
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Sizes",
+				"api_accessor": "sizes",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"max_records_per_page": 1
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"placeholder": "S, M, L"
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Width",
+						"api_accessor": "width",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min": 0
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Title",
+									"api_accessor": "title",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"placeholder": "A heading"
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "gallery",
+						"name": "Gallery",
+						"fields": [
+							{
+								"field_type": "number",
+								"config": {
+									"name": "Columns",
+									"api_accessor": "columns",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"min": 1,
+									"max": 4
+								},
+								"system": false
+							},
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Images",
+									"api_accessor": "images",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"max_items": 12
+								},
+								"children": [
+									{
+										"field_type": "text",
+										"config": {
+											"name": "Caption",
+											"api_accessor": "caption",
+											"required": false,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							},
+							{
+								"field_type": "fieldset",
+								"config": {
+									"name": "Credit",
+									"api_accessor": "credit",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"blueprint": "bp-credit"
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "divider",
+						"name": "Divider"
+					},
+					{
+						"type": "spacer",
+						"name": "Spacer",
+						"fields": []
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": []
+	}
+}

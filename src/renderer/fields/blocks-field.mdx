@@ -81,14 +81,14 @@ Renders the block count via `BlocksCell`.
 ## Known Limitations
 
 - A block type's fields live in `settings.allowed_blocks[].fields`, not in
-  `children`, and only this plugin reaches into them. `resolveSpec()`,
-  `validateSpec()` and `resolveMarkerConvention()` all walk `Field.children`
-  only (ADR-0007), so: a Fieldset declared inside a block type is never
-  resolved — it validates as the opaque record any unresolved Fieldset does,
-  though the renderer still self-resolves it for display — and no check
-  `validateSpec()` runs reaches these fields, so a duplicate accessor between
-  two of them is never reported (the later one wins the composed shape), and
-  neither is an empty name or an empty accessor.
+  `children`. `resolveSpec()` and `resolveMarkerConvention()` walk
+  `Field.children` only (ADR-0007), so a Fieldset declared inside a block type
+  is never resolved — it validates as the opaque record any unresolved
+  Fieldset does, though the renderer still self-resolves it for display.
+  `validateSpec()` does walk them (#208), in TS and in Go: each block type's
+  fields are checked like `children` — types, settings, accessors — and errors
+  report at `/content/settings/allowed_blocks/0/fields/title`. Two block types
+  sharing a `type` are `duplicate_block_type`.
 - No drag-to-reorder — uses arrow buttons for moving blocks up/down
 - No min/max block limits
 - No per-block-type limits (e.g., max 1 hero block)

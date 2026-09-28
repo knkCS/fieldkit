@@ -1,0 +1,267 @@
+{
+	"description": "A Virtual Table declares its Row Spec exactly one way and holds only Row Position types — at the root, in a Group and in a Block Type",
+	"spec": [
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Both",
+				"api_accessor": "both",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-row"
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Neither",
+				"api_accessor": "neither",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"max_records_per_page": 5
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Blank",
+				"api_accessor": "blank",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": " \t "
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Unset",
+				"api_accessor": "unset",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Linked",
+				"api_accessor": "linked",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": " bp-row "
+			},
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Nested",
+				"api_accessor": "nested",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Rows",
+						"api_accessor": "rows",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "text",
+							"config": {
+								"name": "Note",
+								"api_accessor": "note",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				},
+				{
+					"field_type": "virtual_table",
+					"config": {
+						"name": "Inner",
+						"api_accessor": "inner",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"blueprint": "bp-inner"
+					},
+					"system": false
+				},
+				{
+					"field_type": "legacy",
+					"config": {
+						"name": "Old",
+						"api_accessor": "old",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Variants",
+				"api_accessor": "variants",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "virtual_table",
+					"config": {
+						"name": "Stock",
+						"api_accessor": "stock",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "table",
+						"name": "Table",
+						"fields": [
+							{
+								"field_type": "virtual_table",
+								"config": {
+									"name": "Rows",
+									"api_accessor": "rows",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"blueprint": "bp-row"
+								},
+								"children": [
+									{
+										"field_type": "fieldset",
+										"config": {
+											"name": "Address",
+											"api_accessor": "address",
+											"required": false,
+											"instructions": ""
+										},
+										"settings": {
+											"blueprint": "bp-address"
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/both",
+				"code": "virtual_table_row_spec_ambiguous"
+			},
+			{
+				"path": "/neither",
+				"code": "virtual_table_row_spec_missing"
+			},
+			{
+				"path": "/blank",
+				"code": "virtual_table_row_spec_missing"
+			},
+			{
+				"path": "/unset",
+				"code": "virtual_table_row_spec_missing"
+			},
+			{
+				"path": "/nested/children/rows",
+				"code": "virtual_table_row_field_type"
+			},
+			{
+				"path": "/nested/children/inner",
+				"code": "virtual_table_row_field_type"
+			},
+			{
+				"path": "/nested/children/old",
+				"code": "virtual_table_row_field_type"
+			},
+			{
+				"path": "/nested/children/old",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/variants/children/stock",
+				"code": "virtual_table_row_spec_missing"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/rows",
+				"code": "virtual_table_row_spec_ambiguous"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/rows/children/address",
+				"code": "virtual_table_row_field_type"
+			}
+		]
+	}
+}

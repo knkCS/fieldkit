@@ -364,6 +364,102 @@ describe("validateSpec — Field Types and settings", () => {
 		const fields = builtInFieldTypes
 			.filter((p) => p.settingsSchema)
 			.map((p) => field(p.id, p.id, p.defaultSettings));
-		expect(validateSpec(fields, builtIns).fieldErrors).toEqual([]);
+		// Settings errors only: a Virtual Table's defaults declare no Row Spec,
+		// which is a rule across settings and children, not a bad default.
+		const settingsErrors = validateSpec(fields, builtIns).fieldErrors.filter(
+			(e) => e.code === "unknown_setting" || e.code === "invalid_setting",
+		);
+		expect(settingsErrors).toEqual([]);
+	});
+});
+
+// A Block Type's Fields live in the Blocks Field's settings, and validateSpec
+// walks them as it walks children (#208). The shared fixtures pin the rules Go
+// has too; these pin the ones only TS checks so far.
+describe("validateSpec — a Block Type's Fields", () => {
+	const builtIns = new Map(builtInFieldTypes.map((p) => [p.id, p]));
+
+	function blocks(allowed_blocks: unknown): Field {
+		return { ...mockField("blocks", "content"), settings: { allowed_blocks } };
+	}
+
+	it("runs the accessor checks in each Block Type, its own namespace", () => {
+		const result = validateSpec(
+			[
+				mockField("text", "title"),
+				blocks([
+					{
+						type: "heading",
+						name: "Heading",
+						fields: [
+							mockField("text", "title"),
+							mockField("text", "title"),
+							{
+								...mockField("text", "subtitle"),
+								config: { ...mockField("text", "subtitle").config, name: " " },
+							},
+						],
+					},
+					{
+						type: "quote",
+						name: "Quote",
+						fields: [mockField("text", "title")],
+					},
+				]),
+			],
+			builtIns,
+		);
+		expect(
+			result.fieldErrors.map(({ path, code }) => ({ path, code })),
+		).toEqual([
+			{
+				path: "/content/settings/allowed_blocks/0/fields/subtitle",
+				code: "empty_name",
+			},
+			{
+				path: "/content/settings/allowed_blocks/0/fields/title",
+				code: "duplicate_accessor",
+			},
+		]);
+	});
+
+	it("refuses a fields list that is not Fields, rather than walking half of it", () => {
+		const result = validateSpec(
+			[
+				blocks([
+					{ type: "a", name: "A", fields: [mockField("text", "ok"), "title"] },
+					{ type: "b", name: "B", fields: [{ field_type: "text" }] },
+				]),
+			],
+			builtIns,
+		);
+		expect(
+			result.fieldErrors.map(({ path, code }) => ({ path, code })),
+		).toEqual([
+			{
+				path: "/content/settings/allowed_blocks/0/fields",
+				code: "invalid_setting",
+			},
+			{
+				path: "/content/settings/allowed_blocks/1/fields",
+				code: "invalid_setting",
+			},
+		]);
+	});
+
+	it("does not apply the card-layout rule inside a Block Type", () => {
+		const result = validateSpec(
+			[
+				blocks([
+					{
+						type: "a",
+						name: "A",
+						fields: [mockField("text", "loose"), mockField("card", "c")],
+					},
+				]),
+			],
+			builtIns,
+		);
+		expect(result.fieldErrors).toEqual([]);
 	});
 });

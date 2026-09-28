@@ -3,6 +3,7 @@ import { z } from "zod";
 import { FieldsetSettingsEditor } from "../../editor/field-settings/fieldset-settings";
 import { FieldsetField } from "../../renderer/fields/fieldset-field";
 import { FieldsetCell } from "../../table/cells/fieldset-cell";
+import { BLUEPRINT_PIN } from "../blueprint-link";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 
@@ -46,6 +47,17 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 		if (!composeChildren || children == null) return z.record(z.unknown());
 		return composeChildren(children).passthrough();
 	},
+
+	settingsSchema: z
+		.object({
+			blueprint: z.string().optional(),
+			collapsible: z.boolean().optional(),
+		})
+		.strict(),
+
+	// A Fieldset's text is its embedded Fields', each read under its own
+	// settings; the Fieldset itself yields none. Its Blueprint is a Pin.
+	catalogue: { since: "0.18.0", hasText: false, pins: [BLUEPRINT_PIN] },
 
 	defaultSettings: { collapsible: false },
 

@@ -1,0 +1,192 @@
+{
+	"description": "Block Types sharing a type are reported at each repeat, and a Block Type's Fields are validated like children, at every depth, blocks within blocks included",
+	"spec": [
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Title",
+									"api_accessor": "title",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"placehodler": "A heading"
+								},
+								"system": false
+							},
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Links",
+									"api_accessor": "links",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"min_items": -1
+								},
+								"children": [
+									{
+										"field_type": "text",
+										"config": {
+											"name": "Url",
+											"api_accessor": "url",
+											"required": false,
+											"instructions": ""
+										},
+										"settings": {
+											"append": 5
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "legacy",
+						"name": "Legacy",
+						"fields": [
+							{
+								"field_type": "editor_schema",
+								"config": {
+									"name": "Body",
+									"api_accessor": "body",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "heading",
+						"name": "Heading again"
+					},
+					{
+						"type": "columns",
+						"name": "Columns",
+						"fields": [
+							{
+								"field_type": "blocks",
+								"config": {
+									"name": "Cells",
+									"api_accessor": "cells",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"allowed_blocks": [
+										{
+											"type": "cell",
+											"name": "Cell",
+											"fields": [
+												{
+													"field_type": "number",
+													"config": {
+														"name": "Span",
+														"api_accessor": "span",
+														"required": false,
+														"instructions": ""
+													},
+													"settings": {
+														"step": 0
+													},
+													"system": false
+												}
+											]
+										},
+										{
+											"type": "cell",
+											"name": "Cell again"
+										}
+									]
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "heading",
+						"name": "Heading thrice"
+					},
+					{
+						"type": "a/b~c",
+						"name": "Escaped",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "X/y",
+									"api_accessor": "x/y",
+									"required": false,
+									"instructions": ""
+								},
+								"settings": {
+									"prefix": "~"
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/title/settings/placehodler",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/links/settings/min_items",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/0/fields/links/children/url/settings/append",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/1/fields/body",
+				"code": "unknown_field_type"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/2/type",
+				"code": "duplicate_block_type"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/3/fields/cells/settings/allowed_blocks/0/fields/span/settings/step",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/3/fields/cells/settings/allowed_blocks/1/type",
+				"code": "duplicate_block_type"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/4/type",
+				"code": "duplicate_block_type"
+			},
+			{
+				"path": "/content/settings/allowed_blocks/5/fields/x~1y/settings/prefix",
+				"code": "unknown_setting"
+			}
+		]
+	}
+}
