@@ -7,7 +7,11 @@ import { VirtualTableCell } from "../../table/cells/virtual-table-cell";
 import { BLUEPRINT_PIN } from "../blueprint-link";
 import type { FieldTypePlugin } from "../plugin";
 import type { RowArrayCaps } from "../row-array";
-import { rowArrayCapsSchema, rowArrayZodType } from "../row-array";
+import {
+	mintRowArrayIds,
+	rowArrayCapsSchema,
+	rowArrayZodType,
+} from "../row-array";
 import type { Field } from "../types";
 
 export interface VirtualTableSettings extends RowArrayCaps {
@@ -66,6 +70,10 @@ export const virtualTablePlugin: FieldTypePlugin<VirtualTableSettings> = {
 	defaultSettings: { max_records_per_page: DEFAULT_MAX_RECORDS_PER_PAGE },
 
 	defaultValue: () => [],
+
+	// Every row carries an `_id` (ADR-0023), minted here for loaded rows,
+	// pasted and duplicated ones; its children mint their own.
+	mintIds: mintRowArrayIds,
 
 	// Every context (ADR-0017). A Consumer with no blueprint adapter still
 	// gets the embedded Row Spec; only the linked one needs Blueprints.

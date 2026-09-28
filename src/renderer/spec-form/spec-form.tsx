@@ -12,6 +12,7 @@ import type { Schema } from "../../schema/types";
 import { formatCount, mergeLabels } from "../merge-labels";
 import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
+import { MintRowIds } from "./mint-row-ids";
 import type { FieldSearchResult } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
 import { TabErrorBadge } from "./tab-error-badge";
@@ -498,6 +499,7 @@ export function SpecForm({
 	if (!partition.hasSections) {
 		return (
 			<FormMarkersProvider value={markers}>
+				<MintRowIds schema={schema} />
 				<CardedFields fields={partition.tabs[0].fields} readOnly={readOnly} />
 			</FormMarkersProvider>
 		);
@@ -505,6 +507,7 @@ export function SpecForm({
 
 	return (
 		<FormMarkersProvider value={markers}>
+			<MintRowIds schema={schema} />
 			<SpecFormTabs
 				partition={partition}
 				readOnly={readOnly}

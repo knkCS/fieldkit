@@ -3,7 +3,6 @@ package fieldkit
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"slices"
 )
 
@@ -16,6 +15,9 @@ const (
 	// MaxStringBytes is the most UTF-8 bytes a string in a value may hold:
 	// 1 MiB. More is CodeTooLarge.
 	MaxStringBytes = 1 << 20
+	// MaxDepth is the deepest an array or object may sit in a value: the
+	// data's root is depth 0, its values depth 1. Deeper is CodeTooDeep.
+	MaxDepth = 32
 )
 
 // markerTypes are the Field Types that hold no value: the layout Markers.
@@ -42,24 +44,32 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 //   - A key holding an Unset value, at any depth and whether or not the Spec
 //     names it, is CodeNotCanonical: Unset is stored as absent. Array items
 //     are kept whatever they hold, so [null] is one item, not Unset.
-//   - MaxItems and MaxStringBytes are enforced as CodeTooManyItems and
-//     CodeTooLarge, over the whole document — keys the Spec does not name,
-//     and the number of keys at the root, included. Data beyond a cap
-//     reports only the caps it breaks: nothing else is checked.
+//   - MaxItems, MaxStringBytes and MaxDepth are enforced as
+//     CodeTooManyItems, CodeTooLarge and CodeTooDeep, over the whole
+//     document — keys the Spec does not name, and the number of keys at the
+//     root, included. Data beyond a cap reports only the caps it breaks:
+//     nothing else is checked.
+//
+// The containers dispatch what they hold to its own types (ADR-0007): a
+// group's or virtual_table's rows and a resolved fieldset's record are
+// checked against their children, a block against its Block Type's Fields,
+// at every depth. Every row carries an _id (ADR-0023) — a row without one is
+// CodeMissingID at the row, a repeat within its array CodeDuplicateID at the
+// repeat.
 //
 // Paths are /-separated from the data's root: a Field is its Accessor, an
-// array item its index, an object entry its key. Numbers are read as JS
-// reads them (float64; beyond its range, ±Inf). Settings and validation are
-// read in canonical form, so a "min": null is no minimum.
+// object entry its key, and an array item its _id where it holds a
+// well-formed one no earlier item holds, its index otherwise. Numbers are
+// read as JS reads them (float64; beyond its range, ±Inf). Settings and
+// validation are read in canonical form, so a "min": null is no minimum.
 //
 // Keys the Spec does not name are otherwise ignored, as the TS form's schema
 // ignores them; hidden Fields and the Markers are not checked. Data that is
 // not a JSON object is one CodeInvalidType at ""; empty data is {}.
 //
-// Not yet implemented, and skipped: the containers (group, virtual_table,
-// blocks, fieldset) and the types the Catalogue does not list (reference,
-// single_reference, rich_text). TS validates them; the conformance fixtures
-// stay clear of them until Go does.
+// Not yet implemented, and skipped: the types the Catalogue does not list
+// (reference, single_reference, rich_text). TS validates them; the
+// conformance fixtures stay clear of them until Go does.
 func ValidateValue(spec Spec, data json.RawMessage) []Error {
 	var raw any = map[string]any{}
 	if len(bytes.TrimSpace(data)) > 0 {
@@ -84,19 +94,32 @@ func ValidateValue(spec Spec, data json.RawMessage) []Error {
 	reportNonCanonical(obj, "", errs)
 	canonical, _ := stripUnset(obj).(map[string]any)
 
-	for _, f := range spec {
+	validateFields(spec, canonical, "", errs)
+	if len(errs.list) == 0 {
+		return nil
+	}
+	return errs.list
+}
+
+// validateFields checks a record — the data's root, a row, a Fieldset's
+// record — against the Fields that describe it, each by its own type's rule.
+// It is the composer a container hands what it holds to (ADR-0007). path is
+// the record's own.
+func validateFields(fields []Field, record map[string]any, path string, errs *valueErrors) {
+	for _, f := range fields {
 		if markerTypes[f.FieldType] || (f.Config.Hidden != nil && *f.Config.Hidden) {
 			continue
 		}
+		container, isContainer := containerRuleFor(f.FieldType)
 		rule, ok := valueRules[f.FieldType]
-		if !ok {
+		if !ok && !isContainer {
 			continue
 		}
-		path := joinPath("", f.Config.APIAccessor)
-		value, present := canonical[f.Config.APIAccessor]
+		at := joinPath(path, f.Config.APIAccessor)
+		value, present := record[f.Config.APIAccessor]
 		if !present {
 			if f.Config.Required {
-				errs.add(path, CodeRequired, nil)
+				errs.add(at, CodeRequired, nil)
 			}
 			continue
 		}
@@ -105,16 +128,16 @@ func ValidateValue(spec Spec, data json.RawMessage) []Error {
 		if settingsObj == nil {
 			settingsObj = map[string]any{}
 		}
+		if isContainer {
+			container(f, settingsObj, value, at, errs)
+			continue
+		}
 		sub := &valueErrors{}
 		rule(f, settingsObj, value, sub)
 		for _, e := range sub.list {
-			errs.add(path+e.Path, e.Code, e.Params)
+			errs.add(at+e.Path, e.Code, e.Params)
 		}
 	}
-	if len(errs.list) == 0 {
-		return nil
-	}
-	return errs.list
 }
 
 // valueErrors collects errors, each {path, code} once, as TS does.
@@ -141,8 +164,9 @@ func (v *valueErrors) add(path, code string, params map[string]any) {
 func reportNonCanonical(value any, path string, errs *valueErrors) {
 	switch x := value.(type) {
 	case []any:
+		segments := itemSegments(x)
 		for i, item := range x {
-			reportNonCanonical(item, joinPath(path, fmt.Sprint(i)), errs)
+			reportNonCanonical(item, joinPath(path, segments[i]), errs)
 		}
 	case map[string]any:
 		for _, key := range sortedKeys(x) {
@@ -167,11 +191,19 @@ func sortedKeys(obj map[string]any) []string {
 }
 
 // capErrors reports the caps a value breaks, and whether it broke any. A
-// container beyond MaxItems is not looked into.
+// container beyond MaxDepth or MaxItems is not looked into.
 func capErrors(value any, path string, errs *valueErrors) bool {
 	broke := false
-	var walk func(node any, at string)
-	walk = func(node any, at string) {
+	tooDeep := func(at string, depth int) bool {
+		if depth <= MaxDepth {
+			return false
+		}
+		errs.add(at, CodeTooDeep, map[string]any{"maximum": MaxDepth})
+		broke = true
+		return true
+	}
+	var walk func(node any, at string, depth int)
+	walk = func(node any, at string, depth int) {
 		switch x := node.(type) {
 		case string:
 			if len(x) > MaxStringBytes {
@@ -179,25 +211,32 @@ func capErrors(value any, path string, errs *valueErrors) bool {
 				broke = true
 			}
 		case []any:
+			if tooDeep(at, depth) {
+				return
+			}
 			if len(x) > MaxItems {
 				errs.add(at, CodeTooManyItems, map[string]any{"maximum": MaxItems})
 				broke = true
 				return
 			}
+			segments := itemSegments(x)
 			for i, item := range x {
-				walk(item, joinPath(at, fmt.Sprint(i)))
+				walk(item, joinPath(at, segments[i]), depth+1)
 			}
 		case map[string]any:
+			if tooDeep(at, depth) {
+				return
+			}
 			if len(x) > MaxItems {
 				errs.add(at, CodeTooManyItems, map[string]any{"maximum": MaxItems})
 				broke = true
 				return
 			}
 			for _, key := range sortedKeys(x) {
-				walk(x[key], joinPath(at, key))
+				walk(x[key], joinPath(at, key), depth+1)
 			}
 		}
 	}
-	walk(value, path)
+	walk(value, path, 0)
 	return broke
 }

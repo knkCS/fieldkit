@@ -89,9 +89,17 @@ const (
 	// CodeTooLarge is a string beyond MaxStringBytes.
 	CodeTooLarge = "too_large"
 	// CodeInvalidValue is any other rule a type's value rules state. TS
-	// reports it for a Zod rule none of the other codes names; no type this
-	// module validates reports it.
+	// reports it for a Zod rule none of the other codes names; here, a Block
+	// whose _type is not one of its Field's Block Types.
 	CodeInvalidValue = "invalid_value"
+	// CodeMissingID is a row of a group, virtual_table or blocks value
+	// without an _id (ADR-0023). At the row.
+	CodeMissingID = "missing_id"
+	// CodeDuplicateID is a row repeating an _id an earlier row of the same
+	// array holds. At each repeat.
+	CodeDuplicateID = "duplicate_id"
+	// CodeTooDeep is an array or object nested deeper than MaxDepth.
+	CodeTooDeep = "too_deep"
 )
 
 // Error is one validation error, in the shape TS reports it: where, which

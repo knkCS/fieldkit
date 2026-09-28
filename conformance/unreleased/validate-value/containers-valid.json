@@ -1,0 +1,335 @@
+{
+	"description": "Rows of a group and a virtual_table, Blocks of every shape, and a Fieldset's record, each row with an _id — and keys no Field names kept, in rows and records alike",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 1,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min": 0
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Lines",
+				"api_accessor": "lines",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Sku",
+						"api_accessor": "sku",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Quantity",
+						"api_accessor": "quantity",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Linked lines",
+				"api_accessor": "linked_lines",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-line"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Street",
+						"api_accessor": "street",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Residents",
+						"api_accessor": "residents",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "email",
+							"config": {
+								"name": "Email",
+								"api_accessor": "email",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Opaque address",
+				"api_accessor": "opaque_address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Title",
+									"api_accessor": "title",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "gallery",
+						"name": "Gallery",
+						"fields": [
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Images",
+									"api_accessor": "images",
+									"required": false,
+									"instructions": ""
+								},
+								"children": [
+									{
+										"field_type": "url",
+										"config": {
+											"name": "Src",
+											"api_accessor": "src",
+											"required": true,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "rule",
+						"name": "Rule"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Single",
+				"api_accessor": "single",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Anything",
+				"api_accessor": "anything",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"authors": [
+			{
+				"_id": "a1",
+				"name": "Ada",
+				"born": 1815,
+				"backend_id": 7
+			},
+			{
+				"_id": "a2",
+				"name": "Grace"
+			}
+		],
+		"lines": [
+			{
+				"_id": "l1",
+				"sku": "BIND",
+				"quantity": 2
+			}
+		],
+		"linked_lines": [
+			{
+				"_id": "x",
+				"anything": {
+					"at": "all"
+				}
+			}
+		],
+		"address": {
+			"street": "Main St",
+			"residents": [
+				{
+					"_id": "r1",
+					"email": "ada@example.com"
+				},
+				{
+					"_id": "r2"
+				}
+			],
+			"kept": true
+		},
+		"opaque_address": {
+			"anything": 1
+		},
+		"content": [
+			{
+				"_id": "b1",
+				"_type": "heading",
+				"title": "Chapter one"
+			},
+			{
+				"_id": "b2",
+				"_type": "gallery",
+				"images": [
+					{
+						"_id": "i1",
+						"src": "https://example.com/a.png"
+					}
+				]
+			},
+			{
+				"_id": "b3",
+				"_type": "rule",
+				"extra": 1
+			}
+		],
+		"single": [
+			{
+				"_id": "q1",
+				"_type": "quote"
+			}
+		],
+		"anything": [
+			{
+				"_id": "z1",
+				"_type": "whatever",
+				"body": 1
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

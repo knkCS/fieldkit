@@ -56,6 +56,7 @@ src/
 │   ├── blueprint-link.ts # linkedBlueprintId() — the Blueprint Release a Fieldset or a linked Virtual Table pins, read in ONE place so the validator, the resolver and the renderer cannot disagree; BLUEPRINT_PIN, the Catalogue's record of that key; pinnedRelease(), how every Pin setting is read
 │   ├── block-types.ts   # blockTypeSpecs() / duplicateBlockTypes() — a Blocks Field's settings read as the Specs its Block Types hold, so validateSpec walks them without learning the settings' shape
 │   ├── row-array.ts     # rowArrayZodType() — the Zod type shared by every Field holding an array of rows all shaped alike (group, virtual_table), plus the RowArrayCaps (min_items/max_items) both offer
+│   ├── row-ids.ts       # Row `_id`s (ADR-0023): mintId(), rowIdSchema + RowZodArray (duplicate_id), mintMissingIds() — the normalisation SpecForm, EditDrawer and SpecDataTable share — copyRows() for paste/duplicate, and toIdPath(), Zod issue paths as `_id` paths. Each container mints through its plugin's `mintIds`
 │   ├── virtual-table-row-spec.ts # ADR-0017's rule as a pure function: which of the two ways a Virtual Table declares its Row Spec (linked, embedded, both, neither) — shared by validateSpec and the renderer. What a Row Spec may hold is the `row` Position
 │   ├── positions.ts     # ADR-0022: POSITIONS, CONSUMERS, DEFAULT_POSITIONS, positionsOf() / allowedInPosition() (enforced) and offeredToConsumer() (picker advice). Each plugin declares `positions`, `consumers` and, for a container, `childrenPosition` / `heldSpecs`
 │   ├── search.ts        # SearchWeight — `config.search`'s values (off, A–D)
@@ -120,7 +121,9 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── cards.go             # The card-marker rule (loose_field_in_carded_tab), as TS's checkCardLayout
 ├── settings.go          # ValidateSettings — generic over the Catalogue's JSON Schemas
 ├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec and its children's `row` Position, blocks' Block Types in `block_type`); linkedBlueprint/pinRelease read Pins by the Catalogue's keys
-├── values.go            # ValidateValue — Unset/required, not_canonical, the caps; the containers are not implemented yet
+├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)
+├── value_containers.go  # group/virtual_table/blocks/fieldset value rules, the rows' `_id`s (missing_id, duplicate_id) and itemSegments — the `_id` path grammar (ADR-0023)
+├── mint.go              # MintIDs — deterministic UUIDv5 `_id`s for importers, from a seed and each row's place; nothing else mints
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md

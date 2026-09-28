@@ -26,7 +26,7 @@ describe("groupPlugin", () => {
 		};
 		const zodType = groupPlugin.toZodType(field);
 		expect(zodType.safeParse([]).success).toBe(true);
-		expect(zodType.safeParse([{ foo: "bar" }]).success).toBe(true);
+		expect(zodType.safeParse([{ _id: "r22", foo: "bar" }]).success).toBe(true);
 		expect(zodType.safeParse("not an array").success).toBe(false);
 	});
 
@@ -44,8 +44,13 @@ describe("groupPlugin", () => {
 			system: false,
 		};
 		const zodType = groupPlugin.toZodType(field);
-		expect(zodType.safeParse([{ a: 1 }]).success).toBe(false);
-		expect(zodType.safeParse([{ a: 1 }, { b: 2 }]).success).toBe(true);
+		expect(zodType.safeParse([{ _id: "r23", a: 1 }]).success).toBe(false);
+		expect(
+			zodType.safeParse([
+				{ _id: "r24", a: 1 },
+				{ _id: "r25", b: 2 },
+			]).success,
+		).toBe(true);
 	});
 
 	it("should apply max_items constraint", () => {
@@ -62,11 +67,20 @@ describe("groupPlugin", () => {
 			system: false,
 		};
 		const zodType = groupPlugin.toZodType(field);
-		expect(zodType.safeParse([{ a: 1 }, { b: 2 }, { c: 3 }]).success).toBe(
-			true,
-		);
 		expect(
-			zodType.safeParse([{ a: 1 }, { b: 2 }, { c: 3 }, { d: 4 }]).success,
+			zodType.safeParse([
+				{ _id: "r26", a: 1 },
+				{ _id: "r27", b: 2 },
+				{ _id: "r28", c: 3 },
+			]).success,
+		).toBe(true);
+		expect(
+			zodType.safeParse([
+				{ _id: "r29", a: 1 },
+				{ _id: "r30", b: 2 },
+				{ _id: "r31", c: 3 },
+				{ _id: "r32", d: 4 },
+			]).success,
 		).toBe(false);
 	});
 
@@ -102,7 +116,10 @@ describe("groupPlugin", () => {
 
 		it("blocks submit on a required field in one row, and says which row", () => {
 			const parsed = schema([child("name", true)]).safeParse({
-				authors: [{ name: "Ada" }, { name: "" }],
+				authors: [
+					{ _id: "r33", name: "Ada" },
+					{ _id: "r34", name: "" },
+				],
 			});
 			expect(parsed.success).toBe(false);
 			// The path react-hook-form registers the row's field under.
@@ -111,8 +128,9 @@ describe("groupPlugin", () => {
 
 		it("lets an optional field in a row stay empty", () => {
 			expect(
-				schema([child("name", false)]).safeParse({ authors: [{ name: "" }] })
-					.success,
+				schema([child("name", false)]).safeParse({
+					authors: [{ _id: "r35", name: "" }],
+				}).success,
 			).toBe(true);
 		});
 
@@ -120,14 +138,17 @@ describe("groupPlugin", () => {
 			// A stored row carries more than the Spec edits — a backend id, most
 			// obviously. Validating rows must not start pruning them.
 			const parsed = schema([child("name", true)]).safeParse({
-				authors: [{ id: 7, name: "Ada" }],
+				authors: [{ _id: "r36", id: 7, name: "Ada" }],
 			});
-			expect(parsed.data).toEqual({ authors: [{ id: 7, name: "Ada" }] });
+			expect(parsed.data).toEqual({
+				authors: [{ _id: "r36", id: 7, name: "Ada" }],
+			});
 		});
 
 		it("stays an opaque row where the group has no children", () => {
 			expect(
-				schema(null).safeParse({ authors: [{ anything: 1 }] }).success,
+				schema(null).safeParse({ authors: [{ _id: "r37", anything: 1 }] })
+					.success,
 			).toBe(true);
 		});
 	});
@@ -147,12 +168,21 @@ describe("groupPlugin", () => {
 		};
 		const zodType = groupPlugin.toZodType(field);
 		expect(zodType.safeParse([]).success).toBe(false);
-		expect(zodType.safeParse([{ a: 1 }]).success).toBe(true);
-		expect(zodType.safeParse([{ a: 1 }, { b: 2 }, { c: 3 }]).success).toBe(
-			true,
-		);
+		expect(zodType.safeParse([{ _id: "r38", a: 1 }]).success).toBe(true);
 		expect(
-			zodType.safeParse([{ a: 1 }, { b: 2 }, { c: 3 }, { d: 4 }]).success,
+			zodType.safeParse([
+				{ _id: "r39", a: 1 },
+				{ _id: "r40", b: 2 },
+				{ _id: "r41", c: 3 },
+			]).success,
+		).toBe(true);
+		expect(
+			zodType.safeParse([
+				{ _id: "r42", a: 1 },
+				{ _id: "r43", b: 2 },
+				{ _id: "r44", c: 3 },
+				{ _id: "r45", d: 4 },
+			]).success,
 		).toBe(false);
 	});
 });

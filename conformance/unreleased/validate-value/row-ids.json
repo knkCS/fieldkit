@@ -1,0 +1,198 @@
+{
+	"description": "Every row carries an _id (ADR-0023): missing is missing_id at the row, a repeat duplicate_id at the repeat beside its own errors, an _id that is no string or longer than 64 characters is refused at the _id; a row without a usable _id is addressed by its index",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 1,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min": 0
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Title",
+									"api_accessor": "title",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "gallery",
+						"name": "Gallery",
+						"fields": [
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Images",
+									"api_accessor": "images",
+									"required": false,
+									"instructions": ""
+								},
+								"children": [
+									{
+										"field_type": "url",
+										"config": {
+											"name": "Src",
+											"api_accessor": "src",
+											"required": true,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "rule",
+						"name": "Rule"
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"authors": [
+			{
+				"name": "No id"
+			},
+			{
+				"_id": "same",
+				"name": "First"
+			},
+			{
+				"_id": "same"
+			},
+			{
+				"_id": 7,
+				"name": "Number"
+			},
+			{
+				"_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+				"name": "Long"
+			},
+			{
+				"_id": "",
+				"name": "Blank"
+			},
+			{
+				"_id": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+				"name": "Longest allowed"
+			}
+		],
+		"content": [
+			{
+				"_type": "rule"
+			},
+			{
+				"_id": "b",
+				"_type": "rule"
+			},
+			{
+				"_id": "b",
+				"_type": "video"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/authors",
+				"code": "too_many_items"
+			},
+			{
+				"path": "/authors/0",
+				"code": "missing_id"
+			},
+			{
+				"path": "/authors/2",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/authors/2/name",
+				"code": "required"
+			},
+			{
+				"path": "/authors/3/_id",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/authors/4/_id",
+				"code": "too_big"
+			},
+			{
+				"path": "/authors/5/_id",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/authors/5",
+				"code": "missing_id"
+			},
+			{
+				"path": "/content/0",
+				"code": "missing_id"
+			},
+			{
+				"path": "/content/2",
+				"code": "duplicate_id"
+			},
+			{
+				"path": "/content/2/_type",
+				"code": "invalid_value"
+			}
+		]
+	}
+}

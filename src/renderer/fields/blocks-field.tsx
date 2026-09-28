@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import type { BlocksSettings } from "../../schema/field-types/blocks";
 import type { FieldProps } from "../../schema/plugin";
+import { mintId } from "../../schema/row-ids";
 import { getDefaultValues } from "../../schema/zod-builder";
 import { useFieldKit } from "../provider";
 import { NestedItemFields } from "./item-fields";
@@ -38,12 +39,12 @@ export function BlocksField({ field, readOnly }: FieldProps<BlocksSettings>) {
 		//
 		// `_type` is written last on purpose: it identifies the block and
 		// decides which fields render, so a field defaulting to that accessor
-		// must not be able to overwrite it.
+		// must not be able to overwrite it. `_id` rides beside it (ADR-0023).
 		const defaults = getDefaultValues(
 			getBlockDef(blockType)?.fields ?? [],
 			getAllPlugins(),
 		);
-		append({ ...defaults, _type: blockType });
+		append({ ...defaults, _id: mintId(), _type: blockType });
 		setShowTypePicker(false);
 	};
 

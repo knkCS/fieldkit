@@ -1,0 +1,158 @@
+{
+	"description": "An array or object nested deeper than 32 levels below the data's root is too_deep at the first container past the cap, and nothing inside it is checked; exactly 32 is within the cap",
+	"spec": [
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"tags": [
+			[
+				[
+					[
+						[
+							[
+								[
+									[
+										[
+											[
+												[
+													[
+														[
+															[
+																[
+																	[
+																		[
+																			[
+																				[
+																					[
+																						[
+																							[
+																								[
+																									[
+																										[
+																											[
+																												[
+																													[
+																														[
+																															[
+																																[
+																																	[
+																																		[
+																																			"x"
+																																		]
+																																	]
+																																]
+																															]
+																														]
+																													]
+																												]
+																											]
+																										]
+																									]
+																								]
+																							]
+																						]
+																					]
+																				]
+																			]
+																		]
+																	]
+																]
+															]
+														]
+													]
+												]
+											]
+										]
+									]
+								]
+							]
+						]
+					]
+				]
+			]
+		],
+		"stray": [
+			[
+				[
+					[
+						[
+							[
+								[
+									[
+										[
+											[
+												[
+													[
+														[
+															[
+																[
+																	[
+																		[
+																			[
+																				[
+																					[
+																						[
+																							[
+																								[
+																									[
+																										[
+																											[
+																												[
+																													[
+																														[
+																															[
+																																[
+																																	[
+																																		"x"
+																																	]
+																																]
+																															]
+																														]
+																													]
+																												]
+																											]
+																										]
+																									]
+																								]
+																							]
+																						]
+																					]
+																				]
+																			]
+																		]
+																	]
+																]
+															]
+														]
+													]
+												]
+											]
+										]
+									]
+								]
+							]
+						]
+					]
+				]
+			]
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/tags/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0",
+				"code": "too_deep"
+			}
+		]
+	}
+}

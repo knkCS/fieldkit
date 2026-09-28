@@ -1,6 +1,7 @@
 // src/schema/row-array.ts
 import { type ZodTypeAny, z } from "zod";
-import type { ComposeChildrenSchema } from "./plugin";
+import type { ComposeChildrenSchema, MintIdsContext } from "./plugin";
+import { mintRowIds, RowZodArray, rowIdSchema } from "./row-ids";
 import type { Field } from "./types";
 
 /** The two caps every row-array type offers. Named once so a Group and a
@@ -52,6 +53,10 @@ export const rowArrayCapsSchema = z
  * never resolved has no children), the row stays the opaque record it always
  * was. Rejecting values on that path would fail a form over Fields fieldkit
  * was never told about.
+ *
+ * Every row carries an `_id` either way (ADR-0023): fieldkit's own key, not a
+ * Field's, so it is required whether or not the row's Fields are known — and
+ * unique within the array, `duplicate_id` at each repeat (`RowZodArray`).
  */
 export function rowArrayZodType(
 	field: Field<RowArrayCaps>,
@@ -60,13 +65,26 @@ export function rowArrayZodType(
 	const { min_items, max_items } = field.settings ?? {};
 	const children = field.children;
 
-	const row =
+	const row = (
 		composeChildren && children != null
-			? composeChildren(children).passthrough()
-			: z.record(z.unknown());
+			? composeChildren(children)
+			: z.object({})
+	)
+		.extend({ _id: rowIdSchema })
+		.passthrough();
 
 	let schema = z.array(row);
 	if (min_items !== undefined) schema = schema.min(min_items);
 	if (max_items !== undefined) schema = schema.max(max_items);
-	return schema;
+	return RowZodArray.of(schema);
+}
+
+/** The `mintIds` every row-array type shares: each row gets its `_id`, and
+ * its children — when the Field has them — theirs (ADR-0023). */
+export function mintRowArrayIds(
+	field: Field<RowArrayCaps>,
+	value: unknown,
+	context: MintIdsContext,
+): unknown {
+	return mintRowIds(value, context, () => field.children ?? undefined);
 }

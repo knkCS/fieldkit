@@ -179,6 +179,18 @@ const { fields: items, append, remove, move } = useFieldArray({
 
 Always use `item.id` (RHF's stable ID) as the React `key`, never the array index.
 
+`item.id` is not a row's `_id`. RHF's `id` is a render key it adds to `fields`
+and never stores. `_id` is fieldkit's key, and it is stored with the row: every
+row of a `group`, `virtual_table` and `blocks` carries one, and their Zod types
+require it (ADR-0023). So a repeater writes one on every row it creates —
+`append({ ...defaults, _id: mintId() })`, and `copyRows()` for a pasted or
+duplicated row, which never copies the original's id. Rows loaded without one
+are the form's business: `SpecForm`, `EditDrawer` and `SpecDataTable` mint the
+missing ids into the form's defaults. A Consumer rendering `FieldRenderer` over
+its own form must call `mintMissingIds(spec, values, plugins)` on the values
+before it hands them to `useForm`/`reset`. Without that, a row saved before ids
+existed fails at `items.0._id`, which no control shows, and Save does nothing.
+
 ## Nested Field Paths
 
 Fieldkit uses **path rewriting** for nested fields. When `GroupField` or `BlocksField` renders children, it prepends the parent path:

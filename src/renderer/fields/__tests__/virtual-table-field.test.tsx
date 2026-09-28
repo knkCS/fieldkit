@@ -305,7 +305,9 @@ describe("VirtualTableField — adding a row", () => {
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		await waitFor(() => {
-			expect(stored()).toEqual([{ description: "Binding", quantity: 3 }]);
+			expect(stored()).toEqual([
+				{ description: "Binding", quantity: 3, _id: expect.any(String) },
+			]);
 		});
 		expect(await screen.findByText("Binding")).toBeInTheDocument();
 	});
@@ -377,7 +379,9 @@ describe("VirtualTableField — a linked Row Spec", () => {
 		await user.click(screen.getByRole("button", { name: "Save" }));
 
 		await waitFor(() => {
-			expect(stored()).toEqual([{ description: "Binding", quantity: 0 }]);
+			expect(stored()).toEqual([
+				{ description: "Binding", quantity: 0, _id: expect.any(String) },
+			]);
 		});
 	});
 });
@@ -581,8 +585,8 @@ describe("VirtualTableField — an invalid row", () => {
 		renderEditor({
 			field: lineItems({}, REQUIRED_ROW_SPEC),
 			rows: [
-				{ description: "Binding", quantity: 1 },
-				{ description: "", quantity: 2 },
+				{ _id: "r1", description: "Binding", quantity: 1 },
+				{ _id: "r2", description: "", quantity: 2 },
 			],
 		});
 

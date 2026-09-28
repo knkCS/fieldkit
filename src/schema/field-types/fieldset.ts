@@ -48,6 +48,13 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 		return composeChildren(children).passthrough();
 	},
 
+	// A Fieldset holds one record, not rows, so it has no `_id` of its own —
+	// but the Fields it embeds may hold rows (ADR-0023).
+	mintIds(field, value, context) {
+		const children = field.children;
+		return children == null ? value : context.mintChildren(children, value);
+	},
+
 	settingsSchema: z
 		.object({
 			blueprint: z.string().optional(),

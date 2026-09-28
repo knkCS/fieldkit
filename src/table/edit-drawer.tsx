@@ -7,6 +7,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { FieldKitProvider } from "../renderer/provider";
 import { SpecForm } from "../renderer/spec-form/spec-form";
 import type { FieldTypePlugin } from "../schema/plugin";
+import { mintMissingIds } from "../schema/row-ids";
 import type { Schema } from "../schema/types";
 import {
 	fieldProducesValue,
@@ -38,9 +39,16 @@ export function EditDrawer({
 		[schema, plugins],
 	);
 
+	// A row stored before rows carried `_id`s gets them here, in the defaults,
+	// so the drawer opens clean and the save stores them (ADR-0023) — the same
+	// normalisation SpecForm applies to a form it is handed.
 	const defaults = useMemo(() => {
 		const specDefaults = getDefaultValues(schema, plugins);
-		return { ...specDefaults, ...initialValues };
+		return mintMissingIds(
+			schema,
+			{ ...specDefaults, ...initialValues },
+			plugins,
+		);
 	}, [schema, plugins, initialValues]);
 
 	const methods = useForm({

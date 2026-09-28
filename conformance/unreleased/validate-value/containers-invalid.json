@@ -1,0 +1,427 @@
+{
+	"description": "Errors inside rows, Blocks and a Fieldset's record are reported at _id paths, each child by its own type's rule; the row arrays' own caps and types too",
+	"spec": [
+		{
+			"field_type": "group",
+			"config": {
+				"name": "Authors",
+				"api_accessor": "authors",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"min_items": 1,
+				"max_items": 3
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Name",
+						"api_accessor": "name",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Born",
+						"api_accessor": "born",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"min": 0
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Lines",
+				"api_accessor": "lines",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Sku",
+						"api_accessor": "sku",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "Quantity",
+						"api_accessor": "quantity",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "virtual_table",
+			"config": {
+				"name": "Linked lines",
+				"api_accessor": "linked_lines",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-line"
+			},
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Street",
+						"api_accessor": "street",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "group",
+					"config": {
+						"name": "Residents",
+						"api_accessor": "residents",
+						"required": false,
+						"instructions": ""
+					},
+					"children": [
+						{
+							"field_type": "email",
+							"config": {
+								"name": "Email",
+								"api_accessor": "email",
+								"required": false,
+								"instructions": ""
+							},
+							"system": false
+						}
+					],
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "Opaque address",
+				"api_accessor": "opaque_address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address"
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Content",
+				"api_accessor": "content",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "heading",
+						"name": "Heading",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Title",
+									"api_accessor": "title",
+									"required": true,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "gallery",
+						"name": "Gallery",
+						"fields": [
+							{
+								"field_type": "group",
+								"config": {
+									"name": "Images",
+									"api_accessor": "images",
+									"required": false,
+									"instructions": ""
+								},
+								"children": [
+									{
+										"field_type": "url",
+										"config": {
+											"name": "Src",
+											"api_accessor": "src",
+											"required": true,
+											"instructions": ""
+										},
+										"system": false
+									}
+								],
+								"system": false
+							}
+						]
+					},
+					{
+						"type": "rule",
+						"name": "Rule"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Single",
+				"api_accessor": "single",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"allowed_blocks": [
+					{
+						"type": "quote",
+						"name": "Quote",
+						"fields": [
+							{
+								"field_type": "text",
+								"config": {
+									"name": "Text",
+									"api_accessor": "text",
+									"required": false,
+									"instructions": ""
+								},
+								"system": false
+							}
+						]
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "blocks",
+			"config": {
+				"name": "Anything",
+				"api_accessor": "anything",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"authors": [
+			{
+				"_id": "a1",
+				"born": -1
+			},
+			{
+				"_id": "a/2",
+				"name": 5
+			},
+			{
+				"_id": "a3",
+				"name": "C"
+			},
+			{
+				"_id": "a4",
+				"name": "D"
+			}
+		],
+		"lines": [
+			{
+				"_id": "l1",
+				"quantity": "2"
+			},
+			"not a row"
+		],
+		"linked_lines": [
+			5
+		],
+		"address": {
+			"residents": [
+				{
+					"_id": "r1",
+					"email": "nope"
+				}
+			]
+		},
+		"opaque_address": [
+			"not",
+			"a",
+			"record"
+		],
+		"content": [
+			{
+				"_id": "b1",
+				"_type": "heading"
+			},
+			{
+				"_id": "b2",
+				"_type": "gallery",
+				"images": [
+					{
+						"_id": "i~1",
+						"src": "not a url"
+					}
+				]
+			},
+			{
+				"_id": "b3",
+				"_type": "video",
+				"title": 5
+			},
+			{
+				"_id": "b4"
+			},
+			"not a block"
+		],
+		"single": [
+			{
+				"_id": "q1",
+				"_type": "heading",
+				"text": 5
+			},
+			{
+				"_id": "q2"
+			}
+		],
+		"anything": [
+			{
+				"_id": "z1",
+				"_type": 5
+			},
+			{
+				"_id": "z2"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/authors",
+				"code": "too_many_items"
+			},
+			{
+				"path": "/authors/a1/name",
+				"code": "required"
+			},
+			{
+				"path": "/authors/a1/born",
+				"code": "too_small"
+			},
+			{
+				"path": "/authors/a~12/name",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/lines/l1/sku",
+				"code": "required"
+			},
+			{
+				"path": "/lines/l1/quantity",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/lines/1",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/linked_lines/0",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/address/street",
+				"code": "required"
+			},
+			{
+				"path": "/address/residents/r1/email",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/opaque_address",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/content/b1/title",
+				"code": "required"
+			},
+			{
+				"path": "/content/b2/images/i~01/src",
+				"code": "invalid_format"
+			},
+			{
+				"path": "/content/b3/_type",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/content/b4/_type",
+				"code": "required"
+			},
+			{
+				"path": "/content/4",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/single/q1/_type",
+				"code": "invalid_value"
+			},
+			{
+				"path": "/single/q1/text",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/single/q2/_type",
+				"code": "required"
+			},
+			{
+				"path": "/anything/z1/_type",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/anything/z2/_type",
+				"code": "required"
+			}
+		]
+	}
+}

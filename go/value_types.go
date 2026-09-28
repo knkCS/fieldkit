@@ -164,8 +164,10 @@ func arrayValue(_ Field, settings map[string]any, value any, errs *valueErrors) 
 		errs.add("", CodeInvalidType, nil)
 		return
 	}
+	// A pair holding an _id is addressed by it, as every array item is.
+	segments := itemSegments(rows)
 	for i, row := range rows {
-		at := joinPath("", fmt.Sprint(i))
+		at := joinPath("", segments[i])
 		pair, ok := row.(map[string]any)
 		if !ok {
 			errs.add(at, CodeInvalidType, nil)

@@ -1,6 +1,7 @@
 // src/schema/validate-value.ts
 import type { ZodIssue } from "zod";
 import type { FieldTypePlugin } from "./plugin";
+import { itemSegments, toIdPath } from "./row-ids";
 import type { Field } from "./types";
 import { canonicalValue, isPlainObject, isUnset, stripUnset } from "./unset";
 import { toPath } from "./validate-settings";
@@ -39,12 +40,22 @@ export type ValueErrorCode =
 	/** A string beyond {@link VALUE_CAPS}.maxStringBytes. */
 	| "too_large"
 	/** Any other rule a type's `toZodType` states that none of the codes
-	 * above names. No built-in scalar type reports it. */
-	| "invalid_value";
+	 * above names — a Block whose `_type` is not one of its Field's Block
+	 * Types. No built-in scalar type reports it. */
+	| "invalid_value"
+	/** A row of a `group`, `virtual_table` or `blocks` value without an `_id`
+	 * (ADR-0023). At the row. */
+	| "missing_id"
+	/** A row repeating an `_id` an earlier row of the same array holds. At
+	 * each repeat. */
+	| "duplicate_id"
+	/** An array or object nested deeper than {@link VALUE_CAPS}.maxDepth. */
+	| "too_deep";
 
 /** One value error. `path` is `/`-separated from the data's root: a Field is
- * its Accessor, an array item its index (`/tags/2`), an object entry its key.
- * A segment holding `/` or `~` is escaped as in RFC 6901. */
+ * its Accessor, an object entry its key, and an array item its `_id` — a
+ * row's (`/authors/7f3a…/name`, ADR-0023) — or, for an item without one, its
+ * index (`/tags/2`). A segment holding `/` or `~` is escaped as in RFC 6901. */
 export interface ValueError {
 	path: string;
 	code: ValueErrorCode;
@@ -64,6 +75,9 @@ export const VALUE_CAPS = {
 	maxItems: 10_000,
 	/** Most UTF-8 bytes a string may hold: 1 MiB. */
 	maxStringBytes: 1_048_576,
+	/** Deepest an array or object may sit: the data's root is depth 0, its
+	 * values depth 1. */
+	maxDepth: 32,
 } as const;
 
 /**
@@ -81,7 +95,8 @@ export const VALUE_CAPS = {
  *   names it, is `not_canonical`: Unset is stored as absent. A form's
  *   submitted values are canonical already (`specToZodSchema` strips them);
  *   {@link canonicalValue} canonicalises anything else.
- * - {@link VALUE_CAPS} are enforced as `too_many_items` and `too_large`,
+ * - {@link VALUE_CAPS} are enforced as `too_many_items`, `too_large` and
+ *   `too_deep`,
  *   over the whole document — keys the Spec does not name, and the number of
  *   keys at the root, included. Data beyond a cap reports only the caps it
  *   breaks: nothing else is checked.
@@ -92,9 +107,11 @@ export const VALUE_CAPS = {
  * checked. A Field whose type is not among `plugins` is skipped. Data that is
  * not an object is one `invalid_type` at `""`.
  *
- * Containers are validated through their `toZodType` like any type, with
- * index paths into their rows; the Go module does not validate them yet, and
- * the conformance fixtures stay clear of them.
+ * Containers are validated through their `toZodType` like any type, and so
+ * are the `_id`s their rows carry (ADR-0023): a row without one is
+ * `missing_id` at the row, a repeat `duplicate_id` at the repeat. Every path
+ * addresses an array item by its `_id` where it has one ({@link toIdPath}).
+ * A key a row's Fields require, missing, is `required` like a top-level one.
  */
 export function validateValue(
 	spec: Field[],
@@ -114,6 +131,7 @@ export function validateValue(
 	}
 
 	const errors: ValueError[] = [];
+	const segments = new WeakMap<readonly unknown[], string[]>();
 	const seen = new Set<string>();
 	const push = (error: ValueError) => {
 		const key = `${error.code}\u0000${error.path}`;
@@ -146,8 +164,11 @@ export function validateValue(
 		const schema = zodTypeOf(plugin, canonicalField(field), pluginList);
 		const result = schema.safeParse(value);
 		if (result.success) continue;
-		for (const issue of result.error.issues) {
-			push({ path: toPath([...at, ...issue.path]), code: codeOf(issue) });
+		for (const issue of typeIssues(result.error.issues)) {
+			const code = codeOf(issue, valueAt(value, issue.path));
+			// A missing `_id` belongs to its row, which has no id to name it by.
+			const path = code === "missing_id" ? issue.path.slice(0, -1) : issue.path;
+			push({ path: toIdPath(canonical, [...at, ...path], segments), code });
 		}
 	}
 
@@ -185,12 +206,50 @@ function canonicalField(field: Field): Field<unknown> {
 	};
 }
 
-function codeOf(issue: ZodIssue): ValueErrorCode {
+/**
+ * The issues a value's own type raised. An optional string inside a row is
+ * composed as "the type, or `""`" (`specToZodSchema`, #38), and a value
+ * failing both is one `invalid_union` — whose first branch is the type's own
+ * answer. `""` itself is Unset and stripped before parsing, so the second
+ * branch never has anything to say.
+ */
+function typeIssues(issues: readonly ZodIssue[]): ZodIssue[] {
+	return issues.flatMap((issue) =>
+		issue.code === "invalid_union" && issue.unionErrors.length > 0
+			? typeIssues(issue.unionErrors[0].issues)
+			: [issue],
+	);
+}
+
+/** The value an issue path points at, or `undefined` where nothing is. */
+function valueAt(value: unknown, path: readonly (string | number)[]): unknown {
+	let node = value;
+	for (const segment of path) {
+		if (node === null || typeof node !== "object") return undefined;
+		node = (node as Record<string | number, unknown>)[segment];
+	}
+	return node;
+}
+
+/**
+ * The code for one Zod issue. `found` is the value at the issue's path: an
+ * issue about a value that is not there — whichever Zod code states it, a
+ * type check, a literal, a union's discriminator, a refinement — is a missing
+ * key, which after canonicalisation is an Unset required value, or a row's
+ * missing `_id`.
+ */
+function codeOf(issue: ZodIssue, found: unknown): ValueErrorCode {
+	if (issue.code === "custom" && issue.params?.code === "duplicate_id") {
+		return "duplicate_id";
+	}
+	if (found === undefined && issue.path.length > 0) {
+		return issue.path[issue.path.length - 1] === "_id"
+			? "missing_id"
+			: "required";
+	}
 	switch (issue.code) {
 		case "invalid_type":
-			// A key a row's object schema requires, missing: after
-			// canonicalisation that is an Unset required value.
-			return issue.received === "undefined" ? "required" : "invalid_type";
+			return "invalid_type";
 		case "invalid_string":
 			return "invalid_format";
 		case "too_small":
@@ -214,8 +273,9 @@ function reportNonCanonical(
 	push: (error: ValueError) => void,
 ): void {
 	if (Array.isArray(value)) {
+		const ids = itemSegments(value);
 		value.forEach((item, index) => {
-			reportNonCanonical(item, [...at, index], push);
+			reportNonCanonical(item, [...at, ids[index]], push);
 		});
 		return;
 	}
@@ -231,10 +291,11 @@ function reportNonCanonical(
 }
 
 /** The caps a value breaks, at the paths it breaks them. A container beyond
- * `maxItems` is not looked into. */
+ * `maxDepth` or `maxItems` is not looked into. An array item is addressed by
+ * its `_id` where it has one, as every value path is. */
 function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
 	const errors: ValueError[] = [];
-	const walk = (node: unknown, path: (string | number)[]) => {
+	const walk = (node: unknown, path: (string | number)[], depth: number) => {
 		if (typeof node === "string") {
 			if (exceedsStringCap(node)) {
 				errors.push({
@@ -246,10 +307,16 @@ function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
 			return;
 		}
 		if (!Array.isArray(node) && !isPlainObject(node)) return;
-		const entries: [string | number, unknown][] = Array.isArray(node)
-			? node.map((item, index) => [index, item])
-			: Object.entries(node);
-		if (entries.length > VALUE_CAPS.maxItems) {
+		if (depth > VALUE_CAPS.maxDepth) {
+			errors.push({
+				path: toPath(path),
+				code: "too_deep",
+				params: { maximum: VALUE_CAPS.maxDepth },
+			});
+			return;
+		}
+		const size = Array.isArray(node) ? node.length : Object.keys(node).length;
+		if (size > VALUE_CAPS.maxItems) {
 			errors.push({
 				path: toPath(path),
 				code: "too_many_items",
@@ -257,9 +324,18 @@ function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
 			});
 			return;
 		}
-		for (const [key, child] of entries) walk(child, [...path, key]);
+		if (Array.isArray(node)) {
+			const ids = itemSegments(node);
+			node.forEach((item, index) => {
+				walk(item, [...path, ids[index]], depth + 1);
+			});
+			return;
+		}
+		for (const [key, child] of Object.entries(node)) {
+			walk(child, [...path, key], depth + 1);
+		}
 	};
-	walk(value, at);
+	walk(value, at, 0);
 	return errors;
 }
 

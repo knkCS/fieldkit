@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { builtInFieldTypes } from "../../../schema/field-types";
+import { mintMissingIds } from "../../../schema/row-ids";
 import type { Field } from "../../../schema/types";
 import { specToZodSchema } from "../../../schema/zod-builder";
 import type { FieldKitAdapters } from "../../adapters";
@@ -29,7 +30,13 @@ export function FieldStoryWrapper({
 	const schema = specToZodSchema(fields, builtInFieldTypes);
 	const methods = useForm({
 		resolver: zodResolver(schema),
-		defaultValues: defaultValues ?? {},
+		// FieldRenderer, unlike SpecForm, does not mint row `_id`s into the
+		// form it is handed (ADR-0023), so a story's rows get them here.
+		defaultValues: mintMissingIds(
+			fields,
+			defaultValues ?? {},
+			builtInFieldTypes,
+		),
 		mode: "onBlur",
 	});
 
