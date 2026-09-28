@@ -350,7 +350,8 @@ instructions, required, default value, hidden/read-only/localizable, and —
 `group` fields only — a read-only Children list with per-row Edit buttons
 that drill the panel into a child, with a Back control), **Validation**
 (min/max length, pattern + message, unique), and **Type settings** (the
-plugin's own settings UI). A settings UI holding a **Spec of its own** —
+plugin's own settings UI, or a form generated from its `settingsSchema` —
+see [Generic settings form](#generic-settings-form)). A settings UI holding a **Spec of its own** —
 a Reference Field's Attribute Spec and a Virtual Table's embedded Row Spec
 are the two built-in cases — drills into it through that **same**
 Back-and-frames mechanism rather than a nested editor of its own: a Spec
@@ -400,6 +401,43 @@ that collides with a sibling, or is empty, shows an inline error and is
 already-committed field (even validly) shows a non-blocking warning
 (`labels.committedAccessorWarning`) — the data stored under the old
 accessor won't follow.
+
+### Generic settings form
+
+A field type with **no `settingsComponent`** is still configurable: when it
+declares a `settingsSchema` (ADR-0018), the Type settings tab renders a form
+generated from that Zod schema at runtime. Built-in types without an editor of
+their own (`text`, `number`, `select`, …) get it too, as does any Consumer's
+type — every type is configurable from its first release.
+
+| The schema declares | The form renders |
+|---|---|
+| `z.string()` | A text box |
+| `z.number()` | A number box (`int()` and inclusive `min`/`max` become its attributes) |
+| `z.boolean()` | A checkbox |
+| `z.enum([...])`, a union of string literals | A single choice, clearable |
+| `z.array()` of strings or numbers | A list of rows with Add / Remove |
+| `z.array()` of an enum | A multi-choice |
+| `z.object({...})` | Its keys, nested under the key's caption |
+| anything else (`z.record`, a list of objects, `z.unknown()`) | The stored value as read-only JSON — shown, never written |
+
+`optional`, `nullable`, `default` and refinements are seen through. A key's
+caption is the key made readable (`max_items` → "Max items"); a
+`.describe("…")` on it becomes the helper text under the control. Setting
+names are the type author's vocabulary, so they do not pass through `labels`;
+the form's own words (`settingsAddItem`, `settingsRemoveItem`,
+`settingsNotSet`, `settingsReadOnly`) do.
+
+The form **writes only the keys its schema declares** — a stored key the
+schema does not know is dropped on the next edit rather than carried into an
+`unknown_setting` error — and **keeps Unset out of what it writes**
+(ADR-0021): emptying a box removes its key, a blank list row is not stored
+until it is filled in, and an unchecked box is stored as absent (or as `false`
+when the schema's `default` is `true`). `0` and `false` are values and are
+kept. Locked Settings are honoured like everywhere else (below): each
+top-level key asks `useSettingLock`, and a frozen object freezes everything
+inside it. A schema that declares no key at all still shows
+`panelNoSettings`.
 
 ## System Fields
 
@@ -460,7 +498,8 @@ config: {
 For a **custom field type**, honouring the list is not something your
 `settingsComponent` has to remember — the lock reaches the *controls*. Every
 control fieldkit mounts internally (`BlueprintPicker`, `CapInput`,
-`PinModePicker`, the attribute list) takes the settings key it writes and
+`PinModePicker`, the attribute list, every control of the generic settings
+form) takes the settings key it writes and
 asks about that key itself. For controls of your own, `@knkcs/fieldkit/editor`
 exports the same hook they use:
 
@@ -621,7 +660,11 @@ are shown.
 | `panelGeneral` | `"General"` | **Deprecated, unused since 0.10.0** — superseded by `panelTabGeneral` (key kept: label keys are frozen) |
 | `panelValidation` | `"Validation"` | **Deprecated, unused since 0.10.0** — superseded by `panelTabValidation` |
 | `panelTypeSettings` | `"Type settings"` | **Deprecated, unused since 0.10.0** — superseded by `panelTabType` |
-| `panelNoSettings` | `"No additional settings"` | Shown when a type has no settings UI |
+| `panelNoSettings` | `"No additional settings"` | Shown when a type has neither a `settingsComponent` nor a `settingsSchema` declaring any key |
+| `settingsAddItem` | `"Add"` | Generic settings form: appends an item to a list setting |
+| `settingsRemoveItem` | `"Remove"` | Generic settings form: aria-label of a list item's remove button |
+| `settingsNotSet` | `"Not set"` | Generic settings form: placeholder of an unset choice setting |
+| `settingsReadOnly` | `"This setting can't be edited here — shown as stored."` | Generic settings form: note under a setting it shows as read-only JSON |
 | `panelChildren` | `"Children"` | Group children heading inside the General tab |
 | `panelBack` | `"Back"` | Panel drill-in Back button |
 | `panelClose` | `"Close"` | Panel close button aria-label |
@@ -839,6 +882,15 @@ first where an authored Row Spec would be discarded. This story registers a
 blueprint adapter; without one, only the embedded option is offered.
 
 <Canvas of={Stories.VirtualTableRowSpec} />
+
+### Generic Settings Form
+
+`Score` is a field type the story registers with a `settingsSchema` and no
+`settingsComponent`. Select it → **Type settings** for the generated form: a
+text box, a whole-number box, a checkbox, a choice, a list, a nested object, a
+record shown read-only, and a setting the host froze with its reason.
+
+<Canvas of={Stories.GenericSettingsForm} />
 
 ### Try It
 

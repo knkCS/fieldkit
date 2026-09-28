@@ -2,12 +2,19 @@
 import { Text } from "@chakra-ui/react";
 import { restoreLockedSettings } from "../../schema/locked-settings";
 import type { PanelSectionProps } from "../field-config-panel";
+import {
+	GenericSettingsForm,
+	hasGenericSettings,
+} from "../field-settings/generic-settings-form";
 import { SettingLockProvider } from "../field-settings/setting-lock";
 
 /**
  * Type-settings section: delegates to the plugin's own settingsComponent,
  * ported from field-modal.tsx:499-510 (defaultSettings fallback, immediate
  * apply — no local buffering, unlike the modal's original Save-on-close).
+ * A type with no settingsComponent gets a form generated from its
+ * `settingsSchema` instead (ADR-0018), and only a type with neither — or with
+ * a schema declaring no key — shows "no settings".
  *
  * It is also the one place a Field's frozen settings meet the component
  * editing them (ADR-0011), and it honours them on both sides:
@@ -29,17 +36,34 @@ export function SettingsSection({
 	plugins,
 }: PanelSectionProps) {
 	const SettingsComponent = plugin?.settingsComponent;
+	const settingsSchema = plugin?.settingsSchema;
+	const settings = field.settings ?? plugin?.defaultSettings ?? null;
+	const locked = field.config.locked_settings;
 
 	if (!SettingsComponent) {
+		if (settingsSchema && hasGenericSettings(settingsSchema)) {
+			return (
+				<SettingLockProvider locked={locked}>
+					<GenericSettingsForm
+						schema={settingsSchema}
+						settings={settings}
+						onChange={(next) =>
+							onFieldChange({
+								...field,
+								settings: restoreLockedSettings(locked, settings, next),
+							})
+						}
+						labels={labels}
+					/>
+				</SettingLockProvider>
+			);
+		}
 		return (
 			<Text fontSize="sm" color="fg.muted">
 				{labels.panelNoSettings}
 			</Text>
 		);
 	}
-
-	const settings = field.settings ?? plugin?.defaultSettings ?? null;
-	const locked = field.config.locked_settings;
 
 	return (
 		<SettingLockProvider locked={locked}>

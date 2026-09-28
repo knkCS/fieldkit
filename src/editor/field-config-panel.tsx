@@ -81,6 +81,11 @@ export type PanelLabels = Pick<
 	| "panelTabValidation"
 	| "panelTabType"
 	| "panelNoSettings"
+	// The generic settings form's own controls.
+	| "settingsAddItem"
+	| "settingsRemoveItem"
+	| "settingsNotSet"
+	| "settingsReadOnly"
 	| "panelChildren"
 	| "panelBack"
 	| "panelClose"
