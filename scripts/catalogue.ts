@@ -78,6 +78,12 @@ function toJsonSchema(plugin: FieldTypePlugin): JsonSchema {
 }
 
 function assertSupported(schema: JsonSchema, typeId: string, at: string) {
+	// Strict at every level: an unknown key is an error, never dropped.
+	if (schema.type === "object" && schema.additionalProperties !== false) {
+		throw new Error(
+			`${typeId}: settings schema object at "${at || "/"}" is not strict — declare it with .strict()`,
+		);
+	}
 	for (const [keyword, value] of Object.entries(schema)) {
 		if (!SUPPORTED_KEYWORDS.has(keyword)) {
 			throw new Error(
@@ -113,7 +119,12 @@ function positions(plugin: FieldTypePlugin): string[] {
 
 /** Consumers are `availableIn` without `attribute`, which is a Position. */
 function consumers(plugin: FieldTypePlugin): string[] {
-	return (plugin.availableIn ?? ["blueprint", "task", "form"]).filter(
+	// No default: Catalogue data is frozen once released (ADR-0019), so a
+	// type in it says which Consumers offer it rather than inheriting a guess.
+	if (!plugin.availableIn) {
+		throw new Error(`${plugin.id}: declares a settingsSchema but no availableIn`);
+	}
+	return plugin.availableIn.filter(
 		(c) => c !== "attribute",
 	);
 }

@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strconv"
 	"unicode/utf16"
 )
 
@@ -15,18 +16,18 @@ import (
 // to generate anything else. Decoding a Catalogue with another keyword fails,
 // so a keyword can never be silently ignored here.
 type Schema struct {
-	Type                 schemaTypes        `json:"type,omitempty"`
-	Properties           map[string]*Schema `json:"properties,omitempty"`
-	AdditionalProperties *additional        `json:"additionalProperties,omitempty"`
-	Required             []string           `json:"required,omitempty"`
-	Items                *Schema            `json:"items,omitempty"`
-	Enum                 []json.RawMessage  `json:"enum,omitempty"`
-	Minimum              *float64           `json:"minimum,omitempty"`
-	Maximum              *float64           `json:"maximum,omitempty"`
-	ExclusiveMinimum     *float64           `json:"exclusiveMinimum,omitempty"`
-	ExclusiveMaximum     *float64           `json:"exclusiveMaximum,omitempty"`
-	MinLength            *int               `json:"minLength,omitempty"`
-	MaxLength            *int               `json:"maxLength,omitempty"`
+	Type                 schemaTypes           `json:"type,omitempty"`
+	Properties           map[string]*Schema    `json:"properties,omitempty"`
+	AdditionalProperties *additionalProperties `json:"additionalProperties,omitempty"`
+	Required             []string              `json:"required,omitempty"`
+	Items                *Schema               `json:"items,omitempty"`
+	Enum                 []json.RawMessage     `json:"enum,omitempty"`
+	Minimum              *float64              `json:"minimum,omitempty"`
+	Maximum              *float64              `json:"maximum,omitempty"`
+	ExclusiveMinimum     *float64              `json:"exclusiveMinimum,omitempty"`
+	ExclusiveMaximum     *float64              `json:"exclusiveMaximum,omitempty"`
+	MinLength            *int                  `json:"minLength,omitempty"`
+	MaxLength            *int                  `json:"maxLength,omitempty"`
 }
 
 // schemaTypes is JSON Schema's "type": one name, or a list of them.
@@ -53,28 +54,28 @@ func (t schemaTypes) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string(t))
 }
 
-// additional is JSON Schema's "additionalProperties": true, false, or a
+// additionalProperties is JSON Schema's "additionalProperties": true, false, or a
 // schema every undeclared property must match.
-type additional struct {
+type additionalProperties struct {
 	Allowed bool
 	Schema  *Schema
 }
 
-func (a *additional) UnmarshalJSON(data []byte) error {
+func (a *additionalProperties) UnmarshalJSON(data []byte) error {
 	var allowed bool
 	if err := json.Unmarshal(data, &allowed); err == nil {
-		*a = additional{Allowed: allowed}
+		*a = additionalProperties{Allowed: allowed}
 		return nil
 	}
 	var s Schema
 	if err := decodeStrict(data, &s); err != nil {
 		return fmt.Errorf("additionalProperties: %w", err)
 	}
-	*a = additional{Allowed: true, Schema: &s}
+	*a = additionalProperties{Allowed: true, Schema: &s}
 	return nil
 }
 
-func (a additional) MarshalJSON() ([]byte, error) {
+func (a additionalProperties) MarshalJSON() ([]byte, error) {
 	if a.Schema != nil {
 		return json.Marshal(a.Schema)
 	}
@@ -104,9 +105,12 @@ func (c *Catalogue) ValidateSettings(fieldType string, settings json.RawMessage)
 	}
 	var value any = map[string]any{}
 	if len(bytes.TrimSpace(settings)) > 0 {
-		if err := json.Unmarshal(settings, &value); err != nil {
+		dec := json.NewDecoder(bytes.NewReader(settings))
+		dec.UseNumber()
+		if err := dec.Decode(&value); err != nil || dec.More() {
 			return []Error{{Path: "", Code: CodeInvalidSetting}}
 		}
+		value = toFloats(value)
 	}
 	value = stripUnset(value)
 	if isUnset(value) {
@@ -271,6 +275,26 @@ func stripUnset(value any) any {
 			}
 		}
 		return out
+	}
+	return value
+}
+
+// toFloats turns every json.Number into the float64 JS would parse it as: a
+// number beyond float64's range is ±Inf, as JSON.parse makes it, rather than a
+// decode error.
+func toFloats(value any) any {
+	switch x := value.(type) {
+	case json.Number:
+		f, _ := strconv.ParseFloat(x.String(), 64) // ±Inf on ErrRange
+		return f
+	case []any:
+		for i, item := range x {
+			x[i] = toFloats(item)
+		}
+	case map[string]any:
+		for key, child := range x {
+			x[key] = toFloats(child)
+		}
 	}
 	return value
 }

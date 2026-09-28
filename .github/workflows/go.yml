@@ -31,7 +31,8 @@ jobs:
     with:
       go-version-file: go/go.mod
       working-directory: go
-      # The module has no containers; the default mode runs a plain `go test`.
+      # "testcontainers" is the mode that starts no service containers: its job
+      # is a plain `go test`, and this module needs no containers at all.
       test-mode: testcontainers
       test-timeout: 10m
       check-ent-drift: false
