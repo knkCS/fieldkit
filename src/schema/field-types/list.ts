@@ -37,6 +37,14 @@ export const listPlugin: FieldTypePlugin<ListSettings> = {
 			: z.array(z.string());
 	},
 
+	settingsSchema: z
+		.object({
+			max_items_per_page: z.number().int().nonnegative().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { max_items_per_page: 0 },
 
 	defaultValue: () => [],

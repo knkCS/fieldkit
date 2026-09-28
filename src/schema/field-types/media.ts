@@ -30,6 +30,15 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			accept: z.array(z.string()).optional(),
+			max_items: z.number().int().nonnegative().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { accept: undefined, max_items: undefined },
 
 	defaultValue: () => [],

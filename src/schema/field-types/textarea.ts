@@ -38,6 +38,15 @@ export const textareaPlugin: FieldTypePlugin<TextareaSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			placeholder: z.string().optional(),
+			rows: z.number().int().positive().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+
 	defaultSettings: { placeholder: "", rows: 4 },
 
 	defaultValue: () => "",

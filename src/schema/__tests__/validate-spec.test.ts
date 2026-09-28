@@ -346,9 +346,16 @@ describe("validateSpec — Field Types and settings", () => {
 	});
 
 	it("leaves the settings of a type without a settingsSchema alone", () => {
+		// A custom plugin, so the case outlives the built-ins moving over.
+		const { settingsSchema: _, ...legacy } = builtIns.get("select") ?? {};
 		const result = validateSpec(
-			[field("select", "colour", { anything: true, options: [] })],
-			builtIns,
+			[field("legacy_select", "colour", { anything: true, options: [] })],
+			new Map([
+				[
+					"legacy_select",
+					{ ...legacy, id: "legacy_select" } as FieldTypePlugin,
+				],
+			]),
 		);
 		expect(result.fieldErrors).toEqual([]);
 	});

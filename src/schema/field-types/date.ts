@@ -31,6 +31,16 @@ export const datePlugin: FieldTypePlugin<DateSettings> = {
 		return schema;
 	},
 
+	settingsSchema: z
+		.object({
+			enable_range: z.boolean().optional(),
+			min_date: z.string().optional(),
+			max_date: z.string().optional(),
+		})
+		.strict(),
+
+	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+
 	defaultSettings: { enable_range: false },
 	availableIn: ["blueprint", "task", "form", "attribute"],
 };

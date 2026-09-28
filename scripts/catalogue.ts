@@ -80,8 +80,12 @@ function toJsonSchema(plugin: FieldTypePlugin): JsonSchema {
 }
 
 function assertSupported(schema: JsonSchema, typeId: string, at: string) {
-	// Strict at every level: an unknown key is an error, never dropped.
-	if (schema.type === "object" && schema.additionalProperties !== false) {
+	// Strict at every level: an unknown key is an error, never dropped. A
+	// record (`z.record()`) is strict too — it declares no keys, and every
+	// value it holds is checked against its `additionalProperties` schema.
+	const additional = schema.additionalProperties;
+	const isRecord = typeof additional === "object" && additional !== null;
+	if (schema.type === "object" && additional !== false && !isRecord) {
 		throw new Error(
 			`${typeId}: settings schema object at "${at || "/"}" is not strict — declare it with .strict()`,
 		);
