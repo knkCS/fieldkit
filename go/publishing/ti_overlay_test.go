@@ -166,6 +166,41 @@ func TestTIOverlaySitsAtTheRootAndYieldsNothing(t *testing.T) {
 	}
 }
 
+func TestTIOverlayMintsEveryEntry(t *testing.T) {
+	f := decode(t, overlaySpec)[0]
+	value := json.RawMessage(`{"entries":[{"anchor":{"node":"1","offset":0},"command":"np","source":"editor"},` + entry + `,{"_id":"","anchor":{"node":"2","offset":1},"command":"np","source":"oasys"}]}`)
+	// Without the package the type is unknown, and nothing is minted.
+	if untouched, err := fieldkit.MintIDs(f, value, "content-1"); err != nil || strings.Count(string(untouched), `"_id"`) != 2 {
+		t.Fatalf("fieldkit.MintIDs = %s, %v", untouched, err)
+	}
+	c := publishing.DefaultCatalogue()
+	first, err := c.MintIDs(f, value, "content-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := c.MintIDs(f, value, "content-1"); string(first) != string(again) {
+		t.Errorf("minting is not deterministic:\n%s\n%s", first, again)
+	}
+	var minted struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	if err := json.Unmarshal(first, &minted); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := minted.Entries[0]["_id"].(string)
+	b, _ := minted.Entries[2]["_id"].(string)
+	if a == "" || b == "" || a == b || minted.Entries[1]["_id"] != "e1" {
+		t.Errorf("MintIDs = %s", first)
+	}
+	if errs := c.ValidateValue(decode(t, overlaySpec), json.RawMessage(`{"ti":`+string(first)+`}`)); len(errs) != 0 {
+		t.Errorf("the minted value is invalid: %+v", errs)
+	}
+	// A value not of the type's shape is returned as it is.
+	if out, err := c.MintIDs(f, json.RawMessage(`["x"]`), "content-1"); err != nil || string(out) != `["x"]` {
+		t.Errorf("MintIDs(not an overlay) = %s, %v", out, err)
+	}
+}
+
 func TestTIOverlayComparesAndMergesPerEntry(t *testing.T) {
 	c := publishing.DefaultCatalogue()
 	resolved := resolveOverlay(t, `{"instructions":[{"code":"np"}]}`)

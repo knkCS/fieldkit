@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { edges, texts } from "../../schema/content-walk";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import { resolveSpec, specPins } from "../../schema/resolve-spec";
@@ -204,6 +205,58 @@ describe("outline_tree values", () => {
 				plugins,
 			),
 		).toEqual([]);
+	});
+});
+
+describe("outline_tree texts and edges", () => {
+	const resolved = (fields: Field[]) => ({
+		catalogue: "",
+		vocabulary: "",
+		fields,
+		parts: {},
+	});
+	const title = field("text", "title");
+	const described = field("outline_tree", "outline", {
+		settings: { blueprint: "outline-bp@1" },
+		children: [
+			{ ...title, config: { ...title.config, search: "A" } } as Field,
+			field("media", "cover"),
+		],
+	});
+	const data = {
+		outline: [
+			{
+				_id: "n1",
+				values: { title: "One", cover: ["a1"] },
+				children: [{ _id: "n2", values: { title: "One.One" } }],
+			},
+		],
+	};
+
+	it("has none of its own, but its nodes' values yield theirs at every level", () => {
+		expect(texts(resolved([described]), data, plugins)).toEqual([
+			{ path: "/outline/n1/values/title", weight: "A", text: "One" },
+			{
+				path: "/outline/n1/children/n2/values/title",
+				weight: "A",
+				text: "One.One",
+			},
+		]);
+		expect(edges(resolved([described]), data, plugins)).toEqual([
+			{
+				path: "/outline/n1/values/cover",
+				kind: "media",
+				target: { asset: "a1" },
+			},
+		]);
+	});
+
+	it("yields nothing from an unresolved outline's opaque values", () => {
+		const unresolved = field("outline_tree", "outline", {
+			settings: { blueprint: "outline-bp@1" },
+		});
+		expect(texts(resolved([unresolved]), data, plugins)).toEqual([]);
+		expect(edges(resolved([unresolved]), data, plugins)).toEqual([]);
 	});
 });
 

@@ -1,0 +1,148 @@
+{
+	"description": "With the publishing package, an outline_tree has no text of its own; each node's values yield theirs at every level against the Blueprint Release the Field resolved to, each Field by its own search weight, at the node's _id path",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"outline-bp@1": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": "",
+						"search": "A"
+					},
+					"system": false
+				},
+				{
+					"field_type": "textarea",
+					"config": {
+						"name": "Summary",
+						"api_accessor": "summary",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "media",
+					"config": {
+						"name": "Cover",
+						"api_accessor": "cover",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"data": {
+		"outline": [
+			{
+				"_id": "n1",
+				"values": {
+					"kind": "part",
+					"title": "Erster Teil",
+					"cover": [
+						"asset-1"
+					]
+				},
+				"children": [
+					{
+						"_id": "n2",
+						"values": {
+							"kind": "chapter",
+							"title": "Kapitel 1",
+							"summary": "Worum es geht",
+							"cover": [
+								"asset-2",
+								"asset-3"
+							]
+						},
+						"children": [
+							{
+								"_id": "n3",
+								"values": {
+									"title": "Abschnitt 1.1"
+								}
+							}
+						]
+					},
+					{
+						"_id": "n4"
+					}
+				]
+			},
+			{
+				"_id": "n5",
+				"values": {
+					"title": "Anhang"
+				}
+			}
+		]
+	},
+	"expect": {
+		"texts": [
+			{
+				"path": "/outline/n1/values/title",
+				"weight": "A",
+				"text": "Erster Teil"
+			},
+			{
+				"path": "/outline/n1/children/n2/values/title",
+				"weight": "A",
+				"text": "Kapitel 1"
+			},
+			{
+				"path": "/outline/n1/children/n2/values/summary",
+				"weight": "D",
+				"text": "Worum es geht"
+			},
+			{
+				"path": "/outline/n1/children/n2/children/n3/values/title",
+				"weight": "A",
+				"text": "Abschnitt 1.1"
+			},
+			{
+				"path": "/outline/n5/values/title",
+				"weight": "A",
+				"text": "Anhang"
+			}
+		]
+	}
+}

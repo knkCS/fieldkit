@@ -28,6 +28,7 @@ import {
 	referenceSpecFor,
 } from "../../schema/reference";
 import {
+	eachTreeNode,
 	REFERENCE_SPEC_PIN,
 	ReferenceTreeZodArray,
 	referenceHeldSpecs,
@@ -36,7 +37,7 @@ import {
 	referenceValuesSchema,
 } from "../../schema/reference-plugin";
 import { referenceValuesZodType } from "../../schema/reference-spec";
-import { itemSegments, rowIdSchema } from "../../schema/row-ids";
+import { rowIdSchema } from "../../schema/row-ids";
 import type { Field } from "../../schema/types";
 import { isPlainObject } from "../../schema/unset";
 import { ReferenceCell } from "../../table/cells/reference-cell";
@@ -258,26 +259,6 @@ function manipulationNodeSchema(
 	return node;
 }
 
-/** Each object node of a tree value with its segments below the Field — its
- * `_id`, through `children` (ADR-0023) — in document order. */
-function eachNode(
-	value: unknown,
-	visit: (node: Record<string, unknown>, segments: string[]) => void,
-): void {
-	const walk = (nodes: unknown[], prefix: string[]) => {
-		const segments = itemSegments(nodes);
-		nodes.forEach((node, index) => {
-			if (!isPlainObject(node)) return;
-			const at = [...prefix, segments[index]];
-			visit(node, at);
-			if (Array.isArray(node.children)) {
-				walk(node.children, [...at, "children"]);
-			}
-		});
-	};
-	if (Array.isArray(value)) walk(value, []);
-}
-
 /** The edge a Content and its Pin make, of a kind. */
 function edgeTo(
 	kind: string,
@@ -301,7 +282,7 @@ function edgeTo(
  */
 export function manipulationTreeEdges(value: unknown): ValueEdge[] {
 	const edges: ValueEdge[] = [];
-	eachNode(value, (node, segments) => {
+	eachTreeNode(value, (node, segments) => {
 		if (!isIntent(node.intent)) return;
 		const own = edgeTo(node.intent, node.id, node.pin, segments);
 		if (own) edges.push(own);
@@ -340,7 +321,7 @@ export function manipulationTreeRecords(
 	context?: ValueContext,
 ): HeldRecord[] {
 	const records: HeldRecord[] = [];
-	eachNode(value, (node, segments) => {
+	eachTreeNode(value, (node, segments) => {
 		if (!isPlainObject(node.values)) return;
 		const fields = nodeValuesSpec(node, field.settings, context);
 		if (!fields?.length) return;

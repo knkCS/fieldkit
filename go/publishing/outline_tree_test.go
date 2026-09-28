@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	fieldkit "github.com/knkcs/fieldkit/go"
@@ -115,6 +116,78 @@ func TestOutlineTreeValues(t *testing.T) {
 	unresolved := decode(t, `[{"field_type":"outline_tree","config":{"name":"Outline","api_accessor":"outline","required":false,"instructions":""},"settings":{"blueprint":"outline-bp@1"},"system":false}]`)
 	if errs := c.ValidateValue(unresolved, json.RawMessage(`{"outline":[{"_id":"n1","values":{"anything":1}}]}`)); len(errs) != 0 {
 		t.Errorf("unresolved: %v", errs)
+	}
+}
+
+func TestOutlineTreeMintsEveryNode(t *testing.T) {
+	spec := decode(t, outline)
+	f := spec[0]
+	value := json.RawMessage(`[{"values":{"title":"One"},"children":[{"_id":"keep","values":{"title":"One.One"}},{"values":{"title":"x"},"children":[{"values":{"title":"y"}}]}]},{"_id":"","values":{"title":"Two"}}]`)
+	// Without the package the type is unknown, and nothing is minted.
+	untouched, err := fieldkit.MintIDs(f, value, "content-1")
+	if err != nil || strings.Count(string(untouched), `"_id"`) != 2 {
+		t.Fatalf("fieldkit.MintIDs = %s, %v", untouched, err)
+	}
+	c := publishing.DefaultCatalogue()
+	first, err := c.MintIDs(f, value, "content-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := c.MintIDs(f, value, "content-1"); string(first) != string(again) {
+		t.Errorf("minting is not deterministic:\n%s\n%s", first, again)
+	}
+	if other, _ := c.MintIDs(f, value, "content-2"); string(first) == string(other) {
+		t.Errorf("two seeds minted the same ids: %s", first)
+	}
+	var minted any
+	if err := json.Unmarshal(first, &minted); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	fieldkit.EachTreeNode(minted, func(node map[string]any, _ string) {
+		id, _ := node["_id"].(string)
+		if id == "" || ids[id] {
+			t.Errorf("a node has no _id of its own: %s", first)
+		}
+		ids[id] = true
+	})
+	if len(ids) != 5 || !ids["keep"] {
+		t.Errorf("MintIDs = %s", first)
+	}
+	if errs := c.ValidateValue(spec, json.RawMessage(`{"outline":`+string(first)+`}`)); len(errs) != 0 {
+		t.Errorf("the minted value is invalid: %+v", errs)
+	}
+}
+
+func TestOutlineTreeNodeValuesYieldTextsAndEdges(t *testing.T) {
+	spec := decode(t, `[{"field_type":"outline_tree","config":{"name":"Outline","api_accessor":"outline","required":false,"instructions":""},
+	 "settings":{"blueprint":"outline-bp@1"},
+	 "children":[
+	  {"field_type":"text","config":{"name":"Title","api_accessor":"title","required":false,"instructions":"","search":"A"},"system":false},
+	  {"field_type":"media","config":{"name":"Cover","api_accessor":"cover","required":false,"instructions":""},"system":false}
+	 ],"system":false}]`)
+	data := json.RawMessage(`{"outline":[{"_id":"n1","values":{"title":"One","cover":["a1"]},"children":[{"_id":"n2","values":{"title":"One.One"}}]}]}`)
+	c := publishing.DefaultCatalogue()
+	resolved := &fieldkit.ResolvedSpec{Fields: spec}
+	texts, err := c.Texts(resolved, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, text := range texts {
+		paths = append(paths, text.Path+"="+text.Text)
+	}
+	if want := []string{"/outline/n1/values/title=One", "/outline/n1/children/n2/values/title=One.One"}; !reflect.DeepEqual(paths, want) {
+		t.Errorf("Texts = %v, want %v", paths, want)
+	}
+	edges, err := c.Edges(resolved, data)
+	if err != nil || len(edges) != 1 || edges[0].Path != "/outline/n1/values/cover" || edges[0].Kind != "media" {
+		t.Errorf("Edges = %+v, %v", edges, err)
+	}
+	// Unresolved, a node's values are opaque, and yield nothing.
+	unresolved := decode(t, `[{"field_type":"outline_tree","config":{"name":"Outline","api_accessor":"outline","required":false,"instructions":""},"settings":{"blueprint":"outline-bp@1"},"system":false}]`)
+	if texts, err := c.Texts(&fieldkit.ResolvedSpec{Fields: unresolved}, data); err != nil || len(texts) != 0 {
+		t.Errorf("unresolved: Texts = %+v, %v", texts, err)
 	}
 }
 
