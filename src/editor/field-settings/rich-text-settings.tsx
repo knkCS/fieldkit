@@ -22,7 +22,7 @@ const VIEW_MODES: ViewModeOption[] = [
  * Type-settings editor for `rich_text`: the Text Type Release its text is
  * written in (`text_type`, a Pin — ADR-0020) and how the editor shows it.
  *
- * The Text Types come from `adapters.textType.listEditorSpecs()`, each entry's
+ * The Text Types come from `adapters.textType.list()`, each entry's
  * `id` being the Text Type Release id the Pin stores. Without that adapter the
  * picker degrades to Release id entry, as the Fieldset's Blueprint picker
  * does, so the Field stays configurable.
@@ -39,17 +39,15 @@ export function RichTextSettingsEditor({
 
 	// Memoised on the adapter, so the picker's list fetch keys on something
 	// stable (useBlueprintList fetches once per mount either way).
+	const listTextTypes = textType?.list;
 	const source = useMemo(
 		() => ({
-			list: textType?.listEditorSpecs
+			list: listTextTypes
 				? async () =>
-						(await textType.listEditorSpecs()).map(({ id, name }) => ({
-							id,
-							name,
-						}))
+						(await listTextTypes()).map(({ id, name }) => ({ id, name }))
 				: undefined,
 		}),
-		[textType],
+		[listTextTypes],
 	);
 
 	const viewMode = VIEW_MODES.find(
