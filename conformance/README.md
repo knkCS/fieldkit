@@ -204,7 +204,10 @@ conformance/
   Catalogue marks `has_text` yield text (TS `text` on the plugin, Go
   `ValueText`): a string type the string itself; a List its Entries, one per
   line; an Array its keys and values, one per line, pair by pair — keyed, key
-  by key in UTF-16 order; `rich_text` knkeditor's reading text, in Go only
+  by key in UTF-16 order; a choice type (`select`, `radio`, `checkboxes`)
+  the labels `settings.options` gives its selected keys, one per line in
+  selection order, a key without a label (absent, or `""`) adding none;
+  `rich_text` knkeditor's reading text, in Go only
   (TS yields none for it, so such a fixture marks `texts` `goOnly`). Each
   Field weighs by its own `config.search`, inside
   a row as at the root: `off` yields nothing, Unset weighs `D`. A text is

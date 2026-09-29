@@ -52,6 +52,37 @@ export function arrayText(
 	return lines.join("\n");
 }
 
+/**
+ * A choice type's text — `select`, `radio`, `checkboxes` (#223 D6): the label
+ * `settings.options` gives each selected key, in selection order, one per
+ * line. A key without a label — not in `options`, or labelled `""` — adds no
+ * line: a key is an identifier, never text. `checkboxes` and a multiple
+ * `select` hold a list of keys, `radio` and a single `select` one key.
+ */
+export function choiceText(
+	field: Field<{ options?: unknown; multiple?: boolean } | undefined>,
+	value: unknown,
+): string {
+	const options = field.settings?.options;
+	if (!isRecord(options)) return "";
+	const many = field.field_type === "checkboxes" || !!field.settings?.multiple;
+	let keys: unknown[];
+	if (many) {
+		if (!Array.isArray(value)) return "";
+		keys = value;
+	} else {
+		if (typeof value !== "string") return "";
+		keys = [value];
+	}
+	const lines: string[] = [];
+	for (const key of keys) {
+		if (typeof key !== "string" || !Object.hasOwn(options, key)) continue;
+		const label = options[key];
+		if (typeof label === "string" && label !== "") lines.push(label);
+	}
+	return lines.join("\n");
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

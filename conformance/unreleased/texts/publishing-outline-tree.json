@@ -119,9 +119,19 @@
 	"expect": {
 		"texts": [
 			{
+				"path": "/outline/n1/values/kind",
+				"weight": "D",
+				"text": "Part"
+			},
+			{
 				"path": "/outline/n1/values/title",
 				"weight": "A",
 				"text": "Erster Teil"
+			},
+			{
+				"path": "/outline/n1/children/n2/values/kind",
+				"weight": "D",
+				"text": "Chapter"
 			},
 			{
 				"path": "/outline/n1/children/n2/values/title",

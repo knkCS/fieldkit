@@ -66,21 +66,6 @@
 			"system": false
 		},
 		{
-			"field_type": "select",
-			"config": {
-				"name": "kind",
-				"api_accessor": "kind",
-				"required": false,
-				"instructions": ""
-			},
-			"settings": {
-				"options": {
-					"novel": "Novel"
-				}
-			},
-			"system": false
-		},
-		{
 			"field_type": "group",
 			"config": {
 				"name": "authors",
@@ -132,7 +117,6 @@
 		"contact": "ada@example.com",
 		"secret": "hidden",
 		"pages": 300,
-		"kind": "novel",
 		"authors": [
 			{
 				"_id": "a1",
