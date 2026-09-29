@@ -1,0 +1,197 @@
+{
+	"description": "With the publishing package, an outline_tree merges per node by _id, as a Reference Tree does: overridden set on one side and the values edited on the other are clean, while an origin or overridden changed differently on both sides conflicts at the node's field",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Conflicting",
+				"api_accessor": "conflicting",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"outline": [
+				{
+					"_id": "n1",
+					"origin": "generated",
+					"values": {
+						"title": "Generated"
+					}
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "c1",
+					"origin": "generated",
+					"values": {
+						"title": "One"
+					}
+				},
+				{
+					"_id": "c2",
+					"origin": "generated",
+					"values": {
+						"title": "Two"
+					}
+				}
+			]
+		},
+		"ours": {
+			"outline": [
+				{
+					"_id": "n1",
+					"origin": "generated",
+					"overridden": true,
+					"values": {
+						"title": "Generated"
+					}
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "c1",
+					"origin": "manual",
+					"values": {
+						"title": "One"
+					}
+				},
+				{
+					"_id": "c2",
+					"origin": "generated",
+					"overridden": true,
+					"values": {
+						"title": "Two"
+					}
+				}
+			]
+		},
+		"theirs": {
+			"outline": [
+				{
+					"_id": "n1",
+					"origin": "generated",
+					"values": {
+						"title": "Edited"
+					}
+				}
+			],
+			"conflicting": [
+				{
+					"_id": "c1",
+					"values": {
+						"title": "One"
+					}
+				},
+				{
+					"_id": "c2",
+					"origin": "generated",
+					"overridden": false,
+					"values": {
+						"title": "Two"
+					}
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"outline": {
+				"merged": [
+					{
+						"_id": "n1",
+						"origin": "generated",
+						"overridden": true,
+						"values": {
+							"title": "Edited"
+						}
+					}
+				]
+			},
+			"conflicting": {
+				"conflicts": [
+					"c1/origin",
+					"c2/overridden"
+				]
+			}
+		}
+	}
+}

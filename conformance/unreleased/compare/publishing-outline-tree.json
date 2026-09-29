@@ -1,0 +1,155 @@
+{
+	"description": "With the publishing package, an outline_tree compares per node by _id at every level, as a Reference Tree does: its values per node Field, and its origin, overridden and source each a field of the node",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"revisions": {
+		"a": {
+			"outline": [
+				{
+					"_id": "n1",
+					"origin": "generated",
+					"source": "law1",
+					"values": {
+						"title": "Part one"
+					},
+					"children": [
+						{
+							"_id": "n2",
+							"origin": "generated",
+							"values": {
+								"title": "Chapter"
+							}
+						},
+						{
+							"_id": "n3",
+							"origin": "generated",
+							"overridden": true,
+							"values": {
+								"title": "Same"
+							}
+						}
+					]
+				}
+			]
+		},
+		"b": {
+			"outline": [
+				{
+					"_id": "n1",
+					"origin": "generated",
+					"overridden": true,
+					"source": "law2",
+					"values": {
+						"title": "Part 1"
+					},
+					"children": [
+						{
+							"_id": "n2",
+							"origin": "manual",
+							"values": {
+								"title": "Chapter"
+							}
+						},
+						{
+							"_id": "n3",
+							"origin": "generated",
+							"overridden": true,
+							"values": {
+								"title": "Same"
+							}
+						}
+					]
+				}
+			]
+		}
+	},
+	"expect": {
+		"compare": {
+			"outline": {
+				"equal": false,
+				"detail": {
+					"status": "changed",
+					"items": [
+						{
+							"_id": "n1",
+							"status": "changed",
+							"fields": {
+								"overridden": {
+									"status": "added"
+								},
+								"source": {
+									"status": "changed"
+								},
+								"values": {
+									"status": "changed",
+									"fields": {
+										"title": {
+											"status": "changed"
+										}
+									}
+								}
+							}
+						},
+						{
+							"_id": "n2",
+							"status": "changed",
+							"fields": {
+								"origin": {
+									"status": "changed"
+								}
+							}
+						},
+						{
+							"_id": "n3",
+							"status": "unchanged"
+						}
+					]
+				}
+			}
+		}
+	}
+}

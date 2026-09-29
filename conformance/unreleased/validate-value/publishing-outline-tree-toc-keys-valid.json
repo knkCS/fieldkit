@@ -1,0 +1,91 @@
+{
+	"description": "With the publishing package, an outline_tree node may carry the TOC-generation keys beside _id, values and children: origin (generated or manual), overridden (a boolean, false a value as ADR-0021 has it) and source (the id of the Content it was generated from), each optional at every level",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "outline_tree",
+			"config": {
+				"name": "Outline",
+				"api_accessor": "outline",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "outline-bp@1"
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "Kind",
+						"api_accessor": "kind",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": {
+							"part": "Part",
+							"chapter": "Chapter"
+						}
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "Title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"outline": [
+			{
+				"_id": "n1",
+				"origin": "generated",
+				"overridden": true,
+				"source": "law1-para1",
+				"values": {
+					"kind": "part",
+					"title": "Part one"
+				},
+				"children": [
+					{
+						"_id": "n2",
+						"origin": "manual",
+						"values": {
+							"kind": "chapter",
+							"title": "Added by hand"
+						}
+					},
+					{
+						"_id": "n3",
+						"origin": "generated",
+						"overridden": false,
+						"source": "law1-para2",
+						"values": {
+							"title": "Kept"
+						}
+					}
+				]
+			},
+			{
+				"_id": "n4",
+				"values": {
+					"title": "No keys"
+				}
+			}
+		]
+	},
+	"expect": {
+		"validateValue": []
+	}
+}
