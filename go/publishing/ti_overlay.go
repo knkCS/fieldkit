@@ -41,12 +41,13 @@ const TISetKind = "ti_set"
 const maxSafeInteger = 1<<53 - 1
 
 // tiOverlay is ti_overlay: a Title's typesetting instructions (contenthub ADR
-// 0012) — {entries: [...]}, each entry a row with its _id, knkeditor's inline
-// anchor, a command of the pinned TI Set, params, a source and notes. No
-// text, no edges; its entries compare, merge and are minted by _id, as a
-// Group's rows.
+// 0012) — {entries: [...]}, each entry a row with its _id, the Content its
+// anchor is in and that Content's Pin, knkeditor's inline anchor, a command of
+// the pinned TI Set, params, a source and notes. No text; one anchor edge per
+// entry; its entries compare, merge and are minted by _id, as a Group's rows.
 var tiOverlay = fieldkit.TypeCode{ //nolint:gochecknoglobals
 	Value:   tiOverlayValue,
+	Edges:   tiOverlayEdges,
 	Compare: tiOverlayCompare,
 	Merge:   tiOverlayMerge,
 	MintIDs: tiOverlayMint,
@@ -64,10 +65,10 @@ func tiOverlayMint(_ fieldkit.Field, value any, env fieldkit.TypeEnv) any {
 }
 
 var (
-	overlayKeys = map[string]bool{"entries": true}                                                                             //nolint:gochecknoglobals
-	entryKeys   = map[string]bool{"_id": true, "anchor": true, "command": true, "params": true, "source": true, "notes": true} //nolint:gochecknoglobals
-	anchorKeys  = map[string]bool{"node": true, "offset": true, "before": true, "after": true}                                 //nolint:gochecknoglobals
-	sources     = map[string]bool{"editor": true, "oasys": true}                                                               //nolint:gochecknoglobals
+	overlayKeys = map[string]bool{"entries": true}                                                                                                           //nolint:gochecknoglobals
+	entryKeys   = map[string]bool{"_id": true, "content": true, "pin": true, "anchor": true, "command": true, "params": true, "source": true, "notes": true} //nolint:gochecknoglobals
+	anchorKeys  = map[string]bool{"node": true, "offset": true, "before": true, "after": true}                                                               //nolint:gochecknoglobals
+	sources     = map[string]bool{"editor": true, "oasys": true}                                                                                             //nolint:gochecknoglobals
 )
 
 // tiOverlayValue is the Go reading of its toZodType: a strict object holding
@@ -122,6 +123,10 @@ func tiOverlayValue(_ fieldkit.Field, settings map[string]any, value any, env fi
 			add(at+"/_id", fieldkit.CodeInvalidType)
 		case idLength(id.(string)) > fieldkit.MaxIDLength:
 			add(at+"/_id", fieldkit.CodeTooBig)
+		}
+		requiredString(entry, "content", at, add)
+		if pin, present := entry["pin"]; present && !isString(pin) {
+			add(at+"/pin", fieldkit.CodeInvalidType)
 		}
 		errs = append(errs, anchorErrors(entry, at)...)
 		if command, ok := requiredString(entry, "command", at, add); ok {
@@ -306,13 +311,58 @@ func duplicateIDs(rows []any) []int {
 	return out
 }
 
+// tiOverlayEdges are one EdgeAnchor per entry, at the entry's path, its
+// target the entry's content, its pin when it has one, and its anchor's node
+// — contenthub ADR 0009's Anchor target. An entry naming no Content or no
+// node yields none. TS's tiOverlayEdges.
+func tiOverlayEdges(_ fieldkit.Field, _ map[string]any, value any, _ fieldkit.TypeEnv) []fieldkit.Edge {
+	obj, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	entries, ok := obj["entries"].([]any)
+	if !ok {
+		return nil
+	}
+	segments := itemSegments(entries)
+	var edges []fieldkit.Edge
+	for i, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		content, ok := nonEmpty(entry["content"])
+		if !ok {
+			continue
+		}
+		anchor, _ := entry["anchor"].(map[string]any)
+		node, ok := nonEmpty(anchor["node"])
+		if !ok {
+			continue
+		}
+		pin, _ := nonEmpty(entry["pin"])
+		edges = append(edges, fieldkit.Edge{
+			Path:   fieldkit.JoinPath("", "entries", segments[i]),
+			Kind:   fieldkit.EdgeAnchor,
+			Target: fieldkit.Target{Content: content, Pin: pin, Anchor: node},
+		})
+	}
+	return edges
+}
+
+// nonEmpty is a string that is not "".
+func nonEmpty(value any) (string, bool) {
+	s, ok := value.(string)
+	return s, ok && s != ""
+}
+
 // entryFields describe an entry to the Compare and Merge composer: each key
 // a child Field compared as a whole value — an anchor, a params record — so
 // two sides changing different keys of one entry merge cleanly and the same
 // key is a Conflict at it. Only the field_type's finer rule, which none of
 // these has, would matter.
 var entryFields = []fieldkit.Field{ //nolint:gochecknoglobals
-	wholeValue("anchor"), wholeValue("command"), wholeValue("params"), wholeValue("source"), wholeValue("notes"),
+	wholeValue("content"), wholeValue("pin"), wholeValue("anchor"), wholeValue("command"), wholeValue("params"), wholeValue("source"), wholeValue("notes"),
 }
 
 func wholeValue(accessor string) fieldkit.Field {

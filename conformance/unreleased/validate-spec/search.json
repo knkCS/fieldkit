@@ -1,5 +1,5 @@
 {
-	"description": "config.search is off or a weight A-D, and valid only on a type the Catalogue marks as having text: any other value is invalid_config, and any value on a type without text is search_without_text, at the key; Unset (null, \"\") is absent",
+	"description": "config.search is off or a weight A-D, and valid only on a type the Catalogue marks as having text — the choice types (select, radio, checkboxes) among them:any other value is invalid_config, and any value on a type without text is search_without_text, at the key; Unset (null, \"\") is absent",
 	"spec": [
 		{
 			"field_type": "text",
@@ -108,6 +108,44 @@
 				"required": false,
 				"instructions": "",
 				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "Genre",
+				"api_accessor": "genre",
+				"required": false,
+				"instructions": "",
+				"search": "B"
+			},
+			"settings": {
+				"options": {
+					"novel": "Novel"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "Binding",
+				"api_accessor": "binding",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "Formats",
+				"api_accessor": "formats",
+				"required": false,
+				"instructions": "",
+				"search": "A"
 			},
 			"system": false
 		},

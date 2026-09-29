@@ -4,6 +4,7 @@ import { SelectField } from "../../renderer/fields/select-field";
 import { SelectCell } from "../../table/cells/select-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { choiceText } from "../value-text";
 
 export interface SelectSettings {
 	options: Record<string, string>;
@@ -45,8 +46,9 @@ export const selectPlugin: FieldTypePlugin<SelectSettings> = {
 		})
 		.strict(),
 
-	// No text: the value is option keys, which are identifiers, not prose.
-	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+	// Its text is the selected keys' labels, never the keys (#223 D6).
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: choiceText,
 
 	defaultSettings: { options: {} },
 

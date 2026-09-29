@@ -66,7 +66,7 @@ src/
 │   ├── positions.ts     # ADR-0022: POSITIONS, CONSUMERS, DEFAULT_POSITIONS, positionsOf() / allowedInPosition() (enforced) and offeredToConsumer() (picker advice). Each plugin declares `positions`, `consumers` and, for a container, `childrenPosition` / `heldSpecs`
 │   ├── search.ts        # SearchWeight — `config.search`'s values (off, A–D)
 │   ├── content-walk.ts  # edges() / texts() / valueText() — a Content's data walked against its Resolved Spec, Go's Edges/Texts/ValueText: each Field read by its plugin's `text`/`edges`, containers — and a Reference's values — entered through their `records` (ADR-0007)
-│   ├── value-text.ts    # The `text()` the types with text share (string, List, Array)
+│   ├── value-text.ts    # The `text()` the types with text share (string, List, Array, and the choice types' option labels)
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders

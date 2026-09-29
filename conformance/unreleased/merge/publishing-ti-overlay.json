@@ -51,6 +51,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -66,6 +67,7 @@
 					},
 					{
 						"_id": "e2",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -81,6 +83,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -102,6 +105,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -117,6 +121,7 @@
 					},
 					{
 						"_id": "e2",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -132,6 +137,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -153,6 +159,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -168,6 +175,7 @@
 					},
 					{
 						"_id": "e2",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -179,6 +187,7 @@
 					},
 					{
 						"_id": "e5",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -198,6 +207,7 @@
 				"entries": [
 					{
 						"_id": "e1",
+						"content": "c1",
 						"anchor": {
 							"node": "12",
 							"offset": 3,
@@ -222,6 +232,7 @@
 					"entries": [
 						{
 							"_id": "e1",
+							"content": "c1",
 							"anchor": {
 								"node": "12",
 								"offset": 3,
@@ -237,6 +248,7 @@
 						},
 						{
 							"_id": "e2",
+							"content": "c1",
 							"anchor": {
 								"node": "12",
 								"offset": 3,
@@ -248,6 +260,7 @@
 						},
 						{
 							"_id": "e5",
+							"content": "c1",
 							"anchor": {
 								"node": "12",
 								"offset": 3,
