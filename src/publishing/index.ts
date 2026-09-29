@@ -28,8 +28,10 @@ export type {
 export { MANIPULATION_INTENTS } from "./field-types/manipulation-tree";
 export type {
 	OutlineNode,
+	OutlineNodeOrigin,
 	OutlineTreeSettings,
 } from "./field-types/outline-tree";
+export { OUTLINE_NODE_ORIGINS } from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
 export type { TemplateTextSettings } from "./field-types/template-text";
 export type {

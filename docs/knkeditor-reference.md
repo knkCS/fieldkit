@@ -1,12 +1,15 @@
 # @knkcms/knkeditor Reference for Fieldkit
 
-This document describes the knkeditor packages and how fieldkit's `rich-text-spec` layer integrates with them. Read this before modifying `EditorSpec`, `EditorNodePlugin`, node plugins, or the `RichTextField` renderer.
+This document describes the knkeditor packages and how fieldkit integrates with them. Read this before modifying the `RichTextField` renderer, the `rich_text` field type, or the deprecated `rich-text-spec` layer.
+
+> **`/rich-text-spec` is deprecated in 0.18 and removed in 0.19 (ADR-0026).** Text Types replace it: knkeditor owns the vocabulary and generates the option forms, blueprinthub owns Text Type Releases, and a `rich_text` Field pins one in `settings.text_type`. The sections below on `EditorSpec`, the built-in plugins and ID alignment describe that retiring layer, not the integration going forward. Migration: [`migration-0.18.md`](migration-0.18.md#deprecations).
 
 ## Current Integration Status
 
 Fieldkit currently has **zero runtime imports** from `@knkcms/knkeditor-editor`. The integration is designed and specified but not yet wired:
 
-- The `rich-text-spec` subpath export is **complete** — it defines the configuration layer (`EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`)
+- The `rich-text-spec` subpath export (`EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`) is **deprecated** — every export carries `@deprecated`, and it is removed in 0.19 (ADR-0026)
+- The knkeditor-backed field is planned as its own opt-in subpath, `@knkcs/fieldkit/rich-text` (#278)
 - The `RichTextField` renderer is a **placeholder** (renders a `<textarea>`)
 - `@knkcms/knkeditor-editor` is declared as an optional peer dependency with no version range
 
@@ -47,7 +50,7 @@ interface EditorProps {
 - `useKnkEditor(content, extensions, onUpdate?, onBlur?)` — Returns `{ editor }` TipTap instance
 - Types: `EditorProps`, `PageOptions`, `AttributeDrawerTarget`, `Editor` (from `@tiptap/core`), `Node` (from `@tiptap/pm/model`)
 
-## Fieldkit's EditorSpec Types
+## Fieldkit's EditorSpec Types (deprecated)
 
 Defined in `src/rich-text-spec/types.ts`:
 
@@ -78,7 +81,7 @@ type NodeOptions = { [key: string]: unknown };
 
 **Data contract:** Presence of a plugin ID as a key in `spec.nodes` or `spec.marks` means it is **enabled**. Removing the key disables it.
 
-## Built-In Plugins (18 total)
+## Built-In Plugins (18 total, deprecated)
 
 ### Marks (6) — `isMark: true`, category `"formatting"`
 
@@ -162,17 +165,16 @@ Extensions with `additional_attributes` automatically get `EmphasisMarkView` wir
 
 ## Toolbar Auto-Discovery
 
-The knkeditor toolbar uses `requiredExtensions` on each button definition. A button is only rendered when all its required extension names are registered in the active editor. This means the `extensions` array directly controls toolbar visibility — mapping naturally from `EditorSpec.nodes/marks` keys.
+The knkeditor toolbar uses `requiredExtensions` on each button definition. A button is only rendered when all its required extension names are registered in the active editor. This means the `extensions` array directly controls toolbar visibility.
 
 ## Planned Integration Contract
 
-The `RichTextField` renderer will:
+Per ADR-0026 (#278), the knkeditor-backed `RichTextField` ships in the opt-in `@knkcs/fieldkit/rich-text` subpath and:
 
-1. Read `field.settings.text_type` (a Text Type Release id, a Pin — ADR-0020) and take the resolved Text Type from the Resolved Spec's `parts.text_type`
-2. Convert `EditorSpec.nodes` and `EditorSpec.marks` into a TipTap `Extensions` array
-3. Pass `extensions` to the knkeditor `<Editor>` component
-4. Map `view_mode`: `"full"` → `"default"`, `"compact"` → `"minimal"`
-5. Wire `formField.value` as `content` and `formField.onChange` via `onUpdate`
+1. Reads `field.settings.text_type` (a Text Type Release id, a Pin — ADR-0020) and takes the resolved Text Type from the Resolved Spec's `parts.text_type`, falling back to the `textType` adapter
+2. Hands the Text Type to knkeditor's editor, which configures and normalises itself to it — fieldkit no longer builds an `Extensions` array from an `EditorSpec`
+3. Reads its Editor Settings through an adapter
+4. Wires `formField.value` as `content` and `formField.onChange` via `onUpdate`
 
 `text_type` stores only the Release id; the Text Type itself is fetched once per resolution through `adapters.parts.text_type` (`resolveSpec`) and carried in `parts`. It replaced `editor_spec` in 0.18.0 (#216): a Spec still holding `editor_spec` gets `unknown_setting` from `validateSpec` and is migrated by renaming the key to `text_type` and pointing it at a Text Type Release.
 

@@ -40,15 +40,40 @@ export interface OutlineTreeSettings {
 }
 
 /**
+ * Where an outline node came from, for TOC generation (#286): `generated` by
+ * contenthub's generator from a canonical tree, or added `manual`ly by an
+ * editor. Absent says nothing — a node authored before generation existed.
+ */
+export const OUTLINE_NODE_ORIGINS = ["generated", "manual"] as const;
+
+export type OutlineNodeOrigin = (typeof OUTLINE_NODE_ORIGINS)[number];
+
+/**
  * One node of an outline (ADR-0023): its `_id`, unique across the whole tree;
  * its `values`, keyed by Accessor and checked against the Blueprint Release's
  * Fields — the node's kind among them; and its branch in `children`. The same
- * shape as a Reference without a target, so every node key but these three is
- * free to be added later without clashing with an Accessor.
+ * shape as a Reference without a target, so a node key never clashes with an
+ * Accessor.
+ *
+ * Beside them, the keys contenthub's TOC generation reads and fieldkit only
+ * holds (#286, core's `generated`, `overridden` and `source` — see
+ * docs/knkcms-core-parity.md):
+ *
+ * - `origin` — {@link OutlineNodeOrigin}.
+ * - `overridden` — an editor changed a generated node, so regenerating keeps
+ *   it. `false` is a value (ADR-0021) and is stored as written; absent and
+ *   `false` both read "not overridden", so a writer leaves it absent.
+ * - `source` — the id of the Content the node stands for, which generation
+ *   derives it from (core's provenance link). A bare id: it yields no edge.
+ *
+ * The node is strict: any other key is refused (`invalid_value` at the node).
  */
 export interface OutlineNode {
 	_id: string;
 	values?: Record<string, unknown>;
+	origin?: OutlineNodeOrigin;
+	overridden?: boolean;
+	source?: string;
 	children?: OutlineNode[];
 }
 
@@ -94,11 +119,16 @@ export const outlineTreePlugin: FieldTypePlugin<OutlineTreeSettings> = {
 			composeChildren,
 		);
 		const node: z.ZodTypeAny = z.lazy(() =>
-			z.object({
-				_id: rowIdSchema,
-				values,
-				children: z.array(node).optional(),
-			}),
+			z
+				.object({
+					_id: rowIdSchema,
+					values,
+					origin: z.enum(OUTLINE_NODE_ORIGINS).optional(),
+					overridden: z.boolean().optional(),
+					source: z.string().optional(),
+					children: z.array(node).optional(),
+				})
+				.strict(),
 		);
 		const array = field.config.required
 			? z.array(node).min(1, `${field.config.name} is required`)
