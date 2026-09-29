@@ -61,6 +61,9 @@ It never edits under a Text Type it cannot trust, and never writes the value whe
 - **The Text Type needs a newer vocabulary** than the bundled one (`needsNewerVocabulary`): the page predates a deploy, so it says to reload. Not an error, so nothing goes to `onError`.
   fieldkit says so itself rather than handing the stale Text Type to knkeditor, whose own stale view builds an editor it never attaches — tiptap destroys that editor if React's effects run more than a millisecond after render, and `useKnkEditor`'s effect then crashes on it (reliably in jsdom).
 - **The Text Type can't be loaded**: not in `parts` and no `textType` adapter, or `get` rejected. The failure goes to `onError`.
+- **The stored value isn't a document** — a string the old JSON textarea wrote, say. An empty editor over it would replace it with the first keystroke.
+
+The editor tells its own edits from a value set from outside **by content**, not identity: React Hook Form hands a value back as a deep clone, so an identity check would remount the editor — losing cursor, selection and undo history — on every keystroke.
 
 In read mode the same cases show the document's text.
 
