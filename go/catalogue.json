@@ -149,7 +149,7 @@
 				"form"
 			],
 			"pins": [],
-			"has_text": false
+			"has_text": true
 		},
 		{
 			"id": "code",
@@ -498,7 +498,7 @@
 				"form"
 			],
 			"pins": [],
-			"has_text": false
+			"has_text": true
 		},
 		{
 			"id": "reference",
@@ -662,7 +662,7 @@
 				"form"
 			],
 			"pins": [],
-			"has_text": false
+			"has_text": true
 		},
 		{
 			"id": "single_reference",
