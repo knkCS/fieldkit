@@ -24,6 +24,12 @@ function documentOf(value: unknown): EditorProps["content"] {
 		: "";
 }
 
+/** A document's content, for telling two copies of one document apart from
+ * two documents. */
+function contentOf(value: unknown): string {
+	return JSON.stringify(value ?? null);
+}
+
 /**
  * One knkeditor editor over a stored document.
  *
@@ -31,6 +37,11 @@ function documentOf(value: unknown): EditorProps["content"] {
  * from outside — a reset, Discard, another row in the EditDrawer — remounts
  * the editor over it, while the editor's own edits, which come back as the
  * value, do not.
+ *
+ * Told apart by content, never by identity: React Hook Form hands the value
+ * back as a deep clone of what `onChange` got, and clones it again whenever
+ * any other field changes, so an identity check would remount the editor —
+ * losing cursor, selection and history — on every keystroke.
  */
 export function KnkDocumentEditor({
 	value,
@@ -41,15 +52,17 @@ export function KnkDocumentEditor({
 	onChange,
 	onBlur,
 }: KnkDocumentEditorProps) {
-	// The last document this editor wrote, so its own edits are told apart
-	// from a value set from outside.
-	const written = useRef<unknown>(undefined);
+	// The content the editor holds: what it loaded, then what it last wrote.
+	const holds = useRef<string | null>(null);
 	const [loaded, setLoaded] = useState({ value, generation: 0 });
+	if (holds.current === null) holds.current = contentOf(value);
 	if (value !== loaded.value) {
+		const content = contentOf(value);
+		const outside = content !== holds.current;
+		holds.current = content;
 		setLoaded({
 			value,
-			generation:
-				value === written.current ? loaded.generation : loaded.generation + 1,
+			generation: outside ? loaded.generation + 1 : loaded.generation,
 		});
 	}
 
@@ -65,7 +78,7 @@ export function KnkDocumentEditor({
 			maxEditorHeight="60vh"
 			onUpdate={({ editor }) => {
 				const document = editor.getJSON();
-				written.current = document;
+				holds.current = contentOf(document);
 				onChange?.(document);
 			}}
 			onBlur={() => onBlur?.()}

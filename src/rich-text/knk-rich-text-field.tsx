@@ -1,13 +1,22 @@
 // src/rich-text/knk-rich-text-field.tsx
 import { Skeleton, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
-import { Controller, useFormContext } from "react-hook-form";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { RichTextFallback } from "../renderer/fields/rich-text-field";
 import { richTextPreview } from "../renderer/fields/rich-text-preview";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
 import type { FieldProps, ReadProps } from "../schema/plugin";
 import { KnkDocumentEditor } from "./knk-document-editor";
 import { useRichTextSetup } from "./use-rich-text-setup";
+
+const NOT_A_DOCUMENT =
+	"Rich text can't be edited: the stored value isn't a rich-text document.";
+
+/** An object (a document), or nothing stored at all. */
+function isDocumentOrNone(value: unknown): boolean {
+	if (value === undefined || value === null || value === "") return true;
+	return typeof value === "object" && !Array.isArray(value);
+}
 
 /**
  * The knkeditor-backed `rich_text` field (ADR-0026): the document edited in
@@ -33,9 +42,15 @@ export function KnkRichTextField({
 	const { control } = useFormContext();
 	const setup = useRichTextSetup(field);
 	const { config } = field;
+	const value = useWatch({ name: config.api_accessor });
 
 	if (setup.status === "unavailable") {
 		return <RichTextFallback field={field} notice={setup.reason} />;
+	}
+	// A stored value that is no document — a string the old JSON textarea
+	// wrote — would open an empty editor whose first edit replaces it.
+	if (!isDocumentOrNone(value)) {
+		return <RichTextFallback field={field} notice={NOT_A_DOCUMENT} />;
 	}
 
 	return (
@@ -85,9 +100,10 @@ export function KnkRichTextRead({ field, value }: ReadProps<RichTextSettings>) {
 	if (setup.status === "loading") {
 		return <Skeleton height="16" />;
 	}
-	if (setup.status === "unavailable") {
+	if (setup.status === "unavailable" || !isDocumentOrNone(value)) {
 		// No editor without its Text Type, not even a read-only one: its
-		// schema might not hold the document. Its text still reads.
+		// schema might not hold the document; nor for a value that is no
+		// document. Its text still reads.
 		return <Text whiteSpace="pre-wrap">{richTextPreview(value)}</Text>;
 	}
 	return (

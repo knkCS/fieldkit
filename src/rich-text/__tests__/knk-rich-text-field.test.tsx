@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { defaultEditorSettings, validate } from "@knkcms/knkeditor-vocabulary";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { FormProvider, type UseFormReturn, useForm } from "react-hook-form";
@@ -60,10 +60,12 @@ function renderForm(options: {
 	schema?: Field[];
 	adapters?: FieldKitAdapters;
 	onError?: (error: Error, fieldId: string) => void;
+	body?: unknown;
 }) {
 	let methods: UseFormReturn | undefined;
+	const body = "body" in options ? options.body : storedDocument();
 	function Form({ children }: { children: ReactNode }) {
-		methods = useForm({ defaultValues: { body: storedDocument() } });
+		methods = useForm({ defaultValues: { body } });
 		return <FormProvider {...methods}>{children}</FormProvider>;
 	}
 	const view = render(
@@ -110,6 +112,13 @@ describe("KnkRichTextField", () => {
 		).toEqual([2, 3]);
 
 		editDocument(editor);
+
+		// The form hands its own edits back as deep clones: they must not
+		// remount the editor, which would lose cursor and history.
+		await act(async () => {
+			form().setValue("other", "a change elsewhere clones the values too");
+		});
+		expect(editorIn(container)).toBe(editor);
 
 		const saved = form().getValues("body") as Record<string, unknown>;
 		expect(saved).toStrictEqual(editor.getJSON());
@@ -176,6 +185,15 @@ describe("KnkRichTextField", () => {
 		// A page older than its Text Type is not a failure.
 		expect(onError).not.toHaveBeenCalled();
 		expect(form().getValues("body")).toStrictEqual(storedDocument());
+	});
+
+	it("opens no editor over a stored value that isn't a document", async () => {
+		const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+		const { container, form } = renderForm({ resolved, body: "Legacy text" });
+		await screen.findByText(/isn't a rich-text document/);
+		expect(screen.getByText("Legacy text")).toBeInTheDocument();
+		expect(container.querySelector(".ProseMirror")).toBeNull();
+		expect(form().getValues("body")).toBe("Legacy text");
 	});
 
 	it("shows the document read-only when its Text Type can't be loaded", async () => {
