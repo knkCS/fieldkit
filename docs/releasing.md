@@ -10,6 +10,14 @@ Blueprint Release uses" stays a version comparison.
 a tag.** Agents are blocked from pushing release tags, and a pushed tag cannot
 be taken back, so the script prints the commands and a person runs them.
 
+## Release notes
+
+A release's notes carry a **migration section**: what a Consumer changes in
+its Specs, values and code, the new codes, and the deprecations. For 0.18 it
+is [`migration-0.18.md`](migration-0.18.md), kept current as each change
+lands rather than written at release time; the release PR and the npm
+release's notes link it.
+
 ## The train
 
 A release candidate goes first. Every step runs from an up-to-date `main`.
