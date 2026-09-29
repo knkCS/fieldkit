@@ -206,7 +206,7 @@ The key a Field's value takes in the payload, unique among its siblings.
 _Avoid_: name (that's the Field's human-readable label), key, id
 
 **Unset**:
-A setting or a value that says nothing: absent, `null`, `""`, `[]` or `{}` — all five mean the same, everywhere, in TS and Go alike, so two of them compare equal and `required` rejects each. `0` and `false` are values, not Unset. Unset is stored one way only — absent. Nothing can be narrowed to "none" by leaving it empty; whoever needs "none" says so with a switch of its own.
+A setting or a value that says nothing: absent, `null`, `""`, `[]` or `{}` — all five mean the same, everywhere, in TS and Go alike, so two of them compare equal and `required` rejects each. `0` and `false` are values, not Unset. Unset is stored one way only — absent. The rule stops at a rich-text document: inside one, knkeditor's rules apply. Nothing can be narrowed to "none" by leaving it empty; whoever needs "none" says so with a switch of its own.
 _Avoid_: empty (as distinct from unset), cleared, blank
 
 **Adapter**:

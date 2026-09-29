@@ -8,3 +8,7 @@ Unset also has **one stored form: absent**. TS and Go strip Unset keys from valu
 
 - **A tri-state, with absent meaning unset and empty meaning deliberately none.** Rejected: every optional control would need a visible "cleared vs not set" affordance for a rare case, and every field component would change.
 - **Equal in meaning but stored as found.** Rejected for the phantom changes above.
+
+## Amended by ADR-0025
+
+The rule stops at a `rich_text` document: inside it, knkeditor's normalisation and validation apply, not fieldkit's Unset.
