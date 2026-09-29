@@ -20,6 +20,8 @@ Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five la
 
 Beside the five layers, **`/publishing`** is the opt-in publishing package (ADR-0002, amended): `publishingFieldTypes` (`reference_filter`, `outline_tree`, `template_text`, `ti_overlay`, `manipulation_tree` so far), which nothing registers — a Consumer opts in by adding them to the plugins it passes. Its Catalogue section ships as `/publishing/catalogue.json`.
 
+**`/rich-text`** is opt-in the same way (ADR-0026): `knkRichTextPlugin` — the built-in `rich_text` plugin with `KnkRichTextField` and `KnkRichTextRead`, knkeditor's editor under the Field's Text Type (from `FieldKitProvider`'s `parts`, else the `textType` adapter) and Editor Settings (the `editorSettings` adapter). knkeditor and its peers (TipTap, i18next, …) are optional peers of this subpath only: no other entry may reach them, which `npm run verify-peers` checks on the built `dist`. Without it, the core renderer's `rich_text` field is read-only. See `docs/knkeditor-reference.md`.
+
 ### Key Technology Choices
 
 | Concern | Choice |
@@ -97,7 +99,7 @@ src/
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
 │   │   └── tab-shell.tsx # useTabShell() + shared TabShell: state/DOM plumbing behind edit & read tabs, no RHF hooks
 │   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
-│   ├── provider.tsx     # FieldKitProvider (plugins + adapters)
+│   ├── provider.tsx     # FieldKitProvider (plugins + adapters + the Resolved Spec's `parts`)
 │   ├── adapters.ts      # Backend adapter interfaces
 │   ├── hooks/
 │   │   ├── use-resolved-content-names.ts # Names for every Reference in a tree, fetched in batches and merged; answers { names, nameState } so Find can tell "no match" from "not yet resolved" (ADR-0013)
@@ -111,6 +113,7 @@ src/
 │   ├── get-cell-for-type.tsx
 │   └── cells/           # Built-in cell components
 ├── publishing/          # The opt-in publishing package (@knkcs/fieldkit/publishing): publishingFieldTypes, one file per type in field-types/, and in fields/ the stopgap UI of a type no built-in component can stand in for (outline_tree's read-only node count and cell; UnportedField, the value read-only as JSON, which manipulation_tree uses) — its Catalogue section is go/publishing/catalogue.json
+├── rich-text/           # The opt-in knkeditor-backed rich_text field (@knkcs/fieldkit/rich-text, ADR-0026): knkRichTextPlugin, KnkRichTextField/KnkRichTextRead, use-rich-text-setup.ts (the Text Type from `parts` or the textType adapter, Editor Settings, needsNewerVocabulary); the only code importing knkeditor. The core renderer's fallback is renderer/fields/rich-text-field.tsx
 └── rich-text-spec/      # Rich text editor specification — deprecated, removed in 0.19 (ADR-0026, docs/migration-0.18.md)
     ├── types.ts         # EditorSpec, EditorNodePlugin
     ├── editor-spec-editor.tsx
@@ -257,7 +260,8 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/do
 | `npm run test` | Run tests once (Vitest, jsdom environment) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run verify-exports` | Check tsup entries match built `.d.ts` exports |
-| `npm run verify` | **The local gate**: lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, the full test suite and the Go checks, as `ci.yml` runs them |
+| `npm run verify-peers` | Check no built entry but `rich-text` reaches knkeditor's peers (ADR-0026) |
+| `npm run verify` | **The local gate**: lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, verify-peers, the full test suite and the Go checks, as `ci.yml` runs them |
 | `npm run catalogue` | Regenerate `go/catalogue.json` from the plugins' `settingsSchema`s |
 | `npm run catalogue:check` | Fail when the committed Catalogue is stale |
 | `npm run catalogue:compat` | Fail when the Catalogue breaks the last released one — it may only grow (ADR-0019); passes before the first release |
@@ -285,8 +289,11 @@ Consuming projects must install:
   as peers too, at these same floors
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
-Optional:
-- `@knkcms/knkeditor-editor` (for rich_text field type)
+Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
+- `@knkcms/knkeditor-editor` ^1.8.0 and `@knkcms/knkeditor-vocabulary` ^0.1.0,
+  plus the peers knkeditor-editor declares itself (TipTap 3, i18next,
+  react-i18next, react-icons, emotion, its extension packages). Both are
+  devDependencies here, for that subpath's tests and stories
 
 Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
 resolved by consumers importing `@knkcs/anker/dashboard`.
@@ -323,6 +330,6 @@ Read these before working on the corresponding area:
 - **`src/editor/spec-editor.mdx`** — SpecEditor contract (draft model, schema-prop stability, labels table, migration notes, known limitations).
 - **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
 - **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying drag-and-drop anywhere: the editor canvas, or the renderer's Reference Tree.
-- **`docs/knkeditor-reference.md`** — knkeditor packages, the planned `/rich-text` integration contract (ADR-0026), Go delegation, and the deprecated EditorSpec layer. Read before modifying rich-text-spec or RichTextField.
+- **`docs/knkeditor-reference.md`** — knkeditor packages and peers, the `/rich-text` integration (ADR-0026), the adapters, Go delegation and the editor-to-Go fixture, and the deprecated EditorSpec layer. Read before modifying `/rich-text`, rich-text-spec or RichTextField.
 - **`docs/migration-0.18.md`** — the 0.18 release notes' migration section: Spec and value changes, TS and Go API breaks, new codes, deprecations. Add to it when a change for 0.18 needs a Consumer to migrate.
 - **`docs/anker-reference.md`** — ⚠️ Historical: written against anker 0.0.2. Superseded by CLAUDE-ANKER.md above; do not trust its API details.
