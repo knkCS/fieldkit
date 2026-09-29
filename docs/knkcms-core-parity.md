@@ -124,9 +124,21 @@ The publishing package's types keep core's type ids but not always its shapes. W
 | | core | fieldkit |
 |---|---|---|
 | settings | `blueprint` (a Blueprint id), `text_type_id` (a Text Type id); older Specs `levels` | `blueprint` — a **Blueprint Release** Pin, inlined as the Field's `children` by Resolve; `text_type` — a **Text Type Release** Pin, stored in the Resolved Spec's `parts` (ADR-0020). `levels` and `text_type_id` are `unknown_setting` |
-| value | nested nodes `{kind, …fields, source?, generated?, overridden?, children?}`, a node's Fields spread onto the node itself | nested nodes `{_id, values?, children?}`: an `_id` unique across the whole tree (ADR-0023), the node's Fields — `kind` among them — keyed by Accessor in `values`, the branch in `children` |
+| value | nested nodes `{kind, …fields, source?, generated?, overridden?, children?}`, a node's Fields spread onto the node itself | nested nodes `{_id, values?, origin?, overridden?, source?, children?}`: an `_id` unique across the whole tree (ADR-0023), the node's Fields — `kind` among them — keyed by Accessor in `values`, the TOC-generation keys beside them (#286), the branch in `children`. The node is strict: any other key is `invalid_value` |
 
-Migrating a Spec: point `blueprint` at a Release of the outline Blueprint, rename `text_type_id` to `text_type` and point it at a Text Type Release, and drop `levels` (the node types live in the Blueprint's `kind` select now). Migrating a value: move every key but `children` into `values`, and mint an `_id` per node (TS `mintMissingIds` on load, Go `MintIDs` for importers — deterministically, through `outline_tree`'s `TypeCode.MintIDs`). core's TOC-generation keys `source`, `generated` and `overridden` have no place in fieldkit's node yet; a node key can be added later without refusing anything stored today, and until then they are dropped or kept by the Consumer beside the value.
+Migrating a Spec: point `blueprint` at a Release of the outline Blueprint, rename `text_type_id` to `text_type` and point it at a Text Type Release, and drop `levels` (the node types live in the Blueprint's `kind` select now). Migrating a value: move every key but `children` and the three TOC-generation keys into `values`, map those three as below, and mint an `_id` per node (TS `mintMissingIds` on load, Go `MintIDs` for importers — deterministically, through `outline_tree`'s `TypeCode.MintIDs`).
+
+core's TOC-generation keys are reserved scaffolding for a generator core never built (a Blueprint may not declare them; nothing in core reads them). contenthub keeps the generation logic; fieldkit holds the keys on the node, compares and merges each as a field of it, and reads none:
+
+| core | fieldkit | mapping |
+|---|---|---|
+| `generated: true` | `origin: "generated"` | the generator produced the node |
+| `generated: false` | `origin: "manual"` | the node was not generated — authored or imported |
+| `generated` absent | `origin` absent | nothing said |
+| `overridden: true` | `overridden: true` | an editor changed a generated node, so regenerating keeps it |
+| `overridden: false` or absent | `overridden` absent | not overridden. `false` is a value (ADR-0021), not Unset, so fieldkit stores it as written rather than canonicalising it away — but it means what absent means and would show as a change beside an absent one, so a mapper writes `overridden` only when it is `true` |
+| `source: "<content id>"` | `source: "<content id>"`, unchanged | the Content the node stands for — core's importer fills it from the legacy XML's back-references (`refIdTemplate`), and generation will derive a node from it. It is a provenance link, not a kind of origin, so it keeps its own key. A bare id: fieldkit yields no Content Graph edge for it |
+| `source: null` or absent | `source` absent | Unset (ADR-0021) |
 
 Why `text_type` is a Pin rather than a bare id: the export service stamps the outline's rich text with it, so a Blueprint Release must carry the Text Type it was cut with, not follow a moving one — the same reasoning that made `rich_text.text_type` a Release Pin (#216). The node Fields sit in the `reference_spec` Position — a node is filled in a drawer, as a Reference's values are — so a node holds no container, no Marker and no tree of its own.
 

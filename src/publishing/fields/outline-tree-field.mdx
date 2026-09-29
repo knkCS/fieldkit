@@ -15,9 +15,17 @@ described by one Blueprint Release the Field pins.
 interface OutlineNode {
   _id: string;                       // unique across the whole tree (ADR-0023)
   values?: Record<string, unknown>;  // the node's Fields, keyed by Accessor
+  origin?: "generated" | "manual";   // TOC generation: generated, or added by hand
+  overridden?: boolean;              // an editor changed a generated node
+  source?: string;                   // the id of the Content the node stands for
   children?: OutlineNode[];
 }
 ```
+
+The node is strict: any other key is refused. `origin`, `overridden` and
+`source` are what contenthub's TOC generation reads; fieldkit only holds them.
+`overridden: false` is a value (ADR-0021) and is stored as written, but means
+what absent means, so a writer leaves it absent.
 
 A node's `values` are checked against the Field's `children` — the Blueprint
 Release `resolveSpec()` inlines from `settings.blueprint`. Unresolved, they
