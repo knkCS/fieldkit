@@ -8,6 +8,7 @@ import {
 	type ZodTypeAny,
 	z,
 } from "zod";
+import { valueDocuments } from "./documents";
 import type { FieldTypePlugin, ValueContext } from "./plugin";
 import { mintMissingIds } from "./row-ids";
 import type { Field } from "./types";
@@ -53,6 +54,11 @@ type PluginMap = Map<string, FieldTypePlugin>;
  * accepts, and a cleared control is stored as absent. Validation is
  * unaffected: a required Field's `""` still fails with its own message.
  *
+ * The stripping stops at a rich-text document (ADR-0025): a `rich_text`
+ * value passes through exactly as the editor wrote it, its `attrs: null` and
+ * `"attributes": {}` kept. A `rich_text` value of `{}` is still Unset, and
+ * stripped.
+ *
  * The result is a `ZodObject`, `.shape` and all. The stripping belongs to
  * this object only — a schema derived from it with `.extend()`, `.merge()`,
  * `.pick()` and the like validates the same but no longer strips.
@@ -62,13 +68,25 @@ export function specToZodSchema(
 	plugins: FieldTypePlugin[],
 	options?: ZodBuilderOptions,
 ): ZodObject<ZodRawShape> {
-	const object = buildObject(
-		fields,
-		new Map(plugins.map((p) => [p.id, p])),
-		options,
-	);
-	return new CanonicalZodObject(object._def);
+	const pluginMap: PluginMap = new Map(plugins.map((p) => [p.id, p]));
+	const object = buildObject(fields, pluginMap, options);
+	const context: ValueContext = options?.targetBlueprint
+		? { targetBlueprint: options.targetBlueprint }
+		: {};
+	const def: CanonicalDef = {
+		...object._def,
+		canonical: (value) =>
+			stripUnset(value, valueDocuments(fields, value, pluginMap, context)),
+	};
+	return new CanonicalZodObject(def);
 }
+
+/** The definition of a {@link CanonicalZodObject}: a `ZodObject`'s, and how
+ * its output is made canonical. Kept in the definition because Zod copies
+ * it — `.describe()`, `.optional()` and the like keep the stripping. */
+type CanonicalDef = ZodObject<ZodRawShape>["_def"] & {
+	canonical: (value: unknown) => unknown;
+};
 
 /**
  * A `ZodObject` whose parsed output is canonical. Subclassed rather than
@@ -78,17 +96,19 @@ export function specToZodSchema(
 class CanonicalZodObject<T extends ZodRawShape> extends ZodObject<T> {
 	override _parse(input: ParseInput): ParseReturnType<this["_output"]> {
 		const result = super._parse(input);
+		const { canonical } = this._def as unknown as CanonicalDef;
 		return result instanceof Promise
-			? result.then(canonicalResult)
-			: canonicalResult(result);
+			? result.then((r) => canonicalResult(r, canonical))
+			: canonicalResult(result, canonical);
 	}
 }
 
 function canonicalResult<T>(
 	result: SyncParseReturnType<T>,
+	canonical: (value: unknown) => unknown,
 ): SyncParseReturnType<T> {
 	if (result.status === "aborted") return result;
-	return { status: result.status, value: stripUnset(result.value) as T };
+	return { status: result.status, value: canonical(result.value) as T };
 }
 
 /** One level of a Spec as a Zod object. Called again, through the

@@ -27,13 +27,22 @@ export function isPlainObject(
  * so `{ a: { b: null } }` loses `a` too. Array elements are kept, Unset or
  * not: `[null]` holds one element, and is not `[]`. Only plain records are
  * looked into; the input is not mutated.
+ *
+ * `documents` are kept as they are, not looked into: a rich-text document is
+ * knkeditor's inside (ADR-0025, `valueDocuments`).
  */
-export function stripUnset(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stripUnset);
+export function stripUnset(
+	value: unknown,
+	documents?: ReadonlySet<unknown>,
+): unknown {
+	if (documents?.has(value)) return value;
+	if (Array.isArray(value)) {
+		return value.map((item) => stripUnset(item, documents));
+	}
 	if (!isPlainObject(value)) return value;
 	const kept: Record<string, unknown> = {};
 	for (const [key, child] of Object.entries(value)) {
-		const canonical = stripUnset(child);
+		const canonical = stripUnset(child, documents);
 		if (!isUnset(canonical)) kept[key] = canonical;
 	}
 	return kept;

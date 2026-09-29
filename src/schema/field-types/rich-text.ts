@@ -45,6 +45,11 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 		return z.record(z.unknown());
 	},
 
+	// The document is knkeditor's inside (ADR-0025): its `attrs: null` and
+	// `"attributes": {}` are its own, so the form never strips them and
+	// `validateValue` never calls them `not_canonical`.
+	opaqueDocument: true,
+
 	settingsSchema: z
 		.object({
 			text_type: z.string().optional(),

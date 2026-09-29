@@ -1,0 +1,1362 @@
+{
+	"description": "The depth cap counts fieldkit's structure only (ADR-0025): a rich_text document nested far deeper than 128 levels inside — textBlocks within textBlocks — is not too_deep, at the root or in a group's rows; its inner depth is knkeditor's to limit",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textBlock",
+					"attrs": {
+						"id": "b79"
+					},
+					"content": [
+						{
+							"type": "textBlock",
+							"attrs": {
+								"id": "b78"
+							},
+							"content": [
+								{
+									"type": "textBlock",
+									"attrs": {
+										"id": "b77"
+									},
+									"content": [
+										{
+											"type": "textBlock",
+											"attrs": {
+												"id": "b76"
+											},
+											"content": [
+												{
+													"type": "textBlock",
+													"attrs": {
+														"id": "b75"
+													},
+													"content": [
+														{
+															"type": "textBlock",
+															"attrs": {
+																"id": "b74"
+															},
+															"content": [
+																{
+																	"type": "textBlock",
+																	"attrs": {
+																		"id": "b73"
+																	},
+																	"content": [
+																		{
+																			"type": "textBlock",
+																			"attrs": {
+																				"id": "b72"
+																			},
+																			"content": [
+																				{
+																					"type": "textBlock",
+																					"attrs": {
+																						"id": "b71"
+																					},
+																					"content": [
+																						{
+																							"type": "textBlock",
+																							"attrs": {
+																								"id": "b70"
+																							},
+																							"content": [
+																								{
+																									"type": "textBlock",
+																									"attrs": {
+																										"id": "b69"
+																									},
+																									"content": [
+																										{
+																											"type": "textBlock",
+																											"attrs": {
+																												"id": "b68"
+																											},
+																											"content": [
+																												{
+																													"type": "textBlock",
+																													"attrs": {
+																														"id": "b67"
+																													},
+																													"content": [
+																														{
+																															"type": "textBlock",
+																															"attrs": {
+																																"id": "b66"
+																															},
+																															"content": [
+																																{
+																																	"type": "textBlock",
+																																	"attrs": {
+																																		"id": "b65"
+																																	},
+																																	"content": [
+																																		{
+																																			"type": "textBlock",
+																																			"attrs": {
+																																				"id": "b64"
+																																			},
+																																			"content": [
+																																				{
+																																					"type": "textBlock",
+																																					"attrs": {
+																																						"id": "b63"
+																																					},
+																																					"content": [
+																																						{
+																																							"type": "textBlock",
+																																							"attrs": {
+																																								"id": "b62"
+																																							},
+																																							"content": [
+																																								{
+																																									"type": "textBlock",
+																																									"attrs": {
+																																										"id": "b61"
+																																									},
+																																									"content": [
+																																										{
+																																											"type": "textBlock",
+																																											"attrs": {
+																																												"id": "b60"
+																																											},
+																																											"content": [
+																																												{
+																																													"type": "textBlock",
+																																													"attrs": {
+																																														"id": "b59"
+																																													},
+																																													"content": [
+																																														{
+																																															"type": "textBlock",
+																																															"attrs": {
+																																																"id": "b58"
+																																															},
+																																															"content": [
+																																																{
+																																																	"type": "textBlock",
+																																																	"attrs": {
+																																																		"id": "b57"
+																																																	},
+																																																	"content": [
+																																																		{
+																																																			"type": "textBlock",
+																																																			"attrs": {
+																																																				"id": "b56"
+																																																			},
+																																																			"content": [
+																																																				{
+																																																					"type": "textBlock",
+																																																					"attrs": {
+																																																						"id": "b55"
+																																																					},
+																																																					"content": [
+																																																						{
+																																																							"type": "textBlock",
+																																																							"attrs": {
+																																																								"id": "b54"
+																																																							},
+																																																							"content": [
+																																																								{
+																																																									"type": "textBlock",
+																																																									"attrs": {
+																																																										"id": "b53"
+																																																									},
+																																																									"content": [
+																																																										{
+																																																											"type": "textBlock",
+																																																											"attrs": {
+																																																												"id": "b52"
+																																																											},
+																																																											"content": [
+																																																												{
+																																																													"type": "textBlock",
+																																																													"attrs": {
+																																																														"id": "b51"
+																																																													},
+																																																													"content": [
+																																																														{
+																																																															"type": "textBlock",
+																																																															"attrs": {
+																																																																"id": "b50"
+																																																															},
+																																																															"content": [
+																																																																{
+																																																																	"type": "textBlock",
+																																																																	"attrs": {
+																																																																		"id": "b49"
+																																																																	},
+																																																																	"content": [
+																																																																		{
+																																																																			"type": "textBlock",
+																																																																			"attrs": {
+																																																																				"id": "b48"
+																																																																			},
+																																																																			"content": [
+																																																																				{
+																																																																					"type": "textBlock",
+																																																																					"attrs": {
+																																																																						"id": "b47"
+																																																																					},
+																																																																					"content": [
+																																																																						{
+																																																																							"type": "textBlock",
+																																																																							"attrs": {
+																																																																								"id": "b46"
+																																																																							},
+																																																																							"content": [
+																																																																								{
+																																																																									"type": "textBlock",
+																																																																									"attrs": {
+																																																																										"id": "b45"
+																																																																									},
+																																																																									"content": [
+																																																																										{
+																																																																											"type": "textBlock",
+																																																																											"attrs": {
+																																																																												"id": "b44"
+																																																																											},
+																																																																											"content": [
+																																																																												{
+																																																																													"type": "textBlock",
+																																																																													"attrs": {
+																																																																														"id": "b43"
+																																																																													},
+																																																																													"content": [
+																																																																														{
+																																																																															"type": "textBlock",
+																																																																															"attrs": {
+																																																																																"id": "b42"
+																																																																															},
+																																																																															"content": [
+																																																																																{
+																																																																																	"type": "textBlock",
+																																																																																	"attrs": {
+																																																																																		"id": "b41"
+																																																																																	},
+																																																																																	"content": [
+																																																																																		{
+																																																																																			"type": "textBlock",
+																																																																																			"attrs": {
+																																																																																				"id": "b40"
+																																																																																			},
+																																																																																			"content": [
+																																																																																				{
+																																																																																					"type": "textBlock",
+																																																																																					"attrs": {
+																																																																																						"id": "b39"
+																																																																																					},
+																																																																																					"content": [
+																																																																																						{
+																																																																																							"type": "textBlock",
+																																																																																							"attrs": {
+																																																																																								"id": "b38"
+																																																																																							},
+																																																																																							"content": [
+																																																																																								{
+																																																																																									"type": "textBlock",
+																																																																																									"attrs": {
+																																																																																										"id": "b37"
+																																																																																									},
+																																																																																									"content": [
+																																																																																										{
+																																																																																											"type": "textBlock",
+																																																																																											"attrs": {
+																																																																																												"id": "b36"
+																																																																																											},
+																																																																																											"content": [
+																																																																																												{
+																																																																																													"type": "textBlock",
+																																																																																													"attrs": {
+																																																																																														"id": "b35"
+																																																																																													},
+																																																																																													"content": [
+																																																																																														{
+																																																																																															"type": "textBlock",
+																																																																																															"attrs": {
+																																																																																																"id": "b34"
+																																																																																															},
+																																																																																															"content": [
+																																																																																																{
+																																																																																																	"type": "textBlock",
+																																																																																																	"attrs": {
+																																																																																																		"id": "b33"
+																																																																																																	},
+																																																																																																	"content": [
+																																																																																																		{
+																																																																																																			"type": "textBlock",
+																																																																																																			"attrs": {
+																																																																																																				"id": "b32"
+																																																																																																			},
+																																																																																																			"content": [
+																																																																																																				{
+																																																																																																					"type": "textBlock",
+																																																																																																					"attrs": {
+																																																																																																						"id": "b31"
+																																																																																																					},
+																																																																																																					"content": [
+																																																																																																						{
+																																																																																																							"type": "textBlock",
+																																																																																																							"attrs": {
+																																																																																																								"id": "b30"
+																																																																																																							},
+																																																																																																							"content": [
+																																																																																																								{
+																																																																																																									"type": "textBlock",
+																																																																																																									"attrs": {
+																																																																																																										"id": "b29"
+																																																																																																									},
+																																																																																																									"content": [
+																																																																																																										{
+																																																																																																											"type": "textBlock",
+																																																																																																											"attrs": {
+																																																																																																												"id": "b28"
+																																																																																																											},
+																																																																																																											"content": [
+																																																																																																												{
+																																																																																																													"type": "textBlock",
+																																																																																																													"attrs": {
+																																																																																																														"id": "b27"
+																																																																																																													},
+																																																																																																													"content": [
+																																																																																																														{
+																																																																																																															"type": "textBlock",
+																																																																																																															"attrs": {
+																																																																																																																"id": "b26"
+																																																																																																															},
+																																																																																																															"content": [
+																																																																																																																{
+																																																																																																																	"type": "textBlock",
+																																																																																																																	"attrs": {
+																																																																																																																		"id": "b25"
+																																																																																																																	},
+																																																																																																																	"content": [
+																																																																																																																		{
+																																																																																																																			"type": "textBlock",
+																																																																																																																			"attrs": {
+																																																																																																																				"id": "b24"
+																																																																																																																			},
+																																																																																																																			"content": [
+																																																																																																																				{
+																																																																																																																					"type": "textBlock",
+																																																																																																																					"attrs": {
+																																																																																																																						"id": "b23"
+																																																																																																																					},
+																																																																																																																					"content": [
+																																																																																																																						{
+																																																																																																																							"type": "textBlock",
+																																																																																																																							"attrs": {
+																																																																																																																								"id": "b22"
+																																																																																																																							},
+																																																																																																																							"content": [
+																																																																																																																								{
+																																																																																																																									"type": "textBlock",
+																																																																																																																									"attrs": {
+																																																																																																																										"id": "b21"
+																																																																																																																									},
+																																																																																																																									"content": [
+																																																																																																																										{
+																																																																																																																											"type": "textBlock",
+																																																																																																																											"attrs": {
+																																																																																																																												"id": "b20"
+																																																																																																																											},
+																																																																																																																											"content": [
+																																																																																																																												{
+																																																																																																																													"type": "textBlock",
+																																																																																																																													"attrs": {
+																																																																																																																														"id": "b19"
+																																																																																																																													},
+																																																																																																																													"content": [
+																																																																																																																														{
+																																																																																																																															"type": "textBlock",
+																																																																																																																															"attrs": {
+																																																																																																																																"id": "b18"
+																																																																																																																															},
+																																																																																																																															"content": [
+																																																																																																																																{
+																																																																																																																																	"type": "textBlock",
+																																																																																																																																	"attrs": {
+																																																																																																																																		"id": "b17"
+																																																																																																																																	},
+																																																																																																																																	"content": [
+																																																																																																																																		{
+																																																																																																																																			"type": "textBlock",
+																																																																																																																																			"attrs": {
+																																																																																																																																				"id": "b16"
+																																																																																																																																			},
+																																																																																																																																			"content": [
+																																																																																																																																				{
+																																																																																																																																					"type": "textBlock",
+																																																																																																																																					"attrs": {
+																																																																																																																																						"id": "b15"
+																																																																																																																																					},
+																																																																																																																																					"content": [
+																																																																																																																																						{
+																																																																																																																																							"type": "textBlock",
+																																																																																																																																							"attrs": {
+																																																																																																																																								"id": "b14"
+																																																																																																																																							},
+																																																																																																																																							"content": [
+																																																																																																																																								{
+																																																																																																																																									"type": "textBlock",
+																																																																																																																																									"attrs": {
+																																																																																																																																										"id": "b13"
+																																																																																																																																									},
+																																																																																																																																									"content": [
+																																																																																																																																										{
+																																																																																																																																											"type": "textBlock",
+																																																																																																																																											"attrs": {
+																																																																																																																																												"id": "b12"
+																																																																																																																																											},
+																																																																																																																																											"content": [
+																																																																																																																																												{
+																																																																																																																																													"type": "textBlock",
+																																																																																																																																													"attrs": {
+																																																																																																																																														"id": "b11"
+																																																																																																																																													},
+																																																																																																																																													"content": [
+																																																																																																																																														{
+																																																																																																																																															"type": "textBlock",
+																																																																																																																																															"attrs": {
+																																																																																																																																																"id": "b10"
+																																																																																																																																															},
+																																																																																																																																															"content": [
+																																																																																																																																																{
+																																																																																																																																																	"type": "textBlock",
+																																																																																																																																																	"attrs": {
+																																																																																																																																																		"id": "b9"
+																																																																																																																																																	},
+																																																																																																																																																	"content": [
+																																																																																																																																																		{
+																																																																																																																																																			"type": "textBlock",
+																																																																																																																																																			"attrs": {
+																																																																																																																																																				"id": "b8"
+																																																																																																																																																			},
+																																																																																																																																																			"content": [
+																																																																																																																																																				{
+																																																																																																																																																					"type": "textBlock",
+																																																																																																																																																					"attrs": {
+																																																																																																																																																						"id": "b7"
+																																																																																																																																																					},
+																																																																																																																																																					"content": [
+																																																																																																																																																						{
+																																																																																																																																																							"type": "textBlock",
+																																																																																																																																																							"attrs": {
+																																																																																																																																																								"id": "b6"
+																																																																																																																																																							},
+																																																																																																																																																							"content": [
+																																																																																																																																																								{
+																																																																																																																																																									"type": "textBlock",
+																																																																																																																																																									"attrs": {
+																																																																																																																																																										"id": "b5"
+																																																																																																																																																									},
+																																																																																																																																																									"content": [
+																																																																																																																																																										{
+																																																																																																																																																											"type": "textBlock",
+																																																																																																																																																											"attrs": {
+																																																																																																																																																												"id": "b4"
+																																																																																																																																																											},
+																																																																																																																																																											"content": [
+																																																																																																																																																												{
+																																																																																																																																																													"type": "textBlock",
+																																																																																																																																																													"attrs": {
+																																																																																																																																																														"id": "b3"
+																																																																																																																																																													},
+																																																																																																																																																													"content": [
+																																																																																																																																																														{
+																																																																																																																																																															"type": "textBlock",
+																																																																																																																																																															"attrs": {
+																																																																																																																																																																"id": "b2"
+																																																																																																																																																															},
+																																																																																																																																																															"content": [
+																																																																																																																																																																{
+																																																																																																																																																																	"type": "textBlock",
+																																																																																																																																																																	"attrs": {
+																																																																																																																																																																		"id": "b1"
+																																																																																																																																																																	},
+																																																																																																																																																																	"content": [
+																																																																																																																																																																		{
+																																																																																																																																																																			"type": "textBlock",
+																																																																																																																																																																			"attrs": {
+																																																																																																																																																																				"id": "b0"
+																																																																																																																																																																			},
+																																																																																																																																																																			"content": [
+																																																																																																																																																																				{
+																																																																																																																																																																					"type": "textWrapper",
+																																																																																																																																																																					"attrs": {
+																																																																																																																																																																						"id": "a"
+																																																																																																																																																																					},
+																																																																																																																																																																					"content": [
+																																																																																																																																																																						{
+																																																																																																																																																																							"type": "text",
+																																																																																																																																																																							"text": "tief"
+																																																																																																																																																																						}
+																																																																																																																																																																					]
+																																																																																																																																																																				}
+																																																																																																																																																																			]
+																																																																																																																																																																		}
+																																																																																																																																																																	]
+																																																																																																																																																																}
+																																																																																																																																																															]
+																																																																																																																																																														}
+																																																																																																																																																													]
+																																																																																																																																																												}
+																																																																																																																																																											]
+																																																																																																																																																										}
+																																																																																																																																																									]
+																																																																																																																																																								}
+																																																																																																																																																							]
+																																																																																																																																																						}
+																																																																																																																																																					]
+																																																																																																																																																				}
+																																																																																																																																																			]
+																																																																																																																																																		}
+																																																																																																																																																	]
+																																																																																																																																																}
+																																																																																																																																															]
+																																																																																																																																														}
+																																																																																																																																													]
+																																																																																																																																												}
+																																																																																																																																											]
+																																																																																																																																										}
+																																																																																																																																									]
+																																																																																																																																								}
+																																																																																																																																							]
+																																																																																																																																						}
+																																																																																																																																					]
+																																																																																																																																				}
+																																																																																																																																			]
+																																																																																																																																		}
+																																																																																																																																	]
+																																																																																																																																}
+																																																																																																																															]
+																																																																																																																														}
+																																																																																																																													]
+																																																																																																																												}
+																																																																																																																											]
+																																																																																																																										}
+																																																																																																																									]
+																																																																																																																								}
+																																																																																																																							]
+																																																																																																																						}
+																																																																																																																					]
+																																																																																																																				}
+																																																																																																																			]
+																																																																																																																		}
+																																																																																																																	]
+																																																																																																																}
+																																																																																																															]
+																																																																																																														}
+																																																																																																													]
+																																																																																																												}
+																																																																																																											]
+																																																																																																										}
+																																																																																																									]
+																																																																																																								}
+																																																																																																							]
+																																																																																																						}
+																																																																																																					]
+																																																																																																				}
+																																																																																																			]
+																																																																																																		}
+																																																																																																	]
+																																																																																																}
+																																																																																															]
+																																																																																														}
+																																																																																													]
+																																																																																												}
+																																																																																											]
+																																																																																										}
+																																																																																									]
+																																																																																								}
+																																																																																							]
+																																																																																						}
+																																																																																					]
+																																																																																				}
+																																																																																			]
+																																																																																		}
+																																																																																	]
+																																																																																}
+																																																																															]
+																																																																														}
+																																																																													]
+																																																																												}
+																																																																											]
+																																																																										}
+																																																																									]
+																																																																								}
+																																																																							]
+																																																																						}
+																																																																					]
+																																																																				}
+																																																																			]
+																																																																		}
+																																																																	]
+																																																																}
+																																																															]
+																																																														}
+																																																													]
+																																																												}
+																																																											]
+																																																										}
+																																																									]
+																																																								}
+																																																							]
+																																																						}
+																																																					]
+																																																				}
+																																																			]
+																																																		}
+																																																	]
+																																																}
+																																															]
+																																														}
+																																													]
+																																												}
+																																											]
+																																										}
+																																									]
+																																								}
+																																							]
+																																						}
+																																					]
+																																				}
+																																			]
+																																		}
+																																	]
+																																}
+																															]
+																														}
+																													]
+																												}
+																											]
+																										}
+																									]
+																								}
+																							]
+																						}
+																					]
+																				}
+																			]
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textBlock",
+							"attrs": {
+								"id": "b79"
+							},
+							"content": [
+								{
+									"type": "textBlock",
+									"attrs": {
+										"id": "b78"
+									},
+									"content": [
+										{
+											"type": "textBlock",
+											"attrs": {
+												"id": "b77"
+											},
+											"content": [
+												{
+													"type": "textBlock",
+													"attrs": {
+														"id": "b76"
+													},
+													"content": [
+														{
+															"type": "textBlock",
+															"attrs": {
+																"id": "b75"
+															},
+															"content": [
+																{
+																	"type": "textBlock",
+																	"attrs": {
+																		"id": "b74"
+																	},
+																	"content": [
+																		{
+																			"type": "textBlock",
+																			"attrs": {
+																				"id": "b73"
+																			},
+																			"content": [
+																				{
+																					"type": "textBlock",
+																					"attrs": {
+																						"id": "b72"
+																					},
+																					"content": [
+																						{
+																							"type": "textBlock",
+																							"attrs": {
+																								"id": "b71"
+																							},
+																							"content": [
+																								{
+																									"type": "textBlock",
+																									"attrs": {
+																										"id": "b70"
+																									},
+																									"content": [
+																										{
+																											"type": "textBlock",
+																											"attrs": {
+																												"id": "b69"
+																											},
+																											"content": [
+																												{
+																													"type": "textBlock",
+																													"attrs": {
+																														"id": "b68"
+																													},
+																													"content": [
+																														{
+																															"type": "textBlock",
+																															"attrs": {
+																																"id": "b67"
+																															},
+																															"content": [
+																																{
+																																	"type": "textBlock",
+																																	"attrs": {
+																																		"id": "b66"
+																																	},
+																																	"content": [
+																																		{
+																																			"type": "textBlock",
+																																			"attrs": {
+																																				"id": "b65"
+																																			},
+																																			"content": [
+																																				{
+																																					"type": "textBlock",
+																																					"attrs": {
+																																						"id": "b64"
+																																					},
+																																					"content": [
+																																						{
+																																							"type": "textBlock",
+																																							"attrs": {
+																																								"id": "b63"
+																																							},
+																																							"content": [
+																																								{
+																																									"type": "textBlock",
+																																									"attrs": {
+																																										"id": "b62"
+																																									},
+																																									"content": [
+																																										{
+																																											"type": "textBlock",
+																																											"attrs": {
+																																												"id": "b61"
+																																											},
+																																											"content": [
+																																												{
+																																													"type": "textBlock",
+																																													"attrs": {
+																																														"id": "b60"
+																																													},
+																																													"content": [
+																																														{
+																																															"type": "textBlock",
+																																															"attrs": {
+																																																"id": "b59"
+																																															},
+																																															"content": [
+																																																{
+																																																	"type": "textBlock",
+																																																	"attrs": {
+																																																		"id": "b58"
+																																																	},
+																																																	"content": [
+																																																		{
+																																																			"type": "textBlock",
+																																																			"attrs": {
+																																																				"id": "b57"
+																																																			},
+																																																			"content": [
+																																																				{
+																																																					"type": "textBlock",
+																																																					"attrs": {
+																																																						"id": "b56"
+																																																					},
+																																																					"content": [
+																																																						{
+																																																							"type": "textBlock",
+																																																							"attrs": {
+																																																								"id": "b55"
+																																																							},
+																																																							"content": [
+																																																								{
+																																																									"type": "textBlock",
+																																																									"attrs": {
+																																																										"id": "b54"
+																																																									},
+																																																									"content": [
+																																																										{
+																																																											"type": "textBlock",
+																																																											"attrs": {
+																																																												"id": "b53"
+																																																											},
+																																																											"content": [
+																																																												{
+																																																													"type": "textBlock",
+																																																													"attrs": {
+																																																														"id": "b52"
+																																																													},
+																																																													"content": [
+																																																														{
+																																																															"type": "textBlock",
+																																																															"attrs": {
+																																																																"id": "b51"
+																																																															},
+																																																															"content": [
+																																																																{
+																																																																	"type": "textBlock",
+																																																																	"attrs": {
+																																																																		"id": "b50"
+																																																																	},
+																																																																	"content": [
+																																																																		{
+																																																																			"type": "textBlock",
+																																																																			"attrs": {
+																																																																				"id": "b49"
+																																																																			},
+																																																																			"content": [
+																																																																				{
+																																																																					"type": "textBlock",
+																																																																					"attrs": {
+																																																																						"id": "b48"
+																																																																					},
+																																																																					"content": [
+																																																																						{
+																																																																							"type": "textBlock",
+																																																																							"attrs": {
+																																																																								"id": "b47"
+																																																																							},
+																																																																							"content": [
+																																																																								{
+																																																																									"type": "textBlock",
+																																																																									"attrs": {
+																																																																										"id": "b46"
+																																																																									},
+																																																																									"content": [
+																																																																										{
+																																																																											"type": "textBlock",
+																																																																											"attrs": {
+																																																																												"id": "b45"
+																																																																											},
+																																																																											"content": [
+																																																																												{
+																																																																													"type": "textBlock",
+																																																																													"attrs": {
+																																																																														"id": "b44"
+																																																																													},
+																																																																													"content": [
+																																																																														{
+																																																																															"type": "textBlock",
+																																																																															"attrs": {
+																																																																																"id": "b43"
+																																																																															},
+																																																																															"content": [
+																																																																																{
+																																																																																	"type": "textBlock",
+																																																																																	"attrs": {
+																																																																																		"id": "b42"
+																																																																																	},
+																																																																																	"content": [
+																																																																																		{
+																																																																																			"type": "textBlock",
+																																																																																			"attrs": {
+																																																																																				"id": "b41"
+																																																																																			},
+																																																																																			"content": [
+																																																																																				{
+																																																																																					"type": "textBlock",
+																																																																																					"attrs": {
+																																																																																						"id": "b40"
+																																																																																					},
+																																																																																					"content": [
+																																																																																						{
+																																																																																							"type": "textBlock",
+																																																																																							"attrs": {
+																																																																																								"id": "b39"
+																																																																																							},
+																																																																																							"content": [
+																																																																																								{
+																																																																																									"type": "textBlock",
+																																																																																									"attrs": {
+																																																																																										"id": "b38"
+																																																																																									},
+																																																																																									"content": [
+																																																																																										{
+																																																																																											"type": "textBlock",
+																																																																																											"attrs": {
+																																																																																												"id": "b37"
+																																																																																											},
+																																																																																											"content": [
+																																																																																												{
+																																																																																													"type": "textBlock",
+																																																																																													"attrs": {
+																																																																																														"id": "b36"
+																																																																																													},
+																																																																																													"content": [
+																																																																																														{
+																																																																																															"type": "textBlock",
+																																																																																															"attrs": {
+																																																																																																"id": "b35"
+																																																																																															},
+																																																																																															"content": [
+																																																																																																{
+																																																																																																	"type": "textBlock",
+																																																																																																	"attrs": {
+																																																																																																		"id": "b34"
+																																																																																																	},
+																																																																																																	"content": [
+																																																																																																		{
+																																																																																																			"type": "textBlock",
+																																																																																																			"attrs": {
+																																																																																																				"id": "b33"
+																																																																																																			},
+																																																																																																			"content": [
+																																																																																																				{
+																																																																																																					"type": "textBlock",
+																																																																																																					"attrs": {
+																																																																																																						"id": "b32"
+																																																																																																					},
+																																																																																																					"content": [
+																																																																																																						{
+																																																																																																							"type": "textBlock",
+																																																																																																							"attrs": {
+																																																																																																								"id": "b31"
+																																																																																																							},
+																																																																																																							"content": [
+																																																																																																								{
+																																																																																																									"type": "textBlock",
+																																																																																																									"attrs": {
+																																																																																																										"id": "b30"
+																																																																																																									},
+																																																																																																									"content": [
+																																																																																																										{
+																																																																																																											"type": "textBlock",
+																																																																																																											"attrs": {
+																																																																																																												"id": "b29"
+																																																																																																											},
+																																																																																																											"content": [
+																																																																																																												{
+																																																																																																													"type": "textBlock",
+																																																																																																													"attrs": {
+																																																																																																														"id": "b28"
+																																																																																																													},
+																																																																																																													"content": [
+																																																																																																														{
+																																																																																																															"type": "textBlock",
+																																																																																																															"attrs": {
+																																																																																																																"id": "b27"
+																																																																																																															},
+																																																																																																															"content": [
+																																																																																																																{
+																																																																																																																	"type": "textBlock",
+																																																																																																																	"attrs": {
+																																																																																																																		"id": "b26"
+																																																																																																																	},
+																																																																																																																	"content": [
+																																																																																																																		{
+																																																																																																																			"type": "textBlock",
+																																																																																																																			"attrs": {
+																																																																																																																				"id": "b25"
+																																																																																																																			},
+																																																																																																																			"content": [
+																																																																																																																				{
+																																																																																																																					"type": "textBlock",
+																																																																																																																					"attrs": {
+																																																																																																																						"id": "b24"
+																																																																																																																					},
+																																																																																																																					"content": [
+																																																																																																																						{
+																																																																																																																							"type": "textBlock",
+																																																																																																																							"attrs": {
+																																																																																																																								"id": "b23"
+																																																																																																																							},
+																																																																																																																							"content": [
+																																																																																																																								{
+																																																																																																																									"type": "textBlock",
+																																																																																																																									"attrs": {
+																																																																																																																										"id": "b22"
+																																																																																																																									},
+																																																																																																																									"content": [
+																																																																																																																										{
+																																																																																																																											"type": "textBlock",
+																																																																																																																											"attrs": {
+																																																																																																																												"id": "b21"
+																																																																																																																											},
+																																																																																																																											"content": [
+																																																																																																																												{
+																																																																																																																													"type": "textBlock",
+																																																																																																																													"attrs": {
+																																																																																																																														"id": "b20"
+																																																																																																																													},
+																																																																																																																													"content": [
+																																																																																																																														{
+																																																																																																																															"type": "textBlock",
+																																																																																																																															"attrs": {
+																																																																																																																																"id": "b19"
+																																																																																																																															},
+																																																																																																																															"content": [
+																																																																																																																																{
+																																																																																																																																	"type": "textBlock",
+																																																																																																																																	"attrs": {
+																																																																																																																																		"id": "b18"
+																																																																																																																																	},
+																																																																																																																																	"content": [
+																																																																																																																																		{
+																																																																																																																																			"type": "textBlock",
+																																																																																																																																			"attrs": {
+																																																																																																																																				"id": "b17"
+																																																																																																																																			},
+																																																																																																																																			"content": [
+																																																																																																																																				{
+																																																																																																																																					"type": "textBlock",
+																																																																																																																																					"attrs": {
+																																																																																																																																						"id": "b16"
+																																																																																																																																					},
+																																																																																																																																					"content": [
+																																																																																																																																						{
+																																																																																																																																							"type": "textBlock",
+																																																																																																																																							"attrs": {
+																																																																																																																																								"id": "b15"
+																																																																																																																																							},
+																																																																																																																																							"content": [
+																																																																																																																																								{
+																																																																																																																																									"type": "textBlock",
+																																																																																																																																									"attrs": {
+																																																																																																																																										"id": "b14"
+																																																																																																																																									},
+																																																																																																																																									"content": [
+																																																																																																																																										{
+																																																																																																																																											"type": "textBlock",
+																																																																																																																																											"attrs": {
+																																																																																																																																												"id": "b13"
+																																																																																																																																											},
+																																																																																																																																											"content": [
+																																																																																																																																												{
+																																																																																																																																													"type": "textBlock",
+																																																																																																																																													"attrs": {
+																																																																																																																																														"id": "b12"
+																																																																																																																																													},
+																																																																																																																																													"content": [
+																																																																																																																																														{
+																																																																																																																																															"type": "textBlock",
+																																																																																																																																															"attrs": {
+																																																																																																																																																"id": "b11"
+																																																																																																																																															},
+																																																																																																																																															"content": [
+																																																																																																																																																{
+																																																																																																																																																	"type": "textBlock",
+																																																																																																																																																	"attrs": {
+																																																																																																																																																		"id": "b10"
+																																																																																																																																																	},
+																																																																																																																																																	"content": [
+																																																																																																																																																		{
+																																																																																																																																																			"type": "textBlock",
+																																																																																																																																																			"attrs": {
+																																																																																																																																																				"id": "b9"
+																																																																																																																																																			},
+																																																																																																																																																			"content": [
+																																																																																																																																																				{
+																																																																																																																																																					"type": "textBlock",
+																																																																																																																																																					"attrs": {
+																																																																																																																																																						"id": "b8"
+																																																																																																																																																					},
+																																																																																																																																																					"content": [
+																																																																																																																																																						{
+																																																																																																																																																							"type": "textBlock",
+																																																																																																																																																							"attrs": {
+																																																																																																																																																								"id": "b7"
+																																																																																																																																																							},
+																																																																																																																																																							"content": [
+																																																																																																																																																								{
+																																																																																																																																																									"type": "textBlock",
+																																																																																																																																																									"attrs": {
+																																																																																																																																																										"id": "b6"
+																																																																																																																																																									},
+																																																																																																																																																									"content": [
+																																																																																																																																																										{
+																																																																																																																																																											"type": "textBlock",
+																																																																																																																																																											"attrs": {
+																																																																																																																																																												"id": "b5"
+																																																																																																																																																											},
+																																																																																																																																																											"content": [
+																																																																																																																																																												{
+																																																																																																																																																													"type": "textBlock",
+																																																																																																																																																													"attrs": {
+																																																																																																																																																														"id": "b4"
+																																																																																																																																																													},
+																																																																																																																																																													"content": [
+																																																																																																																																																														{
+																																																																																																																																																															"type": "textBlock",
+																																																																																																																																																															"attrs": {
+																																																																																																																																																																"id": "b3"
+																																																																																																																																																															},
+																																																																																																																																																															"content": [
+																																																																																																																																																																{
+																																																																																																																																																																	"type": "textBlock",
+																																																																																																																																																																	"attrs": {
+																																																																																																																																																																		"id": "b2"
+																																																																																																																																																																	},
+																																																																																																																																																																	"content": [
+																																																																																																																																																																		{
+																																																																																																																																																																			"type": "textBlock",
+																																																																																																																																																																			"attrs": {
+																																																																																																																																																																				"id": "b1"
+																																																																																																																																																																			},
+																																																																																																																																																																			"content": [
+																																																																																																																																																																				{
+																																																																																																																																																																					"type": "textBlock",
+																																																																																																																																																																					"attrs": {
+																																																																																																																																																																						"id": "b0"
+																																																																																																																																																																					},
+																																																																																																																																																																					"content": [
+																																																																																																																																																																						{
+																																																																																																																																																																							"type": "textWrapper",
+																																																																																																																																																																							"attrs": {
+																																																																																																																																																																								"id": "a"
+																																																																																																																																																																							},
+																																																																																																																																																																							"content": [
+																																																																																																																																																																								{
+																																																																																																																																																																									"type": "text",
+																																																																																																																																																																									"text": "tief"
+																																																																																																																																																																								}
+																																																																																																																																																																							]
+																																																																																																																																																																						}
+																																																																																																																																																																					]
+																																																																																																																																																																				}
+																																																																																																																																																																			]
+																																																																																																																																																																		}
+																																																																																																																																																																	]
+																																																																																																																																																																}
+																																																																																																																																																															]
+																																																																																																																																																														}
+																																																																																																																																																													]
+																																																																																																																																																												}
+																																																																																																																																																											]
+																																																																																																																																																										}
+																																																																																																																																																									]
+																																																																																																																																																								}
+																																																																																																																																																							]
+																																																																																																																																																						}
+																																																																																																																																																					]
+																																																																																																																																																				}
+																																																																																																																																																			]
+																																																																																																																																																		}
+																																																																																																																																																	]
+																																																																																																																																																}
+																																																																																																																																															]
+																																																																																																																																														}
+																																																																																																																																													]
+																																																																																																																																												}
+																																																																																																																																											]
+																																																																																																																																										}
+																																																																																																																																									]
+																																																																																																																																								}
+																																																																																																																																							]
+																																																																																																																																						}
+																																																																																																																																					]
+																																																																																																																																				}
+																																																																																																																																			]
+																																																																																																																																		}
+																																																																																																																																	]
+																																																																																																																																}
+																																																																																																																															]
+																																																																																																																														}
+																																																																																																																													]
+																																																																																																																												}
+																																																																																																																											]
+																																																																																																																										}
+																																																																																																																									]
+																																																																																																																								}
+																																																																																																																							]
+																																																																																																																						}
+																																																																																																																					]
+																																																																																																																				}
+																																																																																																																			]
+																																																																																																																		}
+																																																																																																																	]
+																																																																																																																}
+																																																																																																															]
+																																																																																																														}
+																																																																																																													]
+																																																																																																												}
+																																																																																																											]
+																																																																																																										}
+																																																																																																									]
+																																																																																																								}
+																																																																																																							]
+																																																																																																						}
+																																																																																																					]
+																																																																																																				}
+																																																																																																			]
+																																																																																																		}
+																																																																																																	]
+																																																																																																}
+																																																																																															]
+																																																																																														}
+																																																																																													]
+																																																																																												}
+																																																																																											]
+																																																																																										}
+																																																																																									]
+																																																																																								}
+																																																																																							]
+																																																																																						}
+																																																																																					]
+																																																																																				}
+																																																																																			]
+																																																																																		}
+																																																																																	]
+																																																																																}
+																																																																															]
+																																																																														}
+																																																																													]
+																																																																												}
+																																																																											]
+																																																																										}
+																																																																									]
+																																																																								}
+																																																																							]
+																																																																						}
+																																																																					]
+																																																																				}
+																																																																			]
+																																																																		}
+																																																																	]
+																																																																}
+																																																															]
+																																																														}
+																																																													]
+																																																												}
+																																																											]
+																																																										}
+																																																									]
+																																																								}
+																																																							]
+																																																						}
+																																																					]
+																																																				}
+																																																			]
+																																																		}
+																																																	]
+																																																}
+																																															]
+																																														}
+																																													]
+																																												}
+																																											]
+																																										}
+																																									]
+																																								}
+																																							]
+																																						}
+																																					]
+																																				}
+																																			]
+																																		}
+																																	]
+																																}
+																															]
+																														}
+																													]
+																												}
+																											]
+																										}
+																									]
+																								}
+																							]
+																						}
+																					]
+																				}
+																			]
+																		}
+																	]
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": []
+	}
+}

@@ -392,6 +392,75 @@ describe("specToZodSchema", () => {
 	});
 });
 
+describe("specToZodSchema and the rich-text document (ADR-0025)", () => {
+	const doc = () => ({
+		type: "doc",
+		content: [
+			{
+				type: "textWrapper",
+				attrs: { id: "a", textAlign: null, attributes: {} },
+				content: [{ type: "text", text: "Eins" }],
+			},
+		],
+	});
+	const group: FieldTypePlugin = {
+		...mockPlugin("group", z.unknown()),
+		toZodType: (f, compose) =>
+			z.array(compose ? compose(f.children ?? []) : z.unknown()),
+		records: (f, value) =>
+			Array.isArray(value)
+				? value.map((row, i) => ({
+						fields: f.children ?? [],
+						record: row as Record<string, unknown>,
+						segments: [String(i)],
+					}))
+				: [],
+	};
+	const plugins: FieldTypePlugin[] = [
+		{
+			...mockPlugin("rich_text", z.record(z.unknown())),
+			opaqueDocument: true,
+		},
+		mockPlugin("text", z.string()),
+		group,
+	];
+	const config = (api_accessor: string) => ({
+		name: api_accessor,
+		api_accessor,
+		required: false,
+		instructions: "",
+	});
+	const spec: Field[] = [
+		{ field_type: "rich_text", config: config("body"), system: false },
+		{ field_type: "rich_text", config: config("empty"), system: false },
+		{
+			field_type: "group",
+			config: config("rows"),
+			system: false,
+			children: [
+				{ field_type: "text", config: config("t"), system: false },
+				{ field_type: "rich_text", config: config("b"), system: false },
+			],
+		},
+	];
+
+	it("passes a document through unchanged, and strips around it", () => {
+		const parsed = specToZodSchema(spec, plugins).parse({
+			body: doc(),
+			empty: {},
+			rows: [{ t: "", b: doc() }],
+		});
+		expect(parsed).toStrictEqual({ body: doc(), rows: [{ b: doc() }] });
+	});
+
+	it("keeps doing so through a copy Zod makes of the schema", () => {
+		const parsed = specToZodSchema(spec, plugins)
+			.describe("copied")
+			.parse({ body: doc() });
+		expect(parsed).toStrictEqual({ body: doc() });
+	});
+});
+
 describe("getDefaultValues", () => {
 	it("should extract default values from field configs", () => {
 		const fields: Field[] = [

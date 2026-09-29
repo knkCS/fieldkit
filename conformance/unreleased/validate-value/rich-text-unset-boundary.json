@@ -1,0 +1,198 @@
+{
+	"description": "Unset stops at a rich_text document (ADR-0025): inside one, an attribute holding null and knkeditor's \"attributes\": {} are the document's own, neither stripped nor not_canonical — at the root and in a group's rows. At the Field the rule still holds: a rich_text value of {} or null is not_canonical, and Unset, so a required one is required as when absent; and a key beside a document holding Unset is still not_canonical",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "sections",
+				"api_accessor": "sections",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "heading",
+						"api_accessor": "heading",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "empty",
+				"api_accessor": "empty",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "nothing",
+				"api_accessor": "nothing",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "missing",
+				"api_accessor": "missing",
+				"required": true,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "a",
+						"textAlign": null,
+						"attributes": {}
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins"
+						},
+						{
+							"type": "hardBreak",
+							"attrs": {
+								"attributes": {}
+							}
+						},
+						{
+							"type": "text",
+							"text": "Zwei"
+						},
+						{
+							"type": "inlineImage",
+							"attrs": {
+								"assetId": "as1",
+								"alt": null,
+								"attributes": {}
+							}
+						}
+					]
+				}
+			]
+		},
+		"sections": [
+			{
+				"_id": "s1",
+				"heading": "Eins",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "a",
+								"textAlign": null,
+								"attributes": {}
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Eins"
+								},
+								{
+									"type": "hardBreak",
+									"attrs": {
+										"attributes": {}
+									}
+								},
+								{
+									"type": "text",
+									"text": "Zwei"
+								},
+								{
+									"type": "inlineImage",
+									"attrs": {
+										"assetId": "as1",
+										"alt": null,
+										"attributes": {}
+									}
+								}
+							]
+						}
+					]
+				},
+				"note": null
+			}
+		],
+		"empty": {},
+		"nothing": null,
+		"extra": {
+			"a": null
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/sections/s1/note",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/empty",
+				"code": "required"
+			},
+			{
+				"path": "/nothing",
+				"code": "not_canonical"
+			},
+			{
+				"path": "/nothing",
+				"code": "required"
+			},
+			{
+				"path": "/missing",
+				"code": "required"
+			},
+			{
+				"path": "/extra",
+				"code": "not_canonical"
+			}
+		]
+	}
+}
