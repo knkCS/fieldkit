@@ -186,7 +186,7 @@ Each row shows a **filled count** — `1/2` — so it is visible at a glance whi
 
 The embedded Reference Spec is authored in the config panel's **Type settings** tab. Adding a Field is the ordinary type picker; configuring one is the panel's incumbent **drill-in** — the same Back control, the same three tabs, the same accessor gate a group's child gets. There is no separate nested editor. A linked one is a Blueprint Release, authored where Blueprints are.
 
-The picker offers strictly less than the canvas does: only the types whose `positions` list `reference_spec` (ADR-0022; this was the `"attribute"` Field Context before 0.18.0), and `validateSpec()` reports any other type found there as `position` — in a linked Reference Spec too, once it is resolved:
+The picker offers strictly less than the canvas does: only the types whose `positions` list `reference_spec` (ADR-0022; this was the `"attribute"` Field Context before 0.18.0), and `validateSpec()` reports any other type found there as `invalid_position` — in a linked Reference Spec too, once it is resolved:
 
 - **no Markers** — a drawer has no Tab and no Card for a Section or a Card to open;
 - **no containers** — a `fieldset` there would never resolve, and a drawer holds one level (see the boundary below);

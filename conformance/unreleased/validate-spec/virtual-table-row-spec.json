@@ -236,11 +236,11 @@
 			},
 			{
 				"path": "/nested/children/rows",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/nested/children/inner",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/nested/children/old",
@@ -256,7 +256,7 @@
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/rows/children/address",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

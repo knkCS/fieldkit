@@ -38,7 +38,7 @@ export type ValueErrorCode =
 	 * `max_items`, or beyond {@link VALUE_CAPS}.maxItems. */
 	| "too_many_items"
 	/** A string beyond {@link VALUE_CAPS}.maxStringBytes. */
-	| "too_large"
+	| "too_many_bytes"
 	/** Any other rule a type's `toZodType` states that none of the codes
 	 * above names — a Block whose `_type` is not one of its Field's Block
 	 * Types. No built-in scalar type reports it. */
@@ -95,7 +95,7 @@ export const VALUE_CAPS = {
  *   names it, is `not_canonical`: Unset is stored as absent. A form's
  *   submitted values are canonical already (`specToZodSchema` strips them);
  *   {@link canonicalValue} canonicalises anything else.
- * - {@link VALUE_CAPS} are enforced as `too_many_items`, `too_large` and
+ * - {@link VALUE_CAPS} are enforced as `too_many_items`, `too_many_bytes` and
  *   `too_deep`,
  *   over the whole document — keys the Spec does not name, and the number of
  *   keys at the root, included. Data beyond a cap reports only the caps it
@@ -288,7 +288,7 @@ const VALUE_ERROR_CODES: ReadonlySet<string> = new Set<ValueErrorCode>([
 	"too_small",
 	"too_big",
 	"too_many_items",
-	"too_large",
+	"too_many_bytes",
 	"invalid_value",
 	"missing_id",
 	"duplicate_id",
@@ -336,7 +336,7 @@ function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
 			if (exceedsStringCap(node)) {
 				errors.push({
 					path: toPath(path),
-					code: "too_large",
+					code: "too_many_bytes",
 					params: { maximum: VALUE_CAPS.maxStringBytes },
 				});
 			}

@@ -162,7 +162,7 @@ conformance/
   `validation.pattern` as RE2 where TS reads it as a JS `RegExp` — a pattern
   RE2 cannot compile (a lookaround, a backreference) checks nothing in Go —
   and Go's reading of a URL (`new URL()` in TS) does no IDNA. The caps
-  (`too_many_items`, `too_large`) are tested in each language's unit tests
+  (`too_many_items`, `too_many_bytes`) are tested in each language's unit tests
   instead: a value beyond one is too big to freeze into a fixture.
 
   A valid case freezes an acceptance for ever (ADR-0019), so a valid fixture
@@ -276,7 +276,7 @@ A segment holding `/` or `~` is escaped as in RFC 6901: `~` as `~0`, `/` as
 ## Codes
 
 Codes are part of the data contract: added, never renamed or removed
-(ADR-0019). The one exception predates the first release: `virtual_table_row_field_type` was replaced by `position` (ADR-0022) before any Catalogue or fixture folder was frozen.
+(ADR-0019). The exceptions predate the first release, before any Catalogue or fixture folder was frozen: `virtual_table_row_field_type` was replaced by `position` (ADR-0022), and then, in the naming review before the freeze (#223, D7), `position` was renamed `invalid_position` and `too_large` was renamed `too_many_bytes`.
 
 | Code | Meaning |
 |---|---|
@@ -285,7 +285,7 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_setting` | A declared setting of the wrong type, or out of range; or settings that are not an object; or a Block Type's `fields` that are not Fields. Reported once per path, however many rules the value breaks. |
 | `virtual_table_row_spec_ambiguous` | A Virtual Table that links a Blueprint and has children: two Row Specs (ADR-0017). At the Field. |
 | `virtual_table_row_spec_missing` | A Virtual Table with neither a linked nor an embedded Row Spec. A blank Blueprint is no link. At the Field. |
-| `position` | A Field in a Position its type's Catalogue entry does not list (ADR-0022) — `root`, `row` (a Virtual Table's children), `block_type` (a Block Type's Fields); a Group's or Fieldset's children sit where it does. At that Field. A type the Catalogue does not list is `unknown_field_type` only. |
+| `invalid_position` | A Field in a Position its type's Catalogue entry does not list (ADR-0022) — `root`, `row` (a Virtual Table's children), `block_type` (a Block Type's Fields); a Group's or Fieldset's children sit where it does. At that Field. A type the Catalogue does not list is `unknown_field_type` only. |
 | `reserved_accessor` | An Accessor beginning with `_`, in any Position (ADR-0022). At the Field. |
 | `loose_field_in_carded_tab` | A top-level Field before the first card marker of a tab (split at each `section`) that has one. At the Field. |
 | `invalid_config` | A `config` key holding a value it does not accept: a `search` other than `off`, `A`, `B`, `C`, `D`. At the key. |
@@ -298,8 +298,8 @@ Codes are part of the data contract: added, never renamed or removed
 | `invalid_format` | *(value)* A string not in its type's format: `email`, `url`, `slug`, or the Field's `validation.pattern`. |
 | `too_small` | *(value)* Below a minimum the Spec states: a string shorter than `validation.min_length` (in UTF-16 code units), a number below `settings.min`, fewer rows than `min_items`; and a blank entry in a required List. |
 | `too_big` | *(value)* Above a maximum the Spec states: a string longer than `validation.max_length`, a number above `settings.max` — and an `_id` longer than 64 characters. |
-| `too_many_items` | *(value)* An array, or an object's keys, beyond 10 000 (TS `VALUE_CAPS.maxItems`, Go `MaxItems`), or rows — a Reference Tree's nodes at every level — beyond a Field's `max_items`. The 10 000 cap covers the whole document, keys the Spec does not name and the root included; data beyond it or `too_large` reports only its caps. |
-| `too_large` | *(value)* A string beyond 1 MiB of UTF-8 (TS `VALUE_CAPS.maxStringBytes`, Go `MaxStringBytes`). |
+| `too_many_items` | *(value)* An array, or an object's keys, beyond 10 000 (TS `VALUE_CAPS.maxItems`, Go `MaxItems`), or rows — a Reference Tree's nodes at every level — beyond a Field's `max_items`. The 10 000 cap covers the whole document, keys the Spec does not name and the root included; data beyond it or `too_many_bytes` reports only its caps. |
+| `too_many_bytes` | *(value)* A string beyond 1 MiB of UTF-8 (TS `VALUE_CAPS.maxStringBytes`, Go `MaxStringBytes`). |
 | `invalid_value` | *(value)* Any other rule a type's `toZodType` states: a Block whose `_type` is not its Block Type's; a Reference nested deeper than its Field's `max_depth`; a key a strict object of a value does not declare — a `ti_overlay`'s, its entries' and its anchors' — once at the object holding it, as Zod's strict object reports it; a `ti_overlay` entry's `source` other than `editor` or `oasys`; a `manipulation_tree` node's `intent` that is none of `include`, `exclude`, `replace`, `annotate`, a `with` on a node that is no `replace`, and `values` on an `exclude` or `replace`. |
 | `missing_id` | *(value)* A row of a `group`, `virtual_table` or `blocks` value, or a node of a `reference`, `single_reference` or `manipulation_tree`, without an `_id` (ADR-0023). At the row. |
 | `duplicate_id` | *(value)* A row repeating an `_id` an earlier row of the same array holds — for a Reference Tree, any earlier node at any level. At each repeat. |
