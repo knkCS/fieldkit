@@ -65,7 +65,7 @@ func TestNothingRegistersThePublishingTypes(t *testing.T) {
 
 func TestReferenceFilterSitsOnlyInAReferenceSpec(t *testing.T) {
 	spec := decode(t, related)
-	want := map[string]string{"/root": fieldkit.CodePosition}
+	want := map[string]string{"/root": fieldkit.CodeInvalidPosition}
 	if got := codes(publishing.DefaultCatalogue().ValidateSpec(spec)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateSpec = %v, want %v", got, want)
 	}

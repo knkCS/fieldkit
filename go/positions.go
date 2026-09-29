@@ -4,8 +4,8 @@ import "slices"
 
 // The Positions a Field may sit in (ADR-0022): where in a Spec it is, which
 // decides the Field Types it may be. A type's Catalogue entry lists its
-// Positions, and ValidateSpec reports a Field anywhere else as CodePosition.
-// The list only grows.
+// Positions, and ValidateSpec reports a Field anywhere else as
+// CodeInvalidPosition. The list only grows.
 const (
 	// PositionRoot is the top level of a Spec. A Group's or a Fieldset's
 	// children sit in their container's Position, so a Group at the root

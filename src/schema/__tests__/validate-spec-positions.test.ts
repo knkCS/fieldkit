@@ -138,7 +138,7 @@ describe("validateSpec — a plugin that declares no Positions", () => {
 			validateSpec([field("rating", "top"), table], plugins).fieldErrors.map(
 				(e) => [e.path, e.code],
 			),
-		).toEqual([["/rows/children/stars", "position"]]);
+		).toEqual([["/rows/children/stars", "invalid_position"]]);
 
 		plugins.set("rating", mockPlugin("rating", { positions: ["root", "row"] }));
 		expect(validateSpec([table], plugins).fieldErrors).toEqual([]);

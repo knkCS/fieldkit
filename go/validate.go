@@ -12,8 +12,8 @@ import (
 //     at the Field; its settings are then not checked);
 //   - every Field's settings are what its type's settings schema declares
 //     (CodeUnknownSetting, CodeInvalidSetting, at the setting);
-//   - every Field sits in a Position its type lists (CodePosition, ADR-0022):
-//     the root, a Row Spec, a Reference Spec, a Block Type. One check for
+//   - every Field sits in a Position its type lists (CodeInvalidPosition,
+//     ADR-0022): the root, a Row Spec, a Reference Spec, a Block Type. One check for
 //     every container —
 //     what a Row Spec may hold (ADR-0017) is the "row" Position;
 //   - no Accessor begins with "_" (CodeReservedAccessor);
@@ -37,7 +37,7 @@ import (
 //
 // The Catalogue lists every built-in type. A type it does not list — a
 // Consumer's own — reports unknown_field_type here, and has no Positions and
-// no text, so it is never reported as CodePosition as well.
+// no text, so it is never reported as CodeInvalidPosition as well.
 func ValidateSpec(spec Spec, opts ...Option) []Error {
 	return DefaultCatalogue().ValidateSpec(spec, opts...)
 }
@@ -78,8 +78,8 @@ func (c *Catalogue) ValidateSpec(spec Spec, opts ...Option) []Error {
 // every rule ValidateSpec checks, now also over the Fields each pinned
 // Blueprint Release was inlined as (ADR-0020). Only here is it known what a
 // linked Blueprint is linked *as*, so only here are its Fields' Positions
-// checked — a group in a Blueprint linked as a Row Spec is CodePosition at
-// "/lines/children/group".
+// checked — a group in a Blueprint linked as a Row Spec is
+// CodeInvalidPosition at "/lines/children/group".
 //
 // blueprinthub runs ValidateSpec when a Revision is saved and this when a
 // Release is cut. A Virtual Table that links a Blueprint and has children is
@@ -120,7 +120,7 @@ func (c *Catalogue) validateFields(fields []Field, list, position string, o *opt
 			if !c.allowsPosition(f.FieldType, position) {
 				*errs = append(*errs, Error{
 					Path:   path,
-					Code:   CodePosition,
+					Code:   CodeInvalidPosition,
 					Params: map[string]any{"position": position, "field_type": f.FieldType},
 				})
 			}

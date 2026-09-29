@@ -106,11 +106,11 @@
 		"validateResolvedSpec": [
 			{
 				"path": "/lines/children/dimensions",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/lines/children/origin",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

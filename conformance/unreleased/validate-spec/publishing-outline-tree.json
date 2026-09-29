@@ -202,19 +202,19 @@
 			},
 			{
 				"path": "/embedded/children/box",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/embedded/children/tab",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/rows/children/nested",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/in_block",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

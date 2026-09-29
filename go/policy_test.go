@@ -100,7 +100,7 @@ func TestPositionErrorNamesThePositionAndTheType(t *testing.T) {
 		t.Fatal(err)
 	}
 	errs := ValidateSpec(spec)
-	if len(errs) != 1 || errs[0].Code != CodePosition || errs[0].Path != "/rows/children/nested" {
+	if len(errs) != 1 || errs[0].Code != CodeInvalidPosition || errs[0].Path != "/rows/children/nested" {
 		t.Fatalf("got %v, want one position error at /rows/children/nested", errs)
 	}
 	if errs[0].Params["position"] != PositionRow || errs[0].Params["field_type"] != "group" {

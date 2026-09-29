@@ -57,7 +57,7 @@
 		"validateResolvedSpec": [
 			{
 				"path": "/embedded/children/exclude",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

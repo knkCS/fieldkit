@@ -141,7 +141,7 @@ describe("validateSpec over a Reference Spec", () => {
 		const errors = validateSpec([credits], plugins).fieldErrors;
 		expect(
 			errors
-				.filter((e) => e.code === "position")
+				.filter((e) => e.code === "invalid_position")
 				.map((e) => [e.path, e.params?.position]),
 		).toEqual([
 			["/credits/settings/spec/divider", "reference_spec"],

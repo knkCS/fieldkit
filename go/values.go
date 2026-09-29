@@ -13,7 +13,7 @@ const (
 	// value. More is CodeTooManyItems.
 	MaxItems = 10_000
 	// MaxStringBytes is the most UTF-8 bytes a string in a value may hold:
-	// 1 MiB. More is CodeTooLarge.
+	// 1 MiB. More is CodeTooManyBytes.
 	MaxStringBytes = 1 << 20
 	// MaxDepth is the deepest an array or object may sit in a value: the
 	// data's root is depth 0, its values depth 1. Deeper is CodeTooDeep.
@@ -45,7 +45,7 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 //     names it, is CodeNotCanonical: Unset is stored as absent. Array items
 //     are kept whatever they hold, so [null] is one item, not Unset.
 //   - MaxItems, MaxStringBytes and MaxDepth are enforced as
-//     CodeTooManyItems, CodeTooLarge and CodeTooDeep, over the whole
+//     CodeTooManyItems, CodeTooManyBytes and CodeTooDeep, over the whole
 //     document — keys the Spec does not name, and the number of keys at the
 //     root, included. Data beyond a cap reports only the caps it breaks:
 //     nothing else is checked.
@@ -286,7 +286,7 @@ func capErrors(value any, path string, errs *valueErrors) bool {
 		switch x := node.(type) {
 		case string:
 			if len(x) > MaxStringBytes {
-				errs.add(at, CodeTooLarge, map[string]any{"maximum": MaxStringBytes})
+				errs.add(at, CodeTooManyBytes, map[string]any{"maximum": MaxStringBytes})
 				broke = true
 			}
 		case []any:

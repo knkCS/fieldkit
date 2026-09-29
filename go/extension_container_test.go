@@ -69,7 +69,7 @@ func TestSectionContainerChildrenSitInItsChildrenPosition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"/n/children/g": CodePosition}
+	want := map[string]string{"/n/children/g": CodeInvalidPosition}
 	if got := codes(c.ValidateSpec(spec)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateSpec = %v, want %v", got, want)
 	}
@@ -85,7 +85,7 @@ func TestSectionContainerHeldSpecsAreWalked(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Held in the reference_spec Position: no Marker, no container.
-	want := map[string]string{"/n/settings/inner/tab": CodePosition, "/n/settings/inner/f": CodePosition}
+	want := map[string]string{"/n/settings/inner/tab": CodeInvalidPosition, "/n/settings/inner/f": CodeInvalidPosition}
 	if got := codes(c.ValidateSpec(spec)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateSpec = %v, want %v", got, want)
 	}
@@ -137,7 +137,7 @@ func TestSectionContainerPinIsInlinedAsChildren(t *testing.T) {
 		t.Fatalf("children = %+v", got)
 	}
 	// The inlined Fields sit in the type's ChildrenPosition.
-	want := map[string]string{"/n/children/g": CodePosition}
+	want := map[string]string{"/n/children/g": CodeInvalidPosition}
 	if got := codes(c.ValidateResolvedSpec(resolved)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateResolvedSpec = %v, want %v", got, want)
 	}

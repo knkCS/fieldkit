@@ -60,7 +60,7 @@ func TestOutlineTreeResolveInlinesItsBlueprintRelease(t *testing.T) {
 		t.Error("the Text Type is not in parts")
 	}
 	// The inlined Fields sit where a Reference Spec's do: no container.
-	want := map[string]string{"/outline/children/box": fieldkit.CodePosition}
+	want := map[string]string{"/outline/children/box": fieldkit.CodeInvalidPosition}
 	if got := codes(c.ValidateResolvedSpec(resolved)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateResolvedSpec = %v, want %v", got, want)
 	}
@@ -75,7 +75,7 @@ func TestOutlineTreeSettings(t *testing.T) {
 	// Only at the root: not in a Row Spec.
 	spec := decode(t, `[{"field_type":"virtual_table","config":{"name":"VT","api_accessor":"vt","required":false,"instructions":""},"children":[
 		{"field_type":"outline_tree","config":{"name":"O","api_accessor":"o","required":false,"instructions":""},"system":false}],"system":false}]`)
-	if got := codes(c.ValidateSpec(spec)); !reflect.DeepEqual(got, map[string]string{"/vt/children/o": fieldkit.CodePosition}) {
+	if got := codes(c.ValidateSpec(spec)); !reflect.DeepEqual(got, map[string]string{"/vt/children/o": fieldkit.CodeInvalidPosition}) {
 		t.Errorf("ValidateSpec = %v", got)
 	}
 }

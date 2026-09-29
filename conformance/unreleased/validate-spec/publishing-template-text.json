@@ -102,7 +102,7 @@
 			},
 			{
 				"path": "/rows/children/nested",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

@@ -25,7 +25,7 @@ export type Consumer = "blueprint" | "task" | "form";
 /**
  * Where in a Spec a Field sits, which decides the Field Types it may be
  * (ADR-0022). Enforced: `validateSpec()` reports a Field in a Position its type
- * does not list as `position`, in TS and in Go.
+ * does not list as `invalid_position`, in TS and in Go.
  *
  * - `root` — the top level of a Spec.
  * - `row` — a Virtual Table's Row Spec (ADR-0017): flat value Fields only, each
