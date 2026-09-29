@@ -15,7 +15,7 @@ const overlaySpec = `[
 	{"field_type":"ti_overlay","config":{"name":"TI","api_accessor":"ti","required":false,"instructions":""},"settings":{"ti_set":"tis-1"},"system":false}
 ]`
 
-const entry = `{"_id":"e1","anchor":{"node":"12","offset":3,"before":"abc","after":"def"},"command":"np","params":{"lines":"2"},"source":"editor","notes":"keep"}`
+const entry = `{"_id":"e1","content":"law1","anchor":{"node":"12","offset":3,"before":"abc","after":"def"},"command":"np","params":{"lines":"2"},"source":"editor","notes":"keep"}`
 
 func resolveOverlay(t *testing.T, set string) *fieldkit.ResolvedSpec {
 	t.Helper()
@@ -54,7 +54,7 @@ func TestTIOverlayValues(t *testing.T) {
 		want map[string]string
 	}{
 		"an entry":  {with(entry), map[string]string{}},
-		"no before": {with(`{"_id":"e1","anchor":{"node":"12","offset":0,"after":"d"},"command":"np","source":"oasys"}`), map[string]string{}},
+		"no before": {with(`{"_id":"e1","content":"law1","anchor":{"node":"12","offset":0,"after":"d"},"command":"np","source":"oasys"}`), map[string]string{}},
 		"core's published and drafts": {
 			`{"ti":{"entries":[` + entry + `],"published":{"label":"x"},"drafts":[1]}}`,
 			map[string]string{"/ti": fieldkit.CodeInvalidValue},
@@ -64,32 +64,41 @@ func TestTIOverlayValues(t *testing.T) {
 			map[string]string{"/ti/entries/e1": fieldkit.CodeInvalidValue},
 		},
 		"the old anchor": {
-			with(`{"_id":"e1","anchor":{"blockId":"b","charOffsetInBlock":1},"command":"np","source":"editor"}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"blockId":"b","charOffsetInBlock":1},"command":"np","source":"editor"}`),
 			map[string]string{"/ti/entries/e1/anchor": fieldkit.CodeInvalidValue, "/ti/entries/e1/anchor/node": fieldkit.CodeRequired, "/ti/entries/e1/anchor/offset": fieldkit.CodeRequired},
 		},
 		"20 code points, 40 UTF-16 units": {
-			with(`{"_id":"e1","anchor":{"node":"1","offset":0,"after":"` + strings.Repeat("𝄞", 20) + `"},"command":"np","source":"editor"}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"node":"1","offset":0,"after":"` + strings.Repeat("𝄞", 20) + `"},"command":"np","source":"editor"}`),
 			map[string]string{},
 		},
 		"21 code points": {
-			with(`{"_id":"e1","anchor":{"node":"1","offset":0,"before":"` + strings.Repeat("x", 21) + `"},"command":"np","source":"editor"}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"node":"1","offset":0,"before":"` + strings.Repeat("x", 21) + `"},"command":"np","source":"editor"}`),
 			map[string]string{"/ti/entries/e1/anchor/before": fieldkit.CodeTooBig},
 		},
 		"a fractional offset": {
-			with(`{"_id":"e1","anchor":{"node":"1","offset":1.5},"command":"np","source":"editor"}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"node":"1","offset":1.5},"command":"np","source":"editor"}`),
 			map[string]string{"/ti/entries/e1/anchor/offset": fieldkit.CodeInvalidType},
 		},
 		"a negative offset": {
-			with(`{"_id":"e1","anchor":{"node":"1","offset":-1},"command":"np","source":"editor"}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"node":"1","offset":-1},"command":"np","source":"editor"}`),
 			map[string]string{"/ti/entries/e1/anchor/offset": fieldkit.CodeTooSmall},
 		},
 		"rows": {
-			with(`{"anchor":{"node":"1","offset":0},"command":"np","source":"editor"},` + entry + `,` + entry),
+			with(`{"content":"law1","anchor":{"node":"1","offset":0},"command":"np","source":"editor"},` + entry + `,` + entry),
 			map[string]string{"/ti/entries/0": fieldkit.CodeMissingID, "/ti/entries/2": fieldkit.CodeDuplicateID},
 		},
 		"a source, a param, notes": {
-			with(`{"_id":"e1","anchor":{"node":"1","offset":0},"command":"np","params":{"lines":2},"source":"import","notes":3}`),
+			with(`{"_id":"e1","content":"law1","anchor":{"node":"1","offset":0},"command":"np","params":{"lines":2},"source":"import","notes":3}`),
 			map[string]string{"/ti/entries/e1/source": fieldkit.CodeInvalidValue, "/ti/entries/e1/params/lines": fieldkit.CodeInvalidType, "/ti/entries/e1/notes": fieldkit.CodeInvalidType},
+		},
+		"no content": {
+			with(strings.Replace(entry, `"content":"law1",`, ``, 1)),
+			map[string]string{"/ti/entries/e1/content": fieldkit.CodeRequired},
+		},
+		"a pin": {with(strings.Replace(entry, `"content":"law1",`, `"content":"law1","pin":"r1",`, 1)), map[string]string{}},
+		"a content, a pin not strings": {
+			with(strings.Replace(entry, `"content":"law1",`, `"content":5,"pin":7,`, 1)),
+			map[string]string{"/ti/entries/e1/content": fieldkit.CodeInvalidType, "/ti/entries/e1/pin": fieldkit.CodeInvalidType},
 		},
 		"no entries":      {`{"ti":{"published":{"label":"x"}}}`, map[string]string{"/ti": fieldkit.CodeInvalidValue, "/ti/entries": fieldkit.CodeRequired}},
 		"not an object":   {`{"ti":[1]}`, map[string]string{"/ti": fieldkit.CodeInvalidType}},
@@ -144,7 +153,7 @@ func TestTIOverlayCommandsAgainstTheTISet(t *testing.T) {
 	})
 }
 
-func TestTIOverlaySitsAtTheRootAndYieldsNothing(t *testing.T) {
+func TestTIOverlaySitsAtTheRootAndYieldsAnAnchorEdgePerEntry(t *testing.T) {
 	c := publishing.DefaultCatalogue()
 	inReference := decode(t, `[{"field_type":"reference","config":{"name":"R","api_accessor":"r","required":false,"instructions":""},
 		"settings":{"spec":[{"field_type":"ti_overlay","config":{"name":"TI","api_accessor":"ti","required":false,"instructions":""},"system":false}]},"system":false}]`)
@@ -157,10 +166,20 @@ func TestTIOverlaySitsAtTheRootAndYieldsNothing(t *testing.T) {
 		t.Errorf("ValidateSettings = %v, want %v", got, want)
 	}
 	resolved := &fieldkit.ResolvedSpec{Fields: decode(t, overlaySpec)}
-	data := json.RawMessage(`{"ti":{"entries":[` + entry + `]}}`)
-	if edges, err := c.Edges(resolved, data); err != nil || len(edges) != 0 {
-		t.Errorf("Edges = %+v, %v", edges, err)
+	pinned := strings.Replace(strings.Replace(entry, `"content":"law1",`, `"content":"law2","pin":"r1",`, 1), `"e1"`, `"e2"`, 1)
+	unnamed := strings.Replace(strings.Replace(entry, `"content":"law1",`, `"content":"",`, 1), `"e1"`, `"e3"`, 1)
+	data := json.RawMessage(`{"ti":{"entries":[` + entry + `,` + pinned + `,` + unnamed + `]}}`)
+	wantEdges := []fieldkit.Edge{
+		{Path: "/ti/entries/e1", Kind: fieldkit.EdgeAnchor, Target: fieldkit.Target{Content: "law1", Anchor: "12"}},
+		{Path: "/ti/entries/e2", Kind: fieldkit.EdgeAnchor, Target: fieldkit.Target{Content: "law2", Pin: "r1", Anchor: "12"}},
 	}
+	if edges, err := c.Edges(resolved, data); err != nil || !reflect.DeepEqual(edges, wantEdges) {
+		t.Errorf("Edges = %+v, %v, want %+v", edges, err, wantEdges)
+	}
+	if fieldkit.EdgeAnchor != "anchor" {
+		t.Errorf("EdgeAnchor = %q", fieldkit.EdgeAnchor)
+	}
+	data = json.RawMessage(`{"ti":{"entries":[` + entry + `]}}`)
 	if texts, err := c.Texts(resolved, data); err != nil || len(texts) != 0 {
 		t.Errorf("Texts = %+v, %v", texts, err)
 	}
@@ -168,7 +187,7 @@ func TestTIOverlaySitsAtTheRootAndYieldsNothing(t *testing.T) {
 
 func TestTIOverlayMintsEveryEntry(t *testing.T) {
 	f := decode(t, overlaySpec)[0]
-	value := json.RawMessage(`{"entries":[{"anchor":{"node":"1","offset":0},"command":"np","source":"editor"},` + entry + `,{"_id":"","anchor":{"node":"2","offset":1},"command":"np","source":"oasys"}]}`)
+	value := json.RawMessage(`{"entries":[{"content":"law1","anchor":{"node":"1","offset":0},"command":"np","source":"editor"},` + entry + `,{"_id":"","content":"law1","anchor":{"node":"2","offset":1},"command":"np","source":"oasys"}]}`)
 	// Without the package the type is unknown, and nothing is minted.
 	if untouched, err := fieldkit.MintIDs(f, value, "content-1"); err != nil || strings.Count(string(untouched), `"_id"`) != 2 {
 		t.Fatalf("fieldkit.MintIDs = %s, %v", untouched, err)

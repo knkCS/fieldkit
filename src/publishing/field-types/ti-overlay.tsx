@@ -7,8 +7,14 @@ import type {
 	CellProps,
 	FieldProps,
 	FieldTypePlugin,
+	ValueEdge,
 } from "../../schema/plugin";
-import { mintRowIds, RowZodArray, rowIdSchema } from "../../schema/row-ids";
+import {
+	itemSegments,
+	mintRowIds,
+	RowZodArray,
+	rowIdSchema,
+} from "../../schema/row-ids";
 import type { Field } from "../../schema/types";
 import { GroupCell } from "../../table/cells/group-cell";
 
@@ -19,6 +25,11 @@ export const TI_SET_KIND = "ti_set";
 
 /** The setting holding a ti_overlay Field's TI Set Pin. */
 export const TI_SET_PIN: CataloguePin = { key: "ti_set", kind: TI_SET_KIND };
+
+/** The kind of the Content Graph edge each entry yields (contenthub ADR
+ * 0009): an Anchor — a node inside a Content's rich text. Go's
+ * `EdgeAnchor`. */
+export const ANCHOR_EDGE_KIND = "anchor";
 
 /** How many Unicode code points an inline anchor keeps on either side of its
  * position — knkeditor's `InlineAnchorWindow`. */
@@ -51,6 +62,11 @@ export interface InlineAnchor {
  * every row array carries, and the only one it has. */
 export interface TiOverlayEntry {
 	_id: string;
+	/** The id of the Content whose rich text `anchor.node` is in. */
+	content: string;
+	/** The Release of `content` the entry is pinned to; absent when it
+	 * follows the Release In Force. */
+	pin?: string;
 	anchor: InlineAnchor;
 	/** A code of the pinned TI Set. */
 	command: string;
@@ -90,6 +106,8 @@ export const inlineAnchorSchema = z
 export const tiOverlayEntrySchema = z
 	.object({
 		_id: rowIdSchema,
+		content: z.string().min(1),
+		pin: z.string().optional(),
 		anchor: inlineAnchorSchema,
 		command: z.string().min(1),
 		params: z.record(z.string()).optional(),
@@ -119,6 +137,8 @@ function field(
 }
 
 const ENTRY_FIELDS: Field[] = [
+	field("text", "content", "Content"),
+	field("text", "pin", "Pin"),
 	field("fieldset", "anchor", "Anchor", {
 		children: [
 			field("text", "node", "Node"),
@@ -173,10 +193,52 @@ export function TiOverlayCell(props: CellProps<TiOverlaySettings>) {
 }
 TiOverlayCell.displayName = "TiOverlayCell";
 
+/** A non-empty string, or nothing. */
+function nonEmpty(value: unknown): string | undefined {
+	return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/**
+ * A ti_overlay's edges (contenthub ADR 0009): one `anchor` edge per entry, at
+ * the entry's path, its target the entry's `content`, its `pin` when it has
+ * one, and its anchor's `node` — contenthub ADR 0009's Anchor target. An
+ * entry naming no Content or no node yields none. Go's `tiOverlayEdges`.
+ */
+export function tiOverlayEdges(value: unknown): ValueEdge[] {
+	if (value === null || typeof value !== "object" || Array.isArray(value))
+		return [];
+	const entries = (value as { entries?: unknown }).entries;
+	if (!Array.isArray(entries)) return [];
+	const segments = itemSegments(entries);
+	const edges: ValueEdge[] = [];
+	entries.forEach((entry, i) => {
+		if (entry === null || typeof entry !== "object" || Array.isArray(entry))
+			return;
+		const { content, pin, anchor } = entry as Record<string, unknown>;
+		const id = nonEmpty(content);
+		const node =
+			anchor !== null && typeof anchor === "object"
+				? nonEmpty((anchor as { node?: unknown }).node)
+				: undefined;
+		if (id === undefined || node === undefined) return;
+		const target: ValueEdge["target"] = { content: id };
+		const release = nonEmpty(pin);
+		if (release !== undefined) target.pin = release;
+		target.anchor = node;
+		edges.push({
+			kind: ANCHOR_EDGE_KIND,
+			target,
+			segments: ["entries", segments[i] as string],
+		});
+	});
+	return edges;
+}
+
 /**
  * `ti_overlay` — a Title's typesetting instructions (contenthub ADR 0012):
- * `{entries: [...]}`, each entry an `_id` (its id, ADR-0023), knkeditor's
- * inline anchor, a command of the pinned TI Set, its params, its source
+ * `{entries: [...]}`, each entry an `_id` (its id, ADR-0023), the Content
+ * its anchor is in (`content`, required) and that Content's Release (`pin`,
+ * optional), knkeditor's inline anchor, a command of the pinned TI Set, its params, its source
  * (`editor` or `oasys`) and notes. Core's `published`, `drafts`, `label`,
  * `base_revision_id`, `oasys_response` and each entry's stored `status` are
  * gone: the object and each entry are strict, so a value holding one is
@@ -187,7 +249,8 @@ TiOverlayCell.displayName = "TiOverlayCell";
  * pinned Set is checked by Go's `ValidateResolvedValue` alone
  * (`unknown_command`), which holds the Set.
  *
- * It has no text and yields no edges, and sits only at the root.
+ * It has no text, yields one `anchor` edge per entry (`tiOverlayEdges`), and
+ * sits only at the root.
  */
 export const tiOverlayPlugin: FieldTypePlugin<TiOverlaySettings> = {
 	id: "ti_overlay",
@@ -212,6 +275,8 @@ export const tiOverlayPlugin: FieldTypePlugin<TiOverlaySettings> = {
 	defaultSettings: {},
 
 	defaultValue: () => ({ entries: [] }),
+
+	edges: (_field, value) => tiOverlayEdges(value),
 
 	// Each entry is a row (ADR-0023): minted as a Group's rows are.
 	mintIds(_field, value, context) {

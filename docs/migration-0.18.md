@@ -80,8 +80,9 @@ Settings are strict (ADR-0018): a key a type does not declare is
 - **`ti_overlay`:** drop `published`/`drafts`/`status`/`label`/
   `base_revision_id`/`oasys_response`, rename `id` → `_id`, convert anchors to
   `{node, offset, before, after}` at the Cutover, and store empty values as
-  absent (#221). Entries get a required `content` and an optional `pin`
-  (#223 D3) **(open: #281)**. blueprinthub owns the TI Set Release format;
+  absent (#221). Entries get a required `content` (the Content
+  the anchor is in) and an optional `pin` (#223 D3, #281): the cutover fills
+  `content` from the Content core anchored into. blueprinthub owns the TI Set Release format;
   fieldkit reads `{instructions: [{code}]}` only (#223 D9,
   knkCS/blueprinthub#2).
 
@@ -95,7 +96,8 @@ What a value yields to contenthub's Content Graph and to search changes too:
 - **Choice types' option labels are searchable** (#223 D6) **(open: #283)**.
 - **`reference_filter` yields `exclude` edges** (#223 D8) **(open: #285)**;
   #218 shipped none.
-- **`ti_overlay` entries yield `anchor` edges** (#223 D3) **(open: #281)**;
+- **`ti_overlay` entries yield `anchor` edges** (#223 D3, #281), one per entry,
+  target `{content, pin?, anchor: node}`;
   #221 shipped none.
 - **Confirmed as shipped** (#214): media edges sit at the Field's path, and a
   duplicate Asset gives one edge; a keyed Array's text orders its keys by

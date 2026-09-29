@@ -9,7 +9,9 @@ import (
 // media from a media Field, reference from a Reference (EdgeReference, in
 // reference.go), and link, footnote and media from rich text, which knkeditor
 // reads. The graph's other kinds — toc, include, exclude, replace, annotate,
-// blueprint — are the Consumer's, or the publishing package's.
+// anchor, blueprint — are the Consumer's, or the publishing package's; the
+// publishing package's anchor is declared here, beside link, whose target it
+// shares.
 const (
 	// EdgeMedia points at an Asset a media Field or an image in rich text
 	// holds.
@@ -19,6 +21,10 @@ const (
 	EdgeLink = "link"
 	// EdgeFootnote points at the Content holding a footnote's body.
 	EdgeFootnote = "footnote"
+	// EdgeAnchor points at an Anchor — a node inside a Content's rich text —
+	// narrowed by the Content's Pin: a ti_overlay entry's, in the publishing
+	// package (TS ANCHOR_EDGE_KIND).
+	EdgeAnchor = "anchor"
 )
 
 // Edge is one edge of the Content Graph a Content's data holds: what it
