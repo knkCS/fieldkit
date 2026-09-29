@@ -5,20 +5,20 @@ import * as Stories from "./rich-text-field.stories";
 
 # Rich Text
 
-Rich text content with formatting. Intended for full WYSIWYG editing via TipTap/ProseMirror, but currently renders as a **JSON textarea placeholder**.
+A rich-text document, written in knkeditor under the Text Type the Field pins.
+
+**Editing needs `@knkcs/fieldkit/rich-text`** (ADR-0026). The core renderer shows a `rich_text` Field **read-only**: the document's text, and a line saying it can't be edited here. A Consumer opts into the knkeditor-backed field by passing `knkRichTextPlugin` from that subpath in place of the built-in plugin (`{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`), so only Consumers who import it pay for knkeditor's peers. See [Knk Rich Text Field](?path=/docs/rich-text-knk-rich-text-field--docs) and `docs/knkeditor-reference.md`.
 
 ## When to Use
 
-Use **Rich Text** when you need structured, formatted content with a WYSIWYG editing experience. For lightweight formatting, use [Markdown](?path=/docs/fields-markdown--docs). For plain text, use [Textarea](?path=/docs/fields-textarea--docs).
-
-**Important:** The current implementation is a placeholder. It renders a `<textarea>` that accepts raw JSON (ProseMirror document structure). A real TipTap editor integration depends on `@knkcms/knkeditor` (optional peer dependency), but no conditional rendering exists yet.
+Use **Rich Text** for structured, formatted content whose vocabulary a Text Type governs. For lightweight formatting, use [Markdown](?path=/docs/fields-markdown--docs). For plain text, use [Textarea](?path=/docs/fields-textarea--docs).
 
 ## Settings
 
 | Setting       | Type                   | Default  | Description                                    |
 |---------------|------------------------|----------|------------------------------------------------|
-| `text_type`   | `string`               | —        | The Text Type Release the rich text is written in: a Pin (ADR-0020), resolved into the Resolved Spec's `parts.text_type`. The editor picks it from `adapters.textType.listEditorSpecs()` |
-| `view_mode`   | `"full" \| "compact"`  | `"full"` | Display mode for the editor (currently unused)  |
+| `text_type`   | `string`               | —        | The Text Type Release the rich text is written in: a Pin (ADR-0020), resolved into the Resolved Spec's `parts.text_type`. The config panel lists them from `adapters.textType.list()` |
+| `view_mode`   | `"full" \| "compact"`  | `"full"` | The knkeditor-backed field's editor: `full` is knkeditor's default view, `compact` its minimal one |
 
 The settings are strict: the legacy `editor_spec` is an `unknown_setting` since 0.18.0 (#216). Migrate a Spec holding it by renaming the key to `text_type` and pointing it at a Text Type Release.
 
@@ -35,30 +35,22 @@ z.record(z.unknown())
 
 ## Table Cell
 
-Renders a plain-text extraction via `RichTextCell`. Attempts to extract text from ProseMirror-like JSON documents by walking the `content` tree. Falls back to `"[Rich text content]"` for unrecognized structures. Truncated at 100 characters.
+Renders a plain-text extraction via `RichTextCell`, walking the document's `content` tree for its text nodes. Falls back to `"[Rich text content]"` for unrecognized structures. Truncated at 100 characters.
 
 ## Known Limitations
 
-- **No actual rich text editor.** Renders a JSON textarea placeholder. Real TipTap integration depends on `@knkcms/knkeditor` (optional peer dep) but no conditional rendering exists.
-- `text_type` is not read by the renderer yet (the Text Type is resolved into `parts`, which the field component does not see)
-- `view_mode` setting is defined but unused
-- The `textType` adapter is used only by the settings editor's Text Type picker
+- The core renderer's field is read-only: it never writes the value, so the form keeps the document as it came. A JSON textarea used to stand here, and let anyone write documents knkeditor refuses.
 - TS validates only that the value is an object; knkeditor's validation, edges, text, Compare and Merge run in fieldkit's Go module (`docs/knkeditor-reference.md`)
-- JSON editing UX is unusable for end users
 
 ## Examples
 
 ### Default
 
-The field renders as a plain `<textarea>` with the placeholder "Rich text content...". Content is stored as raw JSON or a plain string.
-
 <Canvas of={Stories.Default} />
 
-### With JSON Content
+### With a Document
 
-Pre-populated with a ProseMirror document structure. The textarea shows the JSON representation.
-
-<Canvas of={Stories.WithJSONContent} />
+<Canvas of={Stories.WithADocument} />
 
 ### Read Only
 

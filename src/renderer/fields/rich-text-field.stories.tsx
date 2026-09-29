@@ -11,7 +11,7 @@ const defaultRichTextField: Field = {
 		name: "Content",
 		api_accessor: "content",
 		required: false,
-		instructions: "Enter rich text content",
+		instructions: "The core renderer shows rich text read-only",
 	},
 	settings: {
 		view_mode: "full",
@@ -20,13 +20,13 @@ const defaultRichTextField: Field = {
 	system: false,
 };
 
-const withJSONContentField: Field = {
+const withDocumentField: Field = {
 	field_type: "rich_text",
 	config: {
 		name: "Article",
 		api_accessor: "article",
 		required: false,
-		instructions: "ProseMirror document structure as JSON",
+		instructions: "Shown read-only without @knkcs/fieldkit/rich-text",
 	},
 	settings: {
 		text_type: "article@3",
@@ -69,10 +69,10 @@ export const Default: Story = {
 	),
 };
 
-export const WithJSONContent: Story = {
+export const WithADocument: Story = {
 	render: () => (
 		<FieldStoryWrapper
-			fields={[withJSONContentField]}
+			fields={[withDocumentField]}
 			defaultValues={{
 				article: {
 					type: "doc",
