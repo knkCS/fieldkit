@@ -225,3 +225,94 @@ describe("canonicalSpecSettings", () => {
 		expect(canonicalSpecSettings(spec)).toBe(spec);
 	});
 });
+
+describe("validateValue and the rich-text document (ADR-0025)", () => {
+	/** A document whose textBlocks nest `levels` deep: two JSON levels each. */
+	function deepDoc(levels: number): Record<string, unknown> {
+		let inner: Record<string, unknown> = {
+			type: "textWrapper",
+			attrs: { id: "a" },
+			content: [{ type: "text", text: "tief" }],
+		};
+		for (let i = 0; i < levels; i++) {
+			inner = { type: "textBlock", attrs: { id: `b${i}` }, content: [inner] };
+		}
+		return { type: "doc", content: [inner] };
+	}
+	const withNull = () => ({
+		type: "doc",
+		content: [{ type: "textWrapper", attrs: { id: "a", textAlign: null } }],
+	});
+
+	it("leaves a hidden rich_text Field's document its own", () => {
+		const hidden = field("rich_text", "body", {
+			config: {
+				name: "body",
+				api_accessor: "body",
+				required: false,
+				instructions: "",
+				hidden: true,
+			},
+		});
+		expect(
+			validateValue([hidden], { body: withNull() }, builtInFieldTypes),
+		).toEqual([]);
+	});
+
+	it("checks the same document under a key no Field names as fieldkit's", () => {
+		expect(validateValue([], { stray: withNull() }, builtInFieldTypes)).toEqual(
+			[{ path: "/stray/content/0/attrs/textAlign", code: "not_canonical" }],
+		);
+	});
+
+	it("still counts a string inside a document toward maxStringBytes", () => {
+		const body = {
+			type: "doc",
+			content: [
+				{
+					type: "textWrapper",
+					content: [
+						{ type: "text", text: "a".repeat(VALUE_CAPS.maxStringBytes + 1) },
+					],
+				},
+			],
+		};
+		expect(
+			validateValue([field("rich_text", "body")], { body }, builtInFieldTypes),
+		).toEqual([
+			{
+				path: "/body/content/0/content/0/text",
+				code: "too_many_bytes",
+				params: { maximum: VALUE_CAPS.maxStringBytes },
+			},
+		]);
+	});
+
+	it("walks a document nested thousands of levels deep without a stack to match", () => {
+		expect(
+			validateValue(
+				[field("rich_text", "body")],
+				{ body: deepDoc(5000) },
+				builtInFieldTypes,
+			),
+		).toEqual([]);
+	});
+
+	it("finds a document in data cut off below the cap, beside data that is too deep", () => {
+		let junk: unknown = "x";
+		for (let i = 0; i < 5000; i++) junk = [junk];
+		expect(
+			validateValue(
+				[field("rich_text", "body")],
+				{ body: deepDoc(VALUE_CAPS.maxDepth), junk },
+				builtInFieldTypes,
+			),
+		).toEqual([
+			{
+				path: `/junk${"/0".repeat(VALUE_CAPS.maxDepth)}`,
+				code: "too_deep",
+				params: { maximum: VALUE_CAPS.maxDepth },
+			},
+		]);
+	});
+});

@@ -167,3 +167,80 @@ func TestCompilePatternUnsupported(t *testing.T) {
 		t.Errorf("got %v, want nil", errs)
 	}
 }
+
+// deepDoc is a rich-text document whose textBlocks nest levels deep, each a
+// node and its content array: 2·levels JSON levels below the document.
+func deepDoc(levels int) map[string]any {
+	inner := map[string]any{"type": "textWrapper", "attrs": map[string]any{"id": "a"}, "content": []any{map[string]any{"type": "text", "text": "tief"}}}
+	for i := range levels {
+		inner = map[string]any{"type": "textBlock", "attrs": map[string]any{"id": fmt.Sprintf("b%d", i)}, "content": []any{inner}}
+	}
+	return map[string]any{"type": "doc", "content": []any{inner}}
+}
+
+func deepArray(levels int) any {
+	var v any = "x"
+	for range levels {
+		v = []any{v}
+	}
+	return v
+}
+
+// ADR-0025: Unset and the depth cap stop at a rich-text document; the size
+// caps do not.
+func TestValidateValueDocumentBoundary(t *testing.T) {
+	hidden := valueField("rich_text", "hidden_body", "")
+	yes := true
+	hidden.Config.Hidden = &yes
+	withNull := func() map[string]any {
+		return map[string]any{"type": "doc", "content": []any{map[string]any{
+			"type": "textWrapper", "attrs": map[string]any{"id": "a", "textAlign": nil, "attributes": map[string]any{}},
+			"content": []any{map[string]any{"type": "text", "text": "x"}},
+		}}}
+	}
+	huge := map[string]any{"type": "doc", "content": []any{map[string]any{
+		"type": "textWrapper", "attrs": map[string]any{"id": "a"},
+		"content": []any{map[string]any{"type": "text", "text": strings.Repeat("a", MaxStringBytes+1)}},
+	}}}
+
+	cases := []struct {
+		name string
+		spec Spec
+		data map[string]any
+		want []string
+	}{
+		{
+			"a hidden rich_text Field's document is its own too",
+			Spec{hidden},
+			map[string]any{"hidden_body": withNull()},
+			nil,
+		},
+		{
+			"the same document under a key no Field names is fieldkit's",
+			Spec{},
+			map[string]any{"stray": withNull()},
+			[]string{"/stray/content/0/attrs/attributes not_canonical", "/stray/content/0/attrs/textAlign not_canonical"},
+		},
+		{
+			"a string inside a document still counts toward MaxStringBytes",
+			Spec{valueField("rich_text", "body", "")},
+			map[string]any{"body": huge},
+			[]string{"/body/content/0/content/0/text too_many_bytes"},
+		},
+		{
+			// The documents are found in data cut off below MaxDepth, so a
+			// pathological sibling neither hides the document nor runs the
+			// containers' walk down its whole depth.
+			"a document deeper than MaxDepth inside, beside data that is too deep",
+			Spec{valueField("rich_text", "body", "")},
+			map[string]any{"body": deepDoc(MaxDepth), "junk": deepArray(5000)},
+			[]string{"/junk" + strings.Repeat("/0", MaxDepth) + " too_deep"},
+		},
+	}
+	for _, c := range cases {
+		got := codesOf(ValidateValue(c.spec, mustJSON(t, c.data)))
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}

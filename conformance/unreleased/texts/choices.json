@@ -1,0 +1,188 @@
+{
+	"description": "A choice type's text is the labels settings.options gives the selected keys, never the keys: select and radio the one key's label; checkboxes and a multiple select each selected key's label in selection order, one per line. A key without a label (not in options, or labelled \"\") yields no text, and neither does a choice Field whose search is off. Unset search weighs D, inside a row as at the root",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "genre",
+				"api_accessor": "genre",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"novel": "Roman",
+					"poetry": "Lyrik"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "audiences",
+				"api_accessor": "audiences",
+				"required": false,
+				"instructions": "",
+				"search": "B"
+			},
+			"settings": {
+				"options": {
+					"kids": "Kinder",
+					"teens": "Jugendliche",
+					"adults": "Erwachsene"
+				},
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "binding",
+				"api_accessor": "binding",
+				"required": false,
+				"instructions": "",
+				"search": "C"
+			},
+			"settings": {
+				"options": {
+					"hardcover": "Gebunden",
+					"paperback": "Taschenbuch"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "formats",
+				"api_accessor": "formats",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"print": "Print",
+					"ebook": "E-Book",
+					"audio": ""
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "legacy_code",
+				"api_accessor": "legacy_code",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"a": "Alpha"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "internal_flags",
+				"api_accessor": "internal_flags",
+				"required": false,
+				"instructions": "",
+				"search": "off"
+			},
+			"settings": {
+				"options": {
+					"review": "Needs review"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "editions",
+				"api_accessor": "editions",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "language",
+						"api_accessor": "language",
+						"required": false,
+						"instructions": "",
+						"search": "A"
+					},
+					"settings": {
+						"options": {
+							"de": "Deutsch",
+							"en": "Englisch"
+						}
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"genre": "novel",
+		"audiences": ["adults", "teens"],
+		"binding": "paperback",
+		"formats": ["ebook", "audio", "unknown", "print"],
+		"legacy_code": "zz",
+		"internal_flags": ["review"],
+		"editions": [
+			{
+				"_id": "e1",
+				"language": "en"
+			},
+			{
+				"_id": "e2",
+				"language": "de"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"texts": [
+			{
+				"path": "/genre",
+				"weight": "D",
+				"text": "Roman"
+			},
+			{
+				"path": "/audiences",
+				"weight": "B",
+				"text": "Erwachsene\nJugendliche"
+			},
+			{
+				"path": "/binding",
+				"weight": "C",
+				"text": "Taschenbuch"
+			},
+			{
+				"path": "/formats",
+				"weight": "D",
+				"text": "E-Book\nPrint"
+			},
+			{
+				"path": "/editions/e1/language",
+				"weight": "A",
+				"text": "Englisch"
+			},
+			{
+				"path": "/editions/e2/language",
+				"weight": "A",
+				"text": "Deutsch"
+			}
+		]
+	}
+}

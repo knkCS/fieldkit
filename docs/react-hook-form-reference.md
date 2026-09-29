@@ -232,12 +232,16 @@ cleared text or an empty checkbox list as an **absent key**, never as `""` or
 a required Field's `""` still fails with its own message — only the output is
 stripped. It is still a `ZodObject` (`.shape` works), but a schema derived from
 it with `.extend()`, `.merge()`, `.pick()` and the like validates without
-stripping.
+stripping. The stripping stops at a rich-text document (ADR-0025): a
+`rich_text` value passes through as the editor wrote it, its `attrs: null` and
+`"attributes": {}` kept — only a `rich_text` value of `{}` is stripped, as
+Unset.
 
 A consumer that merges the submitted values over a stored record must take the
 Spec's keys off the record first, or a cleared Field falls back to its old
 value — `EditDrawer` does exactly that. `canonicalValue()` canonicalises data
-from anywhere else, and `validateValue(spec, data, plugins)` checks stored data
+from anywhere else that holds no rich text — it knows no Spec, so it strips
+inside a document too — and `validateValue(spec, data, plugins)` checks stored data
 with the answers Go gives, as `{path, code}` errors.
 
 `composeChildren` is the second argument a container plugin can use to build an

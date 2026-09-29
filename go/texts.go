@@ -41,18 +41,20 @@ type textRule func(f Field, settings map[string]any, value any, parts map[string
 
 // textRules are the types that have text — exactly the types the Catalogue
 // marks has_text, which a test holds them to. A type missing here yields no
-// text, whatever its search says. The choice types (select, radio,
-// checkboxes) hold option keys and yield none.
+// text, whatever its search says.
 var textRules = map[string]textRule{ //nolint:gochecknoglobals
-	"text":     stringText,
-	"textarea": stringText,
-	"email":    stringText,
-	"url":      stringText,
-	"slug":     stringText,
-	"code":     stringText,
-	"markdown": stringText,
-	"list":     listText,
-	"array":    arrayText,
+	"text":       stringText,
+	"textarea":   stringText,
+	"email":      stringText,
+	"url":        stringText,
+	"slug":       stringText,
+	"code":       stringText,
+	"markdown":   stringText,
+	"list":       listText,
+	"array":      arrayText,
+	"select":     choiceText,
+	"radio":      choiceText,
+	"checkboxes": choiceText,
 	// knkeditor's reading text (#216).
 	"rich_text": richTextText,
 }
@@ -108,6 +110,41 @@ func arrayText(_ Field, settings map[string]any, value any, _ map[string]map[str
 	return strings.Join(lines, "\n")
 }
 
+// choiceText is a choice type's text (#223 D6): the label settings.options
+// gives each selected key, in selection order, one per line. A key without a
+// label — not in options, or labelled "" — adds no line: a key is an
+// identifier, never text. checkboxes and a multiple select hold a list of
+// keys, radio and a single select one key.
+func choiceText(f Field, settings map[string]any, value any, _ map[string]map[string]json.RawMessage) string {
+	options, ok := settings["options"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	multiple, _ := settings["multiple"].(bool)
+	var keys []any
+	if f.FieldType == "checkboxes" || multiple {
+		if keys, ok = value.([]any); !ok {
+			return ""
+		}
+	} else {
+		if _, ok := value.(string); !ok {
+			return ""
+		}
+		keys = []any{value}
+	}
+	lines := make([]string, 0, len(keys))
+	for _, key := range keys {
+		k, ok := key.(string)
+		if !ok {
+			continue
+		}
+		if label, _ := options[k].(string); label != "" {
+			lines = append(lines, label)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // compareUTF16 orders strings as JS's default sort does: by UTF-16 code
 // units, where Go's < compares UTF-8 bytes (the two differ past U+FFFF).
 func compareUTF16(a, b string) int {
@@ -137,7 +174,7 @@ func (c *Catalogue) ValueText(f Field, value json.RawMessage) string {
 	if err := dec.Decode(&decoded); err != nil || dec.More() {
 		return ""
 	}
-	decoded = stripUnset(toFloats(decoded))
+	decoded = c.canonicalFieldValue([]Field{f}, f.Config.APIAccessor, toFloats(decoded), nil)
 	if isUnset(decoded) {
 		return ""
 	}

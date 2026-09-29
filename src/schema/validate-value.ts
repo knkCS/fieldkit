@@ -1,5 +1,6 @@
 // src/schema/validate-value.ts
 import type { ZodIssue } from "zod";
+import { valueDocuments } from "./documents";
 import type { FieldTypePlugin, ValueContext } from "./plugin";
 import { itemSegments, toIdPath } from "./row-ids";
 import type { Field } from "./types";
@@ -65,7 +66,7 @@ export interface ValueError {
 /**
  * The caps every value obeys, whatever its type, so that no stored document
  * can be pathological. The same numbers are in the Go module (`MaxItems`,
- * `MaxStringBytes`); both sides report them as codes.
+ * `MaxStringBytes`, `MaxDepth`); both sides report them as codes.
  *
  * They are checked by {@link validateValue} only, not by the Zod schema a form
  * runs: nothing a person types into a form comes near them.
@@ -76,8 +77,9 @@ export const VALUE_CAPS = {
 	/** Most UTF-8 bytes a string may hold: 1 MiB. */
 	maxStringBytes: 1_048_576,
 	/** Deepest an array or object may sit: the data's root is depth 0, its
-	 * values depth 1. */
-	maxDepth: 32,
+	 * values depth 1. It counts fieldkit's structure only: what a rich-text
+	 * document nests inside itself is knkeditor's to limit (ADR-0025). */
+	maxDepth: 128,
 } as const;
 
 /**
@@ -94,12 +96,19 @@ export const VALUE_CAPS = {
  * - A key holding an Unset value, at any depth and whether or not the Spec
  *   names it, is `not_canonical`: Unset is stored as absent. A form's
  *   submitted values are canonical already (`specToZodSchema` strips them);
- *   {@link canonicalValue} canonicalises anything else.
+ *   {@link canonicalValue} canonicalises data holding no rich text.
  * - {@link VALUE_CAPS} are enforced as `too_many_items`, `too_many_bytes` and
  *   `too_deep`,
  *   over the whole document — keys the Spec does not name, and the number of
  *   keys at the root, included. Data beyond a cap reports only the caps it
  *   breaks: nothing else is checked.
+ *
+ * Both stop at a rich-text document (ADR-0025): a `rich_text` Field's value
+ * that is an object holding anything is knkeditor's inside — an attribute
+ * holding `null`, or `"attributes": {}`, is the document's own, neither
+ * stripped nor `not_canonical` — and `too_deep` counts no level inside it. A
+ * `rich_text` value of `{}` or `null` is still Unset at the Field. The size
+ * caps count the whole document, inside included.
  *
  * Settings and `validation` are read in canonical form too, so a `min: null`
  * is no minimum. Keys the Spec does not name are otherwise ignored, as the
@@ -146,13 +155,21 @@ export function validateValue(
 		errors.push(error);
 	};
 
-	// The caps come first and cover the whole document, keys the Spec does
-	// not name included: nothing else walks a document beyond them.
-	const capped = capErrors(data, []);
+	// The documents are found in the data cut off below the depth cap. The
+	// caps then cover the whole document, keys the Spec does not name
+	// included: nothing else walks a document beyond them.
+	const documents = valueDocuments(
+		spec,
+		data,
+		pluginMap,
+		options,
+		VALUE_CAPS.maxDepth,
+	);
+	const capped = capErrors(data, documents);
 	if (capped.length > 0) return capped;
 
-	reportNonCanonical(data, [], push);
-	const canonical = stripUnset(data) as Record<string, unknown>;
+	reportNonCanonical(data, [], push, documents);
+	const canonical = stripUnset(data, documents) as Record<string, unknown>;
 
 	for (const field of spec) {
 		if (!fieldProducesValue(field)) continue;
@@ -302,76 +319,115 @@ function isValueErrorCode(code: unknown): code is ValueErrorCode {
 /** Reports every key holding an Unset value, at every depth. A key that is
  * reported is not looked into: its whole value is Unset. Array items are
  * kept whatever they hold — `[null]` is one item, not Unset — and looked
- * into. */
+ * into. A document is not looked into either: inside it, knkeditor's rules
+ * apply (ADR-0025). */
 function reportNonCanonical(
 	value: unknown,
 	at: (string | number)[],
 	push: (error: ValueError) => void,
+	documents: ReadonlySet<unknown>,
 ): void {
+	if (documents.has(value)) return;
 	if (Array.isArray(value)) {
 		const ids = itemSegments(value);
 		value.forEach((item, index) => {
-			reportNonCanonical(item, [...at, ids[index]], push);
+			reportNonCanonical(item, [...at, ids[index]], push, documents);
 		});
 		return;
 	}
 	if (!isPlainObject(value)) return;
 	for (const [key, child] of Object.entries(value)) {
 		if (child === undefined) continue; // absent: the canonical form itself
-		if (isUnset(stripUnset(child))) {
+		if (isUnset(stripUnset(child, documents))) {
 			push({ path: toPath([...at, key]), code: "not_canonical" });
 		} else {
-			reportNonCanonical(child, [...at, key], push);
+			reportNonCanonical(child, [...at, key], push, documents);
 		}
 	}
 }
 
+/** One node the cap walk has yet to visit: its path is its parent's plus
+ * its segment, read back only for an error. */
+interface CapNode {
+	node: unknown;
+	parent?: CapNode;
+	segment?: string;
+	/** -1 inside a document, where no depth is counted. */
+	depth: number;
+}
+
+function capPath(at: CapNode): string {
+	const segments: string[] = [];
+	for (let n: CapNode | undefined = at; n?.parent; n = n.parent) {
+		segments.push(n.segment as string);
+	}
+	return toPath(segments.reverse());
+}
+
 /** The caps a value breaks, at the paths it breaks them. A container beyond
  * `maxDepth` or `maxItems` is not looked into. An array item is addressed by
- * its `_id` where it has one, as every value path is. */
-function capErrors(value: unknown, at: (string | number)[]): ValueError[] {
+ * its `_id` where it has one, as every value path is. Inside a document no
+ * depth is counted (ADR-0025); its items and strings are.
+ *
+ * Iterative, in document order, each node knowing its parent rather than its
+ * whole path: a document's inside may nest as deep as its JSON does, which
+ * neither a call stack nor a path per node is sized for. */
+function capErrors(
+	value: unknown,
+	documents: ReadonlySet<unknown>,
+): ValueError[] {
 	const errors: ValueError[] = [];
-	const walk = (node: unknown, path: (string | number)[], depth: number) => {
+	const stack: CapNode[] = [{ node: value, depth: 0 }];
+	for (let at = stack.pop(); at; at = stack.pop()) {
+		const { node, depth } = at;
 		if (typeof node === "string") {
 			if (exceedsStringCap(node)) {
 				errors.push({
-					path: toPath(path),
+					path: capPath(at),
 					code: "too_many_bytes",
 					params: { maximum: VALUE_CAPS.maxStringBytes },
 				});
 			}
-			return;
+			continue;
 		}
-		if (!Array.isArray(node) && !isPlainObject(node)) return;
+		if (!Array.isArray(node) && !isPlainObject(node)) continue;
 		if (depth > VALUE_CAPS.maxDepth) {
 			errors.push({
-				path: toPath(path),
+				path: capPath(at),
 				code: "too_deep",
 				params: { maximum: VALUE_CAPS.maxDepth },
 			});
-			return;
+			continue;
 		}
 		const size = Array.isArray(node) ? node.length : Object.keys(node).length;
 		if (size > VALUE_CAPS.maxItems) {
 			errors.push({
-				path: toPath(path),
+				path: capPath(at),
 				code: "too_many_items",
 				params: { maximum: VALUE_CAPS.maxItems },
 			});
-			return;
+			continue;
 		}
+		const inner = depth < 0 || documents.has(node) ? -1 : depth + 1;
+		const children: CapNode[] = [];
 		if (Array.isArray(node)) {
 			const ids = itemSegments(node);
 			node.forEach((item, index) => {
-				walk(item, [...path, ids[index]], depth + 1);
+				children.push({
+					node: item,
+					parent: at,
+					segment: ids[index],
+					depth: inner,
+				});
 			});
-			return;
+		} else {
+			for (const [key, child] of Object.entries(node)) {
+				children.push({ node: child, parent: at, segment: key, depth: inner });
+			}
 		}
-		for (const [key, child] of Object.entries(node)) {
-			walk(child, [...path, key], depth + 1);
-		}
-	};
-	walk(value, at, 0);
+		// Pushed in reverse, so they come off the stack in document order.
+		for (let i = children.length - 1; i >= 0; i--) stack.push(children[i]);
+	}
 	return errors;
 }
 

@@ -312,6 +312,59 @@ describe("EditDrawer", () => {
 		expect(onSave.mock.calls[0][0]).toStrictEqual({ id: 7, title: "Test" });
 	});
 
+	it("saves a rich-text document exactly as it came, its nulls and empty objects kept", async () => {
+		// The canonical stripping stops at the document (ADR-0025): inside,
+		// `attrs: null` and `"attributes": {}` are knkeditor's, not Unset.
+		const body = {
+			type: "doc",
+			content: [
+				{
+					type: "textWrapper",
+					attrs: { id: "a", textAlign: null, attributes: {} },
+					content: [{ type: "text", text: "Eins" }],
+				},
+			],
+		};
+		const richText: FieldTypePlugin = {
+			id: "rich_text",
+			name: "Rich Text",
+			description: "",
+			icon: () => null,
+			category: "text",
+			fieldComponent: () => null,
+			toZodType: () => z.record(z.unknown()),
+			opaqueDocument: true,
+		};
+		const onSave = vi.fn();
+		render(
+			<EditDrawer
+				schema={[
+					...schema,
+					makeField({
+						field_type: "rich_text",
+						config: {
+							name: "Body",
+							api_accessor: "body",
+							required: false,
+							instructions: "",
+						},
+					}),
+				]}
+				plugins={[...plugins, richText]}
+				isOpen={true}
+				onClose={vi.fn()}
+				onSave={onSave}
+				initialValues={{ title: "Test", body }}
+			/>,
+			{ wrapper: Wrapper },
+		);
+
+		fireEvent.click(screen.getByText("Save"));
+
+		await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+		expect(onSave.mock.calls[0][0]).toStrictEqual({ title: "Test", body });
+	});
+
 	it("should render Save button", () => {
 		render(
 			<EditDrawer

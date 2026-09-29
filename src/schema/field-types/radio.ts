@@ -4,6 +4,7 @@ import { RadioField } from "../../renderer/fields/radio-field";
 import { RadioCell } from "../../table/cells/radio-cell";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
+import { choiceText } from "../value-text";
 
 export interface RadioSettings {
 	options: Record<string, string>;
@@ -33,8 +34,9 @@ export const radioPlugin: FieldTypePlugin<RadioSettings> = {
 		})
 		.strict(),
 
-	// No text: the value is an option key, an identifier, not prose.
-	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+	// Its text is the selected key's label, never the key (#223 D6).
+	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	text: choiceText,
 
 	defaultSettings: { options: {} },
 	consumers: ["blueprint", "task", "form"],

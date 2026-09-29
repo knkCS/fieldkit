@@ -43,10 +43,69 @@ describe("text()", () => {
 				builtInFieldTypes,
 			),
 		).toBe("a\n1\nb\n2");
-		expect(valueText(field("select", "s"), "key", builtInFieldTypes)).toBe("");
 		expect(valueText(field("text", "t"), "", builtInFieldTypes)).toBe("");
 		expect(valueText(field("text", "t"), null, builtInFieldTypes)).toBe("");
 		expect(valueText(field("text", "t"), 42, builtInFieldTypes)).toBe("");
+	});
+});
+
+describe("a choice type's text", () => {
+	const options = { settings: { options: { a: "Alpha", b: "Beta", c: "" } } };
+
+	it("is the label of the selected key, never the key", () => {
+		for (const type of ["select", "radio"]) {
+			expect(valueText(field(type, "s", options), "a", builtInFieldTypes)).toBe(
+				"Alpha",
+			);
+		}
+	});
+
+	it("is the labels of the selected keys in selection order, one per line", () => {
+		expect(
+			valueText(
+				field("checkboxes", "c", options),
+				["b", "a"],
+				builtInFieldTypes,
+			),
+		).toBe("Beta\nAlpha");
+		expect(
+			valueText(
+				field("select", "s", {
+					settings: { ...options.settings, multiple: true },
+				}),
+				["b", "a"],
+				builtInFieldTypes,
+			),
+		).toBe("Beta\nAlpha");
+	});
+
+	it("yields nothing for a key without a label", () => {
+		expect(
+			valueText(field("radio", "r", options), "zz", builtInFieldTypes),
+		).toBe("");
+		expect(
+			valueText(field("radio", "r", options), "c", builtInFieldTypes),
+		).toBe("");
+		expect(
+			valueText(field("radio", "r", options), "toString", builtInFieldTypes),
+		).toBe("");
+		expect(valueText(field("radio", "r"), "a", builtInFieldTypes)).toBe("");
+		expect(
+			valueText(
+				field("checkboxes", "c", options),
+				["zz", "c", "a", 1],
+				builtInFieldTypes,
+			),
+		).toBe("Alpha");
+	});
+
+	it("yields nothing for a value not of the type's shape", () => {
+		expect(
+			valueText(field("select", "s", options), ["a"], builtInFieldTypes),
+		).toBe("");
+		expect(
+			valueText(field("checkboxes", "c", options), "a", builtInFieldTypes),
+		).toBe("");
 	});
 });
 

@@ -142,13 +142,15 @@ func (c *Catalogue) walkData(resolved *ResolvedSpec, data json.RawMessage, opts 
 		}
 		raw = toFloats(raw)
 	}
-	obj, ok := stripUnset(raw).(map[string]any)
+	decoded, ok := raw.(map[string]any)
 	if !ok {
 		return errDataNotObject
 	}
 	if resolved == nil {
 		return nil
 	}
-	c.walkFields(resolved.Fields, obj, "", valueOptionsOf(opts).targetBlueprint, visit)
+	targets := valueOptionsOf(opts).targetBlueprint
+	obj, _ := stripUnsetAround(decoded, "", c.documentPaths(resolved.Fields, decoded, targets)).(map[string]any)
+	c.walkFields(resolved.Fields, obj, "", targets, visit)
 	return nil
 }
