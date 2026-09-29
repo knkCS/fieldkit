@@ -16,7 +16,7 @@ the fixtures are `conformance/unreleased/compare/` and `merge/`.
 | `Accessor` | the Field's `api_accessor` |
 | `TypeID` | its `field_type` |
 | `Settings` | `{"field": <the whole resolved Field>, "parts": {<kind>: {<release>: <part>}}}` — `parts` only the opaque parts the Field pins, at any depth, and absent when it pins none (`SchemaSettings`, `DecodeSchemaSettings`) |
-| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` — and, through a Catalogue that holds the publishing package, `manipulation_tree` |
+| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` — and, through a Catalogue that holds the publishing package, `manipulation_tree` and `outline_tree` |
 
 fieldkit never imports versionkit (versionkit ADR 0002). `Comparer` and
 `Merger` have exactly versionkit's `FieldType` and `FieldMerger` method sets,
@@ -113,6 +113,11 @@ Spec for an `include`, the node-level `annotation_spec` for an `annotate` —
 when both sides agree on the intent, and key by key as whole values when they
 do not.
 
+Its `outline_tree` compares by the same code too: `values` is a record
+detail per node Field of the Blueprint Release the Field resolved to (key by
+key as whole values while unresolved), and the TOC-generation keys `origin`,
+`overridden` and `source` are whole-value fields of the node.
+
 ```json
 {
 	"status": "changed",
@@ -169,7 +174,10 @@ Field:
   `<_id>/intent` — as is a merged node whose intent no longer admits what
   the other side gave it (an `exclude` gaining `values`, a `with` left on a
   node that is no `replace`), so a merge never answers with a value the
-  type's own validation refuses.
+  type's own validation refuses. An `outline_tree` merges the same way, its
+  `origin`, `overridden` and `source` fields of the node: `overridden` set on
+  one side and the `values` edited on the other is clean, an `origin` changed
+  differently on both sides a Conflict at `<_id>/origin`.
 - **Canonical.** A key whose merged value is Unset is dropped (ADR-0021). A
   top-level row array the merge empties is `[]`, since Merge cannot answer
   "absent": versionkit's `Validate` then reports it `not_canonical`, and the

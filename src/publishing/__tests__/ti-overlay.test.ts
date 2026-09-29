@@ -6,7 +6,13 @@ import { mintMissingIds } from "../../schema/row-ids";
 import type { Field } from "../../schema/types";
 import { validateSpec } from "../../schema/validate-spec";
 import { validateValue } from "../../schema/validate-value";
-import { publishingFieldTypes, TI_SET_KIND, tiOverlayPlugin } from "..";
+import {
+	ANCHOR_EDGE_KIND,
+	publishingFieldTypes,
+	TI_SET_KIND,
+	tiOverlayEdges,
+	tiOverlayPlugin,
+} from "..";
 
 function overlay(
 	settings: Record<string, unknown> = { ti_set: "tis-1" },
@@ -30,6 +36,7 @@ const plugins = new Map<string, FieldTypePlugin>(
 
 const entry = {
 	_id: "e1",
+	content: "law1",
 	anchor: { node: "12", offset: 3, before: "abc", after: "def" },
 	command: "np",
 	params: { lines: "2" },
@@ -147,6 +154,48 @@ describe("ti_overlay", () => {
 		expect(errorsOf({ entries: [{ ...entry, params: { lines: 2 } }] })).toEqual(
 			[{ path: "/ti/entries/e1/params/lines", code: "invalid_type" }],
 		);
+	});
+
+	it("names the Content each entry anchors in, and optionally its Release", () => {
+		const { content: _, ...noContent } = entry;
+		expect(errorsOf({ entries: [noContent] })).toEqual([
+			{ path: "/ti/entries/e1/content", code: "required" },
+		]);
+		expect(errorsOf({ entries: [{ ...entry, content: 5 }] })).toEqual([
+			{ path: "/ti/entries/e1/content", code: "invalid_type" },
+		]);
+		expect(errorsOf({ entries: [{ ...entry, pin: "r1" }] })).toEqual([]);
+		expect(errorsOf({ entries: [{ ...entry, pin: 7 }] })).toEqual([
+			{ path: "/ti/entries/e1/pin", code: "invalid_type" },
+		]);
+	});
+
+	it("yields one anchor edge per entry", () => {
+		expect(ANCHOR_EDGE_KIND).toBe("anchor");
+		const { _id: _, ...noId } = entry;
+		expect(
+			tiOverlayEdges({
+				entries: [
+					{ ...entry, pin: "r1" },
+					{ ...noId, content: "law2", anchor: { node: "7", offset: 0 } },
+					{ ...entry, _id: "e3", content: "" },
+					"np",
+				],
+			}),
+		).toEqual([
+			{
+				kind: "anchor",
+				target: { content: "law1", pin: "r1", anchor: "12" },
+				segments: ["entries", "e1"],
+			},
+			{
+				kind: "anchor",
+				target: { content: "law2", anchor: "7" },
+				segments: ["entries", "1"],
+			},
+		]);
+		expect(tiOverlayEdges(null)).toEqual([]);
+		expect(tiOverlayEdges({ entries: {} })).toEqual([]);
 	});
 
 	it("mints an _id into each entry", () => {

@@ -28,8 +28,10 @@ export type {
 export { MANIPULATION_INTENTS } from "./field-types/manipulation-tree";
 export type {
 	OutlineNode,
+	OutlineNodeOrigin,
 	OutlineTreeSettings,
 } from "./field-types/outline-tree";
+export { OUTLINE_NODE_ORIGINS } from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
 export type { TemplateTextSettings } from "./field-types/template-text";
 export type {
@@ -39,12 +41,14 @@ export type {
 	TiOverlayValue,
 } from "./field-types/ti-overlay";
 export {
+	ANCHOR_EDGE_KIND,
 	INLINE_ANCHOR_WINDOW,
 	inlineAnchorSchema,
 	TI_SET_KIND,
 	TI_SET_PIN,
 	TiOverlayCell,
 	TiOverlayField,
+	tiOverlayEdges,
 	tiOverlayEntrySchema,
 	tiOverlayPlugin,
 } from "./field-types/ti-overlay";

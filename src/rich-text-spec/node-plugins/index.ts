@@ -16,13 +16,29 @@ import { builtInMediaNodePlugins } from "./media-nodes";
 // spread consumes — do not remove it when touching this re-export.
 export { builtInMarkPlugins } from "./marks";
 
-/** All built-in node plugins (core + media). */
+/**
+ * All built-in node plugins (core + media).
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export const builtInNodePlugins: EditorNodePlugin[] = [
 	...builtInCoreNodePlugins,
 	...builtInMediaNodePlugins,
 ];
 
-/** All built-in editor plugins (marks + nodes). */
+/**
+ * All built-in editor plugins (marks + nodes).
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export const builtInEditorPlugins: EditorNodePlugin[] = [
 	...builtInMarkPlugins,
 	...builtInNodePlugins,

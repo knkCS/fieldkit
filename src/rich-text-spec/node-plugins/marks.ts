@@ -70,6 +70,15 @@ export const superscriptPlugin: EditorNodePlugin = {
 	icon: Superscript,
 };
 
+/**
+ * All built-in mark plugins.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export const builtInMarkPlugins: EditorNodePlugin[] = [
 	boldPlugin,
 	italicPlugin,
