@@ -40,7 +40,9 @@ export function valueDocuments(
 
 	let originals: WeakMap<object, object> | undefined;
 	let record: Record<string, unknown> = data;
-	if (deeperThan(data, 0, maxDepth)) {
+	// Without a limit there is nothing to cut off — and no reason to walk a
+	// document's inside, which may nest deeper than any call stack.
+	if (Number.isFinite(maxDepth) && deeperThan(data, 0, maxDepth)) {
 		originals = new WeakMap();
 		record = boundedCopy(data, 0, maxDepth, originals) as Record<
 			string,

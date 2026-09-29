@@ -453,6 +453,17 @@ describe("specToZodSchema and the rich-text document (ADR-0025)", () => {
 		expect(parsed).toStrictEqual({ body: doc(), rows: [{ b: doc() }] });
 	});
 
+	it("never walks a document's inside, however deep it nests", () => {
+		let inner: Record<string, unknown> = { type: "text", text: "tief" };
+		for (let i = 0; i < 20_000; i++) {
+			inner = { type: "textBlock", content: [inner] };
+		}
+		const body = { type: "doc", content: [inner] };
+		const parsed = specToZodSchema(spec, plugins).parse({ body });
+		// The record is copied by Zod; its inside is passed on untouched.
+		expect((parsed.body as typeof body).content === body.content).toBe(true);
+	});
+
 	it("keeps doing so through a copy Zod makes of the schema", () => {
 		const parsed = specToZodSchema(spec, plugins)
 			.describe("copied")

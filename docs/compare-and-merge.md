@@ -170,7 +170,9 @@ Field:
   the other side gave it (an `exclude` gaining `values`, a `with` left on a
   node that is no `replace`), so a merge never answers with a value the
   type's own validation refuses.
-- **Canonical.** A key whose merged value is Unset is dropped (ADR-0021). A
+- **Canonical.** A key whose merged value is Unset is dropped (ADR-0021) —
+  but never inside a `rich_text` document, which is kept, and read, as
+  stored (ADR-0025). A
   top-level row array the merge empties is `[]`, since Merge cannot answer
   "absent": versionkit's `Validate` then reports it `not_canonical`, and the
   merge waits for a person.

@@ -137,7 +137,7 @@ func (c *Catalogue) ValueText(f Field, value json.RawMessage) string {
 	if err := dec.Decode(&decoded); err != nil || dec.More() {
 		return ""
 	}
-	decoded = stripUnset(toFloats(decoded))
+	decoded = c.canonicalFieldValue([]Field{f}, f.Config.APIAccessor, toFloats(decoded), nil)
 	if isUnset(decoded) {
 		return ""
 	}

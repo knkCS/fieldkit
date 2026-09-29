@@ -155,3 +155,12 @@ func stripUnsetAround(value any, path string, documents map[string]bool) any {
 	}
 	return value
 }
+
+// canonicalFieldValue is value, the value of the Field of fields keyed key,
+// in canonical form: Unset stripped at every depth but inside the documents
+// it holds (ADR-0025). Compare, Merge, Edges and Texts read it, so what they
+// read and write of a document is what was stored.
+func (c *Catalogue) canonicalFieldValue(fields []Field, key string, value any, targets func(string) string) any {
+	documents := c.documentPaths(fields, map[string]any{key: value}, targets)
+	return stripUnsetAround(value, joinPath("", key), documents)
+}

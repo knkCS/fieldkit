@@ -400,5 +400,6 @@ func mergeRichText(c *composer, f *Field, base, ours, theirs any, path string) (
 		}
 		return nil, nil
 	}
-	return decodeStored(merged)
+	// The merged document is knkeditor's, kept as it wrote it (ADR-0025).
+	return decodeJSON(merged)
 }
