@@ -11,8 +11,7 @@ import type { Field } from "./types";
 import { isPlainObject } from "./unset";
 
 /** The value-less Markers, as `specToZodSchema` skips them. Hidden Fields are
- * not skipped: they are not checked, but their data is still stored
- * canonically around them. */
+ * not skipped: their values are checked like any other (#223 D4). */
 const MARKER_TYPES: ReadonlySet<string> = new Set(["section", "card"]);
 
 /**

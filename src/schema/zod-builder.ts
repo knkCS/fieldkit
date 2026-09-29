@@ -28,7 +28,54 @@ const STRUCTURAL_TYPES = new Set(["section", "card"]);
  * two copies of the skip list would be two things to drift.
  */
 export function fieldProducesValue(field: Field): boolean {
-	return !STRUCTURAL_TYPES.has(field.field_type) && !field.config.hidden;
+	return fieldHoldsValue(field) && !field.config.hidden;
+}
+
+/**
+ * Whether a Field can hold a value at all: every Field but the value-less
+ * Markers. A hidden Field can (#223 D4) — no form asks for it, but stored
+ * data may carry it, and validation, edges and texts read it.
+ */
+export function fieldHoldsValue(field: Field): boolean {
+	return !STRUCTURAL_TYPES.has(field.field_type);
+}
+
+/**
+ * The Field as stored data is validated against (#223 D4): a hidden Field is
+ * checked like any other but never required — no form can fill it — and
+ * neither is anything inside it, which no form shows either: `inHidden` says
+ * the Field sits inside a hidden one, and makes it hidden too. A visible Field
+ * outside any hidden one is returned as it is.
+ */
+export function storedValueField(field: Field, inHidden = false): Field {
+	if (!inHidden && !field.config.hidden) return field;
+	return {
+		...field,
+		config: { ...field.config, hidden: true, required: false },
+	};
+}
+
+/**
+ * The Zod object stored data's records are validated with — what a
+ * container's children compose to in `validateValue` (ADR-0007). As
+ * {@link specToZodSchema}'s, with one difference (#223 D4): a hidden Field is
+ * checked too, through {@link storedValueField}. `inHidden` says the record
+ * sits inside a hidden Field. It does not strip Unset: `validateValue`
+ * canonicalised the data before.
+ */
+export function storedValueSchema(
+	fields: Field[],
+	plugins: FieldTypePlugin[],
+	options: Pick<ZodBuilderOptions, "targetBlueprint"> = {},
+	inHidden = false,
+): ZodObject<ZodRawShape> {
+	const pluginMap: PluginMap = new Map(plugins.map((p) => [p.id, p]));
+	return buildObject(
+		fields,
+		pluginMap,
+		options,
+		inHidden ? "hidden" : "stored",
+	);
 }
 
 export interface ZodBuilderOptions {
@@ -111,6 +158,13 @@ function canonicalResult<T>(
 	return { status: result.status, value: canonical(result.value) as T };
 }
 
+/**
+ * What a composed object checks: a form's values (`form`, hidden Fields
+ * skipped), stored data (`stored`, hidden Fields checked but not required),
+ * or stored data inside a hidden Field (`hidden`, no Field required).
+ */
+type BuildMode = "form" | "stored" | "hidden";
+
 /** One level of a Spec as a Zod object. Called again, through the
  * `composeChildren` argument below, for every container plugin that holds
  * child Fields — so a Fieldset's children obey the same rules its siblings do,
@@ -121,27 +175,38 @@ function buildObject(
 	fields: Field[],
 	pluginMap: PluginMap,
 	options?: ZodBuilderOptions,
+	mode: BuildMode = "form",
 ): ZodObject<ZodRawShape> {
 	const shape: ZodRawShape = {};
 	const context: ValueContext | undefined = options?.targetBlueprint
 		? { targetBlueprint: options.targetBlueprint }
 		: undefined;
 
-	for (const field of fields) {
-		if (!fieldProducesValue(field)) continue;
+	for (const declared of fields) {
+		if (mode === "form" && !fieldProducesValue(declared)) continue;
+		if (mode !== "form" && !fieldHoldsValue(declared)) continue;
+		const field =
+			mode === "form"
+				? declared
+				: storedValueField(declared, mode === "hidden");
 
 		const plugin = pluginMap.get(field.field_type);
 		if (!plugin) continue;
 
+		const childMode: BuildMode =
+			mode === "form" ? "form" : field.config.hidden ? "hidden" : "stored";
 		let zodType = plugin.toZodType(
 			field as Field<unknown>,
 			(children) =>
 				// No `overrides`: they are keyed by top-level accessor and belong
 				// to the Consumer's own Fields, not to whatever a Blueprint
 				// happens to name the same. The value context reaches every depth.
-				buildObject(children, pluginMap, {
-					targetBlueprint: options?.targetBlueprint,
-				}),
+				buildObject(
+					children,
+					pluginMap,
+					{ targetBlueprint: options?.targetBlueprint },
+					childMode,
+				),
 			context,
 		);
 

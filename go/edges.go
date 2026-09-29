@@ -101,9 +101,10 @@ func mediaEdges(_ Field, _ map[string]any, value any) []Edge {
 // Reference Spec a Reference's values follow.
 //
 // It reads data ValidateValue accepted, and checks nothing: a value of the
-// wrong shape yields no edge rather than an error, and markers and hidden
-// Fields yield none, as ValidateValue skips them. A lookup yields none. Data
-// that is not a JSON object is an error; empty data is {}.
+// wrong shape yields no edge rather than an error, and markers yield none. A
+// hidden Field yields its edges like any other, so the Content Graph stays
+// complete (#223 D4). A lookup yields none. Data that is not a JSON object is
+// an error; empty data is {}.
 func Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]Edge, error) {
 	return DefaultCatalogue().Edges(resolved, data, opts...)
 }
@@ -116,7 +117,7 @@ func (c *Catalogue) Edges(resolved *ResolvedSpec, data json.RawMessage, opts ...
 	if resolved != nil {
 		parts = resolved.Parts
 	}
-	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
+	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string, _ bool) {
 		rule, ok := c.edgeRule(f.FieldType, parts)
 		if !ok {
 			return

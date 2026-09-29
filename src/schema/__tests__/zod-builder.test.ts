@@ -117,6 +117,46 @@ describe("specToZodSchema", () => {
 		expect(result.success).toBe(true);
 	});
 
+	it("keeps skipping a hidden Field inside a container, where validateValue checks it (#223 D4)", () => {
+		const hiddenNumber: Field = {
+			field_type: "number",
+			config: {
+				name: "Rank",
+				api_accessor: "rank",
+				required: true,
+				instructions: "",
+				hidden: true,
+			},
+			settings: null,
+			children: null,
+			system: false,
+		};
+		const row: FieldTypePlugin = {
+			...mockPlugin("row", z.object({})),
+			toZodType: (_field, compose) =>
+				compose ? compose([hiddenNumber]) : z.object({}),
+		};
+		const fields: Field[] = [
+			{
+				field_type: "row",
+				config: {
+					name: "Row",
+					api_accessor: "row",
+					required: true,
+					instructions: "",
+				},
+				settings: null,
+				children: null,
+				system: false,
+			},
+		];
+		const schema = specToZodSchema(fields, [...plugins, row]);
+		expect(schema.safeParse({ row: { rank: "not a number" } }).success).toBe(
+			true,
+		);
+		expect(schema.safeParse({ row: {} }).success).toBe(true);
+	});
+
 	it("should skip section fields (structural only)", () => {
 		const sectionPlugin: FieldTypePlugin = {
 			id: "section",

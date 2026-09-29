@@ -160,7 +160,8 @@ export interface ReadProps<S = unknown> {
 /**
  * Composes a list of child Fields into the object schema they would generate
  * as a Spec of their own — the same marker skips, the same hidden skip, the
- * same required/optional shaping.
+ * same required/optional shaping. In `validateValue` the composer is stored
+ * data's: a hidden Field is checked there, never required (#223 D4).
  *
  * Handed to `toZodType` as an optional second argument so a container type can
  * validate what it holds instead of accepting an opaque record (ADR-0007). The

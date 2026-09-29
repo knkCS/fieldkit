@@ -74,8 +74,10 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 // validation are read in canonical form, so a "min": null is no minimum.
 //
 // Keys the Spec does not name are otherwise ignored, as the TS form's schema
-// ignores them; hidden Fields and the Markers are not checked. Data that is
-// not a JSON object is one CodeInvalidType at ""; empty data is {}.
+// ignores them, and so are the Markers. A hidden Field is checked when its
+// value is present, but never CodeRequired — no form can fill it — and
+// neither is any Field inside it, at any depth (#223 D4). Data that is not a
+// JSON object is one CodeInvalidType at ""; empty data is {}.
 //
 // A rich_text value is checked by knkeditor (rich_text.go). Without a
 // Resolved Spec there is no Text Type to narrow it by, so it is checked
@@ -156,8 +158,14 @@ func (c *Catalogue) validateValue(spec Spec, data json.RawMessage, richText *ric
 // the record's own.
 func validateFields(fields []Field, record map[string]any, path string, errs *valueErrors) {
 	for _, f := range fields {
-		if markerTypes[f.FieldType] || (f.Config.Hidden != nil && *f.Config.Hidden) {
+		if markerTypes[f.FieldType] {
 			continue
+		}
+		// A hidden Field is checked, but never required — no form can fill it
+		// — and neither is any Field inside it, at any depth (#223 D4).
+		hidden := errs.ctx.inHidden() || isHidden(f)
+		if hidden {
+			f.Config.Required = false
 		}
 		container, isContainer := containerRuleFor(f.FieldType)
 		rule, ok := errs.catalogue().valueRule(f.FieldType)
@@ -177,16 +185,40 @@ func validateFields(fields []Field, record map[string]any, path string, errs *va
 		if settingsObj == nil {
 			settingsObj = map[string]any{}
 		}
+		leave := errs.ctx.enterHidden(hidden)
 		if isContainer {
 			container(f, settingsObj, value, at, errs)
-			continue
+		} else {
+			sub := &valueErrors{ctx: errs.ctx, base: at}
+			rule(f, settingsObj, value, sub)
+			for _, e := range sub.list {
+				errs.add(at+e.Path, e.Code, e.Params)
+			}
 		}
-		sub := &valueErrors{ctx: errs.ctx, base: at}
-		rule(f, settingsObj, value, sub)
-		for _, e := range sub.list {
-			errs.add(at+e.Path, e.Code, e.Params)
-		}
+		leave()
 	}
+}
+
+// isHidden reports whether a Field is hidden: a UI flag (#223 D4) — the Field
+// still holds data, which is validated, and yields its edges.
+func isHidden(f Field) bool {
+	return f.Config.Hidden != nil && *f.Config.Hidden
+}
+
+// inHidden reports whether the Fields being validated sit inside a hidden
+// Field, where none is required.
+func (c *valueContext) inHidden() bool {
+	return c != nil && c.hidden
+}
+
+// enterHidden marks what a Field holds as inside a hidden Field while its
+// rule runs, when hidden; the func it returns restores the mark as it was.
+func (c *valueContext) enterHidden(hidden bool) func() {
+	if c == nil || !hidden || c.hidden {
+		return func() {}
+	}
+	c.hidden = true
+	return func() { c.hidden = false }
 }
 
 // ValueOption configures ValidateValue, Edges and Texts.

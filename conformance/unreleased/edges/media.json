@@ -1,5 +1,5 @@
 {
-	"description": "A media Field's Assets are media edges at the Field — one per Asset, an Asset listed twice once — at the root, in a group's and a virtual_table's rows by _id, in a Block's Fields and in a resolved Fieldset's record; a hidden media Field yields none",
+	"description": "A media Field's Assets are media edges at the Field — one per Asset, an Asset listed twice once — at the root, in a group's and a virtual_table's rows by _id, in a Block's Fields and in a resolved Fieldset's record; a hidden media Field yields its edge too (#223 D4)",
 	"spec": [
 		{
 			"field_type": "media",
@@ -236,6 +236,13 @@
 				"kind": "media",
 				"target": {
 					"asset": "asset-2"
+				}
+			},
+			{
+				"path": "/secret",
+				"kind": "media",
+				"target": {
+					"asset": "asset-hidden"
 				}
 			},
 			{

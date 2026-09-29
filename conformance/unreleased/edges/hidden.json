@@ -1,0 +1,148 @@
+{
+	"description": "Edges ignore hidden (#223 D4), so the Content Graph stays complete: a hidden Reference and a hidden media Field yield their edges at the root, a hidden child in a group's row by the row's _id, and everything a hidden group's rows hold",
+	"spec": [
+		{
+			"field_type": "single_reference",
+			"config": {
+				"name": "primary",
+				"api_accessor": "primary",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "media",
+			"config": {
+				"name": "secret",
+				"api_accessor": "secret",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "media",
+					"config": {
+						"name": "image",
+						"api_accessor": "image",
+						"required": false,
+						"instructions": "",
+						"hidden": true
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "archive",
+				"api_accessor": "archive",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"children": [
+				{
+					"field_type": "reference",
+					"config": {
+						"name": "related",
+						"api_accessor": "related",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"primary": {
+			"_id": "s",
+			"id": "c1",
+			"pin": "r1"
+		},
+		"secret": [
+			"asset-1"
+		],
+		"rows": [
+			{
+				"_id": "r1",
+				"label": "One",
+				"image": [
+					"asset-2"
+				]
+			}
+		],
+		"archive": [
+			{
+				"_id": "a1",
+				"related": [
+					{
+						"_id": "n1",
+						"id": "c2"
+					}
+				]
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"edges": [
+			{
+				"path": "/primary",
+				"kind": "reference",
+				"target": {
+					"content": "c1",
+					"pin": "r1"
+				}
+			},
+			{
+				"path": "/secret",
+				"kind": "media",
+				"target": {
+					"asset": "asset-1"
+				}
+			},
+			{
+				"path": "/rows/r1/image",
+				"kind": "media",
+				"target": {
+					"asset": "asset-2"
+				}
+			},
+			{
+				"path": "/archive/a1/related/n1",
+				"kind": "reference",
+				"target": {
+					"content": "c2"
+				}
+			}
+		]
+	}
+}
