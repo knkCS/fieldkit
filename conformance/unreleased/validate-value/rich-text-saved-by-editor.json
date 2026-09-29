@@ -1,0 +1,97 @@
+{
+	"description": "A document the knkeditor-backed rich_text field (@knkcs/fieldkit/rich-text) saved under its Text Type, written by src/rich-text/__tests__/knk-rich-text-field.test.tsx: Go's ValidateResolvedValue accepts it (#278). Regenerate with FIELDKIT_UPDATE_FIXTURES=1, never by hand",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "Body",
+				"api_accessor": "body",
+				"required": true,
+				"instructions": ""
+			},
+			"settings": {
+				"text_type": "article@3"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"text_type": {
+			"article@3": {
+				"minimumVocabularyVersion": "0.1.0",
+				"nodes": {
+					"doc": {
+						"options": {}
+					},
+					"textWrapper": {
+						"options": {}
+					},
+					"heading": {
+						"options": {
+							"levels": [
+								2,
+								3
+							]
+						}
+					},
+					"text": {
+						"options": {}
+					}
+				},
+				"marks": {}
+			}
+		}
+	},
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "n1",
+						"indent": 0,
+						"attributes": {}
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Eins."
+						}
+					]
+				},
+				{
+					"type": "heading",
+					"attrs": {
+						"id": "n2",
+						"level": 2,
+						"attributes": {}
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Neu"
+						}
+					]
+				},
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "n3",
+						"indent": 0,
+						"attributes": {}
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Zwei."
+						}
+					]
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateValue": []
+	}
+}

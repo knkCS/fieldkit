@@ -3,6 +3,7 @@ import type { PinningMode } from "../schema/reference";
 import type {
 	BlueprintSchemaAdapter,
 	BlueprintSummary,
+	PartFetcher,
 } from "../schema/resolve-spec";
 import type { Field } from "../schema/types";
 
@@ -198,16 +199,16 @@ export interface DataPage<T = Record<string, unknown>> {
 	page_size: number;
 }
 
-export interface EditorSpecData {
+/**
+ * One Text Type Release as an Author picks it: the Release id a `rich_text`
+ * Field's `text_type` Pin stores (ADR-0020), and the name they recognise it
+ * by. Thin on purpose, as {@link BlueprintSummary} is: listing must not cost
+ * what fetching does. Extra keys pass through.
+ */
+export interface TextTypeSummary {
+	/** The Text Type Release id a Pin stores. */
 	id: string;
 	name: string;
-	description?: string;
-	page_width?: number;
-	nodes: Record<string, Record<string, unknown>>;
-	marks: Record<string, Record<string, unknown>>;
-}
-
-export interface EditorSpecGlobalSettings {
 	[key: string]: unknown;
 }
 
@@ -310,16 +311,41 @@ export interface FieldKitAdapters {
 		list?: () => Promise<BlueprintSummary[]>;
 	};
 	/**
-	 * Text Types. `listEditorSpecs()` is also what the rich_text config
-	 * panel's Text Type picker lists (#216): each entry's `id` is the **Text
-	 * Type Release id** a Field's `text_type` Pin stores (ADR-0020), and its
-	 * `name` what the Author reads. Without this adapter the picker degrades
-	 * to Release id entry. Resolution fetches the Text Type itself through
-	 * `resolveSpec()`'s `parts.text_type`, not through this adapter.
+	 * Text Type Releases (#216, #278): what a `rich_text` Field's
+	 * `text_type` Pin names (ADR-0020).
 	 */
 	textType?: {
-		getEditorSpec: (id: string) => Promise<EditorSpecData>;
-		getGlobalSettings: () => Promise<EditorSpecGlobalSettings>;
-		listEditorSpecs: () => Promise<EditorSpecData[]>;
+		/**
+		 * The resolved Text Type a Text Type Release id names — knkeditor's
+		 * `ResolvedTextType` (`@knkcms/knkeditor-vocabulary`), which fieldkit
+		 * hands to knkeditor unread, hence `unknown` here.
+		 *
+		 * The same {@link PartFetcher} `resolveSpec()` takes as
+		 * `parts.text_type`, so one function serves both. The knkeditor-backed
+		 * field (`@knkcs/fieldkit/rich-text`) reads its Text Type from the
+		 * provider's `parts` first, and calls this only for a Pin they do not
+		 * hold.
+		 */
+		get: PartFetcher;
+		/**
+		 * The Text Type Releases an Author may pick, for the rich_text config
+		 * panel's Text Type picker: each entry's `id` is the Release id the
+		 * Pin stores. **Optional on purpose** (ADR-0009): without it the
+		 * picker degrades to Release id entry.
+		 */
+		list?: () => Promise<TextTypeSummary[]>;
+	};
+	/**
+	 * The workspace's Editor Settings (#278): knkeditor's `EditorSettings`
+	 * (`@knkcms/knkeditor-vocabulary`) — the sentence counter's
+	 * abbreviations, how invisible characters draw — handed to knkeditor
+	 * unread, hence `unknown` here. The knkeditor-backed field fetches them
+	 * once per adapter object, however many rich_text Fields a form holds.
+	 *
+	 * **Optional** (ADR-0009): without it knkeditor runs with its default
+	 * Editor Settings.
+	 */
+	editorSettings?: {
+		get: () => Promise<unknown>;
 	};
 }

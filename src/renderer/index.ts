@@ -5,8 +5,6 @@ export type {
 	BlueprintSummary,
 	DataPage,
 	DataQuery,
-	EditorSpecData,
-	EditorSpecGlobalSettings,
 	FieldKitAdapters,
 	LookupItem,
 	LookupSearchQuery,
@@ -18,6 +16,7 @@ export type {
 	ReferenceItem,
 	ReferenceSearchQuery,
 	ReferenceSearchResult,
+	TextTypeSummary,
 } from "./adapters";
 export type { FieldComponentProps } from "./field-component";
 export { FieldComponent } from "./field-component";

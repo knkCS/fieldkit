@@ -8,6 +8,7 @@ export default defineConfig({
     "table/index": "src/table/index.ts",
     "rich-text-spec/index": "src/rich-text-spec/index.ts",
     "publishing/index": "src/publishing/index.ts",
+    "rich-text/index": "src/rich-text/index.ts",
   },
   format: ["esm"],
   dts: true,
@@ -27,7 +28,11 @@ export default defineConfig({
     "react-router-dom",
     "react-i18next",
     "lucide-react",
-    "@knkcms/knkeditor-editor",
+    // knkeditor and what it brings — TipTap, i18next — are the /rich-text
+    // subpath's optional peers (ADR-0026): never bundled, and imported by no
+    // other subpath (scripts/verify-peers.ts checks the built dist).
+    /^@knkcms\//,
+    /^@tiptap\//,
   ],
   treeshake: true,
   sourcemap: true,

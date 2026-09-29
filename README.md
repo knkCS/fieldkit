@@ -14,13 +14,15 @@ All three share a common **field type plugin system** — each field type provid
 
 ## Package Structure
 
-Single npm package with five subpath exports:
+Single npm package with these subpath exports:
 
 ```
 @knkcs/fieldkit/schema           → Field types, registry, Zod generation, defineSpec()
 @knkcs/fieldkit/editor           → Specification editor (drag-and-drop field definitions)
 @knkcs/fieldkit/renderer         → Field renderer (forms from specifications)
 @knkcs/fieldkit/table            → Spec-driven data table
+@knkcs/fieldkit/publishing       → Opt-in: the publishing package's Field Types
+@knkcs/fieldkit/rich-text        → Opt-in: the knkeditor-backed rich_text field (knkeditor peers) — docs/knkeditor-reference.md
 @knkcs/fieldkit/rich-text-spec   → Deprecated (removed in 0.19): replaced by Text Types — docs/migration-0.18.md
 ```
 

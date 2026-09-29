@@ -3,23 +3,25 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { EditorSpecData, FieldKitAdapters } from "../../renderer/adapters";
+import type {
+	FieldKitAdapters,
+	TextTypeSummary,
+} from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import type { RichTextSettings } from "../../schema/field-types/rich-text";
 import type { Field } from "../../schema/types";
 import { RichTextSettingsEditor } from "../field-settings/rich-text-settings";
 
-const TEXT_TYPES: EditorSpecData[] = [
-	{ id: "article@3", name: "Article", nodes: {}, marks: {} },
-	{ id: "note@1", name: "Note", nodes: {}, marks: {} },
+const TEXT_TYPES: TextTypeSummary[] = [
+	{ id: "article@3", name: "Article" },
+	{ id: "note@1", name: "Note" },
 ];
 
 function listingAdapter(): FieldKitAdapters {
 	return {
 		textType: {
-			getEditorSpec: vi.fn(),
-			getGlobalSettings: vi.fn(),
-			listEditorSpecs: () => Promise.resolve(TEXT_TYPES),
+			get: vi.fn(),
+			list: () => Promise.resolve(TEXT_TYPES),
 		},
 	};
 }

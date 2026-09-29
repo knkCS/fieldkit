@@ -1,0 +1,64 @@
+import { Meta, Canvas } from "@storybook/blocks";
+import * as Stories from "./knk-rich-text-field.stories";
+
+<Meta of={Stories} />
+
+# Knk Rich Text Field
+
+The knkeditor-backed `rich_text` field, from the opt-in subpath **`@knkcs/fieldkit/rich-text`** (ADR-0026). The core renderer shows rich text read-only; this is the one that edits it.
+
+## Opting in
+
+```tsx
+import { builtInFieldTypes, resolveSpec } from "@knkcs/fieldkit/schema";
+import { FieldKitProvider, SpecForm } from "@knkcs/fieldkit/renderer";
+import { knkRichTextPlugin } from "@knkcs/fieldkit/rich-text";
+
+const plugins = builtInFieldTypes.map((plugin) =>
+  plugin.id === "rich_text" ? knkRichTextPlugin : plugin,
+);
+
+const resolved = await resolveSpec(spec, {
+  blueprint,
+  parts: { text_type: adapters.textType.get },
+}, { plugins });
+
+<FieldKitProvider plugins={plugins} adapters={adapters} parts={resolved.parts}>
+  <SpecForm schema={resolved.fields} />
+</FieldKitProvider>;
+```
+
+`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`. Its peers are `@knkcms/knkeditor-editor` (^1.8.0) and `@knkcms/knkeditor-vocabulary` (^0.1.0), plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next, react-icons, emotion and its extension packages). No other subpath imports any of them — `npm run verify-peers` checks the built `dist`.
+
+## Where its configuration comes from
+
+| What | From |
+|---|---|
+| **Text Type** | The provider's `parts` — the Resolved Spec's `parts.text_type[<the Field's text_type Pin>]`; for a Pin they don't hold, `adapters.textType.get(releaseId)`, fetched once per adapter and Release. A Field without a `text_type` runs under the whole vocabulary |
+| **Editor Settings** | `adapters.editorSettings.get()`, fetched once per adapter. Without it, or when it fails (`onError`), knkeditor's defaults |
+| **Document** | The form value, loaded when the editor mounts; a value set from outside (a reset, another row) remounts it. Each edit writes `editor.getJSON()` back |
+
+## When it has no editor
+
+The field never edits under a Text Type it cannot trust, and never changes the value when it can't edit it. It shows the document's text read-only instead, with a line saying why:
+
+- **The Text Type needs a newer vocabulary** than the editor bundles (`needsNewerVocabulary`): the page predates a deploy, so the line says to reload.
+- **The Text Type can't be loaded**: not in `parts`, and no `textType` adapter, or its `get` rejected. The failure goes to `onError`.
+
+## Read mode
+
+`KnkRichTextRead` renders the document in the editor, read-only, under the same Text Type.
+
+## Examples
+
+### Under a Text Type
+
+<Canvas of={Stories.UnderATextType} />
+
+### Read mode
+
+<Canvas of={Stories.ReadMode} />
+
+### Needs a newer editor
+
+<Canvas of={Stories.NeedsANewerEditor} />

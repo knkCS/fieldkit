@@ -146,11 +146,39 @@ What a value yields to contenthub's Content Graph and to search changes too:
   - test ids `reference-values-*`, `reference-read-value`, `reference-spec-*`
   - `useResolvedContentNames` also returns `blueprints`
   - the reference `max_items` cap reports `too_many_items`
+- **The `textType` adapter speaks Text Type Releases** (#278): its
+  `getEditorSpec(id)`, `getGlobalSettings()` and `listEditorSpecs()` become
+  `get(releaseId)` — a resolved Text Type, the same `PartFetcher` that
+  `resolveSpec()` takes as `parts.text_type` — and an optional `list()` of
+  `TextTypeSummary` (`{id, name}`) for the config panel's picker. The Editor
+  Settings move to their own optional adapter, `editorSettings: { get() }`.
+  `EditorSpecData` and `EditorSpecGlobalSettings` are removed from
+  `/renderer`; import `TextTypeSummary` instead. To migrate: pass your Text
+  Type Release fetcher as both `adapters.textType.get` and
+  `resolveSpec`'s `parts.text_type`, and rename `listEditorSpecs` to `list`.
+- **The core renderer's `rich_text` field is read-only** (#278, ADR-0026): it
+  shows the document's text and says it can't be edited there, where it was a
+  JSON textarea. It never writes the value. Editing needs
+  `@knkcs/fieldkit/rich-text` (below).
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option
 (#212); `mintMissingIds`, `copyRows`, `toIdPath` (#211); `ValueContext`,
-`settingsRules`, `referenceSpecFor`, `referenceBlueprintIds` (#215).
+`settingsRules`, `referenceSpecFor`, `referenceBlueprintIds` (#215);
+`FieldKitProvider`'s `parts` prop — the Resolved Spec's `parts`, where a
+Field finds what it pins (#278).
+
+### `@knkcs/fieldkit/rich-text` (#278)
+
+A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
+`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent:
+KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
+built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
+optional peers are `@knkcms/knkeditor-editor` `^1.8.0` and
+`@knkcms/knkeditor-vocabulary` `^0.1.0`, plus the peers knkeditor-editor
+declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
+extension packages). No other subpath imports them. Details in
+[`knkeditor-reference.md`](knkeditor-reference.md).
 
 ## Go API
 
@@ -207,9 +235,9 @@ it:**
   owns the Text Type Releases they edit.
 - **`@knkcs/fieldkit/rich-text`** (#278), an opt-in subpath with a
   knkeditor-backed `rich_text` field that reads its Text Type from the
-  Resolved Spec's `parts`. A Consumer opts in with
-  `{ ...richText, fieldComponent: KnkRichTextField }`. Until it ships, the
-  core renderer's `rich_text` field remains the placeholder.
+  Resolved Spec's `parts`. A Consumer opts in with `knkRichTextPlugin`
+  (see [above](#knkcsfieldkitrich-text-278)); without it, the core
+  renderer's `rich_text` field is read-only.
 
 To migrate: stop authoring `EditorSpec`s, point each `rich_text` Field's
 `text_type` at a Text Type Release that allows what the old `EditorSpec`

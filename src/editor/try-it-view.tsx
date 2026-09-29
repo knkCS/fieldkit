@@ -163,8 +163,10 @@ function useResolvedDraft(
 		);
 		resolveSpec(schema, { blueprint }, { plugins })
 			.then((resolved) => {
-				// The form takes the Resolved Spec's Fields; Preview renders no
-				// opaque part yet, so `parts` is not read.
+				// The form takes the Resolved Spec's Fields. `parts` is not
+				// read: Preview resolves no opaque part, and a knkeditor-backed
+				// rich_text field (#278) fetches its Text Type through the
+				// `textType` adapter instead.
 				if (!cancelled) {
 					setResolution({ status: "ready", schema: resolved.fields });
 				}
