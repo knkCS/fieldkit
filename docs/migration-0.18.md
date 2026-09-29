@@ -150,9 +150,9 @@ Codes only ever grow (ADR-0019); these are new in 0.18.
 | Value | `invalid_rich_text` — at the Field path plus knkeditor's pointer, knkeditor's code in `params.code` | #216 |
 | Value | `unknown_command`, `invalid_ti_set` | #221 |
 
-`invalid_position` and `too_many_bytes` are the names #223 D7 settled on
-**(open: #284)**: #209 and #210 shipped them as `position` and `too_large`,
-and #284 renames them before the freeze.
+`invalid_position` and `too_many_bytes` are the names #223 D7 settled on:
+#209 and #210 shipped them as `position` and `too_large`, and #284 renamed
+them before the freeze.
 
 ## Deprecations
 
