@@ -58,11 +58,17 @@ Settings are strict (ADR-0018): a key a type does not declare is
 - **Rows and nodes carry an `_id`** (ADR-0023, #211). Legacy rows get ids
   minted into the form's defaults (TS `mintMissingIds`); Go importers call
   `MintIDs`.
-- **Value depth cap:** 128 levels over fieldkit's structure only (#223 D5)
-  **(open: #280)**. #211 shipped 32 (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`,
-  code `too_deep`).
+- **Value depth cap:** 128 levels over fieldkit's structure only (#223 D5,
+  #280); #211 shipped 32 (TS `VALUE_CAPS.maxDepth`, Go `MaxDepth`, code
+  `too_deep`). A rich-text document's inner depth is knkeditor's to limit
+  (knkcms/knkeditor#689). The item and byte caps still count everything,
+  documents included.
 - **Unset stops at the rich-text document;** inside it, knkeditor's rules apply
-  (ADR-0025, #223 D2b) **(open: #280)**.
+  (ADR-0025, #223 D2b, #280): `attrs: null` or `attributes: {}` inside a
+  document is valid and isn't stripped, in forms, EditDrawer and Go alike. A
+  rich_text Field whose value is `{}`, `null` or absent is still Unset. The
+  public TS `canonicalValue()` knows no Spec and still strips inside documents
+  (#295).
 - **`reference`:** `attributes` becomes `values`, `_id` is required on every
   node, and `pin` is a string only (no `null`). Go importers map `attributes`
   → `values` and call `MintIDs` (#215).
