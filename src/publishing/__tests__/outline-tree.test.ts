@@ -89,8 +89,8 @@ describe("outline_tree settings", () => {
 			}),
 		];
 		expect(codes(validateSpec(spec, plugins).fieldErrors)).toEqual([
-			{ path: "/outline/children/box", code: "position" },
-			{ path: "/vt/children/nested", code: "position" },
+			{ path: "/outline/children/box", code: "invalid_position" },
+			{ path: "/vt/children/nested", code: "invalid_position" },
 		]);
 	});
 });

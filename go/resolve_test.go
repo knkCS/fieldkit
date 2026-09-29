@@ -260,7 +260,7 @@ func TestValidateResolvedSpecChecksLinkedPositions(t *testing.T) {
 		t.Fatal(err)
 	}
 	errs := ValidateResolvedSpec(resolved)
-	if len(errs) != 1 || errs[0].Path != "/lines/children/nested" || errs[0].Code != CodePosition {
+	if len(errs) != 1 || errs[0].Path != "/lines/children/nested" || errs[0].Code != CodeInvalidPosition {
 		t.Errorf("ValidateResolvedSpec = %v", errs)
 	}
 	// The authored rule still holds for the authored Spec.

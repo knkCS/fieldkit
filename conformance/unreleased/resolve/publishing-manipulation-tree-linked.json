@@ -85,7 +85,7 @@
 		"validateResolvedSpec": [
 			{
 				"path": "/title/settings/blueprints/0/spec/box",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

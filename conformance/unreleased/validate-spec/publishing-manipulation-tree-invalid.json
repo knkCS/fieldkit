@@ -176,7 +176,7 @@
 			},
 			{
 				"path": "/annotated/settings/annotation_spec/box",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/annotated/settings/annotation_spec/_reserved",
@@ -188,7 +188,7 @@
 			},
 			{
 				"path": "/related/settings/spec/nested",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

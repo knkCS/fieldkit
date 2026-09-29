@@ -270,7 +270,7 @@ describe("validateSpec on a Resolved Spec", () => {
 		}).fieldErrors;
 
 		expect(errors.map(({ path, code }) => ({ path, code }))).toEqual([
-			{ path: "/lines/children/nested", code: "position" },
+			{ path: "/lines/children/nested", code: "invalid_position" },
 		]);
 	});
 });

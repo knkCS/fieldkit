@@ -21,7 +21,7 @@ Single npm package with five subpath exports:
 @knkcs/fieldkit/editor           → Specification editor (drag-and-drop field definitions)
 @knkcs/fieldkit/renderer         → Field renderer (forms from specifications)
 @knkcs/fieldkit/table            → Spec-driven data table
-@knkcs/fieldkit/rich-text-spec   → Rich text editor specification (node/mark configuration)
+@knkcs/fieldkit/rich-text-spec   → Deprecated (removed in 0.19): replaced by Text Types — docs/migration-0.18.md
 ```
 
 ## Quick Start

@@ -110,7 +110,7 @@
 			},
 			{
 				"path": "/rows/children/cell",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

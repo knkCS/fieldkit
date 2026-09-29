@@ -92,8 +92,8 @@ describe("reference_filter", () => {
 			} as Field,
 		];
 		expect(codes(validateSpec(spec, optedIn).fieldErrors)).toEqual([
-			{ path: "/root", code: "position" },
-			{ path: "/g/children/inner", code: "position" },
+			{ path: "/root", code: "invalid_position" },
+			{ path: "/g/children/inner", code: "invalid_position" },
 		]);
 	});
 

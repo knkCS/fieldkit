@@ -22,7 +22,7 @@ Use **Virtual Table** for a repeating set of records edited as a table rather th
 
 `text`, `textarea`, `markdown`, `number`, `date`, `time`, `boolean`, `select`, `radio`, `checkboxes`, `email`, `url`, `slug`, `color`, `lookup`, `media`, `single_reference`
 
-No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending Field with the `position` code, in TS and in Go. The list is the `row` Position (ADR-0022): each type that may be a column lists `row` in its plugin's `positions`, and the row-field picker offers exactly those.
+No Markers (`section`, `card`) and no containers (`group`, `fieldset`, `blocks`, `array`, `list`, a nested `virtual_table`) — `validateSpec()` reports each offending Field with the `invalid_position` code, in TS and in Go. The list is the `row` Position (ADR-0022): each type that may be a column lists `row` in its plugin's `positions`, and the row-field picker offers exactly those.
 
 ## Settings
 

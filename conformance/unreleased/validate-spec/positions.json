@@ -207,23 +207,23 @@
 		"validateSpec": [
 			{
 				"path": "/details/children/lines/children/tags",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/details/children/lines/children/snippet",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/details/children/lines/children/row_tab",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/details/children/lines/children/address",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/specs/children/pairs",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/specs/children/old",

@@ -21,8 +21,9 @@ export type SpecFieldErrorCode =
 	/** A Field in a Position its type does not list (ADR-0022) — a Group in a
 	 * Row Spec, a Section in a Reference Spec. At that Field, with the
 	 * `position` and the `field_type` as params. It replaced the Row Spec's
-	 * own `virtual_table_row_field_type` before any Catalogue shipped. */
-	| "position"
+	 * own `virtual_table_row_field_type` before any Catalogue shipped, and was
+	 * renamed from `position` before the freeze (#223, D7). */
+	| "invalid_position"
 	/** An Accessor beginning with `_`: reserved in every Position for `_id`,
 	 * `_type`, `_order` and what value shapes need later (ADR-0022). */
 	| "reserved_accessor"
@@ -511,7 +512,7 @@ function checkSettingsRules(
  * one walk that carries the Position down.
  *
  * - **Position** (ADR-0022): a Field whose type does not list the Position it
- *   sits in is `position`. One check for every container: it is the Row
+ *   sits in is `invalid_position`. One check for every container: it is the Row
  *   Spec's allow-list (ADR-0017) and the Reference Spec's rule, each
  *   expressed as the Positions a type declares, and whatever the next
  *   container needs. An unregistered type is `unknown_field_type` already
@@ -536,7 +537,7 @@ function checkFields(
 		if (plugin && !allowedInPosition(plugin, position)) {
 			fieldErrors.push({
 				accessor,
-				code: "position",
+				code: "invalid_position",
 				message: `Field "${accessor}" of type "${field.field_type}" is not allowed in position "${position}"`,
 				path,
 				params: { position, field_type: field.field_type },

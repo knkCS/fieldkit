@@ -9,6 +9,15 @@ import type {
 	NodeOptions,
 } from "./types";
 
+/**
+ * Props of {@link EditorSpecEditor}.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export interface EditorSpecEditorProps {
 	spec: EditorSpec;
 	onChange: (spec: EditorSpec) => void;
@@ -320,5 +329,14 @@ function EditorSpecEditorInner({
 	);
 }
 
+/**
+ * Toggles the nodes and marks of an {@link EditorSpec} and edits their settings.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export const EditorSpecEditor = EditorSpecEditorInner;
 (EditorSpecEditor as { displayName?: string }).displayName = "EditorSpecEditor";
