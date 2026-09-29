@@ -13,3 +13,7 @@ A released Blueprint is served for ever, so fieldkit's **data contract** — the
 
 - A generator — knkeditor's option forms — may target the Spec JSON: it declares the lowest fieldkit it needs, and no later fieldkit rejects what it generates.
 - A Resolved Spec records the Catalogue version and the rich-text vocabulary version it was resolved against, so a service can refuse a Blueprint Release it is too old to understand (ADR-0020).
+
+## Amended by ADR-0024
+
+The freeze is no longer tied to the first npm release: it happens with the first Blueprint Release. Until then 0.18 ships as release candidates.
