@@ -33,6 +33,10 @@ export type {
 } from "./field-types/outline-tree";
 export { OUTLINE_NODE_ORIGINS } from "./field-types/outline-tree";
 export type { ReferenceFilterSettings } from "./field-types/reference-filter";
+export {
+	EXCLUDE_EDGE_KIND,
+	referenceFilterEdges,
+} from "./field-types/reference-filter";
 export type { TemplateTextSettings } from "./field-types/template-text";
 export type {
 	InlineAnchor,

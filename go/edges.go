@@ -11,7 +11,7 @@ import (
 // reads. The graph's other kinds — toc, include, exclude, replace, annotate,
 // anchor, blueprint — are the Consumer's, or the publishing package's; the
 // publishing package's anchor is declared here, beside link, whose target it
-// shares.
+// shares, and its exclude, which a reference_filter yields too.
 const (
 	// EdgeMedia points at an Asset a media Field or an image in rich text
 	// holds.
@@ -25,6 +25,10 @@ const (
 	// narrowed by the Content's Pin: a ti_overlay entry's, in the publishing
 	// package (TS ANCHOR_EDGE_KIND).
 	EdgeAnchor = "anchor"
+	// EdgeExclude points at a Content left out: each id a reference_filter
+	// holds, with no Pin, and a manipulation_tree's exclude node (its
+	// IntentExclude), in the publishing package (TS EXCLUDE_EDGE_KIND).
+	EdgeExclude = "exclude"
 )
 
 // Edge is one edge of the Content Graph a Content's data holds: what it

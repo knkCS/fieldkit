@@ -110,17 +110,23 @@ func TestReferenceFilterValues(t *testing.T) {
 	}
 }
 
-func TestReferenceFilterYieldsNoEdgesAndNoText(t *testing.T) {
+func TestReferenceFilterYieldsExcludeEdgesAndNoText(t *testing.T) {
 	c := publishing.DefaultCatalogue()
 	resolved := &fieldkit.ResolvedSpec{Fields: decode(t, related)}
-	data := json.RawMessage(`{"related":[{"_id":"n1","id":"c1","values":{"exclude":["c2"]}}]}`)
+	data := json.RawMessage(`{"related":[{"_id":"n1","id":"c1","values":{"exclude":["c2","c3","c2",""]}}]}`)
 	edges, err := c.Edges(resolved, data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The Reference's own edge only.
-	if len(edges) != 1 || edges[0].Kind != "reference" {
-		t.Errorf("Edges = %+v", edges)
+	// The Reference's own edge, then one exclude edge per distinct id, at the
+	// Field, with no Pin.
+	want := []fieldkit.Edge{
+		{Path: "/related/n1", Kind: fieldkit.EdgeReference, Target: fieldkit.Target{Content: "c1"}},
+		{Path: "/related/n1/values/exclude", Kind: fieldkit.EdgeExclude, Target: fieldkit.Target{Content: "c2"}},
+		{Path: "/related/n1/values/exclude", Kind: fieldkit.EdgeExclude, Target: fieldkit.Target{Content: "c3"}},
+	}
+	if !reflect.DeepEqual(edges, want) {
+		t.Errorf("Edges = %+v, want %+v", edges, want)
 	}
 	texts, err := c.Texts(resolved, data)
 	if err != nil || len(texts) != 0 {

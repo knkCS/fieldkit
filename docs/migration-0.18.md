@@ -94,8 +94,10 @@ What a value yields to contenthub's Content Graph and to search changes too:
   Texts are off unless `search` is set (#223 D4) **(open: #282)**. #214
   shipped hidden Fields yielding no edges and no text.
 - **Choice types' option labels are searchable** (#223 D6) **(open: #283)**.
-- **`reference_filter` yields `exclude` edges** (#223 D8) **(open: #285)**;
-  #218 shipped none.
+- **`reference_filter` yields `exclude` edges** (#223 D8, #285), one per
+  distinct id (an id listed twice is one edge, as a media Field's Asset is),
+  at the Field inside the Reference's `values`, target `{content}` with no
+  Pin (Go `EdgeExclude`, TS `EXCLUDE_EDGE_KIND`); #218 shipped none.
 - **`ti_overlay` entries yield `anchor` edges** (#223 D3, #281), one per entry,
   target `{content, pin?, anchor: node}`;
   #221 shipped none.

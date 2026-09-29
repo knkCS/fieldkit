@@ -1,0 +1,113 @@
+{
+	"description": "With the publishing package, a reference_filter in a Reference's values yields one exclude edge per distinct Content id, at the Field inside the Reference's values (the value is one whole, never addressed by index), its target the Content and no Pin — an id listed twice is one edge; the Reference's own reference edges stand beside them, at every level of the tree",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "Laws",
+				"api_accessor": "laws",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "reference_filter",
+						"config": {
+							"name": "Exclude",
+							"api_accessor": "exclude",
+							"required": false,
+							"instructions": ""
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"laws": [
+			{
+				"_id": "n1",
+				"id": "c1",
+				"pin": "r1",
+				"values": {
+					"exclude": [
+						"c7",
+						"c8",
+						"c7"
+					]
+				},
+				"children": [
+					{
+						"_id": "n2",
+						"id": "c2",
+						"values": {
+							"exclude": [
+								"c9"
+							]
+						}
+					}
+				]
+			},
+			{
+				"_id": "n3",
+				"id": "c3",
+				"values": {
+					"exclude": []
+				}
+			}
+		]
+	},
+	"expect": {
+		"edges": [
+			{
+				"path": "/laws/n1",
+				"kind": "reference",
+				"target": {
+					"content": "c1",
+					"pin": "r1"
+				}
+			},
+			{
+				"path": "/laws/n1/children/n2",
+				"kind": "reference",
+				"target": {
+					"content": "c2"
+				}
+			},
+			{
+				"path": "/laws/n3",
+				"kind": "reference",
+				"target": {
+					"content": "c3"
+				}
+			},
+			{
+				"path": "/laws/n1/values/exclude",
+				"kind": "exclude",
+				"target": {
+					"content": "c7"
+				}
+			},
+			{
+				"path": "/laws/n1/values/exclude",
+				"kind": "exclude",
+				"target": {
+					"content": "c8"
+				}
+			},
+			{
+				"path": "/laws/n1/children/n2/values/exclude",
+				"kind": "exclude",
+				"target": {
+					"content": "c9"
+				}
+			}
+		]
+	}
+}
