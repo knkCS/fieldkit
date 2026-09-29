@@ -16,7 +16,7 @@ Single npm package (`@knkcs/fieldkit`) with subpath exports organized in five la
 2. **`/editor`** — WYSIWYG specification editor. `SpecEditor` (draft session, Build/Preview modes, side config panel), `TypePicker`. Uses dnd-kit for reordering.
 3. **`/renderer`** — Form renderer from specifications. `FieldRenderer`, `SpecForm` (section tabs, field search, read mode), `FieldComponent`, `FieldKitProvider`. Consumes external React Hook Form `FormProvider`.
 4. **`/table`** — Spec-driven data table. `SpecDataTable` extends anker's `DataTable`. Auto-generates columns from spec. `EditDrawer` uses `SpecForm` for row editing.
-5. **`/rich-text-spec`** — Rich text editor specification. `EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`. Configures which TipTap nodes/marks are available.
+5. **`/rich-text-spec`** — **Deprecated in 0.18, removed in 0.19** (ADR-0026): Text Types replace it. `EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor`, every export `@deprecated`. Configured which TipTap nodes/marks are available; build nothing new on it.
 
 Beside the five layers, **`/publishing`** is the opt-in publishing package (ADR-0002, amended): `publishingFieldTypes` (`reference_filter`, `outline_tree`, `template_text`, `ti_overlay`, `manipulation_tree` so far), which nothing registers — a Consumer opts in by adding them to the plugins it passes. Its Catalogue section ships as `/publishing/catalogue.json`.
 
@@ -111,7 +111,7 @@ src/
 │   ├── get-cell-for-type.tsx
 │   └── cells/           # Built-in cell components
 ├── publishing/          # The opt-in publishing package (@knkcs/fieldkit/publishing): publishingFieldTypes, one file per type in field-types/, and in fields/ the stopgap UI of a type no built-in component can stand in for (outline_tree's read-only node count and cell; UnportedField, the value read-only as JSON, which manipulation_tree uses) — its Catalogue section is go/publishing/catalogue.json
-└── rich-text-spec/      # Rich text editor specification
+└── rich-text-spec/      # Rich text editor specification — deprecated, removed in 0.19 (ADR-0026, docs/migration-0.18.md)
     ├── types.ts         # EditorSpec, EditorNodePlugin
     ├── editor-spec-editor.tsx
     └── node-plugins/    # Built-in node/mark plugin definitions
@@ -323,5 +323,6 @@ Read these before working on the corresponding area:
 - **`src/editor/spec-editor.mdx`** — SpecEditor contract (draft model, schema-prop stability, labels table, migration notes, known limitations).
 - **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
 - **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying drag-and-drop anywhere: the editor canvas, or the renderer's Reference Tree.
-- **`docs/knkeditor-reference.md`** — EditorSpec types, plugin ID alignment, planned integration contract. Read before modifying rich-text-spec or RichTextField.
+- **`docs/knkeditor-reference.md`** — knkeditor packages, the planned `/rich-text` integration contract (ADR-0026), Go delegation, and the deprecated EditorSpec layer. Read before modifying rich-text-spec or RichTextField.
+- **`docs/migration-0.18.md`** — the 0.18 release notes' migration section: Spec and value changes, TS and Go API breaks, new codes, deprecations. Add to it when a change for 0.18 needs a Consumer to migrate.
 - **`docs/anker-reference.md`** — ⚠️ Historical: written against anker 0.0.2. Superseded by CLAUDE-ANKER.md above; do not trust its API details.
