@@ -23,8 +23,8 @@ func isDocument(value any) bool {
 
 // documentPaths are the paths of every document the data's Fields hold, at
 // every depth the containers reach (heldRecords), found in data as stored —
-// before Unset is stripped. Hidden Fields hold documents too: they are not
-// checked, but their data is still stored canonically around them.
+// before Unset is stripped. Hidden Fields hold documents too, and are checked
+// like any other (#223 D4).
 //
 // Documents sit in fieldkit's structure, never deeper than MaxDepth, so the
 // search reads data cut off below MaxDepth (depthBounded): a document nested

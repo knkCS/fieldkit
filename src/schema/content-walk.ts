@@ -21,7 +21,7 @@ import type { SearchWeight } from "./search";
 import type { Field } from "./types";
 import { isPlainObject, isUnset, stripUnset } from "./unset";
 import { toPath } from "./validate-settings";
-import { fieldProducesValue } from "./zod-builder";
+import { fieldHoldsValue } from "./zod-builder";
 
 /** One Content Graph edge a Content's data holds (contenthub ADR 0009). Go's
  * `Edge`. */
@@ -55,13 +55,16 @@ type Visit = (
 	plugin: FieldTypePlugin,
 	value: unknown,
 	segments: readonly string[],
+	/** The Field is hidden, or sits inside a hidden one (#223 D4). */
+	hidden: boolean,
 ) => void;
 
 /**
  * Visits every Field of a record that holds a value, in Spec order, then —
- * through its plugin's `records` — every Field of what it holds. Markers and
- * hidden Fields are skipped, as validation skips them; so is a Field whose
- * value is absent, or whose type no plugin implements.
+ * through its plugin's `records` — every Field of what it holds. Markers are
+ * skipped, and so is a Field whose value is absent, or whose type no plugin
+ * implements. A hidden Field is visited, as validation checks it (#223 D4),
+ * and told so — as is every Field inside it: `inHidden`.
  */
 function walkFields(
 	fields: readonly Field[],
@@ -70,10 +73,11 @@ function walkFields(
 	plugins: ReadonlyMap<string, FieldTypePlugin>,
 	visit: Visit,
 	context: ValueContext,
+	inHidden = false,
 ): void {
 	for (const field of fields) {
 		if (!isPlainObject(field) || !isPlainObject(field.config)) continue;
-		if (!fieldProducesValue(field)) continue;
+		if (!fieldHoldsValue(field)) continue;
 		const accessor = field.config.api_accessor;
 		// Unset was stripped: a value that is still here is one.
 		const value = record[accessor];
@@ -81,7 +85,8 @@ function walkFields(
 		const plugin = plugins.get(field.field_type);
 		if (!plugin) continue;
 		const at = [...segments, accessor];
-		visit(field, plugin, value, at);
+		const hidden = inHidden || Boolean(field.config.hidden);
+		visit(field, plugin, value, at, hidden);
 		for (const held of plugin.records?.(field, value, context) ?? []) {
 			walkFields(
 				held.fields,
@@ -90,6 +95,7 @@ function walkFields(
 				plugins,
 				visit,
 				context,
+				hidden,
 			);
 		}
 	}
@@ -126,8 +132,9 @@ function walkData(
  * row order. The same answers as the Go module's `Edges`.
  *
  * It reads data validation accepted, and checks nothing: a value of the wrong
- * shape yields no edge. Markers and hidden Fields yield none, and neither
- * does a `lookup`. Throws on data that is not an object. `options` is
+ * shape yields no edge. Markers yield none, and neither does a `lookup`; a
+ * hidden Field yields its edges like any other, so the Content Graph stays
+ * complete (#223 D4). Throws on data that is not an object. `options` is
  * validation's: whose Blueprint each referenced Content is (`ValueContext`).
  */
 export function edges(
@@ -168,8 +175,9 @@ function toEdge(edge: ValueEdge, segments: readonly string[]): Edge {
  *
  * Each Field weighs by its own `config.search`, inside a row as at the root:
  * `off` yields nothing, and Unset weighs `D`. A value yielding no text yields
- * nothing; markers and hidden Fields yield none. Throws on data that is not
- * an object. `options` is validation's (`ValueContext`): a Reference's values
+ * nothing; markers yield none. A hidden Field — or one inside a hidden Field
+ * — yields none unless its `search` is set, and then weighs that (#223 D4).
+ * Throws on data that is not an object. `options` is validation's (`ValueContext`): a Reference's values
  * are read only against the Reference Spec they follow.
  */
 export function texts(
@@ -183,10 +191,11 @@ export function texts(
 		resolved,
 		data,
 		plugins,
-		(field, plugin, value, segments) => {
+		(field, plugin, value, segments, hidden) => {
 			if (!plugin.text) return;
 			const search = field.config.search;
 			if (search === "off") return;
+			if (hidden && isUnset(search)) return;
 			const text = plugin.text(field, value);
 			if (text === "") return;
 			// Unset — absent, `null`, `""` — weighs D (ADR-0021).

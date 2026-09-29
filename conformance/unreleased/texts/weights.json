@@ -1,5 +1,5 @@
 {
-	"description": "Each Field weighs by its own search, inside a row as at the root: Unset is D, off yields no text, A to D are kept; a type without text yields none, and neither does a hidden Field",
+	"description": "Each Field weighs by its own search, inside a row as at the root: Unset is D, off yields no text, A to D are kept; a type without text yields none, and neither does a hidden Field whose search is Unset",
 	"spec": [
 		{
 			"field_type": "text",

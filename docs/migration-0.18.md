@@ -90,9 +90,21 @@ Settings are strict (ADR-0018): a key a type does not declare is
 
 What a value yields to contenthub's Content Graph and to search changes too:
 
-- **Hidden Fields:** edges always; values are validated without `required`;
-  Texts are off unless `search` is set (#223 D4) **(open: #282)**. #214
-  shipped hidden Fields yielding no edges and no text.
+- **Hidden Fields hold data** (#223 D4, #282). `hidden` is a UI flag: the
+  form still skips a hidden Field (`specToZodSchema`, `getDefaultValues`), but
+  stored data is read whole, at every depth:
+  - `Edges` / `edges()` ignore `hidden`: a hidden Field's References and
+    Assets yield their edges, so the Content Graph stays complete.
+  - `ValidateValue` / `validateValue()` check a hidden Field's value when it
+    is present, but never report it `required` — no form can fill it — and
+    the same holds for every Field inside a hidden one (a hidden group's
+    rows). A hidden Field holding an invalid value is an error.
+  - `Texts` / `texts()` skip a hidden Field — and every Field inside one —
+    unless its own `config.search` is set; then it weighs that (`off` still
+    yields none).
+
+  #214 first shipped all three skipping hidden Fields: no edges, no text,
+  and no check of their values.
 - **Choice types' option labels are searchable** (#223 D6, #283): `select`,
   `radio` and `checkboxes` have `has_text`; their text is the labels of the
   selected keys, one per line in selection order, and a key without a label

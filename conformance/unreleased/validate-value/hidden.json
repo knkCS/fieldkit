@@ -1,0 +1,222 @@
+{
+	"description": "A hidden Field's value is checked when present but never required, at every depth and for everything inside it (#223 D4): a hidden required Field left Unset — at the root, in a row, in a Reference's values — is no error, a hidden required List's blank entry is none, and nothing a hidden group's rows hold is required; a hidden Field holding an invalid value is reported at its own path, inside a hidden group too",
+	"spec": [
+		{
+			"field_type": "number",
+			"config": {
+				"name": "secret",
+				"api_accessor": "secret",
+				"required": true,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "shadowed",
+				"api_accessor": "shadowed",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "code",
+				"api_accessor": "code",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"validation": {
+				"max_length": 3
+			},
+			"system": false
+		},
+		{
+			"field_type": "list",
+			"config": {
+				"name": "tags",
+				"api_accessor": "tags",
+				"required": true,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "note",
+						"api_accessor": "note",
+						"required": true,
+						"instructions": "",
+						"hidden": true
+					},
+					"system": false
+				},
+				{
+					"field_type": "number",
+					"config": {
+						"name": "rank",
+						"api_accessor": "rank",
+						"required": false,
+						"instructions": "",
+						"hidden": true
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "archive",
+				"api_accessor": "archive",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "title",
+						"api_accessor": "title",
+						"required": true,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "reference",
+			"config": {
+				"name": "related",
+				"api_accessor": "related",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"spec": [
+					{
+						"field_type": "text",
+						"config": {
+							"name": "caption",
+							"api_accessor": "caption",
+							"required": true,
+							"instructions": "",
+							"hidden": true
+						},
+						"system": false
+					},
+					{
+						"field_type": "number",
+						"config": {
+							"name": "weight",
+							"api_accessor": "weight",
+							"required": false,
+							"instructions": "",
+							"hidden": true
+						},
+						"system": false
+					}
+				]
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"shadowed": 5,
+		"code": "toolong",
+		"tags": [
+			"a",
+			""
+		],
+		"rows": [
+			{
+				"_id": "r1",
+				"label": "One",
+				"rank": "first"
+			},
+			{
+				"_id": "r2",
+				"label": "Two",
+				"rank": 2
+			}
+		],
+		"archive": [
+			{
+				"_id": "a1"
+			},
+			{
+				"_id": "a2",
+				"title": 7
+			}
+		],
+		"related": [
+			{
+				"_id": "n1",
+				"id": "c1",
+				"values": {
+					"weight": "heavy"
+				}
+			},
+			{
+				"_id": "n2",
+				"id": "c2"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [
+			{
+				"path": "/shadowed",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/code",
+				"code": "too_big"
+			},
+			{
+				"path": "/rows/r1/rank",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/archive/a2/title",
+				"code": "invalid_type"
+			},
+			{
+				"path": "/related/n1/values/weight",
+				"code": "invalid_type"
+			}
+		]
+	}
+}

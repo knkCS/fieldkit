@@ -200,9 +200,10 @@ func (c *Catalogue) ValueText(f Field, value json.RawMessage) string {
 // Reference's values follow, and without it the values of a Reference Field
 // that links one yield none.
 //
-// It reads data ValidateValue accepted, and checks nothing; markers and
-// hidden Fields yield none, as ValidateValue skips them. Data that is not a
-// JSON object is an error; empty data is {}.
+// It reads data ValidateValue accepted, and checks nothing; markers yield
+// none. A hidden Field — or one inside a hidden Field — yields none unless its
+// search is set, and then weighs that (#223 D4). Data that is not a JSON
+// object is an error; empty data is {}.
 func Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
 	return DefaultCatalogue().Texts(resolved, data, opts...)
 }
@@ -211,16 +212,16 @@ func Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([
 // types yield their text too.
 func (c *Catalogue) Texts(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) ([]FieldText, error) {
 	texts := []FieldText{}
-	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string) {
+	err := c.walkData(resolved, data, opts, func(f Field, settings map[string]any, value any, path string, hidden bool) {
 		rule, ok := c.textRule(f.FieldType)
 		if !ok {
 			return
 		}
 		weight := f.Config.Search
-		switch weight {
-		case SearchOff:
+		switch {
+		case weight == SearchOff, weight == "" && hidden:
 			return
-		case "":
+		case weight == "":
 			weight = SearchD
 		}
 		if text := rule(f, settings, value, resolved.Parts); text != "" {

@@ -1,0 +1,165 @@
+{
+	"description": "A hidden Field yields no text unless its search is set (#223 D4) — then it weighs that, and off still yields none — at the root and as a hidden child in a group's row; every Field inside a hidden group is hidden too, yielding text only by its own search",
+	"spec": [
+		{
+			"field_type": "text",
+			"config": {
+				"name": "secret",
+				"api_accessor": "secret",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "summary",
+				"api_accessor": "summary",
+				"required": false,
+				"instructions": "",
+				"hidden": true,
+				"search": "B"
+			},
+			"system": false
+		},
+		{
+			"field_type": "text",
+			"config": {
+				"name": "internal",
+				"api_accessor": "internal",
+				"required": false,
+				"instructions": "",
+				"hidden": true,
+				"search": "off"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "label",
+						"api_accessor": "label",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "note",
+						"api_accessor": "note",
+						"required": false,
+						"instructions": "",
+						"hidden": true
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "keyword",
+						"api_accessor": "keyword",
+						"required": false,
+						"instructions": "",
+						"hidden": true,
+						"search": "A"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "archive",
+				"api_accessor": "archive",
+				"required": false,
+				"instructions": "",
+				"hidden": true
+			},
+			"children": [
+				{
+					"field_type": "text",
+					"config": {
+						"name": "title",
+						"api_accessor": "title",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "text",
+					"config": {
+						"name": "abstract",
+						"api_accessor": "abstract",
+						"required": false,
+						"instructions": "",
+						"search": "C"
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"data": {
+		"secret": "not indexed",
+		"summary": "indexed at B",
+		"internal": "never",
+		"rows": [
+			{
+				"_id": "r1",
+				"label": "One",
+				"note": "quiet",
+				"keyword": "loud"
+			}
+		],
+		"archive": [
+			{
+				"_id": "a1",
+				"title": "Old",
+				"abstract": "Kept"
+			}
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"texts": [
+			{
+				"path": "/summary",
+				"weight": "B",
+				"text": "indexed at B"
+			},
+			{
+				"path": "/rows/r1/label",
+				"weight": "D",
+				"text": "One"
+			},
+			{
+				"path": "/rows/r1/keyword",
+				"weight": "A",
+				"text": "loud"
+			},
+			{
+				"path": "/archive/a1/abstract",
+				"weight": "C",
+				"text": "Kept"
+			}
+		]
+	}
+}

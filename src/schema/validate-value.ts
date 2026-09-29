@@ -6,7 +6,11 @@ import { itemSegments, toIdPath } from "./row-ids";
 import type { Field } from "./types";
 import { canonicalValue, isPlainObject, isUnset, stripUnset } from "./unset";
 import { toPath } from "./validate-settings";
-import { fieldProducesValue, specToZodSchema } from "./zod-builder";
+import {
+	fieldHoldsValue,
+	storedValueField,
+	storedValueSchema,
+} from "./zod-builder";
 
 /**
  * The codes value validation reports. Part of the data contract, shared with
@@ -112,9 +116,11 @@ export const VALUE_CAPS = {
  *
  * Settings and `validation` are read in canonical form too, so a `min: null`
  * is no minimum. Keys the Spec does not name are otherwise ignored, as the
- * form's schema ignores them; hidden Fields and the value-less Markers are not
- * checked. A Field whose type is not among `plugins` is skipped. Data that is
- * not an object is one `invalid_type` at `""`.
+ * form's schema ignores them, and so are the value-less Markers. A hidden
+ * Field is checked when its value is present, but never `required` — no form
+ * can fill it — and neither is any Field inside it, at any depth (#223 D4);
+ * the form's schema still skips it. A Field whose type is not among `plugins`
+ * is skipped. Data that is not an object is one `invalid_type` at `""`.
  *
  * Containers are validated through their `toZodType` like any type, and so
  * are the `_id`s their rows carry (ADR-0023): a row without one is
@@ -171,10 +177,12 @@ export function validateValue(
 	reportNonCanonical(data, [], push, documents);
 	const canonical = stripUnset(data, documents) as Record<string, unknown>;
 
-	for (const field of spec) {
-		if (!fieldProducesValue(field)) continue;
-		const plugin = pluginMap.get(field.field_type);
+	for (const declared of spec) {
+		if (!fieldHoldsValue(declared)) continue;
+		const plugin = pluginMap.get(declared.field_type);
 		if (!plugin) continue;
+		// A hidden Field is checked, but never required (#223 D4).
+		const field = storedValueField(declared);
 
 		const accessor = field.config.api_accessor;
 		const at = [accessor];
@@ -216,9 +224,12 @@ function zodTypeOf(
 	context: ValueContext,
 ) {
 	const compose = (children: Field[]) =>
-		specToZodSchema(children, plugins, {
-			targetBlueprint: context.targetBlueprint,
-		});
+		storedValueSchema(
+			children,
+			plugins,
+			{ targetBlueprint: context.targetBlueprint },
+			Boolean(field.config.hidden),
+		);
 	try {
 		return plugin.toZodType(field, compose, context);
 	} catch (error) {

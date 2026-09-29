@@ -95,17 +95,19 @@ func rowRecords(value any, path string, fieldsOf func(map[string]any) []Field) [
 
 // fieldVisit is called with each Field the walk reaches and its value —
 // canonical and not Unset — at the value's path. settings are the Field's
-// canonical settings ({} when Unset).
-type fieldVisit func(f Field, settings map[string]any, value any, path string)
+// canonical settings ({} when Unset). hidden says the Field is hidden, or
+// sits inside a hidden Field (#223 D4).
+type fieldVisit func(f Field, settings map[string]any, value any, path string, hidden bool)
 
 // walkFields visits every Field of a record that holds a value, in Spec
 // order, and then — through heldRecords — every Field of what it holds, at
-// every depth. Markers and hidden Fields are skipped, as ValidateValue skips
-// them: the walk reads exactly what validation checked. A Field whose value
-// is absent is not visited.
-func (c *Catalogue) walkFields(fields []Field, record map[string]any, path string, targets func(string) string, visit fieldVisit) {
+// every depth. Markers are skipped, as ValidateValue skips them: the walk
+// reads exactly what validation checked, a hidden Field included (#223 D4).
+// A Field whose value is absent is not visited. inHidden says the record sits
+// inside a hidden Field.
+func (c *Catalogue) walkFields(fields []Field, record map[string]any, path string, targets func(string) string, inHidden bool, visit fieldVisit) {
 	for _, f := range fields {
-		if markerTypes[f.FieldType] || (f.Config.Hidden != nil && *f.Config.Hidden) {
+		if markerTypes[f.FieldType] {
 			continue
 		}
 		value, present := record[f.Config.APIAccessor]
@@ -118,9 +120,10 @@ func (c *Catalogue) walkFields(fields []Field, record map[string]any, path strin
 			settingsObj = map[string]any{}
 		}
 		at := joinPath(path, f.Config.APIAccessor)
-		visit(f, settingsObj, value, at)
+		hidden := inHidden || isHidden(f)
+		visit(f, settingsObj, value, at, hidden)
 		for _, held := range c.heldRecords(f, settingsObj, value, at, targets) {
-			c.walkFields(held.fields, held.record, held.path, targets, visit)
+			c.walkFields(held.fields, held.record, held.path, targets, hidden, visit)
 		}
 	}
 }
@@ -151,6 +154,6 @@ func (c *Catalogue) walkData(resolved *ResolvedSpec, data json.RawMessage, opts 
 	}
 	targets := valueOptionsOf(opts).targetBlueprint
 	obj, _ := stripUnsetAround(decoded, "", c.documentPaths(resolved.Fields, decoded, targets)).(map[string]any)
-	c.walkFields(resolved.Fields, obj, "", targets, visit)
+	c.walkFields(resolved.Fields, obj, "", targets, false, visit)
 	return nil
 }

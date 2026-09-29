@@ -1,5 +1,5 @@
 {
-	"description": "Keys the Spec does not name, hidden Fields and the value-less Markers are not checked; only their Unset keys would be",
+	"description": "Keys the Spec does not name and the value-less Markers are not checked, and a hidden required Field left Unset is not required; only their Unset keys would be reported",
 	"spec": [
 		{
 			"field_type": "section",
@@ -41,22 +41,10 @@
 				"hidden": true
 			},
 			"system": false
-		},
-		{
-			"field_type": "text",
-			"config": {
-				"name": "Shadowed",
-				"api_accessor": "shadowed",
-				"required": false,
-				"instructions": "",
-				"hidden": true
-			},
-			"system": false
 		}
 	],
 	"data": {
 		"title": "Hello",
-		"shadowed": 5,
 		"other": {
 			"any": [
 				"thing",

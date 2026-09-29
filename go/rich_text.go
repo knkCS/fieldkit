@@ -244,6 +244,9 @@ type valueContext struct {
 	// targetBlueprint is WithTargetBlueprints', nil when not given: which
 	// Reference Spec a Reference's values follow (reference.go).
 	targetBlueprint func(contentID string) string
+	// hidden is set while a hidden Field's rule runs: the Fields it holds sit
+	// inside it, and none of them is required (#223 D4, values.go).
+	hidden bool
 }
 
 // invalidJSONWithin are the paths, /-separated with each row as its _id, of
