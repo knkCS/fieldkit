@@ -67,8 +67,12 @@ Settings are strict (ADR-0018): a key a type does not declare is
   node, and `pin` is a string only (no `null`). Go importers map `attributes`
   → `values` and call `MintIDs` (#215).
 - **`outline_tree`:** a node is `{_id, values?, children?}` — every key but
-  `children` moves into `values` (#220). Optional `origin`/`overridden` node
-  keys are decided (#223 D10) **(open: #286)**.
+  `children` moves into `values` (#220). Nodes are strict, and carry three
+  optional keys for TOC generation (#286): core's `generated: true/false`
+  becomes `origin: generated/manual` (absent stays absent); `overridden: true`
+  stays `true` (write it only when true: `false` is a value and would compare
+  as a change); `source`, the Content id a node was generated from, is copied
+  as it is (`null` → absent). Mapping in `docs/knkcms-core-parity.md`.
 - **`manipulation_tree`:** a node is `{_id, id, intent, pin?, values?, with?,
   children?}`, with intent `include | exclude | replace | annotate`.
   Converting core's stored `{includes, manipulations, nodes, events}` is
