@@ -73,11 +73,11 @@
 		"validateResolvedSpec": [
 			{
 				"path": "/related/settings/blueprints/0/spec/rows",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/related/settings/blueprints/0/spec/again",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

@@ -177,19 +177,19 @@
 			},
 			{
 				"path": "/root",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/grouped/children/inner",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/rows/children/cell",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/content/settings/allowed_blocks/0/fields/block",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

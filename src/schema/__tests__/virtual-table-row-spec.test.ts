@@ -127,7 +127,7 @@ describe("validateSpec — a Virtual Table's Row Spec (ADR-0017)", () => {
 	it("refuses a container in a Row Spec — a column cannot hold a second level", () => {
 		for (const container of ["group", "fieldset", "blocks", "array", "list"]) {
 			const columns = [DESCRIPTION, field(container, "nested")];
-			expect(codes([lineItems({ columns })])).toContain("position");
+			expect(codes([lineItems({ columns })])).toContain("invalid_position");
 		}
 	});
 
@@ -138,7 +138,7 @@ describe("validateSpec — a Virtual Table's Row Spec (ADR-0017)", () => {
 				[lineItems({ columns })],
 				plugins,
 			).fieldErrors;
-			const error = errors.find((e) => e.code === "position");
+			const error = errors.find((e) => e.code === "invalid_position");
 			expect(error?.accessor).toBe("divider");
 			expect(error?.path).toBe("/line_items/children/divider");
 			expect(error?.params).toEqual({ position: "row", field_type: marker });
@@ -147,7 +147,7 @@ describe("validateSpec — a Virtual Table's Row Spec (ADR-0017)", () => {
 
 	it("refuses a nested Virtual Table in a Row Spec", () => {
 		const columns = [DESCRIPTION, lineItems({ blueprint: "line_item_bp" })];
-		expect(codes([lineItems({ columns })])).toContain("position");
+		expect(codes([lineItems({ columns })])).toContain("invalid_position");
 	});
 
 	it("accepts every flat value type ADR-0017 allows as a column", () => {

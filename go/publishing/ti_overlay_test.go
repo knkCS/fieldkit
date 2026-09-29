@@ -148,7 +148,7 @@ func TestTIOverlaySitsAtTheRootAndYieldsNothing(t *testing.T) {
 	c := publishing.DefaultCatalogue()
 	inReference := decode(t, `[{"field_type":"reference","config":{"name":"R","api_accessor":"r","required":false,"instructions":""},
 		"settings":{"spec":[{"field_type":"ti_overlay","config":{"name":"TI","api_accessor":"ti","required":false,"instructions":""},"system":false}]},"system":false}]`)
-	want := map[string]string{"/r/settings/spec/ti": fieldkit.CodePosition}
+	want := map[string]string{"/r/settings/spec/ti": fieldkit.CodeInvalidPosition}
 	if got := codes(c.ValidateSpec(inReference)); !reflect.DeepEqual(got, want) {
 		t.Errorf("ValidateSpec = %v, want %v", got, want)
 	}

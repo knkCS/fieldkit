@@ -67,7 +67,7 @@ describe("validateValue caps", () => {
 		).toEqual(["too_many_items"]);
 	});
 
-	it("reports a string beyond maxStringBytes, counted in UTF-8 bytes, as too_large", () => {
+	it("reports a string beyond maxStringBytes, counted in UTF-8 bytes, as too_many_bytes", () => {
 		// 3 bytes each in UTF-8, one code unit in UTF-16: within the cap by
 		// length, beyond it by bytes.
 		const euros = "€".repeat(VALUE_CAPS.maxStringBytes / 3 + 1);
@@ -81,7 +81,7 @@ describe("validateValue caps", () => {
 		).toEqual([
 			{
 				path: "/title",
-				code: "too_large",
+				code: "too_many_bytes",
 				params: { maximum: VALUE_CAPS.maxStringBytes },
 			},
 		]);

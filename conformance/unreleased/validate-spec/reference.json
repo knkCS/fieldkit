@@ -280,15 +280,15 @@
 			},
 			{
 				"path": "/misplaced/settings/spec/group",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/misplaced/settings/spec/nested",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/misplaced/settings/spec/tab",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/misplaced/settings/spec/_hidden",
@@ -296,7 +296,7 @@
 			},
 			{
 				"path": "/rows/children/cells",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}

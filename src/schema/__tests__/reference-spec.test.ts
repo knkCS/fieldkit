@@ -266,7 +266,7 @@ describe("the ADR-0007 boundary the Attribute Spec inherits", () => {
 
 	it("walks the Reference Spec for Pins, as validateSpec walks it", async () => {
 		// The type picker does not offer a Fieldset here, and validateSpec
-		// reports one as `position`; a hand-written Spec still can hold one,
+		// reports one as `invalid_position`; a hand-written Spec still can hold one,
 		// and resolution walks every Spec a Field holds (#212), so its Pin is
 		// listed and resolved like any other.
 		const fieldset = attribute(

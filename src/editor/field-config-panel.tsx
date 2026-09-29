@@ -550,7 +550,7 @@ export function FieldConfigPanel({
 	 * here. What the Field holds is included, at any depth, because some rules
 	 * report against a HELD Field while the thing to fix is chosen here: a
 	 * Virtual Table whose Row Spec holds a type no cell can draw is flagged at
-	 * that row Field (`position`, ADR-0022), an Attribute a Reference Spec may
+	 * that row Field (`invalid_position`, ADR-0022), an Attribute a Reference Spec may
 	 * not hold at the Attribute — and the canvas, which outlines top-level
 	 * shells, has nowhere to show either.
 	 */

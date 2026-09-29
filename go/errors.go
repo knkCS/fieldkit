@@ -23,10 +23,11 @@ const (
 	// CodeVirtualTableRowSpecMissing is a Virtual Table with neither a linked
 	// nor an embedded Row Spec.
 	CodeVirtualTableRowSpecMissing = "virtual_table_row_spec_missing"
-	// CodePosition is a Field in a Position its type's Catalogue entry does
-	// not list (ADR-0022) — a group in a Row Spec, say. At the Field, with
-	// position and field_type as Params.
-	CodePosition = "position"
+	// CodeInvalidPosition is a Field in a Position its type's Catalogue entry
+	// does not list (ADR-0022) — a group in a Row Spec, say. At the Field,
+	// with position and field_type as Params. It was "position" until the
+	// naming review before the freeze (#223, D7).
+	CodeInvalidPosition = "invalid_position"
 	// CodeReservedAccessor is an Accessor beginning with "_", reserved in
 	// every Position for _id, _type, _order and what value shapes need later
 	// (ADR-0022). At the Field.
@@ -90,8 +91,9 @@ const (
 	CodeTooBig = "too_big"
 	// CodeTooManyItems is an array, or an object's keys, beyond MaxItems.
 	CodeTooManyItems = "too_many_items"
-	// CodeTooLarge is a string beyond MaxStringBytes.
-	CodeTooLarge = "too_large"
+	// CodeTooManyBytes is a string beyond MaxStringBytes. It was "too_large"
+	// until the naming review before the freeze (#223, D7).
+	CodeTooManyBytes = "too_many_bytes"
 	// CodeInvalidValue is any other rule a type's value rules state. TS
 	// reports it for a Zod rule none of the other codes names; here, a Block
 	// whose _type is not one of its Field's Block Types.

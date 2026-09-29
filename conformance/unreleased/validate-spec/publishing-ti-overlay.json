@@ -98,7 +98,7 @@
 		"validateSpec": [
 			{
 				"path": "/related/settings/spec/ti",
-				"code": "position"
+				"code": "invalid_position"
 			},
 			{
 				"path": "/bad/settings/ti_set",

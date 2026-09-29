@@ -64,7 +64,7 @@ func TestValidateValueCaps(t *testing.T) {
 			"a string beyond MaxStringBytes",
 			valueField("text", "title", ""),
 			map[string]any{"title": strings.Repeat("€", MaxStringBytes/3+1)},
-			[]string{"/title too_large"},
+			[]string{"/title too_many_bytes"},
 		},
 		{"a string of exactly MaxStringBytes", valueField("text", "title", ""), map[string]any{"title": strings.Repeat("a", MaxStringBytes)}, nil},
 	}
@@ -98,7 +98,7 @@ func TestValidateValueCapParams(t *testing.T) {
 	errs := ValidateValue(Spec{valueField("text", "title", "")},
 		mustJSON(t, map[string]any{"title": strings.Repeat("a", MaxStringBytes+1)}))
 	if len(errs) != 1 || errs[0].Params["maximum"] != MaxStringBytes {
-		t.Errorf("got %+v, want too_large with maximum %d", errs, MaxStringBytes)
+		t.Errorf("got %+v, want too_many_bytes with maximum %d", errs, MaxStringBytes)
 	}
 }
 

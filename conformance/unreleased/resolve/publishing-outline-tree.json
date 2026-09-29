@@ -316,7 +316,7 @@
 		"validateResolvedSpec": [
 			{
 				"path": "/boxed/children/box",
-				"code": "position"
+				"code": "invalid_position"
 			}
 		]
 	}
