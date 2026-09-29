@@ -109,8 +109,10 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `radio` and `checkboxes` have `has_text`; their text is the labels of the
   selected keys, one per line in selection order, and a key without a label
   yields none. `config.search` is now valid on them.
-- **`reference_filter` yields `exclude` edges** (#223 D8) **(open: #285)**;
-  #218 shipped none.
+- **`reference_filter` yields `exclude` edges** (#223 D8, #285), one per
+  distinct id (an id listed twice is one edge, as a media Field's Asset is),
+  at the Field inside the Reference's `values`, target `{content}` with no
+  Pin (Go `EdgeExclude`, TS `EXCLUDE_EDGE_KIND`); #218 shipped none.
 - **`ti_overlay` entries yield `anchor` edges** (#223 D3, #281), one per entry,
   target `{content, pin?, anchor: node}`;
   #221 shipped none.

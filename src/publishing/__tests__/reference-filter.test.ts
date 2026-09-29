@@ -1,12 +1,18 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { edges, texts } from "../../schema/content-walk";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
 import { validateSpec } from "../../schema/validate-spec";
 import { validateValue } from "../../schema/validate-value";
-import { publishingFieldTypes, referenceFilterPlugin } from "..";
+import {
+	EXCLUDE_EDGE_KIND,
+	publishingFieldTypes,
+	referenceFilterEdges,
+	referenceFilterPlugin,
+} from "..";
 
 function filter(accessor: string, required = false): Field {
 	return {
@@ -132,5 +138,39 @@ describe("reference_filter", () => {
 		]);
 		// Without the package the value is not checked: its type is unknown.
 		expect(validateValue(spec, data, core)).toEqual([]);
+	});
+
+	it("yields one exclude edge per distinct id, at the Field, with no Pin", () => {
+		const resolved = {
+			catalogue: "",
+			vocabulary: "",
+			fields: [reference("related", [filter("exclude")])],
+			parts: {},
+		};
+		const data = {
+			related: [
+				{
+					_id: "n1",
+					id: "c1",
+					values: { exclude: ["c2", "c3", "c2", ""] },
+				},
+			],
+		};
+		expect(edges(resolved, data, optedIn)).toEqual([
+			{ path: "/related/n1", kind: "reference", target: { content: "c1" } },
+			{
+				path: "/related/n1/values/exclude",
+				kind: EXCLUDE_EDGE_KIND,
+				target: { content: "c2" },
+			},
+			{
+				path: "/related/n1/values/exclude",
+				kind: EXCLUDE_EDGE_KIND,
+				target: { content: "c3" },
+			},
+		]);
+		expect(EXCLUDE_EDGE_KIND).toBe("exclude");
+		expect(referenceFilterEdges("c2")).toEqual([]);
+		expect(texts(resolved, data, optedIn)).toEqual([]);
 	});
 });
