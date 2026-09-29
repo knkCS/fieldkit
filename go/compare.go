@@ -209,7 +209,7 @@ func (c *composer) mergeRecord(fields []Field, base, ours, theirs map[string]any
 			c.conflict(at)
 		}
 		if keep {
-			if value = stripUnset(value); !isUnset(value) {
+			if value = c.catalogue.canonicalFieldValue(fields, key, value, nil); !isUnset(value) {
 				out[key] = value
 			}
 		}
@@ -576,10 +576,20 @@ func readRecord(f *Field, value any) (map[string]any, error) {
 	return record, nil
 }
 
-// decodeStored decodes a stored value in canonical form: numbers kept as
-// written, Unset keys dropped (ADR-0021), so two spellings of one value decode
-// alike.
-func decodeStored(raw json.RawMessage) (any, error) {
+// decodeStored decodes a stored value of f in canonical form: numbers kept as
+// written, Unset keys dropped (ADR-0021) but inside a rich-text document
+// (ADR-0025), so two spellings of one value decode alike.
+func decodeStored(c *Catalogue, f Field, raw json.RawMessage) (any, error) {
+	value, err := decodeJSON(raw)
+	if err != nil {
+		return nil, err
+	}
+	return c.canonicalFieldValue([]Field{f}, f.Config.APIAccessor, value, nil), nil
+}
+
+// decodeJSON decodes one JSON value as written: numbers kept, nothing
+// stripped.
+func decodeJSON(raw json.RawMessage) (any, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil, errors.New("fieldkit: no value")
 	}
@@ -592,7 +602,7 @@ func decodeStored(raw json.RawMessage) (any, error) {
 	if dec.More() {
 		return nil, errors.New("fieldkit: a value is more than one JSON value")
 	}
-	return stripUnset(value), nil
+	return value, nil
 }
 
 // encodeValue encodes a merged value: numbers as they were written, keys

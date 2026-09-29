@@ -375,6 +375,15 @@ export interface FieldTypePlugin<S = unknown> {
 		value: unknown,
 		context?: ValueContext,
 	) => HeldRecord[];
+	/**
+	 * `true` when a value of this type is a document another module owns and
+	 * validates — `rich_text`'s, knkeditor's (ADR-0025). Unset stops at it:
+	 * inside, nothing is stripped and nothing is `not_canonical`, and the
+	 * `too_deep` cap counts no level. The value as a whole is still Unset when
+	 * `null` or `{}`, and the size caps still count everything inside. Go's
+	 * `documentTypes` lists the same types.
+	 */
+	opaqueDocument?: boolean;
 	maxPerSpec?: number;
 	/**
 	 * The Consumers whose type picker offers this type (ADR-0022). Advice for

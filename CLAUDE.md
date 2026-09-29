@@ -50,6 +50,7 @@ src/
 │   ├── vocabulary-version.ts # The Resolved Spec's `vocabulary`: the highest `minimumVocabularyVersion` among its Text Types, compared as knkeditor compares versions
 │   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021); `targetBlueprint` (ValueContext) says which Reference Spec a Reference follows
 │   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)
+│   ├── documents.ts     # valueDocuments() — the rich-text documents a value holds (plugins marked `opaqueDocument`), where Unset and the depth cap stop (ADR-0025); Go's documents.go
 │   ├── zod-builder.ts   # specToZodSchema() — its parsed output is canonical, Unset keys stripped — and getDefaultValues()
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — _id, id, pin, values, children (ADR-0008, amended) — its settings (`blueprints` entries, `spec`, `pin_mode`), referenceSpecFor() (the one Reference Spec per target: embedded, or replaced by a linked one), normalizeReference() (legacy values on load), referenceTreeSchema and withPin
@@ -133,6 +134,7 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── reference.go         # reference/single_reference: settings rules (duplicate_blueprint), the Reference Specs held in settings, referenceSpecFor, node values (WithTargetBlueprints), edges and records
 ├── reference_compare.go # Compare/Merge of a Reference Tree per node by `_id`, parent (`_parent`) and position as fields; a Single Reference per field
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)
+├── documents.go         # The rich-text document boundary (ADR-0025): documentPaths finds each rich_text document, where not_canonical, the Unset stripping and MaxDepth stop
 ├── value_containers.go  # group/virtual_table/blocks/fieldset value rules, the rows' `_id`s (missing_id, duplicate_id) and itemSegments — the `_id` path grammar (ADR-0023)
 ├── walk.go              # The walk Edges and Texts share: every Field with its value, containers entered through heldRecords (ADR-0007)
 ├── edges.go             # Edges — Content Graph edges {path, kind, target} (contenthub ADR 0009); one edgeRule per type that points at something (media, reference, single_reference, rich_text)

@@ -109,7 +109,7 @@ func TestMergeReferenceTreeCycle(t *testing.T) {
 	c := &composer{}
 	f := referenceField(t, "reference", "related", `{}`)
 	decode := func(s string) any {
-		v, err := decodeStored(json.RawMessage(s))
+		v, err := decodeStored(nil, f, json.RawMessage(s))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -158,7 +158,7 @@ func FuzzReferenceTree(f *testing.F) {
 func TestReadReferenceTreeRefusesMalformed(t *testing.T) {
 	f := referenceField(t, "reference", "related", `{}`)
 	for _, value := range []string{`{}`, `[1]`, `[{"id":"x"}]`, `[{"_id":"a"},{"_id":"a"}]`, `[{"_id":"a","children":"x"}]`} {
-		v, _ := decodeStored(json.RawMessage(value))
+		v, _ := decodeStored(nil, f, json.RawMessage(value))
 		if _, err := readReferenceTree(&f, v); err == nil {
 			t.Errorf("%s: read without an error", value)
 		}

@@ -16,8 +16,10 @@ const (
 	// 1 MiB. More is CodeTooManyBytes.
 	MaxStringBytes = 1 << 20
 	// MaxDepth is the deepest an array or object may sit in a value: the
-	// data's root is depth 0, its values depth 1. Deeper is CodeTooDeep.
-	MaxDepth = 32
+	// data's root is depth 0, its values depth 1. Deeper is CodeTooDeep. It
+	// counts fieldkit's structure only: what a rich-text document nests inside
+	// itself is knkeditor's to limit (ADR-0025).
+	MaxDepth = 128
 )
 
 // markerTypes are the Field Types that hold no value: the layout Markers.
@@ -49,6 +51,13 @@ type valueRule func(f Field, settings map[string]any, value any, errs *valueErro
 //     document — keys the Spec does not name, and the number of keys at the
 //     root, included. Data beyond a cap reports only the caps it breaks:
 //     nothing else is checked.
+//
+// Both stop at a rich_text document (ADR-0025): a rich_text Field's value that
+// is an object holding anything is knkeditor's inside, checked by its rules
+// alone — an attribute holding null, or "attributes": {}, is the document's
+// own, neither stripped nor CodeNotCanonical — and MaxDepth counts no level
+// inside it. A rich_text value of {} or null is still Unset at the Field.
+// MaxItems and MaxStringBytes count the whole document, inside included.
 //
 // The containers dispatch what they hold to its own types (ADR-0007): a
 // group's or virtual_table's rows and a resolved fieldset's record are
@@ -127,11 +136,12 @@ func (c *Catalogue) validateValue(spec Spec, data json.RawMessage, richText *ric
 	// The caps come first and cover the whole document, keys the Spec does
 	// not name included: nothing else walks a document beyond them.
 	errs := &valueErrors{ctx: &valueContext{catalogue: c, data: bytes.TrimSpace(data), decoded: obj, richText: richText, targetBlueprint: o.targetBlueprint}}
-	if capErrors(obj, "", errs) {
+	documents := c.documentPaths(spec, obj, o.targetBlueprint)
+	if capErrors(obj, "", documents, errs) {
 		return errs.list
 	}
-	reportNonCanonical(obj, "", errs)
-	canonical, _ := stripUnset(obj).(map[string]any)
+	reportNonCanonical(obj, "", documents, errs)
+	canonical, _ := stripUnsetAround(obj, "", documents).(map[string]any)
 
 	validateFields(spec, canonical, "", errs)
 	if len(errs.list) == 0 {
@@ -239,21 +249,25 @@ func (v *valueErrors) add(path, code string, params map[string]any) {
 
 // reportNonCanonical reports every key holding an Unset value, at every
 // depth. A reported key is not looked into: its whole value is Unset. Array
-// items are kept whatever they hold, and looked into.
-func reportNonCanonical(value any, path string, errs *valueErrors) {
+// items are kept whatever they hold, and looked into. A document is not
+// looked into either: inside it, knkeditor's rules apply (ADR-0025).
+func reportNonCanonical(value any, path string, documents map[string]bool, errs *valueErrors) {
+	if documents[path] {
+		return
+	}
 	switch x := value.(type) {
 	case []any:
 		segments := itemSegments(x)
 		for i, item := range x {
-			reportNonCanonical(item, joinPath(path, segments[i]), errs)
+			reportNonCanonical(item, joinPath(path, segments[i]), documents, errs)
 		}
 	case map[string]any:
 		for _, key := range sortedKeys(x) {
 			at := joinPath(path, key)
-			if isUnset(stripUnset(x[key])) {
+			if isUnset(stripUnsetAround(x[key], at, documents)) {
 				errs.add(at, CodeNotCanonical, nil)
 			} else {
-				reportNonCanonical(x[key], at, errs)
+				reportNonCanonical(x[key], at, documents, errs)
 			}
 		}
 	}
@@ -270,52 +284,74 @@ func sortedKeys(obj map[string]any) []string {
 }
 
 // capErrors reports the caps a value breaks, and whether it broke any. A
-// container beyond MaxDepth or MaxItems is not looked into.
-func capErrors(value any, path string, errs *valueErrors) bool {
+// container beyond MaxDepth or MaxItems is not looked into. Inside a document
+// no depth is counted (ADR-0025); its items and strings are. The path is
+// kept as segments and joined only for an error: a document's inside may nest
+// as deep as its JSON does, and a path per node would cost its depth each.
+func capErrors(value any, path string, documents map[string]bool, errs *valueErrors) bool {
 	broke := false
-	tooDeep := func(at string, depth int) bool {
+	var segments []string
+	at := func() string { return joinPath(path, segments...) }
+	tooDeep := func(depth int) bool {
 		if depth <= MaxDepth {
 			return false
 		}
-		errs.add(at, CodeTooDeep, map[string]any{"maximum": MaxDepth})
+		errs.add(at(), CodeTooDeep, map[string]any{"maximum": MaxDepth})
 		broke = true
 		return true
 	}
-	var walk func(node any, at string, depth int)
-	walk = func(node any, at string, depth int) {
+	tooMany := func(size int) bool {
+		if size <= MaxItems {
+			return false
+		}
+		errs.add(at(), CodeTooManyItems, map[string]any{"maximum": MaxItems})
+		broke = true
+		return true
+	}
+	// depth is -1 inside a document, where none is counted.
+	var walk func(node any, depth int)
+	enter := func(segment string, node any, depth int) {
+		segments = append(segments, segment)
+		walk(node, depth)
+		segments = segments[:len(segments)-1]
+	}
+	walk = func(node any, depth int) {
 		switch x := node.(type) {
 		case string:
 			if len(x) > MaxStringBytes {
-				errs.add(at, CodeTooManyBytes, map[string]any{"maximum": MaxStringBytes})
+				errs.add(at(), CodeTooManyBytes, map[string]any{"maximum": MaxStringBytes})
 				broke = true
 			}
 		case []any:
-			if tooDeep(at, depth) {
+			if tooDeep(depth) || tooMany(len(x)) {
 				return
 			}
-			if len(x) > MaxItems {
-				errs.add(at, CodeTooManyItems, map[string]any{"maximum": MaxItems})
-				broke = true
-				return
-			}
-			segments := itemSegments(x)
+			ids := itemSegments(x)
 			for i, item := range x {
-				walk(item, joinPath(at, segments[i]), depth+1)
+				enter(ids[i], item, below(depth))
 			}
 		case map[string]any:
-			if tooDeep(at, depth) {
+			if tooDeep(depth) || tooMany(len(x)) {
 				return
 			}
-			if len(x) > MaxItems {
-				errs.add(at, CodeTooManyItems, map[string]any{"maximum": MaxItems})
-				broke = true
-				return
+			inner := below(depth)
+			if depth >= 0 && documents[at()] {
+				inner = -1
 			}
 			for _, key := range sortedKeys(x) {
-				walk(x[key], joinPath(at, key), depth+1)
+				enter(key, x[key], inner)
 			}
 		}
 	}
-	walk(value, path, 0)
+	walk(value, 0)
 	return broke
+}
+
+// below is the depth of a container's items: one deeper, or still uncounted
+// inside a document.
+func below(depth int) int {
+	if depth < 0 {
+		return depth
+	}
+	return depth + 1
 }

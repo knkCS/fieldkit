@@ -197,6 +197,23 @@ func TestRichTextCompareAndMerge(t *testing.T) {
 	}
 }
 
+// Merge keeps a document as it was stored (ADR-0025): the canonical strip
+// around a merged row stops at it, so an untouched document keeps its
+// attrs: null and "attributes": {}.
+func TestMergeKeepsTheDocumentAsStored(t *testing.T) {
+	f := schemaField(t, `{"field_type":"group","config":{"name":"rows","api_accessor":"rows"},"children":[`+
+		field("text", "heading", "")+","+richText("body", "")+`]}`)
+	doc := `{"type":"doc","content":[{"type":"textWrapper","attrs":{"id":"a","textAlign":null,"attributes":{}},"content":[{"type":"text","text":"x"}]}]}`
+	row := func(heading string) string { return `[{"_id":"r1","heading":"` + heading + `","body":` + doc + `}]` }
+	merged, conflicts := merge(t, f, row("A"), row("B"), row("A"))
+	var got, want any
+	_ = json.Unmarshal([]byte(merged), &got)
+	_ = json.Unmarshal([]byte(row("B")), &want)
+	if conflicts != nil || !jsonEqual(got, want) {
+		t.Errorf("got %s %v, want %s", merged, conflicts, row("B"))
+	}
+}
+
 // A Text Type is parsed once per JSON text, from any goroutine, a failure
 // included, and the memo starts over rather than grow past its bound
 // (fieldkit#222).

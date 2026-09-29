@@ -157,11 +157,11 @@ func (t wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawM
 	if err != nil {
 		return false, nil, err
 	}
-	va, err := decodeStored(a)
+	va, err := decodeStored(t.catalogue, s.Field, a)
 	if err != nil {
 		return false, nil, err
 	}
-	vb, err := decodeStored(b)
+	vb, err := decodeStored(t.catalogue, s.Field, b)
 	if err != nil {
 		return false, nil, err
 	}
@@ -190,7 +190,7 @@ func (t finerValueType) Merge(settings, base, ours, theirs json.RawMessage) (jso
 	}
 	values := make([]any, 3)
 	for i, raw := range []json.RawMessage{base, ours, theirs} {
-		if values[i], err = decodeStored(raw); err != nil {
+		if values[i], err = decodeStored(t.catalogue, s.Field, raw); err != nil {
 			return nil, nil, err
 		}
 	}
