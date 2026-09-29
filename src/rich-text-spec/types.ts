@@ -1,7 +1,15 @@
 // src/rich-text-spec/types.ts
 import type { Field } from "../schema/types";
 
-/** Category for grouping editor node/mark plugins. */
+/**
+ * Category for grouping editor node/mark plugins.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export type EditorNodeCategory =
 	| "formatting"
 	| "structure"
@@ -9,13 +17,27 @@ export type EditorNodeCategory =
 	| "reference"
 	| "special";
 
-/** Configuration for a node/mark's settings. */
+/**
+ * Configuration for a node/mark's settings.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
+ */
 export interface NodeOptions {
 	[key: string]: unknown;
 }
 
 /**
  * Plugin defining a TipTap node or mark that can be toggled in an EditorSpec.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
  */
 export interface EditorNodePlugin {
 	/** Unique identifier matching the TipTap extension name */
@@ -40,6 +62,12 @@ export interface EditorNodePlugin {
 
 /**
  * A complete editor specification — which nodes/marks are enabled and their settings.
+ *
+ * @deprecated Since 0.18; removed in 0.19 (ADR-0026). Text Types replace
+ * `/rich-text-spec`: a `rich_text` Field pins a Text Type Release in
+ * `settings.text_type`, knkeditor owns the vocabulary and generates the
+ * option forms, and blueprinthub owns the Releases. See
+ * `docs/migration-0.18.md`.
  */
 export interface EditorSpec {
 	/** Unique ID */
