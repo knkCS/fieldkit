@@ -23,6 +23,7 @@ const value = {
 	entries: [
 		{
 			_id: "e1",
+			content: "law1",
 			anchor: { node: "12", offset: 3, before: "abc", after: "def" },
 			command: "np",
 			source: "editor",
@@ -53,6 +54,7 @@ describe("TiOverlayField", () => {
 		expect(screen.getByText("Typesetting")).toBeInTheDocument();
 		expect(screen.getByDisplayValue("np")).toBeInTheDocument();
 		expect(screen.getByDisplayValue("12")).toBeInTheDocument();
+		expect(screen.getByDisplayValue("law1")).toBeInTheDocument();
 	});
 
 	it("counts the entries in a cell", () => {

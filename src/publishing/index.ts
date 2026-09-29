@@ -39,12 +39,14 @@ export type {
 	TiOverlayValue,
 } from "./field-types/ti-overlay";
 export {
+	ANCHOR_EDGE_KIND,
 	INLINE_ANCHOR_WINDOW,
 	inlineAnchorSchema,
 	TI_SET_KIND,
 	TI_SET_PIN,
 	TiOverlayCell,
 	TiOverlayField,
+	tiOverlayEdges,
 	tiOverlayEntrySchema,
 	tiOverlayPlugin,
 } from "./field-types/ti-overlay";

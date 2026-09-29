@@ -1,0 +1,73 @@
+{
+	"description": "With the publishing package, a ti_overlay yields one anchor edge per entry, at the entry's _id path, its target the Content the entry names, its Pin when it has one, and its anchor's node",
+	"packages": [
+		"publishing"
+	],
+	"spec": [
+		{
+			"field_type": "ti_overlay",
+			"config": {
+				"name": "Typesetting",
+				"api_accessor": "ti",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"system": false
+		}
+	],
+	"data": {
+		"ti": {
+			"entries": [
+				{
+					"_id": "e1",
+					"content": "law1",
+					"pin": "r1",
+					"anchor": {
+						"node": "12",
+						"offset": 3,
+						"before": "Kapitel 1",
+						"after": "Absatz"
+					},
+					"command": "np",
+					"source": "editor"
+				},
+				{
+					"_id": "e2",
+					"content": "law2",
+					"anchor": {
+						"node": "7",
+						"offset": 0
+					},
+					"command": "bn",
+					"params": {
+						"lines": "2"
+					},
+					"source": "oasys",
+					"notes": "keep together"
+				}
+			]
+		}
+	},
+	"expect": {
+		"edges": [
+			{
+				"path": "/ti/entries/e1",
+				"kind": "anchor",
+				"target": {
+					"content": "law1",
+					"pin": "r1",
+					"anchor": "12"
+				}
+			},
+			{
+				"path": "/ti/entries/e2",
+				"kind": "anchor",
+				"target": {
+					"content": "law2",
+					"anchor": "7"
+				}
+			}
+		]
+	}
+}
