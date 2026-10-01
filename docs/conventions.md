@@ -56,9 +56,9 @@ They are a known deviation from "reuse, don't rewrite", not a precedent: a new w
 
 ### Current state
 
-**Actions in the org have been blocked by a billing issue** (as recorded in legalcitationhub). `commitlint.yml` is committed here anyway, so the gate is in place the moment Actions run again, as are `go.yml`, `ci.yml`, `publish-fieldkit.yml` and `storybook.yml`.
+**Actions run in this repo.** fieldkit is public, so its Actions are free. `ci.yml`, `publish-fieldkit.yml` and `storybook.yml` read the `@knkcms` packages from GitHub Packages with `CI_TOKEN` (`read:packages`).
 
-**This repo: until then, the merge bar is `npm run verify`, run locally.** It runs what `ci.yml` runs — lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, the full suite (`test:gate`, which allows 30s per test and one retry, because the jsdom suite is load-sensitive) and the Go module's gofmt, `go vet`, `go test` (its performance budgets included) and a short fuzz of every Fuzz target (`verify:go`); `verify:full` fuzzes longer, before a release. A PR's checks stay pending for ever and are not a gate; a PR merges only when `npm run verify` is green at the merge commit. Nothing runs commitlint locally, so commit messages are checked by review until Actions return. `CLAUDE.md` holds the full rule; update both when Actions run again.
+**This repo: the merge bar is a green PR plus `npm run verify` at the merge commit.** The PR's checks — `ci.yml`'s `check` and Commitlint — must be green. `npm run verify` runs what `ci.yml` runs — lint, typecheck, the Catalogue staleness and compatibility checks, build, verify-exports, the full suite and the Go module's gofmt, `go vet`, `go test` (its performance budgets included) and a short fuzz of every Fuzz target (`verify:go`) — plus `verify-peers`, and runs the suite as `test:gate` (30s per test and one retry, because the jsdom suite is load-sensitive); `verify:full` fuzzes longer, before a release. `CLAUDE.md` holds the full rule; update both together.
 
 ## Shared code: `knkCS/commons`
 

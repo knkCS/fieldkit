@@ -13,19 +13,37 @@ permissions:
   id-token: write
   packages: write
 
+# knkCS/workflows' concurrency block (docs/adopting.md there), verbatim: one
+# group per tag, never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   publish:
     name: Publish to npmjs.org and GitHub Packages
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
+      # No registry-url yet: setup-node would point NPM_CONFIG_USERCONFIG at
+      # its own .npmrc, and npm ci would not read the credential below. The
+      # npmjs.org registry is set up just before publishing to it.
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: package-lock.json
+
+      # The lockfile pulls @knkcms packages from GitHub Packages, which needs a
+      # token even to read; CI_TOKEN has read:packages there (ci.yml says
+      # more). Only npm ci reads ~/.npmrc: both publishes below use the
+      # .npmrc setup-node writes, so CI_TOKEN never publishes.
+      - name: Authenticate to GitHub Packages
+        run: echo "//npm.pkg.github.com/:_authToken=${CI_TOKEN}" >> ~/.npmrc
+        env:
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
 
       - name: Install deps
         run: npm ci
@@ -69,6 +87,11 @@ jobs:
             *-rc.*) echo "tag=next" >> "$GITHUB_OUTPUT" ;;
             *) echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
           esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
 
       - name: Publish to npmjs.org
         # --ignore-scripts: skip the prepublishOnly rebuild so we publish the exact
