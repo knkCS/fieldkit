@@ -33,10 +33,9 @@ jobs:
           go-version-file: go/go.mod
       # The Go module depends on knkeditor's (github.com/knkcms/knkeditor/go,
       # #216), a private module in the knkcms org. The shared action sets
-      # GOPRIVATE for knkcs only, so knkcms is added after it; CI_TOKEN needs
-      # read access to knkcms/knkeditor.
+      # GOPRIVATE for both knkcs and knkcms; CI_TOKEN needs read access to
+      # knkcms/knkeditor.
       - uses: knkcs/workflows/actions/configure-private-modules@v1
         with:
           ci-token: ${{ secrets.CI_TOKEN }}
-      - run: echo "GOPRIVATE=github.com/knkcs/*,github.com/knkcms/*" >> "$GITHUB_ENV"
       - run: npm run verify:go

@@ -38,7 +38,7 @@ All CI comes from **[`knkCS/workflows`](https://github.com/knkCS/workflows)**, t
 
 Composite actions: `configure-private-modules` (GOPRIVATE + git `insteadOf`), `setup-go-node` (setup-go, optional setup-node, caching).
 
-**This repo:** `commitlint.yml` and `go.yml` are callers of the shared workflows. `go.yml` calls `go-service-ci.yml` for the Go module in `go/` — and cannot pass yet: the shared workflow runs at the repository root and has no `working-directory` input, while the module's `go.mod` is in `go/` (the file's header says more). fieldkit's other three workflows predate this baseline and are its own:
+**This repo:** `commitlint.yml` and `go.yml` are callers of the shared workflows. `go.yml` calls `go-service-ci.yml` for the Go module in `go/` with `working-directory: go` — the PR suite on pull requests, the merge check on pushes to `main` (the file's header says more). fieldkit's other three workflows predate this baseline and are its own:
 
 | Workflow | What it does |
 |---|---|
@@ -52,9 +52,7 @@ They are a known deviation from "reuse, don't rewrite", not a precedent: a new w
 
 **Pin `@v1`**, a moving major-version tag that advances on backward-compatible changes.
 
-**There is one exception; know it before you copy a caller.** A reusable workflow **silently ignores an input it does not declare** rather than erroring. So if `v1` points at a commit that predates an input you rely on, your gate stops running while every check stays green. CI quietly gets shorter, which is exactly the failure that adopting shared CI is meant to remove. `taskhub` pins `go-service-ci` to a **commit** for this reason, and says so in the file. Do the same whenever you depend on a recently added input.
-
-`commitlint.yml` takes no inputs, so `@v1` is safe for it.
+**No exceptions** — never a commit SHA or `@main` (knkCS/workflows ADR 0003). An input `v1` does not declare fails the run at startup (`startup_failure`), loudly; it is never silently ignored, so pinning to a commit protects nothing and misses every later fix.
 
 ### Current state
 
@@ -95,7 +93,7 @@ Pin a `v*` tag. Importing one package never drags in another's machinery: a serv
 
 **Snippets that turn out to be useful across repos belong in commons**, not copied between services.
 
-**This repo:** the Go module's one external dependency is knkeditor's Go module, `github.com/knkcms/knkeditor/go` (#216), which `rich_text` delegates to. It is private and in the **knkcms** org, so building or testing the module — here, and in every service that imports it — needs `GOPRIVATE` to cover `github.com/knkcms/*` as well as `github.com/knkcs/*`, and git credentials that can read `knkcms/knkeditor` (an ssh `insteadOf` locally, `CI_TOKEN` in CI). The shared `configure-private-modules` action sets `GOPRIVATE` for knkcs only; `ci.yml` adds knkcms after it, and `go.yml` waits on the action.
+**This repo:** the Go module's one external dependency is knkeditor's Go module, `github.com/knkcms/knkeditor/go` (#216), which `rich_text` delegates to. It is private and in the **knkcms** org, so building or testing the module — here, and in every service that imports it — needs `GOPRIVATE` to cover `github.com/knkcms/*` as well as `github.com/knkcs/*`, and git credentials that can read `knkcms/knkeditor` (an ssh `insteadOf` locally, `CI_TOKEN` in CI). The shared `configure-private-modules` action sets `GOPRIVATE` for both orgs, which `ci.yml` and `go.yml` rely on.
 
 The TS package has no Go and nothing from this list applies to it. The Go module (`github.com/knkcs/fieldkit/go`, ADR-0018) is a library, not a service, so most of commons is still not its business. The one overlap is `commons/fieldspec`, which stays in commons on raw JSON, merges System Fields and knows nothing of types; fieldkit's `ValidateSpec` enforces the card-marker rule it relies on, so the two cannot disagree about a valid Spec (ADR-0018, ADR-0020).
 
