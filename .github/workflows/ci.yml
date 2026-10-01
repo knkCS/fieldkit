@@ -6,15 +6,31 @@ on:
   pull_request:
     branches: [main]
 
+# knkCS/workflows' concurrency block (docs/adopting.md there), verbatim.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    # The Node suite plus the Go module's tests and fuzz: the shared
+    # go-service-ci's `go` job default.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # The lockfile pulls @knkcms packages from GitHub Packages, which needs a
+      # token even to read; CI_TOKEN has read:packages there. It goes into
+      # ~/.npmrc, as go-service-ci's npm-github-packages does: there is no
+      # committed .npmrc to shadow it.
+      - name: Authenticate to GitHub Packages
+        run: echo "//npm.pkg.github.com/:_authToken=${CI_TOKEN}" >> ~/.npmrc
+        env:
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

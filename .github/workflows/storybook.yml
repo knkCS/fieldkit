@@ -9,15 +9,18 @@ permissions:
   pages: write
   id-token: write
 
-# Queue overlapping deploys instead of racing them — two pushes in quick
-# succession previously failed both deploy-pages steps with a conflict.
+# knkCS/workflows' concurrency block (docs/adopting.md there), verbatim. This
+# runs only on pushes to main, so it queues overlapping deploys instead of
+# racing them — two pushes in quick succession previously failed both
+# deploy-pages steps with a conflict.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -27,6 +30,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # @knkcms packages come from GitHub Packages, which needs a token even to
+      # read (ci.yml says more).
+      - name: Authenticate to GitHub Packages
+        run: echo "//npm.pkg.github.com/:_authToken=${CI_TOKEN}" >> ~/.npmrc
+        env:
+          CI_TOKEN: ${{ secrets.CI_TOKEN }}
       - run: npm ci
       - run: npm run build:storybook
       - uses: actions/upload-pages-artifact@v3
