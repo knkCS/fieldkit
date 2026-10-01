@@ -4,12 +4,6 @@
 # workflow: it takes no inputs, so the "a reusable workflow ignores an input it
 # does not declare" trap that makes taskhub pin go-service-ci to a commit does
 # not apply here.
-#
-# Note: Actions in this org are currently blocked by a billing issue, so this
-# will not run until that is resolved. It is committed now so that the gate is
-# in place the moment it is, rather than being remembered later. Until then the
-# merge bar is `npm run verify`, run locally (CLAUDE.md), and nothing checks
-# commit messages but review.
 name: Commitlint
 on:
   pull_request:
