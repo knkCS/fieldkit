@@ -20,7 +20,6 @@ import {
 	removeFieldAt,
 	renameSection,
 	setOrientation,
-	slugify,
 	uniquifyAccessor,
 	updateField,
 } from "../draft-ops";
@@ -148,18 +147,6 @@ describe("field ops", () => {
 		expect(nextAccessor([], "text")).toBe("text");
 	});
 
-	it("slugify lowercases, spaces-to-underscores, and strips invalid chars", () => {
-		expect(slugify("My Field!")).toBe("my_field");
-		expect(slugify("")).toBe("");
-	});
-
-	it("slugify never starts an Accessor with the reserved _ (ADR-0022)", () => {
-		expect(slugify("# of items")).toBe("of_items");
-		expect(slugify(" Title")).toBe("title");
-		expect(slugify("€ Price")).toBe("price");
-		expect(slugify("snake_case")).toBe("snake_case");
-	});
-
 	it("createField builds a fresh Field from a plugin's id/name/defaultSettings", () => {
 		const plugin = makePlugin({
 			id: "select",
@@ -196,6 +183,14 @@ describe("section ops", () => {
 		expect(last.field_type).toBe("section");
 		expect(last.config.name).toBe("My Tab");
 		expect(last.config.api_accessor).toBe("my_tab");
+	});
+
+	it("addSection derives through accessorFromName, falling back to 'section'", () => {
+		const german = addSection([], "Änderungsinfo");
+		expect(german[0].config.api_accessor).toBe("aenderungsinfo");
+		// A name starting with a digit derives nothing.
+		const numbered = addSection([], "1. Intro");
+		expect(numbered[0].config.api_accessor).toBe("section");
 	});
 
 	it("renameSection renames the marker", () => {

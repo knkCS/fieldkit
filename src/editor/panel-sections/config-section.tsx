@@ -2,8 +2,8 @@
 import { Box, Flex, Input, Text, Textarea } from "@chakra-ui/react";
 import type { ChangeEvent, Ref } from "react";
 import { useEffect, useRef, useState } from "react";
+import { accessorFromName } from "../../schema/accessor";
 import type { Field } from "../../schema/types";
-import { slugify } from "../draft-ops";
 import type { PanelSectionProps } from "../field-config-panel";
 
 export interface ConfigSectionProps extends PanelSectionProps {
@@ -120,7 +120,9 @@ export function ConfigSection({
 		const newName = e.target.value;
 		let nextAccessor = field.config.api_accessor;
 		if (!manuallyEditedRef.current) {
-			const slugged = slugify(newName);
+			// "" when the name yields nothing usable: the accessorEmpty error
+			// then asks the author for one, and the draft keeps the last.
+			const slugged = accessorFromName(newName);
 			const err = validateAccessor(slugged);
 			// Show the attempted slug + error either way, but only apply a
 			// VALID slug to the draft — a colliding auto-slug must never reach

@@ -1,24 +1,8 @@
+import { accessorFromName } from "../schema/accessor";
 import type { SpecPartition } from "../schema/partition";
 import { partitionSchemaBySections } from "../schema/partition";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
-
-/** Ported verbatim from field-modal.tsx:17-22. Shared by draft-ops'
- * addSection (which falls back to "section" for an all-punctuation/empty
- * name) and the panel's ConfigSection (which does NOT fall back — an empty
- * slug there must surface the accessorEmpty validation message instead). */
-export function slugify(value: string): string {
-	return (
-		value
-			.toLowerCase()
-			.replace(/\s+/g, "_")
-			.replace(/[^a-z0-9_]/g, "")
-			// A leading `_` is reserved (ADR-0022, `reserved_accessor`), and a
-			// name like "# of items" or " Title" would otherwise slug to one —
-			// an Accessor the editor generated and the validator then refuses.
-			.replace(/^_+/, "")
-	);
-}
 
 export function insertFieldAt(
 	schema: Schema,
@@ -182,7 +166,11 @@ export function addSection(schema: Schema, name: string): Schema {
 		field_type: "section",
 		config: {
 			name,
-			api_accessor: uniquifyAccessor(schema, slugify(name) || "section"),
+			api_accessor: uniquifyAccessor(
+				schema,
+				// "" for a name with nothing usable, or one starting with a digit.
+				accessorFromName(name) || "section",
+			),
 			required: false,
 			instructions: "",
 		},
