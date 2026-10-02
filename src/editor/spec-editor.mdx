@@ -11,7 +11,9 @@ a **Build** mode, then flip to a **Preview** mode (label key `tryIt` — the
 key predates the 0.9.0 rename) to fill out and submit the real thing.
 `SpecEditor` owns an internal draft session (see
 [The Draft Model](#the-draft-model)) and commits it back to the host only
-when the author clicks Save.
+when the author clicks Save — or, for a host that saves from its own page
+header, hands the host the draft and lets the host commit it (see
+[A host-owned Save](#a-host-owned-save-hidesave)).
 
 ## When to Use
 
@@ -27,8 +29,11 @@ most consumers won't need it directly.
 | Prop            | Type                                | Default | Description                                                                 |
 |-----------------|--------------------------------------|---------|-------------------------------------------------------------------------------|
 | `schema`        | `Schema`                             | —       | The **committed** specification. See the schema-prop stability contract below. |
-| `onCommit`      | `(schema: Schema) => void \| Promise<void>` | —  | Called with the draft when the author clicks Save, its settings in canonical form (Unset settings stripped, ADR-0021). May return a Promise; a rejection surfaces an error toast and keeps the draft dirty. |
+| `onCommit`      | `(schema: Schema) => void \| Promise<void>` | —  | Called with the draft when the author clicks Save, its settings in canonical form (Unset settings stripped, ADR-0021). May return a Promise; a rejection surfaces an error toast and keeps the draft dirty. Optional for a host that commits from its own Save (`hideSave`); without it the editor's Save does nothing. |
 | `onDirtyChange` | `(dirty: boolean) => void`           | —       | Fired whenever the draft's dirty state changes. Wire this into a host's unsaved-changes / navigation guard (need not be memoized — the hook latches the latest callback). |
+| `hideSave`      | `boolean`                            | `false` | Draws no Save button: the host commits from its own page header. See [A host-owned Save](#a-host-owned-save-hidesave). |
+| `onDraftChange` | `(draft: Schema) => void`            | —       | Fired on every change to the draft (not on mount), its settings canonical as `onCommit`'s are — what a host-owned Save persists. Need not be memoized. |
+| `onValidationChange` | `(validation: SpecValidationResult) => void` | — | The draft's `validateSpec` result, on mount and on every change, so a host-owned Save can refuse while `valid` is `false`. Its messages are `validateSpec`'s own English; the editor still marks the errors on the canvas. Need not be memoized. |
 | `plugins`       | `FieldTypePlugin[]`                  | —       | The field-type registry available to insert, render, and validate against.  |
 | `consumer`      | `Consumer`                           | —       | Restricts which plugins the type picker offers to those whose `consumers` name it (ADR-0022). Advice, never validated. Was `context` (`FieldContext`) before 0.18.0. |
 | `title`         | `ReactNode`                          | —       | Rendered on its own line **above the toolbar** — put a spec/content-type name here. Nothing renders when omitted. |
@@ -63,7 +68,8 @@ every keystroke. Internally (`useSpecDraft`) it holds:
 
 - **`baseline`** — the last schema this session knows to be committed. It
   starts as the `schema` prop and only ever moves forward on a
-  **successful** `onCommit` resolution.
+  **successful** `onCommit` resolution, or when the `schema` prop brings
+  committed content (see the [stability contract](#schema-prop-stability-contract)).
 - **`draft`** — the live, in-progress schema every Build-mode edit applies
   to immediately (selection, insertion, drag, panel edits — all instant, all
   local).
@@ -135,6 +141,58 @@ data) after the fact will revert the baseline backwards for a clean draft.
 Passing a fresh array with unchanged content on every render (normal React
 hygiene) is always safe.
 
+An incoming `schema` whose content equals the **draft** — the echo of a
+save — adopts the draft itself as the baseline, so `dirty` goes back to
+`false` even though the host's copy is a different array. With
+`onDraftChange` wired, an incoming `schema` equal to a draft the editor
+handed out **earlier** is an echo too: a host-owned save the author kept
+editing past. It becomes the baseline silently, the later edits stay dirty,
+and Discard returns to what was saved.
+
+### A host-owned Save (`hideSave`)
+
+A host whose page header carries one Save for every changed tab (blueprinthub
+saves a Blueprint's tabs as one Revision) takes the commit over:
+
+```tsx
+const [committed, setCommitted] = useState(spec);
+const [pending, setPending] = useState<Schema | null>(null);
+const [valid, setValid] = useState(true);
+
+// The header's Save, refused while `valid` is false:
+async function save() {
+  await persist(pending);
+  setCommitted(pending); // "committed": the new baseline
+}
+
+<SpecEditor
+  schema={committed}
+  hideSave
+  onDraftChange={setPending}
+  onValidationChange={(v) => setValid(v.valid)}
+  onDirtyChange={setDirty}
+  plugins={plugins}
+/>
+```
+
+- **The editor draws no Save**; Discard stays, and still returns the draft to
+  the last committed content.
+- **`onDraftChange`** hands the host each draft, canonical, as `onCommit`
+  would have.
+- **`onValidationChange`** tells the host whether the draft may be saved —
+  Preview is gated on the same `valid`.
+- **The host says "committed" through `schema`**: passing back the saved
+  content (a copy, re-read, key order changed — content is what counts) makes
+  the draft clean and `onDirtyChange(false)` fire. Everything that hangs off
+  the committed Spec follows: the accessor latch re-arms for the fields just
+  saved, and their accessor edits warn again. Keep `schema` the committed
+  Spec — feeding every draft straight back into it would read every edit as
+  saved.
+- **Everything else is unchanged**: the config panel, the type picker,
+  setting locks, background-change conflicts and Preview.
+
+See the `HostSave` story.
+
 ### Save-failure description (`formatSaveError`)
 
 When `onCommit` rejects, the `saveFailed` toast now carries a description:
@@ -164,7 +222,8 @@ All editor chrome is ONE row (0.9.0, composition A2), left to right:
   segment is disabled while the draft has validation errors, with the
   `fixValidationFirst` tooltip. Switching semantics are unchanged: every
   entry into Preview mounts a fresh scratch form.
-- **Discard** and **Save** (solid primary) — behavior unchanged.
+- **Discard** and **Save** (solid primary) — behavior unchanged. Save is
+  not drawn under `hideSave`.
 
 The `title` prop renders on its own line above the bar; the bar itself
 never contains it.
@@ -930,6 +989,14 @@ error badges every tab containing a field with that accessor), and
 Save and the Preview segment stay disabled until the collision is resolved.
 
 <Canvas of={Stories.InvalidDraft} />
+
+### Host Save
+
+`hideSave`: the Save lives in the host's own header, gated on
+`onValidationChange` and fed by `onDraftChange`; the host passes what it
+saved back as `schema`, and the editor reads clean again.
+
+<Canvas of={Stories.HostSave} />
 
 ### Build, With Cards
 

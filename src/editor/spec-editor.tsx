@@ -11,7 +11,10 @@ import type {
 	FieldTypePlugin,
 } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
-import type { SpecFieldError } from "../schema/validate-spec";
+import type {
+	SpecFieldError,
+	SpecValidationResult,
+} from "../schema/validate-spec";
 import {
 	addSection,
 	insertCard,
@@ -371,11 +374,25 @@ const defaultFormatSaveError = (reason: unknown): string | null =>
 	reason instanceof Error ? reason.message : String(reason);
 
 export interface SpecEditorProps {
+	/** The COMMITTED Spec. A host that commits from its own Save says
+	 * "committed" by passing the saved content back here (fieldkit#315). */
 	schema: Schema;
 	/** Called with the draft on Save. May return a Promise — a rejection
-	 * keeps the draft dirty and surfaces a `saveFailed` toast. */
-	onCommit: (schema: Schema) => void | Promise<void>;
+	 * keeps the draft dirty and surfaces a `saveFailed` toast. Optional only
+	 * for a host that commits from its own Save (`hideSave`). */
+	onCommit?: (schema: Schema) => void | Promise<void>;
 	onDirtyChange?: (dirty: boolean) => void;
+	/** Hides the editor's own Save button, for a host that commits every
+	 * changed tab from one Save in its page header (fieldkit#315). Read the
+	 * draft through `onDraftChange`, gate the host's Save on
+	 * `onValidationChange`, and pass the saved content back as `schema`. */
+	hideSave?: boolean;
+	/** Every change to the draft, its settings canonical (ADR-0021) — what
+	 * the host saves. Not called on mount. Need not be memoized. */
+	onDraftChange?: (draft: Schema) => void;
+	/** The draft's `validateSpec` result, on mount and on every change. Need
+	 * not be memoized. */
+	onValidationChange?: (validation: SpecValidationResult) => void;
 	plugins: FieldTypePlugin[];
 	/** The Consumer authoring this Spec: the type picker offers the types
 	 * whose `consumers` name it (ADR-0022). Advice, never a rule. Was
@@ -395,6 +412,9 @@ export function SpecEditor({
 	schema,
 	onCommit,
 	onDirtyChange,
+	hideSave = false,
+	onDraftChange,
+	onValidationChange,
 	plugins,
 	consumer,
 	title,
@@ -406,7 +426,10 @@ export function SpecEditor({
 		[labels],
 	);
 
-	const spec = useSpecDraft(schema, plugins, onCommit, onDirtyChange);
+	const spec = useSpecDraft(schema, plugins, onCommit, onDirtyChange, {
+		onDraftChange,
+		onValidationChange,
+	});
 	const [mode, setMode] = useState<"build" | "tryit">("build");
 	const [selected, setSelected] = useState<string | null>(null);
 	const [autoFocusLabel, setAutoFocusLabel] = useState(false);
@@ -756,6 +779,7 @@ export function SpecEditor({
 					onModeChange={handleModeChange}
 					onDiscard={handleDiscard}
 					onSave={() => spec.save()}
+					showSave={!hideSave}
 				/>
 
 				{nonFieldErrors.length > 0 && (

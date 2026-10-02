@@ -44,11 +44,31 @@ export interface SpecDraft {
 	pluginMap: Map<string, FieldTypePlugin>;
 }
 
+/**
+ * What a host that commits from its own page header needs of the draft
+ * (fieldkit#315). Neither callback need be memoized — the hook latches the
+ * latest one, as it does `onDirtyChange`.
+ */
+export interface SpecDraftOptions {
+	/** Every change to the draft, its settings canonical (ADR-0021) — the
+	 * form the host saves. Not called on mount: the draft then IS `schema`. */
+	onDraftChange?: (draft: Schema) => void;
+	/** The draft's validation, on mount and on every change, so a host's own
+	 * Save can refuse while the draft has errors. */
+	onValidationChange?: (validation: SpecValidationResult) => void;
+}
+
+/** How many handed-out drafts the hook remembers while waiting for the host
+ * to commit one. Each is a `Schema` sharing structure with its neighbours;
+ * the cap only bounds a session that edits for very long without a save. */
+const HANDED_DRAFTS_CAP = 200;
+
 export function useSpecDraft(
 	schema: Schema,
 	plugins: FieldTypePlugin[],
-	onCommit: (schema: Schema) => void | Promise<void>,
+	onCommit?: (schema: Schema) => void | Promise<void>,
 	onDirtyChange?: (dirty: boolean) => void,
+	options?: SpecDraftOptions,
 ): SpecDraft {
 	const [baseline, setBaseline] = useState<Schema>(schema);
 	const [draft, setDraft] = useState<Schema>(schema);
@@ -81,14 +101,37 @@ export function useSpecDraft(
 	// lacks the `settings: null` the draft may still hold, and is the same
 	// content all the same.
 
+	//
+	// The echo adopts the DRAFT as the baseline, not the incoming `schema`:
+	// `dirty` is by reference, and a host that commits from its own header
+	// (fieldkit#315) passes back a copy — its own, canonical, re-read — so
+	// adopting `schema` would leave the draft dirty forever after a save.
+	//
+	// That host's save can also be overtaken: the author edits on while it is
+	// in flight, and the content that comes back matches a draft handed out
+	// EARLIER, not the current one. `handedRef` remembers what onDraftChange
+	// handed out since the baseline last moved, so such an echo becomes the
+	// baseline silently too — the draft stays dirty with the later edits, and
+	// Discard returns to what was actually saved.
+	const handedRef = useRef<Schema[]>([]);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: guard reads draft/baseline but must run only on prop change
 	useEffect(() => {
 		if (schema === baseline) return;
 		if (sameContent(schema, baseline)) return;
 		if (sameContent(schema, draft)) {
-			setBaseline(schema);
+			handedRef.current = [];
+			setBaseline(draft);
 			return;
 		}
+		const handed = handedRef.current;
+		const echoed = handed.findIndex((h) => sameContent(schema, h));
+		if (echoed !== -1) {
+			handedRef.current = handed.slice(echoed + 1);
+			setBaseline(handed[echoed]);
+			return;
+		}
+		handedRef.current = [];
 		const wasDirty = draft !== baseline;
 		setBaseline(schema);
 		if (!wasDirty) setDraft(schema);
@@ -117,6 +160,24 @@ export function useSpecDraft(
 		onDirtyChangeRef.current?.(dirty);
 	}, [dirty]);
 
+	// fieldkit#315: the host-owned commit's two channels, latched the same way.
+	const optionsRef = useRef(options);
+	useEffect(() => {
+		optionsRef.current = options;
+	});
+	useEffect(() => {
+		optionsRef.current?.onValidationChange?.(validation);
+	}, [validation]);
+	const handedOutRef = useRef(draft);
+	useEffect(() => {
+		if (draft === handedOutRef.current) return; // mount: the draft IS `schema`
+		handedOutRef.current = draft;
+		const onDraftChange = optionsRef.current?.onDraftChange;
+		if (!onDraftChange) return;
+		handedRef.current = [...handedRef.current, draft].slice(-HANDED_DRAFTS_CAP);
+		onDraftChange(canonicalSpecSettings(draft));
+	}, [draft]);
+
 	const apply = useCallback((next: Schema | ((draft: Schema) => Schema)) => {
 		setSaveError(null);
 		setBaselineConflict(false);
@@ -129,7 +190,8 @@ export function useSpecDraft(
 	// snapshot — dirty then truthfully reflects draft-vs-committed, and
 	// discard restores the committed content.
 	const save = useCallback(async () => {
-		if (!validation.valid || saving) return;
+		// Without onCommit the host commits from its own Save (fieldkit#315).
+		if (!onCommit || !validation.valid || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		setBaselineConflict(false);
@@ -138,6 +200,7 @@ export function useSpecDraft(
 			// absent, not "" or null. The draft itself is left as it is — the
 			// author's controls may still hold the empty value they cleared to.
 			await onCommit(canonicalSpecSettings(draft));
+			handedRef.current = [];
 			setBaseline(draft); // advance ONLY on success
 		} catch (error) {
 			setSaveError(error);
