@@ -167,6 +167,12 @@ What a value yields to contenthub's Content Graph and to search changes too:
 `settingsRules`, `referenceSpecFor`, `referenceBlueprintIds` (#215);
 `FieldKitProvider`'s `parts` prop — the Resolved Spec's `parts`, where a
 Field finds what it pins (#278).
+`accessorFromName` and `ACCESSOR_MAX_LENGTH` from `/schema` (#312): the
+Accessor a name suggests, which the editor now derives through. It spells out
+German letters (`Straßenname` → `strassenname`, where it was `straenname`),
+strips other accents, cuts at 64 characters and derives nothing for a name
+starting with a digit. Only Accessors derived from now on change: a stored
+one is never re-derived.
 
 ### `@knkcs/fieldkit/rich-text` (#278)
 

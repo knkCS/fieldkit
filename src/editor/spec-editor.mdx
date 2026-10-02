@@ -399,7 +399,8 @@ identical convention through the real `SpecForm`, so both modes render
 markers exactly as the finished form will.
 
 The accessor input has its own local, possibly-invalid state: editing the
-**name** auto-derives the accessor via slugify *until* the accessor has
+**name** auto-derives the accessor via `accessorFromName` (from
+`/schema`) *until* the accessor has
 been manually edited once (an "auto-slug latch") — and that latch starts
 **already engaged** for any field whose accessor was already committed
 (present in the last-saved `schema`), so a simple rename can never silently

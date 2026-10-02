@@ -1,5 +1,7 @@
 // @knkcs/fieldkit/schema — Field types, registry, Zod generation, defineSpec()
 
+// The Accessor a name suggests — the editor's preset, shared with blueprinthub
+export { ACCESSOR_MAX_LENGTH, accessorFromName } from "./accessor";
 // The Blueprint a Fieldset or a linked Virtual Table names — one reader for
 // both.
 export { linkedBlueprintId } from "./blueprint-link";

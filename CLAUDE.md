@@ -69,6 +69,7 @@ src/
 │   ├── search.ts        # SearchWeight — `config.search`'s values (off, A–D)
 │   ├── content-walk.ts  # edges() / texts() / valueText() — a Content's data walked against its Resolved Spec, Go's Edges/Texts/ValueText: each Field read by its plugin's `text`/`edges`, containers — and a Reference's values — entered through their `records` (ADR-0007)
 │   ├── value-text.ts    # The `text()` the types with text share (string, List, Array, and the choice types' option labels)
+│   ├── accessor.ts      # accessorFromName() — the Accessor a name suggests (German letters spelled out, accents stripped, cut at ACCESSOR_MAX_LENGTH); the editor's preset, exported for blueprinthub
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
 │   ├── builders.ts      # text(), section(), … spec builders

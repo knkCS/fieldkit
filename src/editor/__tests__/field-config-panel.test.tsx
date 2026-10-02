@@ -279,6 +279,37 @@ describe("FieldConfigPanel", () => {
 		expect(dump.config.api_accessor).toBe("my_field");
 	});
 
+	it("a German name derives a transliterated accessor (accessorFromName)", () => {
+		const field = makeField("draft_field", "Draft Field");
+		render(
+			<EditorWrap>
+				<Harness initialField={field} committedAccessors={new Set()} />
+			</EditorWrap>,
+		);
+
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "Straßenname" },
+		});
+		expect(readDump().config.api_accessor).toBe("strassenname");
+	});
+
+	it("a name starting with a digit leaves the accessor input empty, and the draft's accessor as it was", () => {
+		const field = makeField("draft_field", "Draft Field");
+		render(
+			<EditorWrap>
+				<Harness initialField={field} committedAccessors={new Set()} />
+			</EditorWrap>,
+		);
+
+		fireEvent.change(screen.getByTestId("panel-name-input"), {
+			target: { value: "2024 Report" },
+		});
+		expect(screen.getByTestId("panel-accessor-input")).toHaveValue("");
+		const dump = readDump();
+		expect(dump.config.name).toBe("2024 Report");
+		expect(dump.config.api_accessor).toBe("draft_field");
+	});
+
 	it("manual accessor edit latches — subsequent label edits stop touching the accessor", () => {
 		const field = makeField("draft_field", "Draft Field");
 		render(
