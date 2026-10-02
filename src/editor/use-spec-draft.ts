@@ -100,7 +100,6 @@ export function useSpecDraft(
 	// spelled: a save commits canonical settings (ADR-0021), so its echo
 	// lacks the `settings: null` the draft may still hold, and is the same
 	// content all the same.
-
 	//
 	// The echo adopts the DRAFT as the baseline, not the incoming `schema`:
 	// `dirty` is by reference, and a host that commits from its own header

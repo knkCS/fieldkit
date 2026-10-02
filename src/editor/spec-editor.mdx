@@ -187,7 +187,12 @@ async function save() {
   the committed Spec follows: the accessor latch re-arms for the fields just
   saved, and their accessor edits warn again. Keep `schema` the committed
   Spec — feeding every draft straight back into it would read every edit as
-  saved.
+  saved. Content the host's backend changed on the way (a default it added)
+  is not an echo: it arrives as a background change, a conflict while the
+  draft is dirty.
+- **`onDraftChange` is every draft change, not every edit**: a clean draft
+  snapping to a background change, and Discard, hand the host a draft too.
+  Track unsaved work with `onDirtyChange`, not with whether a draft arrived.
 - **Everything else is unchanged**: the config panel, the type picker,
   setting locks, background-change conflicts and Preview.
 
