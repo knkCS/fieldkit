@@ -28,6 +28,7 @@ import { CATALOGUE_VERSION } from "../src/schema/catalogue-version";
 import { builtInFieldTypes } from "../src/schema/field-types";
 import type { FieldTypePlugin } from "../src/schema/plugin";
 import { POSITIONS } from "../src/schema/positions";
+import { VALIDATION_KEYS } from "../src/schema/validations";
 import {
 	CATALOGUE_SECTIONS,
 	sectionProblems,
@@ -66,6 +67,7 @@ interface CatalogueType {
 	consumers: string[];
 	pins: { key: string; kind: string }[];
 	has_text: boolean;
+	validations: string[];
 }
 
 interface Catalogue {
@@ -139,6 +141,14 @@ function consumers(plugin: FieldTypePlugin): string[] {
 	return [...plugin.consumers];
 }
 
+/** The validations the type honours (#313), in the order `VALIDATION_KEYS`
+ * lists them. Absent is none — the strict reading, and the only one a type in
+ * the Catalogue can have: a validation it does not list is refused. */
+function validations(plugin: FieldTypePlugin): string[] {
+	const declared = plugin.catalogue?.validations ?? [];
+	return VALIDATION_KEYS.filter((key) => declared.includes(key));
+}
+
 function buildCatalogue(plugins: FieldTypePlugin[]): Catalogue {
 	const types = plugins
 		.filter((plugin) => plugin.settingsSchema)
@@ -156,6 +166,7 @@ function buildCatalogue(plugins: FieldTypePlugin[]): Catalogue {
 				consumers: consumers(plugin),
 				pins: plugin.catalogue.pins.map(({ key, kind }) => ({ key, kind })),
 				has_text: plugin.catalogue.hasText,
+				validations: validations(plugin),
 			};
 		})
 		.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

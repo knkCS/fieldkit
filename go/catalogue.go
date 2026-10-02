@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -45,6 +46,16 @@ type CatalogueType struct {
 	Pins []CataloguePin `json:"pins"`
 	// HasText is whether a value of the type yields text.
 	HasText bool `json:"has_text"`
+	// Validations are the validations a Field of the type may declare, the
+	// ones its value rule honours: "min_length", "max_length", "pattern"
+	// (with its pattern_message) in Field.Validation, and "unique" for
+	// Config.Unique. Any other is CodeInapplicableValidation (#313).
+	Validations []string `json:"validations"`
+}
+
+// honours reports whether the type honours a validation.
+func (t *CatalogueType) honours(validation string) bool {
+	return slices.Contains(t.Validations, validation)
 }
 
 // CataloguePin is one setting that holds a Pin, and the kind of Release it

@@ -31,7 +31,12 @@ export const emailPlugin: FieldTypePlugin<EmailSettings> = {
 		})
 		.strict(),
 
-	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	catalogue: {
+		since: "0.18.0",
+		hasText: true,
+		pins: [],
+		validations: ["unique"],
+	},
 	text: stringText,
 
 	defaultSettings: { placeholder: "" },

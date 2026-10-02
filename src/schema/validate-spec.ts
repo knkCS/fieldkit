@@ -6,6 +6,7 @@ import { allowedInPosition } from "./positions";
 import { isSearchWeight } from "./search";
 import type { Field } from "./types";
 import { toPath, validateSettings } from "./validate-settings";
+import { inapplicableValidations } from "./validations";
 import { virtualTableRowSpecKind } from "./virtual-table-row-spec";
 
 export type SpecFieldErrorCode =
@@ -33,6 +34,11 @@ export type SpecFieldErrorCode =
 	/** `config.search` on a type the Catalogue marks as having no text. At
 	 * the key. */
 	| "search_without_text"
+	/** A validation the Field's type does not honour (#313) — a `min_length`
+	 * on a date, `unique: true` on a select: the Catalogue's `validations`
+	 * lists the ones it does. At the key: `/due/validation/min_length`,
+	 * `/kind/config/unique`. */
+	| "inapplicable_validation"
 	/** A Block Type of a Blocks Field repeating the `type` an earlier one
 	 * declared — reported at each repeat's `type`. */
 	| "duplicate_block_type"
@@ -520,6 +526,11 @@ function checkSettingsRules(
  * - **`config.search`**: `off` or a weight `A`–`D`, and only on a type the
  *   Catalogue marks as having text (`catalogue.hasText`). Unset — `null`,
  *   `""` — is absent (ADR-0021).
+ * - **Validations** (#313): `validation.min_length`, `max_length`, `pattern`
+ *   (with its `pattern_message`) and `config.unique: true` only on a type
+ *   whose Catalogue facts list them; anywhere else they would be silently
+ *   ignored, so each is `inapplicable_validation`. A type with no Catalogue
+ *   facts — a Consumer's own — is not judged.
  */
 function checkFields(
 	fields: Field[],
@@ -561,6 +572,17 @@ function checkFields(
 					path: searchPath,
 				});
 			}
+		}
+		for (const { key, segments: at } of inapplicableValidations(
+			field,
+			plugin,
+		)) {
+			fieldErrors.push({
+				accessor,
+				code: "inapplicable_validation",
+				message: `Field "${accessor}" of type "${field.field_type}" does not honour ${key}`,
+				path: toPath([...segments, ...at]),
+			});
 		}
 		for (const error of policy?.(field, { path, position }) ?? []) {
 			fieldErrors.push({

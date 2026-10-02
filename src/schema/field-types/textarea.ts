@@ -46,7 +46,12 @@ export const textareaPlugin: FieldTypePlugin<TextareaSettings> = {
 		})
 		.strict(),
 
-	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	catalogue: {
+		since: "0.18.0",
+		hasText: true,
+		pins: [],
+		validations: ["min_length", "max_length"],
+	},
 	text: stringText,
 
 	defaultSettings: { placeholder: "", rows: 4 },

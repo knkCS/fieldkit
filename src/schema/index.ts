@@ -230,6 +230,15 @@ export type {
 export { validateSpec } from "./validate-spec";
 export type { ValueError, ValueErrorCode } from "./validate-value";
 export { VALUE_CAPS, validateValue } from "./validate-value";
+// The validations a type honours (#313)
+export {
+	applicableValidations,
+	type InapplicableValidation,
+	inapplicableValidations,
+	offeredValidations,
+	VALIDATION_KEYS,
+	type ValidationKey,
+} from "./validations";
 // The Virtual Table's Row Spec rule (ADR-0017): which of the two ways a
 // Field declares one. What a column may be is the `row` Position (ADR-0022).
 export type { VirtualTableRowSpecKind } from "./virtual-table-row-spec";

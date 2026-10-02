@@ -38,6 +38,18 @@ Settings are strict (ADR-0018): a key a type does not declare is
   `invalid_setting`.
 - **Positions:** `positions` gains `block_type` on every Catalogue type
   (#209).
+- **Validations per type** (#313): a Catalogue entry lists the validations
+  its type honours (`validations`), and any other is
+  `inapplicable_validation`, at the key. `validation.min_length` and
+  `max_length` stay on `text`, `textarea`, `code` and `markdown`;
+  `validation.pattern` (with `pattern_message`) on `text`; `config.unique:
+  true` on `text`, `email`, `url`, `slug` and `number`. Everywhere else they
+  were silently ignored — a `min_length` on a date — so drop them: a date's
+  limits are `settings.min_date`/`max_date`, a number's `settings.min`/`max`.
+  `unique: false` and Unset validation declare nothing and stay valid. Hosts
+  re-validate on save, not on read, so a stored Spec still loads; its next
+  save is refused until the key is dropped, and the editor shows it in the
+  Validation tab so the author can.
 - **Blueprint ids are Release ids:** the blueprint adapter's ids are Blueprint
   **Release** ids, and a Pin is a single opaque Release id string (#212).
 - **Publishing package** (#219, #220, #221):
@@ -207,6 +219,7 @@ Codes only ever grow (ADR-0019); these are new in 0.18.
 | Spec | `invalid_setting` | #205 |
 | Spec | `invalid_position` (was `virtual_table_row_field_type`), `reserved_accessor`, `invalid_config`, `search_without_text` | #209, #284 |
 | Spec | `duplicate_blueprint` | #215 |
+| Spec | `inapplicable_validation` | #313 |
 | Resolve | `resolve_*` — cycle, fetch cap, depth cap, fetch failure, invalid Release | #212 |
 | Value | `required`, `not_canonical`, `invalid_type`, `invalid_format`, `too_small`, `too_big`, `too_many_items`, `too_many_bytes`, `invalid_value` | #210, #284 |
 | Value | `too_deep`, `missing_id`, `duplicate_id` | #211 |
