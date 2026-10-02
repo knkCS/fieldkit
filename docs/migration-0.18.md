@@ -168,6 +168,16 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `/renderer`; import `TextTypeSummary` instead. To migrate: pass your Text
   Type Release fetcher as both `adapters.textType.get` and
   `resolveSpec`'s `parts.text_type`, and rename `listEditorSpecs` to `list`.
+- **The `select` field renders through anker's `BaseSelectField`** (#314),
+  single and multiple alike, where it was a native `<select>` (anker's
+  deprecated `SelectField`, and a raw `<select multiple>`). That raises the
+  `@knkcs/anker` peer floor to **`^5.5.0`**, the first anker shipping
+  `BaseSelectField` — install it alongside this release. The stored value is
+  unchanged (a key, or an array of keys); a cleared single select now holds
+  `null` in the form rather than `""`, which `selectPlugin.toZodType` reads as
+  the same Unset (ADR-0021), so a submitted form still omits it. Tests that
+  drove the native control (`getByRole("listbox")`, `<option>` elements) now
+  find a `combobox` and open its menu.
 - **The core renderer's `rich_text` field is read-only** (#278, ADR-0026): it
   shows the document's text and says it can't be edited there, where it was a
   JSON textarea. It never writes the value. Editing needs

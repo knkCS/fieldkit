@@ -281,7 +281,7 @@ Tests use Vitest with jsdom environment and `@testing-library/react`. Test files
 ## Peer Dependencies
 
 Consuming projects must install:
-- `@knkcs/anker` ^5.4.0
+- `@knkcs/anker` ^5.5.0
 - `react` >= 19, `react-dom` >= 19
 - `@chakra-ui/react` ^3.0.0
 - `react-hook-form` ^7.0.0, `@hookform/resolvers` ^3.0.0, `zod` ^3.0.0
@@ -300,7 +300,7 @@ Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
 Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
 resolved by consumers importing `@knkcs/anker/dashboard`.
 
-Note: the `@knkcs/anker` **devDependency equals the peer floor** (`^5.4.0`
+Note: the `@knkcs/anker` **devDependency equals the peer floor** (`^5.5.0`
 both). fieldkit compiles against the oldest anker it promises, so that using
 newer-only API fails typecheck here rather than at runtime in a consumer. The
 range used to span three majors with the devDependency pinned to the lowest
@@ -312,7 +312,9 @@ renders through that same atom now
 holds even if `lookup` were ever dropped — two field types depend on it, not
 one. It moved on again to `^5.4.0` when the Virtual Table took `DataTable`'s
 `onRowReorder`, which first ships in anker 5.4.0 — both legs moved together and
-stayed equal, which is the rule, not an exception to it. Read
+stayed equal, which is the rule, not an exception to it. It moved to `^5.5.0`
+when the `select` field type moved onto `BaseSelectField` (#314), which first
+ships in anker 5.5.0 — both legs together again. Read
 `docs/adr/0014-compile-against-the-oldest-anker-we-promise.md` before raising
 either — the rule is unchanged, and raising the devDependency past the peer
 floor is still the mistake it warns about.

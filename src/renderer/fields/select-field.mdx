@@ -5,7 +5,7 @@ import * as Stories from "./select-field.stories";
 
 # Select
 
-A dropdown selection field. Supports single and multiple selection modes. Options are defined as a `Record<string, string>` mapping value keys to display labels.
+A dropdown selection field, drawn with anker's `BaseSelectField` (a form-bound `BaseSelect`, chakra-react-select). Supports single and multiple selection modes. Options are defined as a `Record<string, string>` mapping value keys to display labels.
 
 ## When to Use
 
@@ -40,16 +40,18 @@ z.array(z.string()).min(1, "Tags is required")
 z.array(z.string())
 ```
 
+A cleared single select holds `null` (that is how `BaseSelectField` empties
+itself); the single schema reads `null` as `""`, the same Unset, so the checks
+and messages above apply unchanged.
+
 ## Table Cell
 
 Renders the selected value(s) as plain text via `SelectCell`.
 
 ## Known Limitations
 
-- Multi-select uses raw HTML `<select multiple>` instead of anker's BaseSelect (chakra-react-select) — no searchable, creatable, or proper tag UI
 - No option validation in Zod — any string is accepted, not just defined option keys
 - Hardcoded placeholder `"Select..."` (not configurable)
-- No BaseSelect integration for single-select either (uses anker's SelectField which wraps a native `<select>`)
 
 ## Examples
 
@@ -59,7 +61,7 @@ Renders the selected value(s) as plain text via `SelectCell`.
 
 ### Multi-Select
 
-Hold Ctrl/Cmd to select multiple options. Note the raw `<select multiple>` UI.
+Picked options show as tags; the form value is an array of the option keys.
 
 <Canvas of={Stories.MultiSelect} />
 
