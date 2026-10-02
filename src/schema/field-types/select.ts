@@ -36,7 +36,13 @@ export const selectPlugin: FieldTypePlugin<SelectSettings> = {
 		if (field.config.required) {
 			schema = schema.min(1, `${field.config.name} is required`);
 		}
-		return schema;
+		// The renderer's BaseSelectField holds `null` once a single select is
+		// cleared (#314), where the native select it replaced held `""`. Both
+		// are the one Unset (ADR-0021), so `null` is read as `""`: the same
+		// checks, the same message, and the output stripped as before. Stored
+		// data is unaffected: validateValue settles an Unset value (and its
+		// `not_canonical` key) before any type is checked, as Go does.
+		return z.preprocess((value) => (value === null ? "" : value), schema);
 	},
 
 	settingsSchema: z

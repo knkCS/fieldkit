@@ -170,5 +170,5 @@ fieldkit's UI follows the **anker design system**. This section is a pointer; th
 - fieldkit ships components, not screens: no page templates, no host frame. It renders *inside* consumers' screens, so the host contract binds its consumers rather than it, and consumers own the React Hook Form instance (`useFormContext()`, never `useForm()`).
 - **Known deviation:** fieldkit imports `@chakra-ui/react` directly (about 110 files under `src/`, for layout primitives anker does not wrap), and its Biome config has no rule against it. New code reaches for anker first; a raw Chakra import needs a reason anker cannot supply.
 - `CLAUDE.md` lists `node_modules/@knkcs/anker/CLAUDE-ANKER.md` under *Reference Docs* rather than `@`-importing it; it still tracks the installed anker.
-- The anker **devDependency equals the peer floor** (`^5.4.0` both), so fieldkit compiles against the oldest anker it promises (ADR-0014). Never raise the devDependency past the floor.
+- The anker **devDependency equals the peer floor** (`^5.5.0` both), so fieldkit compiles against the oldest anker it promises (ADR-0014). Never raise the devDependency past the floor.
 - There is no `./testing` subpath; consumers stub fieldkit's adapters instead.

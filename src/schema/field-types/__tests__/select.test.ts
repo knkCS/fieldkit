@@ -81,4 +81,30 @@ describe("selectPlugin", () => {
 		expect(zodType.safeParse(["a"]).success).toBe(true);
 		expect(zodType.safeParse([]).success).toBe(false);
 	});
+
+	// A cleared BaseSelect holds `null` (#314): the same Unset as `""`
+	// (ADR-0021), so it validates exactly as `""` does, message and all.
+	it("reads a cleared single select's null as it reads an empty string", () => {
+		const field = (required: boolean): Field<SelectSettings> => ({
+			field_type: "select",
+			config: {
+				name: "Status",
+				api_accessor: "status",
+				required,
+				instructions: "",
+			},
+			settings: { options: { draft: "Draft" } },
+			children: null,
+			system: false,
+		});
+		expect(selectPlugin.toZodType(field(false)).safeParse(null).success).toBe(
+			true,
+		);
+		const required = selectPlugin.toZodType(field(true)).safeParse(null);
+		expect(required.success).toBe(false);
+		expect(required.error?.issues[0]?.message).toBe("Status is required");
+		expect(selectPlugin.toZodType(field(false)).safeParse(1).success).toBe(
+			false,
+		);
+	});
 });
