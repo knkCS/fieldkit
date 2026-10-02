@@ -1463,3 +1463,110 @@ describe("system fields — panel lock", () => {
 		expect(screen.getByTestId("panel-card-name-input")).toBeInTheDocument();
 	});
 });
+
+describe("FieldConfigPanel — the validations a type honours (#313)", () => {
+	function pluginFor(id: string): FieldTypePlugin {
+		const plugin = builtInFieldTypes.find((p) => p.id === id);
+		if (!plugin) throw new Error(`no built-in ${id}`);
+		return plugin;
+	}
+
+	function fieldOf(type: string, extra: Partial<Field> = {}): Field {
+		return { ...makeField(type, type), field_type: type, ...extra };
+	}
+
+	const INPUTS = [
+		"panel-min-length-input",
+		"panel-max-length-input",
+		"panel-pattern-input",
+		"panel-pattern-message-input",
+		"panel-unique-input",
+	];
+
+	function shownInputs(): string[] {
+		return INPUTS.filter((id) => screen.queryByTestId(id) !== null);
+	}
+
+	it("offers a text field every validation", () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={fieldOf("text")} plugin={pluginFor("text")} />
+			</EditorWrap>,
+		);
+		expect(screen.getByRole("tab", { name: "Validation" })).toBeInTheDocument();
+		expect(shownInputs()).toEqual(INPUTS);
+	});
+
+	it("offers a textarea its lengths only, and an email unique only", () => {
+		const { unmount } = render(
+			<EditorWrap>
+				<Harness
+					initialField={fieldOf("textarea")}
+					plugin={pluginFor("textarea")}
+				/>
+			</EditorWrap>,
+		);
+		expect(shownInputs()).toEqual([
+			"panel-min-length-input",
+			"panel-max-length-input",
+		]);
+		unmount();
+		render(
+			<EditorWrap>
+				<Harness initialField={fieldOf("email")} plugin={pluginFor("email")} />
+			</EditorWrap>,
+		);
+		expect(shownInputs()).toEqual(["panel-unique-input"]);
+	});
+
+	it("hides the Validation tab on a date, whose limits are type settings", () => {
+		render(
+			<EditorWrap>
+				<Harness initialField={fieldOf("date")} plugin={pluginFor("date")} />
+			</EditorWrap>,
+		);
+		expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+			"General",
+			"Type settings",
+		]);
+		expect(shownInputs()).toEqual([]);
+	});
+
+	it("shows a validation a date declares but does not honour, until it is cleared", async () => {
+		render(
+			<EditorWrap>
+				<Harness
+					initialField={fieldOf("date", { validation: { min_length: 3 } })}
+					plugin={pluginFor("date")}
+				/>
+			</EditorWrap>,
+		);
+		expect(shownInputs()).toEqual(["panel-min-length-input"]);
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		});
+		fireEvent.change(screen.getByTestId("panel-min-length-input"), {
+			target: { value: "" },
+		});
+		expect(readDump().validation).toBeUndefined();
+		expect(screen.queryByRole("tab", { name: "Validation" })).toBeNull();
+		expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
+
+	it("offers every validation on a type with no Catalogue facts — a Consumer's own", () => {
+		const custom: FieldTypePlugin = {
+			...pluginFor("text"),
+			id: "custom",
+			catalogue: undefined,
+		};
+		render(
+			<EditorWrap>
+				<Harness initialField={fieldOf("custom")} plugin={custom} />
+			</EditorWrap>,
+		);
+		expect(shownInputs()).toEqual(INPUTS);
+	});
+});

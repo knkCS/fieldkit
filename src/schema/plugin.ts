@@ -2,6 +2,7 @@
 import type { ComponentType, ReactNode } from "react";
 import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import type { Field } from "./types";
+import type { ValidationKey } from "./validations";
 
 export type FieldTypeCategory =
 	| "text"
@@ -461,6 +462,14 @@ export interface CatalogueFacts {
 	/** The settings keys that hold a Pin, each with the kind of Release it
 	 * pins (ADR-0020). Empty for a type that pins nothing. */
 	pins: readonly CataloguePin[];
+	/**
+	 * The validations a Field of this type may declare — the ones its value
+	 * rules honour (`src/schema/validations.ts`). Absent means none:
+	 * `validateSpec()` reports any other as `inapplicable_validation`, and the
+	 * editor's Validation tab offers only these. Only grows once released
+	 * (ADR-0019): taking one away would refuse a Spec that once was valid.
+	 */
+	validations?: readonly ValidationKey[];
 }
 
 /** One setting that holds a Pin, and what it pins. */

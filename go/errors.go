@@ -42,6 +42,11 @@ const (
 	// CodeSearchWithoutText is config.search on a type the Catalogue marks as
 	// having no text. At the key.
 	CodeSearchWithoutText = "search_without_text"
+	// CodeInapplicableValidation is a validation the Field's type does not
+	// honour (#313): validation.min_length, max_length, pattern or
+	// pattern_message, or config.unique true, on a type whose Catalogue
+	// entry does not list it — a min_length on a date. At the key.
+	CodeInapplicableValidation = "inapplicable_validation"
 	// CodeDuplicateBlockType is a Block Type repeating the type an earlier
 	// Block Type of the same Blocks Field declared, reported at its type.
 	CodeDuplicateBlockType = "duplicate_block_type"

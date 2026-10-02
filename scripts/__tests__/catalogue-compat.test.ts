@@ -23,6 +23,7 @@ function type(overrides: Partial<CatalogueType> = {}): CatalogueType {
 		consumers: ["blueprint", "form"],
 		pins: [{ key: "blueprint_id", kind: "blueprint" }],
 		has_text: true,
+		validations: ["min_length", "max_length"],
 		...overrides,
 	};
 }
@@ -49,6 +50,18 @@ function withSettings(
 describe("compareCatalogues — what passes", () => {
 	it("passes an identical Catalogue", () => {
 		expect(compareCatalogues(released, released)).toEqual([]);
+	});
+
+	it("passes an added validation, and a Catalogue frozen before validations were listed", () => {
+		const added = catalogue(
+			[type({ validations: ["min_length", "max_length", "unique"] })],
+			"0.19.0",
+		);
+		expect(compareCatalogues(released, added)).toEqual([]);
+		const { validations: _, ...unlisted } = type();
+		expect(
+			compareCatalogues(catalogue([unlisted]), catalogue([type()], "0.19.0")),
+		).toEqual([]);
 	});
 
 	it("passes a new type", () => {
@@ -242,6 +255,12 @@ describe("compareCatalogues — what fails", () => {
 			'text: Position "row" was removed',
 			'text: Pin "blueprint_id" (blueprint) was removed',
 			"text: has_text changed from true to false",
+		]);
+	});
+
+	it("fails a removed validation", () => {
+		expect(breaks(type({ validations: ["max_length"] }))).toEqual([
+			'text: validation "min_length" was removed',
 		]);
 	});
 

@@ -48,7 +48,12 @@ export const numberPlugin: FieldTypePlugin<NumberSettings> = {
 		})
 		.strict(),
 
-	catalogue: { since: "0.18.0", hasText: false, pins: [] },
+	catalogue: {
+		since: "0.18.0",
+		hasText: false,
+		pins: [],
+		validations: ["unique"],
+	},
 
 	defaultSettings: {},
 

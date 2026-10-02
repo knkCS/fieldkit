@@ -19,6 +19,9 @@ import (
 //   - no Accessor begins with "_" (CodeReservedAccessor);
 //   - config.search is off or A–D (CodeInvalidConfig), and only on a type
 //     the Catalogue marks as having text (CodeSearchWithoutText);
+//   - validation.min_length, max_length, pattern (with pattern_message) and
+//     config.unique true only on a type whose Catalogue entry lists them
+//     (CodeInapplicableValidation, at the key);
 //   - the card-marker rule at the top level (CodeLooseFieldInCardedTab);
 //   - the rules across settings a type has beside its schema (rules.go):
 //     a Virtual Table's Row Spec (ADR-0017), a Blocks Field's Block Types,
@@ -137,6 +140,11 @@ func (c *Catalogue) validateFields(fields []Field, list, position string, o *opt
 				*errs = append(*errs, Error{Path: searchPath, Code: CodeSearchWithoutText})
 			}
 		}
+		if known {
+			for _, at := range inapplicableValidations(f, t) {
+				*errs = append(*errs, Error{Path: joinPath(path, at...), Code: CodeInapplicableValidation})
+			}
+		}
 		rules := c.rulesFor(f.FieldType)
 		if rules.field != nil {
 			settings, _ := canonicalSettings(f.Settings)
@@ -169,4 +177,31 @@ func (c *Catalogue) validateFields(fields []Field, list, position string, o *opt
 			}
 		}
 	}
+}
+
+// inapplicableValidations are the validations f declares that t does not
+// honour, each as its path within the Field, in TS's order
+// (src/schema/validations.ts). A declaration is a value that is not Unset
+// (ADR-0021) — a null is absent once decoded, "" is Unset — and, for unique,
+// only true: false asks for nothing.
+func inapplicableValidations(f Field, t *CatalogueType) [][]string {
+	var found [][]string
+	if v := f.Validation; v != nil {
+		if v.MinLength != nil && !t.honours("min_length") {
+			found = append(found, []string{"validation", "min_length"})
+		}
+		if v.MaxLength != nil && !t.honours("max_length") {
+			found = append(found, []string{"validation", "max_length"})
+		}
+		if v.Pattern != nil && *v.Pattern != "" && !t.honours("pattern") {
+			found = append(found, []string{"validation", "pattern"})
+		}
+		if v.PatternMessage != nil && *v.PatternMessage != "" && !t.honours("pattern") {
+			found = append(found, []string{"validation", "pattern_message"})
+		}
+	}
+	if f.Config.Unique != nil && *f.Config.Unique && !t.honours("unique") {
+		found = append(found, []string{"config", "unique"})
+	}
+	return found
 }

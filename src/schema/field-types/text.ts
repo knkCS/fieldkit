@@ -55,7 +55,12 @@ export const textPlugin: FieldTypePlugin<TextSettings> = {
 		})
 		.strict(),
 
-	catalogue: { since: "0.18.0", hasText: true, pins: [] },
+	catalogue: {
+		since: "0.18.0",
+		hasText: true,
+		pins: [],
+		validations: ["min_length", "max_length", "pattern", "unique"],
+	},
 	text: stringText,
 
 	defaultSettings: { placeholder: "" },

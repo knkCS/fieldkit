@@ -73,7 +73,8 @@
 					"kind": "blueprint"
 				}
 			],
-			"has_text": false
+			"has_text": false,
+			"validations": []
 		},
 		{
 			"id": "outline_tree",
@@ -106,7 +107,8 @@
 					"kind": "text_type"
 				}
 			],
-			"has_text": false
+			"has_text": false,
+			"validations": []
 		},
 		{
 			"id": "reference_filter",
@@ -123,7 +125,8 @@
 				"blueprint"
 			],
 			"pins": [],
-			"has_text": false
+			"has_text": false,
+			"validations": []
 		},
 		{
 			"id": "template_text",
@@ -148,7 +151,8 @@
 				"blueprint"
 			],
 			"pins": [],
-			"has_text": false
+			"has_text": false,
+			"validations": []
 		},
 		{
 			"id": "ti_overlay",
@@ -174,7 +178,8 @@
 					"kind": "ti_set"
 				}
 			],
-			"has_text": false
+			"has_text": false,
+			"validations": []
 		}
 	]
 }

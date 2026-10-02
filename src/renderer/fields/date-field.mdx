@@ -15,7 +15,7 @@ Use **Date** for calendar date values. For time-of-day values, use [Time](?path=
 
 | Setting        | Type      | Default | Description                                                    |
 |----------------|-----------|---------|----------------------------------------------------------------|
-| `enable_range` | `boolean` | `false` | Intended for date range selection — **not implemented**         |
+| `enable_range` | `boolean` | `false` | Intended for date range selection — **not implemented** in the renderer |
 | `min_date`     | `string`  | —       | Minimum selectable date (passed to DatePickerField `min` prop)  |
 | `max_date`     | `string`  | —       | Maximum selectable date (passed to DatePickerField `max` prop)  |
 
@@ -26,6 +26,13 @@ Use **Date** for calendar date values. For time-of-day values, use [Time](?path=
 | `required` | `boolean`| When true, the string must have at least 1 character       |
 
 `min_date` and `max_date` are UI-only constraints — they are **not** validated in the Zod schema.
+
+A date honours no `validation` key and no `unique` (#313): its Catalogue entry
+lists no `validations`, so `validateSpec()` reports `validation.min_length` and
+the like as `inapplicable_validation`, and the editor hides the Validation tab.
+Its limits are the settings above, which the editor's config panel edits with
+`DateSettingsEditor` — two anker `DatePickerField`s, each bounded by the other,
+reporting a latest date before the earliest, and the `enable_range` switch.
 
 ## Zod Output
 

@@ -29,6 +29,9 @@ export interface CatalogueType {
 	consumers: string[];
 	pins: { key: string; kind: string }[];
 	has_text: boolean;
+	/** Absent in a Catalogue frozen before #313, where every type honoured
+	 * whatever its value rules read. */
+	validations?: string[];
 }
 
 export interface Catalogue {
@@ -120,6 +123,13 @@ function typeBreaks(old: CatalogueType, now: CatalogueType): string[] {
 	}
 	if (old.has_text !== now.has_text) {
 		breaks.push(`has_text changed from ${old.has_text} to ${now.has_text}`);
+	}
+	// A validation taken away would refuse a stored Spec declaring it
+	// (inapplicable_validation); one added only accepts more.
+	for (const validation of old.validations ?? []) {
+		if (!(now.validations ?? []).includes(validation)) {
+			breaks.push(`validation "${validation}" was removed`);
+		}
 	}
 	return breaks;
 }

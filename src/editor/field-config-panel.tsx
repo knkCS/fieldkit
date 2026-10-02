@@ -10,6 +10,7 @@ import type { Field, Schema } from "../schema/types";
 import { isField } from "../schema/types";
 import { toPath } from "../schema/validate-settings";
 import type { SpecFieldError } from "../schema/validate-spec";
+import { offeredValidations } from "../schema/validations";
 import { pathWithin } from "./error-paths";
 import { ConfigSection } from "./panel-sections/config-section";
 import { SettingsSection } from "./panel-sections/settings-section";
@@ -442,6 +443,15 @@ export function FieldConfigPanel({
 			? plugin
 			: plugins?.find((p) => p.id === activeField.field_type);
 
+	// The Validation tab only where the type honours a validation, or the
+	// Field declares one it does not and the author must be able to clear it
+	// (#313). A date has none: its limits are type settings. Hidden while it
+	// was the active tab — the Field's type changed under it — General shows.
+	const showValidationTab =
+		offeredValidations(activeField, activePlugin).size > 0;
+	const visibleTab: PanelTab =
+		activeTab === "validation" && !showValidationTab ? "general" : activeTab;
+
 	// The active tab RESETS to General whenever the panel starts showing a
 	// DIFFERENT field (spec Decision 3): selecting another top-level field,
 	// drilling into a child, popping a frame with Back — and the broken-frame
@@ -807,16 +817,18 @@ export function FieldConfigPanel({
 					    ConfigSection's local accessor state and auto-slug latch on
 					    every tab switch, changing live-edit semantics. */}
 					<Tabs.Root
-						value={activeTab}
+						value={visibleTab}
 						onValueChange={(e) => setActiveTab(e.value as PanelTab)}
 					>
 						<Tabs.List>
 							<Tabs.Trigger value="general">
 								{labels.panelTabGeneral}
 							</Tabs.Trigger>
-							<Tabs.Trigger value="validation">
-								{labels.panelTabValidation}
-							</Tabs.Trigger>
+							{showValidationTab && (
+								<Tabs.Trigger value="validation">
+									{labels.panelTabValidation}
+								</Tabs.Trigger>
+							)}
 							<Tabs.Trigger value="type-settings">
 								{labels.panelTabType}
 							</Tabs.Trigger>
@@ -894,11 +906,13 @@ export function FieldConfigPanel({
 							</Box>
 						</Tabs.Content>
 
-						<Tabs.Content value="validation">
-							<Box pt="2">
-								<ValidationSection {...sectionProps} />
-							</Box>
-						</Tabs.Content>
+						{showValidationTab && (
+							<Tabs.Content value="validation">
+								<Box pt="2">
+									<ValidationSection {...sectionProps} />
+								</Box>
+							</Tabs.Content>
+						)}
 
 						<Tabs.Content value="type-settings">
 							<Box pt="2">

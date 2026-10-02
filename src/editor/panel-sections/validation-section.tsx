@@ -2,6 +2,7 @@
 import { Box, Flex, Input, Text } from "@chakra-ui/react";
 import type { ChangeEvent } from "react";
 import type { FieldValidation } from "../../schema/types";
+import { offeredValidations } from "../../schema/validations";
 import type { PanelSectionProps } from "../field-config-panel";
 
 /**
@@ -11,13 +12,20 @@ import type { PanelSectionProps } from "../field-config-panel";
  * original "Validation" heading. Numeric/string fields empty out to key
  * removal (ported from field-modal.tsx:179-185), and the whole `validation`
  * object collapses to `undefined` once every key is gone.
+ *
+ * Only the validations the Field's type honours are offered — its Catalogue
+ * facts' `validations` (#313) — plus any it declares that the type does not,
+ * so the author can clear what `validateSpec()` reports as
+ * `inapplicable_validation`. The panel hides the tab when that leaves none.
  */
 export function ValidationSection({
 	field,
+	plugin,
 	onFieldChange,
 	labels,
 }: PanelSectionProps) {
 	const validation = field.validation ?? {};
+	const offered = offeredValidations(field, plugin);
 
 	function commitValidation(next: FieldValidation) {
 		const hasKeys = Object.keys(next).length > 0;
@@ -58,70 +66,92 @@ export function ValidationSection({
 
 	return (
 		<Box>
-			<Flex gap="3" mb="3">
-				<Box as="label" display="block" flex="1">
+			{(offered.has("min_length") || offered.has("max_length")) && (
+				<Flex gap="3" mb="3">
+					{offered.has("min_length") && (
+						<Box as="label" display="block" flex="1">
+							<Text
+								as="span"
+								fontSize="xs"
+								fontWeight="medium"
+								color="fg.muted"
+							>
+								{labels.minLength}
+							</Text>
+							<Input
+								size="sm"
+								mt="1"
+								type="number"
+								value={validation.min_length ?? ""}
+								onChange={handleMinLength}
+								data-testid="panel-min-length-input"
+							/>
+						</Box>
+					)}
+					{offered.has("max_length") && (
+						<Box as="label" display="block" flex="1">
+							<Text
+								as="span"
+								fontSize="xs"
+								fontWeight="medium"
+								color="fg.muted"
+							>
+								{labels.maxLength}
+							</Text>
+							<Input
+								size="sm"
+								mt="1"
+								type="number"
+								value={validation.max_length ?? ""}
+								onChange={handleMaxLength}
+								data-testid="panel-max-length-input"
+							/>
+						</Box>
+					)}
+				</Flex>
+			)}
+
+			{offered.has("pattern") && (
+				<Box as="label" display="block" mb="3">
 					<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-						{labels.minLength}
+						{labels.pattern}
 					</Text>
 					<Input
 						size="sm"
 						mt="1"
-						type="number"
-						value={validation.min_length ?? ""}
-						onChange={handleMinLength}
-						data-testid="panel-min-length-input"
+						value={validation.pattern ?? ""}
+						onChange={handlePattern}
+						data-testid="panel-pattern-input"
 					/>
 				</Box>
-				<Box as="label" display="block" flex="1">
+			)}
+
+			{offered.has("pattern_message") && (
+				<Box as="label" display="block" mb="3">
 					<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-						{labels.maxLength}
+						{labels.patternMessage}
 					</Text>
 					<Input
 						size="sm"
 						mt="1"
-						type="number"
-						value={validation.max_length ?? ""}
-						onChange={handleMaxLength}
-						data-testid="panel-max-length-input"
+						value={validation.pattern_message ?? ""}
+						onChange={handlePatternMessage}
+						data-testid="panel-pattern-message-input"
 					/>
 				</Box>
-			</Flex>
+			)}
 
-			<Box as="label" display="block" mb="3">
-				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					{labels.pattern}
-				</Text>
-				<Input
-					size="sm"
-					mt="1"
-					value={validation.pattern ?? ""}
-					onChange={handlePattern}
-					data-testid="panel-pattern-input"
-				/>
-			</Box>
-
-			<Box as="label" display="block" mb="3">
-				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					{labels.patternMessage}
-				</Text>
-				<Input
-					size="sm"
-					mt="1"
-					value={validation.pattern_message ?? ""}
-					onChange={handlePatternMessage}
-					data-testid="panel-pattern-message-input"
-				/>
-			</Box>
-
-			<Box as="label" display="flex" alignItems="center" gap="2">
-				<input
-					type="checkbox"
-					checked={field.config.unique ?? false}
-					onChange={handleUnique}
-					data-testid="panel-unique-input"
-				/>
-				<Text fontSize="sm">{labels.unique}</Text>
-			</Box>
+			{offered.has("unique") && (
+				<Box as="label" display="flex" alignItems="center" gap="2">
+					<input
+						type="checkbox"
+						checked={field.config.unique ?? false}
+						onChange={handleUnique}
+						data-testid="panel-unique-input"
+					/>
+					<Text fontSize="sm">{labels.unique}</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }
