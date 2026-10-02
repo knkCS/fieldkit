@@ -40,6 +40,9 @@ export interface EditorToolbarProps {
 	onModeChange: (mode: "build" | "tryit") => void;
 	onDiscard: () => void;
 	onSave: () => void;
+	/** False when the host commits from its own page header (fieldkit#315):
+	 * the Save button is not drawn. Discard stays — it is this editor's. */
+	showSave?: boolean;
 }
 
 /**
@@ -63,6 +66,7 @@ export function EditorToolbar({
 	onModeChange,
 	onDiscard,
 	onSave,
+	showSave = true,
 }: EditorToolbarProps) {
 	const build = mode === "build";
 
@@ -143,15 +147,17 @@ export function EditorToolbar({
 				>
 					{labels.discard}
 				</Button>
-				<Button
-					variant="solid"
-					size="sm"
-					disabled={!dirty || !canPreview || saving}
-					loading={saving}
-					onClick={onSave}
-				>
-					{labels.save}
-				</Button>
+				{showSave && (
+					<Button
+						variant="solid"
+						size="sm"
+						disabled={!dirty || !canPreview || saving}
+						loading={saving}
+						onClick={onSave}
+					>
+						{labels.save}
+					</Button>
+				)}
 			</Flex>
 		</Flex>
 	);

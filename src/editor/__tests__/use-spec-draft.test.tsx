@@ -363,3 +363,113 @@ describe("useSpecDraft", () => {
 		expect(result.current.draft).toBe(edited);
 	});
 });
+
+// fieldkit#315: a host that saves from its own page header owns the commit.
+// It reads the draft through onDraftChange, the validation through
+// onValidationChange, and says "committed" by passing the saved content back
+// as the `schema` prop.
+describe("useSpecDraft — a host-owned commit", () => {
+	function hostHook(initial: Schema) {
+		const onDraftChange = vi.fn();
+		const onValidationChange = vi.fn();
+		const onDirtyChange = vi.fn();
+		const hook = renderHook(
+			({ schema }: { schema: Schema }) =>
+				useSpecDraft(schema, [textPlugin], undefined, onDirtyChange, {
+					onDraftChange,
+					onValidationChange,
+				}),
+			{ initialProps: { schema: initial } },
+		);
+		return { ...hook, onDraftChange, onValidationChange, onDirtyChange };
+	}
+
+	it("hands the host every draft change, canonical, and nothing on mount", () => {
+		const { result, onDraftChange } = hostHook([f("a")]);
+		expect(onDraftChange).not.toHaveBeenCalled();
+
+		const withSettings: Field = {
+			...f("b"),
+			settings: { placeholder: "", prepend: "€" },
+		};
+		act(() => result.current.apply([f("a"), withSettings]));
+
+		expect(onDraftChange).toHaveBeenCalledTimes(1);
+		expect(onDraftChange).toHaveBeenLastCalledWith(
+			canonicalSpecSettings([f("a"), withSettings]),
+		);
+
+		act(() => result.current.discard());
+		expect(onDraftChange).toHaveBeenCalledTimes(2);
+		expect(onDraftChange).toHaveBeenLastCalledWith(
+			canonicalSpecSettings([f("a")]),
+		);
+	});
+
+	it("reports the validation on mount and on every change", () => {
+		const { result, onValidationChange } = hostHook([f("a")]);
+		expect(onValidationChange).toHaveBeenLastCalledWith(
+			expect.objectContaining({ valid: true }),
+		);
+
+		act(() => result.current.apply([f("a"), f("a")]));
+		expect(onValidationChange).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				valid: false,
+				fieldErrors: expect.arrayContaining([
+					expect.objectContaining({ code: "duplicate_accessor" }),
+				]),
+			}),
+		);
+	});
+
+	it("the host passing the saved draft back as `schema` makes the draft clean, and keeps the draft as it is", () => {
+		const { result, rerender, onDraftChange, onDirtyChange } = hostHook([
+			f("a"),
+		]);
+		const edited = [f("a"), f("b")];
+		act(() => result.current.apply(edited));
+		expect(result.current.dirty).toBe(true);
+
+		// The host saves what it was handed (a canonical copy) and passes the
+		// stored content back — key order reshuffled, as a jsonb echo is.
+		const saved = reorderKeys(onDraftChange.mock.lastCall?.[0] as Schema);
+		rerender({ schema: saved });
+
+		expect(result.current.dirty).toBe(false);
+		expect(result.current.baselineConflict).toBe(false);
+		// The draft is the author's own, not the host's copy: controls still
+		// holding an Unset value keep it.
+		expect(result.current.draft).toBe(edited);
+		expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+	});
+
+	it("edits made while the host's save is in flight stay dirty, with no conflict, and Discard returns to what was saved", () => {
+		const { result, rerender, onDraftChange } = hostHook([f("a")]);
+		act(() => result.current.apply([f("a"), f("b")]));
+		const sent = onDraftChange.mock.lastCall?.[0] as Schema;
+
+		// The author keeps editing before the host's save resolves.
+		act(() => result.current.apply([f("a"), f("b"), f("c")]));
+		rerender({ schema: structuredClone(sent) });
+
+		expect(result.current.baselineConflict).toBe(false);
+		expect(result.current.dirty).toBe(true);
+		expect(result.current.draft).toHaveLength(3);
+
+		act(() => result.current.discard());
+		expect(result.current.draft.map((x) => x.config.api_accessor)).toEqual([
+			"a",
+			"b",
+		]);
+		expect(result.current.dirty).toBe(false);
+	});
+
+	it("a genuine background change while dirty is still a conflict", () => {
+		const { result, rerender } = hostHook([f("a")]);
+		act(() => result.current.apply([f("a"), f("b")]));
+		rerender({ schema: [f("z")] });
+		expect(result.current.baselineConflict).toBe(true);
+		expect(result.current.dirty).toBe(true);
+	});
+});

@@ -545,3 +545,61 @@ export const BuildWithCards: Story = {
 		/>
 	),
 };
+
+// fieldkit#315: the host owns Save — one button in its page header, the way
+// blueprinthub saves every changed tab of a Blueprint as one Revision.
+function HostSaveWrapper({ initialSchema }: { initialSchema: Schema }) {
+	const [committed, setCommitted] = useState<Schema>(initialSchema);
+	const [pending, setPending] = useState<Schema | null>(null);
+	const [valid, setValid] = useState(true);
+	const [dirty, setDirty] = useState(false);
+	const [saving, setSaving] = useState(false);
+
+	async function handleHeaderSave() {
+		if (pending == null) return;
+		setSaving(true);
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		// "Committed": the saved content goes back in as `schema`.
+		setCommitted(pending);
+		setSaving(false);
+	}
+
+	return (
+		<FieldKitProvider plugins={builtInFieldTypes}>
+			<div style={{ maxWidth: 960 }}>
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						marginBottom: 16,
+					}}
+				>
+					<strong>Blueprint — the host's page header</strong>
+					<button
+						type="button"
+						disabled={!dirty || !valid || saving}
+						onClick={handleHeaderSave}
+					>
+						{saving ? "Saving…" : "Save"}
+					</button>
+				</div>
+				<SpecEditor
+					schema={committed}
+					hideSave
+					onDraftChange={setPending}
+					onValidationChange={(v) => setValid(v.valid)}
+					onDirtyChange={setDirty}
+					plugins={builtInFieldTypes}
+				/>
+				<p style={{ marginTop: 16, fontSize: 13, color: "#666" }}>
+					Host state — dirty: {String(dirty)}, valid: {String(valid)}
+				</p>
+			</div>
+		</FieldKitProvider>
+	);
+}
+
+export const HostSave: Story = {
+	render: () => <HostSaveWrapper initialSchema={sectionedSpec} />,
+};
