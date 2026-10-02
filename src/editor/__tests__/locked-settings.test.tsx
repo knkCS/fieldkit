@@ -171,7 +171,8 @@ describe("a frozen setting in the config panel", () => {
 		});
 		expect(panelField().config.name).toBe("Sources");
 
-		fireEvent.click(screen.getByRole("tab", { name: "Validation" }));
+		// `required` is on General. A Reference has no Validation tab: its type
+		// honours no validation (#313).
 		fireEvent.click(screen.getByTestId("panel-required-input"));
 		expect(panelField().config.required).toBe(true);
 	});
