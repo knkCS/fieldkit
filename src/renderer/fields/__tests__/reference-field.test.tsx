@@ -580,10 +580,13 @@ describe("ReferenceField", () => {
 			const { adapter } = renderField();
 
 			const picker = await openPicker(user);
-			await user.selectOptions(
-				within(picker).getByLabelText(/Status/),
-				"published",
+			// The filter is a `select` Field: a BaseSelect, opened from the
+			// keyboard, its option picked by label (#314).
+			await user.type(
+				within(picker).getByRole("combobox", { name: /Status/ }),
+				"{ArrowDown}",
 			);
+			await user.click(await screen.findByText("Published"));
 
 			await waitFor(() =>
 				expect(adapter.searches.at(-1)?.filters).toEqual({
