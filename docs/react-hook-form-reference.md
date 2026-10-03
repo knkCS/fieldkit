@@ -12,7 +12,7 @@ Fieldkit **never calls `useForm()`** in any renderer or field component. The con
 // Consumer creates and owns the form
 const methods = useForm({
   resolver: zodResolver(specToZodSchema(spec.fields, plugins)),
-  defaultValues: getDefaultValues(spec.fields),
+  defaultValues: formDefaults(spec.fields, storedRecord, plugins),
   mode: "onBlur",
 });
 
@@ -271,6 +271,28 @@ left out entirely.
 The record is flat except where a container plugin nests one: a resolved
 `fieldset` composes its children's defaults under its own accessor, so
 `address` seeds `{ street: "", city: "" }` (ADR-0007).
+
+`getDefaultValues` stays the Spec's defaults only: it knows nothing of a stored
+value, and mints `_id`s into the rows of a `default_value` alone.
+
+### `formDefaults(schema, stored, plugins)`
+
+What a form editing a stored record is seeded with — the composition a
+Consumer would otherwise build by hand, and the one `EditDrawer` uses:
+
+- the stored value, with `getDefaultValues(schema, plugins)` filled in under
+  every key it has none for. A key the stored value holds wins, even when it
+  holds Unset, so a Field the user cleared stays cleared; keys the Spec does
+  not name (a record's id, its timestamps) are kept;
+- an `_id` minted into every row missing one, inside containers too
+  (ADR-0023).
+
+It is pure, zero-React (`@knkcs/fieldkit/schema`) and idempotent. Seed with it
+whenever the form can exist without `SpecForm` mounted — a form held above a
+router outlet, say: such a form is clean on load and passes a Save even if
+`SpecForm` never mounts. `SpecForm`'s own minting (`MintRowIds`) stays as the
+safety net for a form seeded any other way, but it only runs while `SpecForm`
+is mounted.
 
 ## Form Value Typing
 

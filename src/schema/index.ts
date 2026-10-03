@@ -91,6 +91,7 @@ export {
 	virtualTablePlugin,
 } from "./field-types";
 export type { SectionSettings } from "./field-types/section";
+export { formDefaults } from "./form-defaults";
 // Locked settings (ADR-0011) — reading the list a Consumer freezes settings
 // with, and honouring it on a write
 export { findLockedSetting, restoreLockedSettings } from "./locked-settings";
