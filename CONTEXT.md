@@ -186,7 +186,7 @@ The application integrating fieldkit — it owns the Spec, persists it, and owns
 _Avoid_: host, client app, embedder
 
 **Draft**:
-The in-progress copy of a Spec inside an editor session, not yet saved.
+The in-progress copy of a Spec inside an editor session, not yet saved. The renderer keeps none: a Content's unsaved values live in the Consumer's form, which fieldkit never owns.
 
 **Baseline**:
 The last saved Spec that the Draft is measured against; any difference makes the draft dirty.
