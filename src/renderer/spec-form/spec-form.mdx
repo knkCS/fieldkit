@@ -19,6 +19,11 @@ It is the entry point consumers should reach for when rendering a
 specification end to end — including specs with no sections at all, where it
 behaves identically to `FieldRenderer`.
 
+`SpecForm` never owns the form: it reads the Consumer's through
+`useFormContext()`. A Consumer whose Save lives in the page header while
+`SpecForm` sits in a tab that unmounts follows
+[A Consumer-owned Save across unmounting tabs](#a-consumer-owned-save-across-unmounting-tabs).
+
 ## Props
 
 | Prop       | Type                       | Default  | Description                                                        |
@@ -130,6 +135,110 @@ does the validating:
 
 Submit-jump-to-first-error depends on it: the tab can only be switched once
 the submit reaches React Hook Form. `EditDrawer` sets it for you.
+
+## A Consumer-owned Save across unmounting tabs
+
+The recipe for a Consumer that saves from its page header while `SpecForm`
+sits in a tab that unmounts — anker's nav-link tabs mount only the active tab
+(anker ADR 0004), so leaving the Content tab unmounts `SpecForm` and coming
+back mounts a fresh one. `SpecForm` keeps no Draft of its own: a Content's
+unsaved values live in the Consumer's form, which fieldkit never owns. Done
+this way, the values, the dirty state, the errors and the open section all
+survive the trip.
+
+```tsx
+// Above the router outlet, so it outlives every tab.
+const methods = useForm({
+  resolver: zodResolver(specToZodSchema(schema, plugins)),
+  defaultValues: formDefaults(schema, {}, plugins),
+});
+
+// The fetched Content arrives.
+useEffect(() => {
+  if (content) methods.reset(formDefaults(schema, content.values, plugins));
+}, [content]);
+
+// The Content tab's dirty mark (anker's TabDirtyProvider).
+const { isDirty } = methods.formState;
+useEffect(() => setTabDirty("content", isDirty), [isDirty]);
+
+// The header's Save.
+async function save() {
+  const { getValues, handleSubmit, reset } = methods;
+  const snapshot = structuredClone(getValues());
+  await handleSubmit(
+    async (values) => {
+      await persist(values);
+      reset(snapshot, { keepValues: true, keepSubmitCount: true });
+      reset(getValues(), { keepDefaultValues: true, keepSubmitCount: true });
+    },
+    () => navigate("content"),
+  )();
+}
+```
+
+- **Hold the form above the router outlet**, and keep React Hook Form's
+  default `shouldUnregister: false`: a Field unregistered on unmount takes
+  its value with it.
+- **Seed it with `formDefaults(...)`**, and `reset(formDefaults(...))` when
+  the fetched Content arrives. A form that exists without `SpecForm` mounted
+  is then clean on load and passes a Save, row `_id`s included, though
+  `SpecForm` never mounted — see
+  [`formDefaults` in the React Hook Form reference](https://github.com/knkCS/fieldkit/blob/main/docs/react-hook-form-reference.md#formdefaultsschema-stored-plugins).
+- **Publish `isDirty` through anker's `setTabDirty`.** The form is the one
+  source; the tab mark follows it, mounted or not.
+- **The Consumer owns the resolver**: `zodResolver(specToZodSchema(schema,
+  plugins))`. `SpecForm` validates nothing by itself; with it unmounted,
+  the resolver is the only validation there is.
+- **Validate with `handleSubmit(onValid, onInvalid)`, not a bare
+  `trigger()`.** Only a submit drives the jump to the first error: `SpecForm`
+  reacts to React Hook Form's `submitCount`, which `trigger()` leaves alone.
+  On invalid, navigate to the Content tab; the `SpecForm` mounting there
+  opens the section holding the first error and focuses it.
+- **The jump fires once per failed save, and the section is remembered.**
+  `SpecForm` records, per form, which failed save it has jumped for and
+  which section was open. A failed save made while it was unmounted jumps
+  on the next mount; leaving and returning after that reopens the section
+  the author left, not the error's.
+- **After a successful save, re-baseline on a snapshot taken when Save
+  starts**: `snapshot = getValues()` before `handleSubmit`, then
+  `reset(snapshot, { keepValues: true })`. The baseline is what was sent, so
+  an edit made while the save was in flight stays dirty. The parsed values
+  `onValid` receives are no baseline: they are canonical, a cleared Field
+  absent from them (ADR-0021), and the form would stay dirty against them.
+  Three details make it hold:
+  - `structuredClone` the snapshot: `getValues()` copies only the top level,
+    and an edit inside a row would write through to it.
+  - Follow with `reset(getValues(), { keepDefaultValues: true })`. React Hook
+    Form's `keepValues` reset empties `dirtyFields` and does not recompute
+    the form's internal `isDirty`, so an in-flight edit loses its tab dot
+    and undoing it leaves the form dirty. The second reset keeps the values
+    and the new baseline and recomputes both.
+  - Pass `keepSubmitCount: true` to both. `SpecForm` tells a new failed
+    save from one it has jumped for by `submitCount`, and a reset rewinds
+    it to 0 — with `SpecForm` unmounted, unnoticed (the first limitation
+    below), so the next failed save could look already handled.
+- **Your `<form>` must carry `noValidate`** — see
+  [above](#your-form-must-carry-novalidate). A header Save calling
+  `handleSubmit` directly bypasses the browser, but any submit button inside
+  the form does not.
+
+### Known limitations
+
+- A `reset()` made while `SpecForm` is unmounted rewinds `submitCount`, and
+  `SpecForm` only notices on its next mount when the new count is below the
+  one it remembers. A reset followed by as many failed saves as it had
+  already handled may therefore not jump. The recipe's own resets keep the
+  count, so this only bites a Consumer's other resets.
+- Two `SpecForm`s on one form share one record of handled saves: only the
+  first to see a failed save jumps for it.
+- The remembered section is per form. A Consumer that reuses one form
+  across records through `reset()`, as `EditDrawer` does, reopens on the
+  previous record's section when it exists in the next.
+- Re-seeding with `formDefaults` from a canonical stored record brings back
+  a Field's default where the stored value is Unset (absent, ADR-0021):
+  re-fetching after a save can turn a cleared Field with a default back to
+  that default.
 
 ## Search
 

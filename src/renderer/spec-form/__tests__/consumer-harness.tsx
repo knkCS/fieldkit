@@ -3,7 +3,10 @@ import { Provider } from "@knkcs/anker/primitives";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import type { z } from "zod";
+import { builtInFieldTypes } from "../../../schema/field-types";
+import { formDefaults } from "../../../schema/form-defaults";
 import type { Schema } from "../../../schema/types";
+import { specToZodSchema } from "../../../schema/zod-builder";
 import { FieldKitProvider } from "../../provider";
 import { SpecForm } from "../spec-form";
 import { testPlugins } from "./helpers";
@@ -75,3 +78,95 @@ export function ConsumerHarnessApp(props: ConsumerHarnessProps) {
 	);
 }
 ConsumerHarnessApp.displayName = "ConsumerHarnessApp";
+
+export interface SavingConsumerProps {
+	schema: Schema;
+	/** The stored record the form is seeded with, through formDefaults. */
+	stored: Record<string, unknown>;
+	/** The Consumer's persistence; the harness awaits it. */
+	onSave: (values: Record<string, unknown>) => Promise<void>;
+	/** A failed save, where a Consumer navigates to its Content tab. */
+	onInvalid?: () => void;
+	/** A value the Consumer sets itself, from a "Set <accessor>" button —
+	 * how a test changes the form while SpecForm is unmounted. */
+	consumerSet?: { accessor: string; value: unknown };
+}
+
+/**
+ * spec-form.mdx's "A Consumer-owned Save across unmounting tabs", as
+ * written there: the form held above the toggle (standing in for the
+ * router outlet), seeded through formDefaults, the Consumer's own resolver,
+ * a Save outside the toggle that validates through handleSubmit and, on
+ * success, re-baselines on the snapshot taken when Save started. `isDirty`
+ * is rendered where a Consumer would hand it to anker's setTabDirty.
+ *
+ * Buttons: "Save", "Toggle", and "Set <accessor>" with `consumerSet`.
+ * The dirty state: `data-testid="dirty"`.
+ */
+export function SavingConsumer({
+	schema,
+	stored,
+	onSave,
+	onInvalid,
+	consumerSet,
+}: SavingConsumerProps) {
+	const methods = useForm({
+		resolver: zodResolver(specToZodSchema(schema, builtInFieldTypes)),
+		defaultValues: formDefaults(schema, stored, builtInFieldTypes),
+	});
+	const { isDirty } = methods.formState;
+	const [mounted, setMounted] = useState(true);
+
+	const save = () => {
+		const { getValues, handleSubmit, reset } = methods;
+		// Taken when Save starts: the baseline is what was sent.
+		const snapshot = structuredClone(getValues());
+		return handleSubmit(
+			async (values) => {
+				await onSave(values);
+				// The baseline becomes the snapshot; then the dirty state is
+				// recomputed against it, which keepValues alone leaves empty.
+				// keepSubmitCount: SpecForm counts failed saves by it, and
+				// cannot notice a rewind made while it is unmounted.
+				reset(snapshot, { keepValues: true, keepSubmitCount: true });
+				reset(getValues(), {
+					keepDefaultValues: true,
+					keepSubmitCount: true,
+				});
+			},
+			() => onInvalid?.(),
+		)();
+	};
+
+	return (
+		<Provider>
+			<FormProvider {...methods}>
+				<FieldKitProvider plugins={builtInFieldTypes}>
+					<form noValidate onSubmit={(e) => e.preventDefault()}>
+						{mounted && <SpecForm schema={schema} />}
+					</form>
+					<button type="button" onClick={save}>
+						Save
+					</button>
+					<button type="button" onClick={() => setMounted((m) => !m)}>
+						Toggle
+					</button>
+					{consumerSet && (
+						<button
+							type="button"
+							onClick={() =>
+								methods.setValue(consumerSet.accessor, consumerSet.value, {
+									shouldDirty: true,
+								})
+							}
+						>
+							Set {consumerSet.accessor}
+						</button>
+					)}
+					<output data-testid="dirty">{String(isDirty)}</output>
+				</FieldKitProvider>
+			</FormProvider>
+		</Provider>
+	);
+}
+SavingConsumer.displayName = "SavingConsumer";
