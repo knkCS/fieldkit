@@ -87,6 +87,9 @@ export interface SavingConsumerProps {
 	onSave: (values: Record<string, unknown>) => Promise<void>;
 	/** A failed save, where a Consumer navigates to its Content tab. */
 	onInvalid?: () => void;
+	/** A value the Consumer sets itself, from a "Set <accessor>" button —
+	 * how a test changes the form while SpecForm is unmounted. */
+	consumerSet?: { accessor: string; value: unknown };
 }
 
 /**
@@ -97,13 +100,15 @@ export interface SavingConsumerProps {
  * success, re-baselines on the snapshot taken when Save started. `isDirty`
  * is rendered where a Consumer would hand it to anker's setTabDirty.
  *
- * Buttons: "Save", "Toggle". The dirty state: `data-testid="dirty"`.
+ * Buttons: "Save", "Toggle", and "Set <accessor>" with `consumerSet`.
+ * The dirty state: `data-testid="dirty"`.
  */
 export function SavingConsumer({
 	schema,
 	stored,
 	onSave,
 	onInvalid,
+	consumerSet,
 }: SavingConsumerProps) {
 	const methods = useForm({
 		resolver: zodResolver(specToZodSchema(schema, builtInFieldTypes)),
@@ -121,8 +126,13 @@ export function SavingConsumer({
 				await onSave(values);
 				// The baseline becomes the snapshot; then the dirty state is
 				// recomputed against it, which keepValues alone leaves empty.
-				reset(snapshot, { keepValues: true });
-				reset(getValues(), { keepDefaultValues: true });
+				// keepSubmitCount: SpecForm counts failed saves by it, and
+				// cannot notice a rewind made while it is unmounted.
+				reset(snapshot, { keepValues: true, keepSubmitCount: true });
+				reset(getValues(), {
+					keepDefaultValues: true,
+					keepSubmitCount: true,
+				});
 			},
 			() => onInvalid?.(),
 		)();
@@ -141,6 +151,18 @@ export function SavingConsumer({
 					<button type="button" onClick={() => setMounted((m) => !m)}>
 						Toggle
 					</button>
+					{consumerSet && (
+						<button
+							type="button"
+							onClick={() =>
+								methods.setValue(consumerSet.accessor, consumerSet.value, {
+									shouldDirty: true,
+								})
+							}
+						>
+							Set {consumerSet.accessor}
+						</button>
+					)}
 					<output data-testid="dirty">{String(isDirty)}</output>
 				</FieldKitProvider>
 			</FormProvider>

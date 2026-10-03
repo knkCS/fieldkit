@@ -131,6 +131,53 @@ describe("a Consumer-owned Save, re-baselined on the snapshot", () => {
 		expect(tabDot(1)).not.toBeInTheDocument();
 	});
 
+	it("still jumps for a failed save after a successful one, both made unmounted", async () => {
+		// The recipe's resets keep submitCount: SpecForm counts the failed
+		// saves it has jumped for by it, and a rewind made while it is
+		// unmounted could make a new failed save look already handled.
+		const strict: Field[] = [
+			field("text", "title", "Title"),
+			field("section", "details", "Details"),
+			{
+				...field("text", "subtitle", "Subtitle"),
+				validation: { max_length: 4 },
+			},
+		];
+		render(
+			<SavingConsumer
+				schema={strict}
+				stored={{ title: "Book", subtitle: "Ok" }}
+				onSave={async () => {}}
+				consumerSet={{ accessor: "subtitle", value: "Too long" }}
+			/>,
+		);
+		const details = () =>
+			screen
+				.getByRole("tab", { name: /Details/ })
+				.getAttribute("aria-selected");
+
+		// Two failed saves, both jumped for.
+		await type("Subtitle", "Too long");
+		await click("Save");
+		await click("Save");
+		expect(details()).toBe("true");
+
+		// Fixed, the author leaves for another tab and saves from there…
+		await type("Subtitle", "Ok");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("tab", { name: "General" }));
+		});
+		await click("Toggle");
+		await click("Save");
+		expect(dirty()).toBe("false");
+
+		// …and a new failed save, still from there, jumps on return.
+		await click("Set subtitle");
+		await click("Save");
+		await click("Toggle");
+		expect(details()).toBe("true");
+	});
+
 	it("calls onInvalid, not the save, when validation fails", async () => {
 		// The jump to the errored section is SpecForm's (spec-form-remount
 		// tests); the Consumer's half is to show its Content tab.

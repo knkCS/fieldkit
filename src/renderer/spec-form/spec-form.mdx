@@ -169,8 +169,8 @@ async function save() {
   await handleSubmit(
     async (values) => {
       await persist(values);
-      reset(snapshot, { keepValues: true });
-      reset(getValues(), { keepDefaultValues: true });
+      reset(snapshot, { keepValues: true, keepSubmitCount: true });
+      reset(getValues(), { keepDefaultValues: true, keepSubmitCount: true });
     },
     () => navigate("content"),
   )();
@@ -206,7 +206,7 @@ async function save() {
   an edit made while the save was in flight stays dirty. The parsed values
   `onValid` receives are no baseline: they are canonical, a cleared Field
   absent from them (ADR-0021), and the form would stay dirty against them.
-  Two details make it hold:
+  Three details make it hold:
   - `structuredClone` the snapshot: `getValues()` copies only the top level,
     and an edit inside a row would write through to it.
   - Follow with `reset(getValues(), { keepDefaultValues: true })`. React Hook
@@ -214,6 +214,10 @@ async function save() {
     the form's internal `isDirty`, so an in-flight edit loses its tab dot
     and undoing it leaves the form dirty. The second reset keeps the values
     and the new baseline and recomputes both.
+  - Pass `keepSubmitCount: true` to both. `SpecForm` tells a new failed
+    save from one it has jumped for by `submitCount`, and a reset rewinds
+    it to 0 — with `SpecForm` unmounted, unnoticed (the first limitation
+    below), so the next failed save could look already handled.
 - **Your `<form>` must carry `noValidate`** — see
   [above](#your-form-must-carry-novalidate). A header Save calling
   `handleSubmit` directly bypasses the browser, but any submit button inside
@@ -224,7 +228,8 @@ async function save() {
 - A `reset()` made while `SpecForm` is unmounted rewinds `submitCount`, and
   `SpecForm` only notices on its next mount when the new count is below the
   one it remembers. A reset followed by as many failed saves as it had
-  already handled may therefore not jump.
+  already handled may therefore not jump. The recipe's own resets keep the
+  count, so this only bites a Consumer's other resets.
 - Two `SpecForm`s on one form share one record of handled saves: only the
   first to see a failed save jumps for it.
 - The remembered section is per form. A Consumer that reuses one form
