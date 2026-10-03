@@ -100,6 +100,9 @@ describe("SpecForm — remounted against a Consumer-owned form", () => {
 		await click(screen.getByText("Save"));
 		expect(seoSelected()).toBe("true");
 
+		// The author moves on; the remembered section is now General (#334),
+		// so a re-jump would be the only way back to SEO.
+		await click(screen.getByRole("tab", { name: "General" }));
 		await click(screen.getByText("Toggle"));
 		await click(screen.getByText("Toggle"));
 		expect(seoSelected()).toBe("false");
@@ -116,6 +119,7 @@ describe("SpecForm — remounted against a Consumer-owned form", () => {
 
 		await click(screen.getByText("Save"));
 		expect(seoSelected()).toBe("true");
+		await click(screen.getByRole("tab", { name: "General" }));
 		await click(screen.getByText("Toggle"));
 		await click(screen.getByText("Toggle"));
 		expect(seoSelected()).toBe("false");
@@ -184,8 +188,175 @@ describe("SpecForm — remounted against a Consumer-owned form", () => {
 		expect(seoSelected(b)).toBe("true");
 
 		// And B having handled save 1 does not stop nor start A's jump.
+		await click(within(a).getByRole("tab", { name: "General" }));
 		await click(within(a).getByText("A Toggle"));
 		await click(within(a).getByText("A Toggle"));
 		expect(seoSelected(a)).toBe("false");
+	});
+});
+
+// The open section, remembered per form by its Accessor (#334): leaving the
+// Content tab and coming back reopens the section the author was in.
+describe("SpecForm — the active section across a remount", () => {
+	const sectioned = [
+		makeField("title", "Title"),
+		makeSection("seo", "SEO"),
+		makeField("meta", "Meta description"),
+		makeSection("media", "Media"),
+		makeField("image", "Image"),
+	];
+	const reordered = [
+		makeField("title", "Title"),
+		makeSection("media", "Media"),
+		makeField("image", "Image"),
+		makeSection("seo", "SEO"),
+		makeField("meta", "Meta description"),
+	];
+	const seoRemoved = [
+		makeField("title", "Title"),
+		makeSection("media", "Media"),
+		makeField("image", "Image"),
+	];
+	const lenient = z.object({
+		title: z.string(),
+		meta: z.string(),
+		image: z.string(),
+	});
+	const values = { title: "ok", meta: "", image: "" };
+
+	function selected(name: string, root: HTMLElement = document.body) {
+		return within(root)
+			.getByRole("tab", { name: new RegExp(name) })
+			.getAttribute("aria-selected");
+	}
+
+	it("reopens the section the author was in", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Toggle"));
+
+		expect(selected("Media")).toBe("true");
+	});
+
+	it("reopens the implicit leading tab when the author left from it", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByRole("tab", { name: "General" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Toggle"));
+
+		expect(selected("General")).toBe("true");
+	});
+
+	it("follows the section's Accessor when the sections are reordered", async () => {
+		const { rerender } = render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "SEO" }));
+		await click(screen.getByText("Toggle"));
+		rerender(
+			<ConsumerHarnessApp
+				schema={reordered}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+		await click(screen.getByText("Toggle"));
+
+		expect(screen.getAllByRole("tab")[2]).toHaveTextContent("SEO");
+		expect(selected("SEO")).toBe("true");
+	});
+
+	it("falls back to the first tab when that section was removed", async () => {
+		const { rerender } = render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "SEO" }));
+		await click(screen.getByText("Toggle"));
+		rerender(
+			<ConsumerHarnessApp
+				schema={seoRemoved}
+				zodSchema={lenient}
+				defaultValues={values}
+			/>,
+		);
+		await click(screen.getByText("Toggle"));
+
+		expect(screen.queryByRole("tab", { name: "SEO" })).not.toBeInTheDocument();
+		expect(selected("General")).toBe("true");
+	});
+
+	it("lets a pending error jump win over the remembered section", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient.extend({ meta: z.string().min(1) })}
+				defaultValues={values}
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Save"));
+		await click(screen.getByText("Toggle"));
+
+		expect(selected("SEO")).toBe("true");
+		expect(selected("Media")).toBe("false");
+	});
+
+	it("keeps two forms' sections apart", async () => {
+		render(
+			<>
+				<ConsumerHarnessApp
+					name="A"
+					schema={sectioned}
+					zodSchema={lenient}
+					defaultValues={values}
+				/>
+				<ConsumerHarnessApp
+					name="B"
+					schema={sectioned}
+					zodSchema={lenient}
+					defaultValues={values}
+				/>
+			</>,
+		);
+		const a = screen.getByRole("region", { name: "A" });
+		const b = screen.getByRole("region", { name: "B" });
+
+		await click(within(a).getByRole("tab", { name: "Media" }));
+		await click(within(b).getByRole("tab", { name: "SEO" }));
+		await click(within(a).getByText("A Toggle"));
+		await click(within(b).getByText("B Toggle"));
+		await click(within(a).getByText("A Toggle"));
+		await click(within(b).getByText("B Toggle"));
+
+		expect(selected("Media", a)).toBe("true");
+		expect(selected("SEO", b)).toBe("true");
 	});
 });

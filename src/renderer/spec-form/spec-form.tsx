@@ -24,6 +24,13 @@ function tabKey(tab: SpecTab, index: number): string {
 	return tab.section?.config.api_accessor ?? `implicit-${index}`;
 }
 
+// The key a tab is remembered by across remounts (FormMemory.activeSection):
+// its section's Accessor, or "" for the implicit leading tab, which only
+// ever stands first.
+function sectionKey(tab: SpecTab): string {
+	return tab.section?.config.api_accessor ?? "";
+}
+
 const FOCUSABLE_SELECTOR =
 	"input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]";
 
@@ -128,6 +135,11 @@ interface SpecFormTabsProps {
 }
 
 function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
+	const { setFocus, control } = useFormContext();
+	// The open section is remembered per form (#334): a Consumer may unmount
+	// SpecForm and keep its form, and the author returning expects the
+	// section they left. Restored by Accessor; a section since removed falls
+	// back to the first tab. A pending error jump, run on mount below, wins.
 	const {
 		activeTab,
 		setActiveTab,
@@ -135,10 +147,20 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		containerRef,
 		rootRef,
 		searchIndex,
-	} = useTabShell(partition, labels.defaultTab);
+	} = useTabShell(partition, labels.defaultTab, () => {
+		const remembered = formMemory(control).activeSection;
+		const index = partition.tabs.findIndex(
+			(tab) => sectionKey(tab) === remembered,
+		);
+		return `tab-${Math.max(index, 0)}`;
+	});
 	const indicators = useTabIndicators(partition.tabs);
-	const { setFocus, control } = useFormContext();
 	const { submitCount, errors } = useFormState();
+
+	useEffect(() => {
+		const tab = partition.tabs[Number(activeTab.slice("tab-".length))];
+		if (tab) formMemory(control).activeSection = sectionKey(tab);
+	}, [activeTab, partition, control]);
 
 	// Target accessor for an in-flight jump, consumed by the effect below.
 	// A ref (rather than state) because writing it must not itself trigger
