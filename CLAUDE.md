@@ -54,6 +54,7 @@ src/
 │   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)
 │   ├── documents.ts     # valueDocuments() — the rich-text documents a value holds (plugins marked `opaqueDocument`), where Unset and the depth cap stop (ADR-0025); Go's documents.go
 │   ├── zod-builder.ts   # specToZodSchema() — its parsed output is canonical, Unset keys stripped — and getDefaultValues()
+│   ├── form-defaults.ts # formDefaults() — a form's seed: the stored value over getDefaultValues(), missing row `_id`s minted; EditDrawer seeds through it, as a Consumer whose form outlives SpecForm should
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — _id, id, pin, values, children (ADR-0008, amended) — its settings (`blueprints` entries, `spec`, `pin_mode`), referenceSpecFor() (the one Reference Spec per target: embedded, or replaced by a linked one), normalizeReference() (legacy values on load), referenceTreeSchema and withPin
 │   ├── reference-plugin.ts # What `reference`, `single_reference` and every createReferencePlugin type share: the settings schema, heldSpecs and settingsRules, the tree Zod array (tree-wide `_id`s, caps), mintIds, edges and records

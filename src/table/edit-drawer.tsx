@@ -6,14 +6,10 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldKitProvider } from "../renderer/provider";
 import { SpecForm } from "../renderer/spec-form/spec-form";
+import { formDefaults } from "../schema/form-defaults";
 import type { FieldTypePlugin } from "../schema/plugin";
-import { mintMissingIds } from "../schema/row-ids";
 import type { Schema } from "../schema/types";
-import {
-	fieldProducesValue,
-	getDefaultValues,
-	specToZodSchema,
-} from "../schema/zod-builder";
+import { fieldProducesValue, specToZodSchema } from "../schema/zod-builder";
 
 export interface EditDrawerProps {
 	schema: Schema;
@@ -42,14 +38,10 @@ export function EditDrawer({
 	// A row stored before rows carried `_id`s gets them here, in the defaults,
 	// so the drawer opens clean and the save stores them (ADR-0023) — the same
 	// normalisation SpecForm applies to a form it is handed.
-	const defaults = useMemo(() => {
-		const specDefaults = getDefaultValues(schema, plugins);
-		return mintMissingIds(
-			schema,
-			{ ...specDefaults, ...initialValues },
-			plugins,
-		);
-	}, [schema, plugins, initialValues]);
+	const defaults = useMemo(
+		() => formDefaults(schema, initialValues, plugins),
+		[schema, plugins, initialValues],
+	);
 
 	const methods = useForm({
 		resolver: zodResolver(zodSchema),
