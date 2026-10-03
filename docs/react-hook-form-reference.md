@@ -282,7 +282,8 @@ Consumer would otherwise build by hand, and the one `EditDrawer` uses:
 
 - the stored value, with `getDefaultValues(schema, plugins)` filled in under
   every key it has none for. A key the stored value holds wins, even when it
-  holds Unset, so a Field the user cleared stays cleared; keys the Spec does
+  holds Unset; but canonical stored data holds no key for an Unset Field
+  (ADR-0021), so such a Field is seeded with its default. Keys the Spec does
   not name (a record's id, its timestamps) are kept;
 - an `_id` minted into every row missing one, inside containers too
   (ADR-0023).

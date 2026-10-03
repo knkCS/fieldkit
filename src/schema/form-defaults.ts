@@ -11,9 +11,11 @@ import { getDefaultValues } from "./zod-builder";
  * key it has none for, and an `_id` minted into every row missing one
  * (ADR-0023), inside containers too.
  *
- * A key the stored value holds wins, even when it holds Unset — a Field the
- * user cleared stays cleared rather than falling back to its default. Keys
- * the Spec does not name (a record's id, its timestamps) are kept.
+ * A key the stored value holds wins, even when it holds Unset. A key it does
+ * not hold gets the default — and canonical stored data holds no key for an
+ * Unset Field (ADR-0021), so such a Field is seeded with its default, as a new
+ * record would be. Keys the Spec does not name (a record's id, its
+ * timestamps) are kept.
  *
  * For a Consumer that seeds `useForm({ defaultValues })` itself, before
  * SpecForm mounts — a form held above a router outlet, say: seeded through
