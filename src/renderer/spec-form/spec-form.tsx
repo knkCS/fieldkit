@@ -12,6 +12,7 @@ import type { Schema } from "../../schema/types";
 import { formatCount, mergeLabels } from "../merge-labels";
 import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
+import { formMemory } from "./form-memory";
 import { MintRowIds } from "./mint-row-ids";
 import type { FieldSearchResult } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
@@ -136,9 +137,8 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		searchIndex,
 	} = useTabShell(partition, labels.defaultTab);
 	const indicators = useTabIndicators(partition.tabs);
-	const { setFocus } = useFormContext();
+	const { setFocus, control } = useFormContext();
 	const { submitCount, errors } = useFormState();
-	const lastHandledSubmit = useRef(0);
 
 	// Target accessor for an in-flight jump, consumed by the effect below.
 	// A ref (rather than state) because writing it must not itself trigger
@@ -187,16 +187,23 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// and focus it. `useTabIndicators` (Task 8) also subscribes to
 	// `useFormState` for the same render — RHF supports multiple
 	// subscriptions to the same form, so both hooks stay independent.
+	//
+	// The handled count is remembered per form, not per mount (#333): a
+	// Consumer may unmount SpecForm and keep its form, and a ref starting at
+	// 0 on each mount re-jumped to the first error on every return. A save
+	// made while unmounted is still unhandled on the next mount, so it jumps
+	// once there.
 	useEffect(() => {
+		const memory = formMemory(control);
 		// RHF's reset() (e.g. EditDrawer resetting on a new row's defaults)
-		// restarts submitCount at 0 without resetting this ref, so a
+		// restarts submitCount at 0 without touching the memory, so a
 		// post-reset submitCount can collide with a pre-reset value already
-		// recorded here. Detect the rewind and re-baseline before the
+		// recorded there. Detect the rewind and re-baseline before the
 		// early-return check below, or a post-reset failing submit whose
 		// count collides with the old one would be silently skipped.
-		if (submitCount < lastHandledSubmit.current) lastHandledSubmit.current = 0;
-		if (submitCount === 0 || submitCount === lastHandledSubmit.current) return;
-		lastHandledSubmit.current = submitCount;
+		if (submitCount < memory.handledSubmit) memory.handledSubmit = 0;
+		if (submitCount === 0 || submitCount === memory.handledSubmit) return;
+		memory.handledSubmit = submitCount;
 
 		for (let i = 0; i < partition.tabs.length; i++) {
 			const errored = partition.tabs[i].fields.find(
@@ -207,7 +214,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 				return;
 			}
 		}
-	}, [submitCount, errors, partition, jumpTo]);
+	}, [submitCount, errors, partition, jumpTo, control]);
 
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch
