@@ -20,8 +20,13 @@ import { useContainerOrientation } from "./use-container-orientation";
  * duplicating it per mode) is what lets both modes share it without
  * breaking that rule. The two copies drifted once before this existed.
  */
-export function useTabShell(partition: SpecPartition, defaultTabLabel: string) {
-	const [activeTab, setActiveTab] = useState("tab-0");
+export function useTabShell(
+	partition: SpecPartition,
+	defaultTabLabel: string,
+	/** The tab to open on mount; the first tab when omitted. Read once. */
+	initialTab?: () => string,
+) {
+	const [activeTab, setActiveTab] = useState(initialTab ?? "tab-0");
 	const { orientation, containerRef } = useContainerOrientation(
 		partition.orientation,
 	);
@@ -31,9 +36,12 @@ export function useTabShell(partition: SpecPartition, defaultTabLabel: string) {
 		[partition, defaultTabLabel],
 	);
 
-	// Reset to the first tab when the partition identity changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: partition is a reset trigger, not read in the effect body
+	// Reset to the first tab when the partition identity changes — but not
+	// on mount, where `initialTab` decided (#334).
+	const mountedPartition = useRef(partition);
 	useEffect(() => {
+		if (mountedPartition.current === partition) return;
+		mountedPartition.current = partition;
 		setActiveTab("tab-0");
 	}, [partition]);
 

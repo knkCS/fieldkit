@@ -12,6 +12,13 @@ import type { Control, FieldValues } from "react-hook-form";
 export interface FormMemory {
 	/** The highest `submitCount` whose error jump has been handled. */
 	handledSubmit: number;
+	/**
+	 * The open section's key (#334): its Accessor, or "" for the implicit
+	 * sectionless leading tab — never an Accessor, so the two cannot
+	 * collide. Absent until the form first shows a tab. Kept by Accessor,
+	 * not index, so a reordered Spec reopens the same section.
+	 */
+	activeSection?: string;
 }
 
 // Keyed by `control`: React Hook Form creates it once per `useForm()` and
