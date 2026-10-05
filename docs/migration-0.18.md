@@ -195,6 +195,14 @@ German letters (`Straßenname` → `strassenname`, where it was `straenname`),
 strips other accents, cuts at 64 characters and derives nothing for a name
 starting with a digit. Only Accessors derived from now on change: a stored
 one is never re-derived.
+`formDefaults` from `/schema` (#332): a form's seed — the stored value over
+the spec defaults, missing row `_id`s minted — so a form that outlives
+`SpecForm` is clean and valid without it mounted; `EditDrawer` seeds through
+it. `SpecForm`'s `recordKey` prop (#339). `SpecForm` now remembers, per form
+and record, the open section and the failed save it has jumped for, so a
+Consumer that unmounts it and keeps its form (a Save in the page header,
+anker ADR 0004) gets both back on a remount (#333, #334); see "A
+Consumer-owned Save across unmounting tabs" in `spec-form.mdx`.
 
 ### `@knkcs/fieldkit/rich-text` (#278)
 
