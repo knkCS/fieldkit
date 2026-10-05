@@ -7,7 +7,7 @@ import type { Control, FieldValues } from "react-hook-form";
 // that starts afresh on every mount.
 //
 // Internal, never exported from the package: it is SpecForm's memory, not
-// the Consumer's API. One entry per form; a new kind of memory is a new
+// the Consumer's API. One entry per form and record; a new kind of memory is a new
 // field on FormMemory.
 export interface FormMemory {
 	/** The highest `submitCount` whose error jump has been handled. */
@@ -21,20 +21,34 @@ export interface FormMemory {
 	activeSection?: string;
 }
 
+/** The record a Consumer says is open (SpecForm's `recordKey`, #339). */
+export type RecordKey = string | number;
+
 // Keyed by `control`: React Hook Form creates it once per `useForm()` and
 // keeps it for the form's life, and a WeakMap lets a dropped form's memory
-// go with it.
-const memories = new WeakMap<Control<FieldValues>, FormMemory>();
+// go with it. One slot per form, holding the memory of the record last
+// open in it: the memory belongs to a record, not to a form (#339), and a
+// Consumer that reuses one form across records (EditDrawer, one form for
+// every row) says which record is open. Another key starts afresh, and
+// returning to an earlier key does not restore it — nothing asks for that.
+const memories = new WeakMap<
+	Control<FieldValues>,
+	{ recordKey: RecordKey | undefined; memory: FormMemory }
+>();
 
-/** This form's memory, created on first use. Mutable: write to it. */
+/**
+ * This form's memory for the open record, created on first use and again
+ * whenever `recordKey` changes. Mutable: write to it.
+ */
 export function formMemory<T extends FieldValues>(
 	control: Control<T>,
+	recordKey?: RecordKey,
 ): FormMemory {
 	const key = control as unknown as Control<FieldValues>;
-	let memory = memories.get(key);
-	if (!memory) {
-		memory = { handledSubmit: 0 };
-		memories.set(key, memory);
+	let slot = memories.get(key);
+	if (!slot || slot.recordKey !== recordKey) {
+		slot = { recordKey, memory: { handledSubmit: 0 } };
+		memories.set(key, slot);
 	}
-	return memory;
+	return slot.memory;
 }

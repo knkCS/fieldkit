@@ -21,6 +21,9 @@ export interface ConsumerHarnessProps {
 	name?: string;
 	/** Whether SpecForm starts mounted. */
 	initiallyMounted?: boolean;
+	/** Passes SpecForm a `recordKey` (#339), which "<name> Next record"
+	 * changes along with a `reset()`: one form reused across records. */
+	recordKeyed?: boolean;
 }
 
 /**
@@ -32,8 +35,9 @@ export interface ConsumerHarnessProps {
  * intercepts a submit before React Hook Form sees it.
  *
  * Buttons: "<name> Save", "<name> Toggle" (mount/unmount SpecForm),
- * "<name> Reset" (`reset()` to the default values). With no `name`, the
- * plain labels "Save", "Toggle", "Reset".
+ * "<name> Reset" (`reset()` to the default values), and with `recordKeyed`
+ * "<name> Next record" (a `reset()` and a new `recordKey`). With no `name`,
+ * the plain labels "Save", "Toggle", "Reset", "Next record".
  */
 export function ConsumerHarness({
 	schema,
@@ -41,19 +45,26 @@ export function ConsumerHarness({
 	defaultValues,
 	name,
 	initiallyMounted = true,
+	recordKeyed = false,
 }: ConsumerHarnessProps) {
 	const methods = useForm({
 		resolver: zodResolver(zodSchema),
 		defaultValues,
 	});
 	const [mounted, setMounted] = useState(initiallyMounted);
+	const [record, setRecord] = useState(0);
 	const label = (text: string) => (name ? `${name} ${text}` : text);
 	return (
 		<section aria-label={name ?? "Consumer"}>
 			<FormProvider {...methods}>
 				<FieldKitProvider plugins={testPlugins}>
 					<form noValidate onSubmit={methods.handleSubmit(() => {})}>
-						{mounted && <SpecForm schema={schema} />}
+						{mounted && (
+							<SpecForm
+								schema={schema}
+								recordKey={recordKeyed ? record : undefined}
+							/>
+						)}
 						<button type="submit">{label("Save")}</button>
 						<button type="button" onClick={() => setMounted((m) => !m)}>
 							{label("Toggle")}
@@ -61,6 +72,17 @@ export function ConsumerHarness({
 						<button type="button" onClick={() => methods.reset(defaultValues)}>
 							{label("Reset")}
 						</button>
+						{recordKeyed && (
+							<button
+								type="button"
+								onClick={() => {
+									methods.reset(defaultValues);
+									setRecord((r) => r + 1);
+								}}
+							>
+								{label("Next record")}
+							</button>
+						)}
 					</form>
 				</FieldKitProvider>
 			</FormProvider>
