@@ -360,3 +360,95 @@ describe("SpecForm — the active section across a remount", () => {
 		expect(selected("SEO", b)).toBe("true");
 	});
 });
+
+// The memory belongs to a record, not to a form (#339): a Consumer reusing
+// one form across records names the open one with `recordKey`.
+describe("SpecForm — recordKey", () => {
+	const sectioned = [
+		makeField("title", "Title"),
+		makeSection("media", "Media"),
+		makeField("image", "Image"),
+	];
+	const lenient = z.object({ title: z.string(), image: z.string() });
+	const values = { title: "ok", image: "" };
+
+	function mediaSelected() {
+		return screen
+			.getByRole("tab", { name: /Media/ })
+			.getAttribute("aria-selected");
+	}
+
+	it("opens another record on the first section", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+				recordKeyed
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Next record"));
+		await click(screen.getByText("Toggle"));
+
+		expect(mediaSelected()).toBe("false");
+	});
+
+	it("keeps the section across a reset of the same record", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+				recordKeyed
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Reset"));
+		await click(screen.getByText("Toggle"));
+
+		expect(mediaSelected()).toBe("true");
+	});
+
+	it("starts another record on the first section while mounted", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={sectioned}
+				zodSchema={lenient}
+				defaultValues={values}
+				recordKeyed
+			/>,
+		);
+
+		await click(screen.getByRole("tab", { name: "Media" }));
+		await click(screen.getByText("Next record"));
+
+		expect(mediaSelected()).toBe("false");
+	});
+
+	it("jumps for another record's failed save, though its count matches one already handled", async () => {
+		render(
+			<ConsumerHarnessApp
+				schema={schema}
+				zodSchema={zodSchema}
+				defaultValues={defaultValues}
+				recordKeyed
+			/>,
+		);
+
+		await click(screen.getByText("Save"));
+		expect(seoSelected()).toBe("true");
+		// Left on General, so only a jump can bring SEO back.
+		await click(screen.getByRole("tab", { name: "General" }));
+		await click(screen.getByText("Toggle"));
+		await click(screen.getByText("Next record"));
+		await click(screen.getByText("Save"));
+		await click(screen.getByText("Toggle"));
+
+		expect(seoSelected()).toBe("true");
+	});
+});

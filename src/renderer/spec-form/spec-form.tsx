@@ -12,7 +12,7 @@ import type { Schema } from "../../schema/types";
 import { formatCount, mergeLabels } from "../merge-labels";
 import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
-import { formMemory } from "./form-memory";
+import { formMemory, type RecordKey } from "./form-memory";
 import { MintRowIds } from "./mint-row-ids";
 import type { FieldSearchResult } from "./search-index";
 import { SpecFormSkeleton } from "./spec-form-skeleton";
@@ -113,6 +113,14 @@ export interface SpecFormProps {
 	/** Read-mode data source; ignored in edit mode. */
 	values?: Record<string, unknown>;
 	labels?: SpecFormLabels;
+	/**
+	 * The record the form holds, for a Consumer that reuses one form across
+	 * records (#339). What SpecForm remembers across its own unmounts — the
+	 * open section, the failed save already jumped to — belongs to the
+	 * record: another key starts afresh, on the first section. Without it,
+	 * the form is the record. Edit mode only.
+	 */
+	recordKey?: string | number;
 }
 
 export const DEFAULT_LABELS: Required<SpecFormLabels> = {
@@ -132,9 +140,15 @@ interface SpecFormTabsProps {
 	partition: SpecPartition;
 	readOnly?: boolean;
 	labels: Required<SpecFormLabels>;
+	recordKey?: RecordKey;
 }
 
-function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
+function SpecFormTabs({
+	partition,
+	readOnly,
+	labels,
+	recordKey,
+}: SpecFormTabsProps) {
 	const { setFocus, control } = useFormContext();
 	// The open section is remembered per form (#334): a Consumer may unmount
 	// SpecForm and keep its form, and the author returning expects the
@@ -148,7 +162,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 		rootRef,
 		searchIndex,
 	} = useTabShell(partition, labels.defaultTab, () => {
-		const remembered = formMemory(control).activeSection;
+		const remembered = formMemory(control, recordKey).activeSection;
 		const index = partition.tabs.findIndex(
 			(tab) => sectionKey(tab) === remembered,
 		);
@@ -159,8 +173,8 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 
 	useEffect(() => {
 		const tab = partition.tabs[Number(activeTab.slice("tab-".length))];
-		if (tab) formMemory(control).activeSection = sectionKey(tab);
-	}, [activeTab, partition, control]);
+		if (tab) formMemory(control, recordKey).activeSection = sectionKey(tab);
+	}, [activeTab, partition, control, recordKey]);
 
 	// Target accessor for an in-flight jump, consumed by the effect below.
 	// A ref (rather than state) because writing it must not itself trigger
@@ -216,7 +230,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 	// made while unmounted is still unhandled on the next mount, so it jumps
 	// once there.
 	useEffect(() => {
-		const memory = formMemory(control);
+		const memory = formMemory(control, recordKey);
 		// RHF's reset() (e.g. EditDrawer resetting on a new row's defaults)
 		// restarts submitCount at 0 without touching the memory, so a
 		// post-reset submitCount can collide with a pre-reset value already
@@ -236,7 +250,7 @@ function SpecFormTabs({ partition, readOnly, labels }: SpecFormTabsProps) {
 				return;
 			}
 		}
-	}, [submitCount, errors, partition, jumpTo, control]);
+	}, [submitCount, errors, partition, jumpTo, control, recordKey]);
 
 	const searchNode = searchIndex.length > 0 && (
 		<FieldSearch
@@ -451,6 +465,7 @@ export function SpecForm({
 	loading,
 	values,
 	labels,
+	recordKey,
 }: SpecFormProps) {
 	const resolvedLabels = mergeLabels(DEFAULT_LABELS, labels);
 	const partition = useMemo(() => partitionSchemaBySections(schema), [schema]);
@@ -538,9 +553,13 @@ export function SpecForm({
 		<FormMarkersProvider value={markers}>
 			<MintRowIds schema={schema} />
 			<SpecFormTabs
+				// Another record while mounted starts afresh too: the tabs'
+				// own state is the open section, so they mount anew.
+				key={recordKey}
 				partition={partition}
 				readOnly={readOnly}
 				labels={resolvedLabels}
+				recordKey={recordKey}
 			/>
 		</FormMarkersProvider>
 	);

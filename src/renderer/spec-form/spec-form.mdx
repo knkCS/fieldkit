@@ -34,6 +34,7 @@ behaves identically to `FieldRenderer`.
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
 | `labels`   | `SpecFormLabels`           | —        | Overrides for the default-tab name, search placeholder, no-results text, markers, and indicator announcements. |
+| `recordKey` | `string \| number`       | —        | Edit mode only. Names the record the form holds, for a Consumer that reuses one form across records: what `SpecForm` remembers across its unmounts (the open section, the failed save already jumped for) belongs to the record, and another key starts afresh on the first section. Without it, the form is the record. See [A Consumer-owned Save across unmounting tabs](#a-consumer-owned-save-across-unmounting-tabs). |
 
 `SpecFormLabels` fields (`defaultTab`, `searchPlaceholder`, `searchLabel`,
 `noResults`, `optionalMarker`, `tabErrors`, `tabErrorsOne`, `unsavedChanges`,
@@ -200,6 +201,13 @@ async function save() {
   which section was open. A failed save made while it was unmounted jumps
   on the next mount; leaving and returning after that reopens the section
   the author left, not the error's.
+- **One form for several records? Pass `recordKey`.** What `SpecForm`
+  remembers belongs to the open record. A Consumer that keeps one form per
+  record needs nothing; one that reuses a form across records through
+  `reset()` passes a key that changes with the record — the Content's id,
+  or, as `EditDrawer` does, a count of opened rows. Another key starts on
+  the first section with no failed save pending; the same key after a
+  save's re-baseline keeps both.
 - **After a successful save, re-baseline on a snapshot taken when Save
   starts**: `snapshot = getValues()` before `handleSubmit`, then
   `reset(snapshot, { keepValues: true })`. The baseline is what was sent, so
@@ -229,12 +237,10 @@ async function save() {
   `SpecForm` only notices on its next mount when the new count is below the
   one it remembers. A reset followed by as many failed saves as it had
   already handled may therefore not jump. The recipe's own resets keep the
-  count, so this only bites a Consumer's other resets.
+  count; a reset for another record goes with a new `recordKey`, which
+  starts afresh. Only a Consumer's other resets of the same record hit it.
 - Two `SpecForm`s on one form share one record of handled saves: only the
   first to see a failed save jumps for it.
-- The remembered section is per form. A Consumer that reuses one form
-  across records through `reset()`, as `EditDrawer` does, reopens on the
-  previous record's section when it exists in the next.
 - Re-seeding with `formDefaults` from a canonical stored record brings back
   a Field's default where the stored value is Unset (absent, ADR-0021):
   re-fetching after a save can turn a cleared Field with a default back to

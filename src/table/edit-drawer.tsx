@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DrawerRoot } from "@knkcs/anker/components";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { FieldKitProvider } from "../renderer/provider";
 import { SpecForm } from "../renderer/spec-form/spec-form";
@@ -81,6 +81,20 @@ export function EditDrawer({
 		formRef.current?.requestSubmit();
 	}, []);
 
+	// Every opened row is a record of its own to SpecForm (#339): one form
+	// serves every row, and the drawer's content unmounts on close, so
+	// without a new key the next row would reopen on the last row's section.
+	// Counted during render (React's "adjusting state on a prop change"), so
+	// SpecForm mounts with the new key rather than switching to it after.
+	const [opened, setOpened] = useState({ isOpen, initialValues, count: 0 });
+	if (opened.isOpen !== isOpen || opened.initialValues !== initialValues) {
+		setOpened({
+			isOpen,
+			initialValues,
+			count: isOpen ? opened.count + 1 : opened.count,
+		});
+	}
+
 	// Reset form when initialValues change (new row selected)
 	useEffect(() => {
 		methods.reset(defaults);
@@ -111,7 +125,7 @@ export function EditDrawer({
 						onSubmit={methods.handleSubmit(handleSave)}
 					>
 						<FieldKitProvider plugins={plugins}>
-							<SpecForm schema={schema} />
+							<SpecForm schema={schema} recordKey={opened.count} />
 						</FieldKitProvider>
 					</form>
 				</FormProvider>
