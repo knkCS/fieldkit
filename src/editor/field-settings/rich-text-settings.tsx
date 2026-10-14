@@ -3,6 +3,7 @@ import { Box, chakra, Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
 import { useId } from "react";
 import { useFieldKit } from "../../renderer/provider";
+import { hasAdapterCapability } from "../../schema/adapter-capabilities";
 import type { RichTextSettings } from "../../schema/field-types/rich-text";
 import type { SettingsProps } from "../../schema/plugin";
 import { BlueprintPicker, type PickerSource } from "./blueprint-picker";
@@ -40,15 +41,18 @@ export function RichTextSettingsEditor({
 
 	// Called on the adapter rather than plucked off it, as the Blueprint
 	// source is: a Consumer may implement these as methods needing `this`.
-	const source: PickerSource | undefined = textType?.search
-		? {
-				search: async (query) =>
-					(await textType.search?.(query)) ?? { items: [] },
-				resolve: textType.resolve
-					? async (query) => (await textType.resolve?.(query)) ?? []
-					: undefined,
-			}
-		: undefined;
+	// The type picker's test for "can serve", so the setting shows "no
+	// source" exactly where the type would have been hidden.
+	const source: PickerSource | undefined =
+		textType && hasAdapterCapability(adapters, "textType.search")
+			? {
+					search: async (query) =>
+						(await textType.search?.(query)) ?? { items: [] },
+					resolve: textType.resolve
+						? async (query) => (await textType.resolve?.(query)) ?? []
+						: undefined,
+				}
+			: undefined;
 
 	const viewMode = VIEW_MODES.find(
 		(option) => option.id === (settings?.view_mode ?? "full"),

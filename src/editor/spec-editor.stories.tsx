@@ -162,6 +162,8 @@ const STORY_BLUEPRINTS = [
 	{ id: "delivery_bp", name: "Delivery" },
 ];
 
+const STORY_TEXT_TYPES = [{ id: "tt_body", name: "Body text" }];
+
 const blueprintAdapters: FieldKitAdapters = {
 	blueprint: {
 		getSchema: async (id) => {
@@ -183,6 +185,18 @@ const blueprintAdapters: FieldKitAdapters = {
 		}),
 		resolve: async ({ ids }) =>
 			STORY_BLUEPRINTS.filter((blueprint) => ids.includes(blueprint.id)),
+	},
+	// A Text Type source too, so the stories with adapters offer every type
+	// the type picker hides from a Consumer that has none (ADR-0027).
+	textType: {
+		get: async () => null,
+		search: async ({ query }) => ({
+			items: STORY_TEXT_TYPES.filter((textType) =>
+				textType.name.toLowerCase().includes(query.toLowerCase()),
+			),
+		}),
+		resolve: async ({ ids }) =>
+			STORY_TEXT_TYPES.filter((textType) => ids.includes(textType.id)),
 	},
 };
 
@@ -275,7 +289,9 @@ function StoryWrapper({
 	/** The built-in types, unless a story registers one of its own. */
 	plugins?: FieldTypePlugin[];
 	/** Left off by most stories — the editor needs no adapter until a Fieldset
-	 * has to be resolved for Preview. */
+	 * has to be resolved for Preview. Without one, the type picker hides the
+	 * types a Consumer cannot serve: reference, single_reference, fieldset and
+	 * rich_text (ADR-0027). */
 	adapters?: FieldKitAdapters;
 }) {
 	const [committed, setCommitted] = useState<Schema>(initialSchema);

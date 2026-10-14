@@ -68,5 +68,7 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 
 	defaultSettings: { view_mode: "full" },
 	consumers: ["blueprint", "task", "form"],
+	// The Text Type is picked through the Adapter's search (ADR-0027).
+	requiresAdapters: ["textType.search"],
 	positions: ["root", "reference_spec", "block_type"],
 };

@@ -1,5 +1,4 @@
 // src/editor/__tests__/consumer-reference-plugin.test.tsx
-import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BookOpen } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
@@ -56,15 +55,26 @@ function renderInEditor(children: React.ReactNode) {
 	);
 }
 
+/** The picker, for a Consumer whose Blueprint Adapter can search — what a
+ * reference-shaped type needs to be offered at all (ADR-0027). */
 function renderPicker(currentSpec: Field[]) {
 	return render(
-		<ChakraProvider value={defaultSystem}>
+		<EditorWrap
+			plugins={PLUGINS}
+			adapters={{
+				blueprint: {
+					getSchema: vi.fn().mockResolvedValue([]),
+					getData: vi.fn(),
+					search: vi.fn().mockResolvedValue({ items: [] }),
+				},
+			}}
+		>
 			<TypePicker
 				plugins={PLUGINS}
 				currentSpec={currentSpec}
 				onSelect={vi.fn()}
 			/>
-		</ChakraProvider>,
+		</EditorWrap>,
 	);
 }
 

@@ -24,6 +24,18 @@ export type FieldTypeCategory =
 export type Consumer = "blueprint" | "task" | "form";
 
 /**
+ * An Adapter capability a Field Type's settings need before an Author can
+ * configure it (ADR-0027): `blueprint.search` for a setting that picks a
+ * Blueprint, `textType.search` for one that picks a Text Type Release.
+ *
+ * A Consumer whose Adapters lack one is not offered the type in its type
+ * picker — hidden, never degraded. Advice for pickers only, as `consumers`
+ * is: a stored Field of such a type stays valid, renders, and its setting says
+ * the application has no source for it.
+ */
+export type AdapterCapability = "blueprint.search" | "textType.search";
+
+/**
  * Where in a Spec a Field sits, which decides the Field Types it may be
  * (ADR-0022). Enforced: `validateSpec()` reports a Field in a Position its type
  * does not list as `invalid_position`, in TS and in Go.
@@ -392,6 +404,13 @@ export interface FieldTypePlugin<S = unknown> {
 	 * pickers only. Absent: every Consumer's.
 	 */
 	consumers?: Consumer[];
+	/**
+	 * The Adapter capabilities this type's settings need (ADR-0027). The type
+	 * picker offers the type only where the Consumer's Adapters provide every
+	 * one (`servedByAdapters()`). Advice for pickers only — nothing validates
+	 * it, and the Catalogue does not carry it. Absent: needs none.
+	 */
+	requiresAdapters?: readonly AdapterCapability[];
 	/**
 	 * Where in a Spec a Field of this type may sit (ADR-0022), enforced by
 	 * `validateSpec()`. Absent: `DEFAULT_POSITIONS` — the root and a Block

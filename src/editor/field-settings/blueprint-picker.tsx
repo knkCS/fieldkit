@@ -19,6 +19,7 @@ import type {
 } from "../../renderer/adapters";
 import { useAdapterErrorReporter } from "../../renderer/hooks/use-adapter-error-reporter";
 import { useFieldKit } from "../../renderer/provider";
+import { hasAdapterCapability } from "../../schema/adapter-capabilities";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /** One choice as a picker source names it: what a setting stores, and what
@@ -53,8 +54,13 @@ export interface PickerSource {
 export function useBlueprintSource(
 	purpose: BlueprintPurpose,
 ): PickerSource | undefined {
-	const blueprint = useFieldKit().adapters.blueprint;
-	if (!blueprint?.search) return undefined;
+	const adapters = useFieldKit().adapters;
+	const blueprint = adapters.blueprint;
+	// The one test for "can serve", shared with the type picker, so a setting
+	// shows "no source" exactly where its type would have been hidden.
+	if (!blueprint || !hasAdapterCapability(adapters, "blueprint.search")) {
+		return undefined;
+	}
 	return {
 		search: async (query) =>
 			(await blueprint.search?.({ ...query, purpose })) ?? { items: [] },

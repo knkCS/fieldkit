@@ -420,10 +420,15 @@ describe("ReferenceSettingsEditor", () => {
 });
 
 describe("reference in the type picker", () => {
-	it("is offered from the catalogue", () => {
+	it("is offered from the catalogue to a Consumer that can search Blueprints", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<TypePicker plugins={builtInFieldTypes} onSelect={vi.fn()} />
+				<FieldKitProvider
+					plugins={builtInFieldTypes}
+					adapters={searchingAdapter()}
+				>
+					<TypePicker plugins={builtInFieldTypes} onSelect={vi.fn()} />
+				</FieldKitProvider>
 			</ChakraProvider>,
 		);
 
