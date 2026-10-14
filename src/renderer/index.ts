@@ -2,6 +2,8 @@
 
 // Adapters
 export type {
+	BlueprintPurpose,
+	BlueprintSearchQuery,
 	BlueprintSummary,
 	DataPage,
 	DataQuery,
@@ -12,10 +14,14 @@ export type {
 	LookupSource,
 	MediaFilter,
 	MediaItem,
+	PickerPage,
+	PickerResolveQuery,
+	PickerSearchQuery,
 	PinTarget,
 	ReferenceItem,
 	ReferenceSearchQuery,
 	ReferenceSearchResult,
+	ResolvedChoice,
 	TextTypeSummary,
 } from "./adapters";
 export type { FieldComponentProps } from "./field-component";

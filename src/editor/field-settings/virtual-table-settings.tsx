@@ -12,7 +12,7 @@ import type { Field } from "../../schema/types";
 import { virtualTableRowSpecKind } from "../../schema/virtual-table-row-spec";
 import { createField } from "../draft-ops";
 import { TypePickerPopover } from "../type-picker-popover";
-import { BlueprintPicker } from "./blueprint-picker";
+import { BlueprintPicker, useBlueprintSource } from "./blueprint-picker";
 import { CapInput } from "./cap-input";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
@@ -72,6 +72,7 @@ export function VirtualTableSettingsEditor({
 	// changes which way the Row Spec is declared: switching mode, and adding or
 	// removing the row Fields an embedded one is made of (ADR-0011).
 	const modeLock = useSettingLock(BLUEPRINT_SETTINGS_KEY);
+	const rowSpecSource = useBlueprintSource("row_spec");
 
 	// CONTEXT.md is deliberate about this word: a Row Spec holds **Fields**,
 	// and a "column" is how one of them is shown. So Fields is what this editor
@@ -209,9 +210,9 @@ export function VirtualTableSettingsEditor({
 					// has a single contract for both modes.
 					value={linkedBlueprint ? [linkedBlueprint] : []}
 					onChange={(ids) => onChange({ ...settings, blueprint: ids[0] })}
-					selectPlaceholder="Select a blueprint"
-					idInputPlaceholder="Blueprint Release id"
-					idInputTestId="virtual-table-blueprint-input"
+					placeholder="Select a blueprint"
+					testId="virtual-table-blueprint"
+					source={rowSpecSource}
 				/>
 			) : (
 				<Box>

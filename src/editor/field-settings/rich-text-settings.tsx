@@ -1,11 +1,11 @@
 // src/editor/field-settings/rich-text-settings.tsx
 import { Box, chakra, Text } from "@chakra-ui/react";
 import { BaseSelect } from "@knkcs/anker/atoms";
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { useFieldKit } from "../../renderer/provider";
 import type { RichTextSettings } from "../../schema/field-types/rich-text";
 import type { SettingsProps } from "../../schema/plugin";
-import { BlueprintPicker } from "./blueprint-picker";
+import { BlueprintPicker, type PickerSource } from "./blueprint-picker";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 interface ViewModeOption {
@@ -22,10 +22,11 @@ const VIEW_MODES: ViewModeOption[] = [
  * Type-settings editor for `rich_text`: the Text Type Release its text is
  * written in (`text_type`, a Pin — ADR-0020) and how the editor shows it.
  *
- * The Text Types come from `adapters.textType.list()`, each entry's
- * `id` being the Text Type Release id the Pin stores. Without that adapter the
- * picker degrades to Release id entry, as the Fieldset's Blueprint picker
- * does, so the Field stays configurable.
+ * The Text Types are searched and paged through `adapters.textType.search()`,
+ * each item's `id` being the Text Type Release id the Pin stores, and stored
+ * ones named through its `resolve()` — the same picker, and the same states,
+ * as the Blueprint settings (ADR-0027). Without `search` the setting says the
+ * application has no source for Text Types; there is no id entry.
  */
 export function RichTextSettingsEditor({
 	settings,
@@ -37,18 +38,17 @@ export function RichTextSettingsEditor({
 	const viewModeLock = useSettingLock("view_mode");
 	const viewModeId = useId();
 
-	// Memoised on the adapter, so the picker's list fetch keys on something
-	// stable (useBlueprintList fetches once per mount either way).
-	const listTextTypes = textType?.list;
-	const source = useMemo(
-		() => ({
-			list: listTextTypes
-				? async () =>
-						(await listTextTypes()).map(({ id, name }) => ({ id, name }))
-				: undefined,
-		}),
-		[listTextTypes],
-	);
+	// Called on the adapter rather than plucked off it, as the Blueprint
+	// source is: a Consumer may implement these as methods needing `this`.
+	const source: PickerSource | undefined = textType?.search
+		? {
+				search: async (query) =>
+					(await textType.search?.(query)) ?? { items: [] },
+				resolve: textType.resolve
+					? async (query) => (await textType.resolve?.(query)) ?? []
+					: undefined,
+			}
+		: undefined;
 
 	const viewMode = VIEW_MODES.find(
 		(option) => option.id === (settings?.view_mode ?? "full"),
@@ -63,13 +63,12 @@ export function RichTextSettingsEditor({
 				helperText="The Text Type Release this field's rich text is written in."
 				value={settings?.text_type ? [settings.text_type] : []}
 				onChange={(ids) => onChange({ ...settings, text_type: ids[0] })}
-				selectPlaceholder="Select a Text Type"
-				idInputPlaceholder="Text Type Release id"
-				idInputTestId="rich-text-text-type-input"
+				placeholder="Select a Text Type"
+				testId="rich-text-text-type"
 				source={source}
-				noMatchMessage="No Text Type matches"
-				noneMessage="No Text Types available"
-				failureMessage="Text Type list fetch failed"
+				emptyMessage="No Text Type matches"
+				failureMessage="Text Type search failed"
+				unavailableMessage="This application has no source for Text Types."
 			/>
 
 			<chakra.label

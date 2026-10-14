@@ -29,7 +29,7 @@ export function SingleReferenceSettingsEditor({
 				fieldId={field?.config.api_accessor ?? "single_reference"}
 				value={settings?.blueprints}
 				onChange={(blueprints) => onChange({ ...settings, blueprints })}
-				idInputTestId="single-reference-blueprints-input"
+				testId="single-reference-blueprints"
 			/>
 			<PinModePicker
 				settingsKey="pin_mode"

@@ -119,16 +119,16 @@ describe("a frozen setting in the config panel", () => {
 		renderPanel(referenceField(frozen("pin_mode")), referencePlugin);
 		openTypeSettings();
 
-		expect(screen.getByTestId("reference-blueprints-input")).not.toBeDisabled();
+		expect(screen.queryByTestId("setting-locked-blueprints")).toBeNull();
 		expect(screen.getByTestId("reference-max-items-input")).not.toBeDisabled();
 		expect(screen.getByTestId("reference-max-depth-input")).not.toBeDisabled();
 		expect(screen.queryByTestId("setting-locked-max_items")).toBeNull();
 	});
 
-	it("stays frozen when the adapter CAN list blueprints", async () => {
-		// The picker has two shapes — a select when the adapter enumerates
-		// Blueprints, an id box when it cannot (#52) — and a frozen setting must
-		// not become editable just because the Consumer's adapter grew a `list`.
+	it("stays frozen when the adapter CAN search blueprints", async () => {
+		// The picker has two shapes — a select when the adapter searches, a
+		// note when it cannot (ADR-0027) — and a frozen setting must not become
+		// editable just because the Consumer's adapter grew a `search`.
 		renderPanel(
 			referenceField(frozen("blueprints", "Contents already reference these")),
 			referencePlugin,
@@ -137,14 +137,15 @@ describe("a frozen setting in the config panel", () => {
 				blueprint: {
 					getSchema: vi.fn().mockResolvedValue([]),
 					getData: vi.fn(),
-					list: () => Promise.resolve([{ id: "article", name: "Article" }]),
+					search: () =>
+						Promise.resolve({ items: [{ id: "article", name: "Article" }] }),
 				},
 			},
 		);
 		openTypeSettings();
 
 		expect(await screen.findByLabelText(/Blueprints/)).toBeDisabled();
-		expect(screen.queryByTestId("reference-blueprints-input")).toBeNull();
+		expect(screen.queryByTestId("reference-blueprints-unavailable")).toBeNull();
 		expect(screen.getByTestId("setting-locked-blueprints")).toHaveTextContent(
 			"Contents already reference these",
 		);
@@ -224,7 +225,14 @@ describe("the mechanism is generic", () => {
 		renderPanel(fieldsetField, fieldsetPlugin as FieldTypePlugin);
 		openTypeSettings();
 
-		expect(screen.getByTestId("fieldset-blueprint-input")).toBeDisabled();
+		// No source for Blueprints here, so no input to disable — only the
+		// reason, beside a setting nobody can change.
+		expect(
+			screen.getByTestId("fieldset-blueprint-unavailable"),
+		).toBeInTheDocument();
+		expect(screen.getByTestId("setting-locked-blueprint")).toHaveTextContent(
+			"Contents already embed it",
+		);
 		expect(screen.getByTestId("fieldset-collapsible-input")).not.toBeDisabled();
 	});
 

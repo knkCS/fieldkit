@@ -45,7 +45,7 @@ export function ReferenceSettingsEditor({
 				fieldId={field?.config.api_accessor ?? "reference"}
 				value={settings?.blueprints}
 				onChange={(blueprints) => onChange({ ...settings, blueprints })}
-				idInputTestId="reference-blueprints-input"
+				testId="reference-blueprints"
 			/>
 			<CapInput
 				settingsKey="max_items"
