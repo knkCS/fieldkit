@@ -70,9 +70,11 @@ the list of ids (ADR-0008, amended). The control does not offer a drawer for
 the Reference's values yet: they are validated, walked and compared, and a
 Consumer fills them in.
 
-The config panel offers the blueprints as a multi-select of the blueprints
-`adapters.blueprint.list()` returns, degrading to comma-separated id entry
-when the adapter cannot enumerate them. `pin_mode` is a select, with a warning
+The config panel offers the blueprints as a multi-select searching
+`adapters.blueprint.search()` with the purpose `reference_target`, and each
+linked Reference Spec as a select searching it with `fieldset` (ADR-0027);
+without `search` the setting says the application has no source for
+Blueprints rather than offering an input. `pin_mode` is a select, with a warning
 that changing it strands every pin already saved — fieldkit cannot refuse the
 change, because only a Consumer knows whether any Content would be stranded
 (ADR-0008); a Consumer freezes the setting through `config.locked_settings`

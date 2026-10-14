@@ -30,53 +30,68 @@ Both keys match knkCMS core's `fieldset` settings, but core stored a Blueprint
 id under `blueprint`; since 0.18.0 the value is a Release id, so a migrated Spec
 pins a Release of that Blueprint instead.
 
-The Author picks the Blueprint in the config panel from whatever
-`adapters.blueprint.list()` returns — see
-[Listing the Blueprints an Author may embed](#listing-the-blueprints-an-author-may-embed).
+The Author picks the Blueprint in the config panel by searching the blueprint
+adapter — see
+[Searching the Blueprints an Author may embed](#searching-the-blueprints-an-author-may-embed).
 
-## Listing the Blueprints an Author may embed
+## Searching the Blueprints an Author may embed
 
-The blueprint adapter has an **optional** list capability. Where it exists, the
-Fieldset's config panel offers those Blueprints by name; where it does not, the
-panel falls back to Blueprint id entry:
+The blueprint adapter has an **optional** `search` capability, with a `resolve`
+beside it (ADR-0027). Where they exist, the Fieldset's config panel searches and
+pages the Blueprints by name and shows a stored one by its name; where `search`
+does not, the setting says the application has no source for Blueprints and
+offers no input:
 
 ```ts
 // BlueprintSummary is exported from both /schema (beside
 // BlueprintSchemaAdapter) and /renderer (beside FieldKitAdapters).
-import type { BlueprintSummary } from "@knkcs/fieldkit/schema";
+import type { FieldKitAdapters } from "@knkcs/fieldkit/renderer";
 
-const adapters = {
+const adapters: FieldKitAdapters = {
   blueprint: {
     // A Blueprint Release id in, that Release's Fields out (ADR-0020).
     getSchema: (releaseId) => api.blueprintReleaseFields(releaseId),
     getData: (id, query) => api.blueprintRecords(id, query),
-    // Optional. Omit it and nothing breaks — the Author types an id instead.
-    // Each entry's `id` is the Release id a Pin stores.
-    list: async (): Promise<BlueprintSummary[]> =>
-      api.blueprintReleases().map(({ id, name }) => ({ id, name })),
+    // One page for the setting asking: `purpose` is "fieldset" here,
+    // "reference_target" for a Reference's targets, "row_spec" for a linked
+    // Virtual Table. Each item's `id` is what the setting stores — a Release
+    // id for a Pin. `cursor` is whatever `nextCursor` you handed out.
+    search: async ({ query, cursor, purpose, signal }) => {
+      const page = await api.searchReleases({ query, cursor, kind: purpose }, { signal });
+      return {
+        items: page.items.map(({ id, name }) => ({ id, name })),
+        nextCursor: page.next ?? null,
+      };
+    },
+    // Names stored ids, archived ones included and marked.
+    resolve: async ({ ids, signal }) =>
+      (await api.releasesByIds(ids, { signal })).map(({ id, name, archived }) => ({
+        id,
+        name,
+        archived,
+      })),
   },
 };
 ```
 
 Fieldkit does no filtering of its own — it has no notion of a Blueprint kind
-(ADR-0002). Return exactly the Blueprint Releases this Author may embed; knkCMS
-core, for instance, narrows to its `fieldset` blueprint type on its side.
+(ADR-0002). Return exactly what fits the `purpose` and is not archived; knkCMS
+core, for instance, narrows `fieldset` to its `fieldset` blueprint type.
 
-What the panel does with the result:
+What the panel does with it:
 
-- Picking an entry stores its `id` — a Release id — in `settings.blueprint`; clearing the
-  selection removes the setting, and the Field goes back to
+- Picking an entry stores its `id` — a Release id — in `settings.blueprint`;
+  clearing the selection removes the setting, and the Field goes back to
   "No blueprint selected".
-- A stored Blueprint the list does not offer — one since deleted, or one this
-  Author may no longer embed — stays selected under its raw id rather than
-  being silently dropped.
-- A `list` that rejects goes to the `FieldKitProvider`'s `onError`, named for
-  the Fieldset it leaves unconfigurable, and is then treated as no capability
-  at all: the Author gets id entry and can still finish the job. With no
-  `onError` configured it reaches the console instead, so the degrade is never
-  silent.
-- The list is fetched once per config-panel mount; it is not cached across
-  fields.
+- A stored Blueprint is named through `resolve`; one the Consumer has archived
+  reads with "(archived)" after its name, and one `resolve` cannot name stays
+  selected under its raw id rather than being silently dropped.
+- A `search` that rejects goes to the `FieldKitProvider`'s `onError`, named for
+  the Fieldset it leaves harder to configure, and the picker says the search
+  failed with a **Retry**. It never turns into an id box. With no `onError`
+  configured the failure reaches the console instead, so it is never silent.
+- A setting the Consumer froze (`config.locked_settings`, ADR-0011) stays
+  disabled in every one of these states.
 
 `SpecEditor` reads this through the consumer's `FieldKitProvider`, which it must
 already be mounted inside.

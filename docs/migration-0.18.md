@@ -161,13 +161,34 @@ What a value yields to contenthub's Content Graph and to search changes too:
 - **The `textType` adapter speaks Text Type Releases** (#278): its
   `getEditorSpec(id)`, `getGlobalSettings()` and `listEditorSpecs()` become
   `get(releaseId)` — a resolved Text Type, the same `PartFetcher` that
-  `resolveSpec()` takes as `parts.text_type` — and an optional `list()` of
-  `TextTypeSummary` (`{id, name}`) for the config panel's picker. The Editor
+  `resolveSpec()` takes as `parts.text_type` — and, for the config panel's
+  picker, `search`/`resolve` (see the next entry). The Editor
   Settings move to their own optional adapter, `editorSettings: { get() }`.
   `EditorSpecData` and `EditorSpecGlobalSettings` are removed from
   `/renderer`; import `TextTypeSummary` instead. To migrate: pass your Text
   Type Release fetcher as both `adapters.textType.get` and
-  `resolveSpec`'s `parts.text_type`, and rename `listEditorSpecs` to `list`.
+  `resolveSpec`'s `parts.text_type`, and replace `listEditorSpecs` with
+  `search`/`resolve`.
+- **Pickers search through the Adapter; `list()` is removed** (ADR-0027,
+  knkCS/contenthub#301). The `blueprint` Adapter's optional `list()` becomes
+  `search({ query, cursor, purpose, signal })`, answering one page
+  `{ items: [{ id, name }], nextCursor }`, and `resolve({ ids, signal })`,
+  answering `[{ id, name, archived? }]` with archived ones included. `purpose`
+  is the setting asking — `reference_target` (a Reference's targets),
+  `fieldset` (a Fieldset's Blueprint, a linked Reference Spec), `row_spec` (a
+  linked Virtual Table) — so one Adapter filters per setting. The `textType`
+  Adapter's `list()` becomes the same pair without `purpose`. New types:
+  `BlueprintPurpose`, `BlueprintSearchQuery`, `PickerSearchQuery`,
+  `PickerPage`, `PickerResolveQuery`, `ResolvedChoice`. The pickers render
+  through anker's `LookupSelect`. **The id text box is gone:** without
+  `search` a setting says the application has no source for it, and a failed
+  search shows a retry. The pickers' test ids changed with it
+  (`*-blueprint-input`, `*-blueprints-input`, `rich-text-text-type-input` →
+  `fieldset-blueprint`, `reference-blueprints`, `single-reference-blueprints`,
+  `virtual-table-blueprint`, `rich-text-text-type`, each with `-failed`,
+  `-retry` and `-unavailable`). To migrate: implement `search` and `resolve`
+  over your listing, paging with a cursor of your own, and drop `list`; drop
+  any per-picker Adapter you mounted to tell settings apart.
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the

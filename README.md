@@ -159,6 +159,30 @@ in the browser and what was rejected to get there.
 
 Read mode folds and carries the same two controls.
 
+### Blueprint and Text Type pickers
+
+The settings that name a Blueprint or a Text Type Release — a Reference's
+targets and linked Reference Specs, a Fieldset's Blueprint, a linked Virtual
+Table's Row Spec, a `rich_text` Field's Text Type — are picked by **searching
+your adapter**, never typed ([ADR-0027](docs/adr/0027-pickers-search-through-the-adapter-a-type-the-consumer-cannot-serve-is-hidden.md)):
+
+```ts
+blueprint: {
+  getSchema, getData,
+  // One page for the setting asking: purpose is "reference_target",
+  // "fieldset" or "row_spec", so one adapter filters per setting.
+  search: ({ query, cursor, purpose, signal }) => Promise<{ items: { id, name }[]; nextCursor? }>,
+  // Names stored ids, archived ones included (`archived: true`).
+  resolve: ({ ids, signal }) => Promise<{ id, name, archived? }[]>,
+},
+textType: { get, search, resolve }, // the same pair, without `purpose`
+```
+
+The picker is anker's `LookupSelect`: it debounces, pages as the menu scrolls,
+and names what is stored, an archived choice marked. A failed search says so and
+offers a retry, reported through `onError`. Without `search` the setting offers
+no input and says the application has no source for it.
+
 ## Tech Stack
 
 - React 19+
