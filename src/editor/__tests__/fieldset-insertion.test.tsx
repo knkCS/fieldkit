@@ -1,4 +1,3 @@
-import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -6,6 +5,7 @@ import { builtInFieldTypes } from "../../schema/field-types";
 import { fieldsetPlugin } from "../../schema/field-types/fieldset";
 import { createField } from "../draft-ops";
 import { TypePicker } from "../type-picker";
+import { EditorWrap } from "./editor-helpers";
 
 /**
  * #50's first acceptance criterion — "Fieldset appears in the type picker and
@@ -14,13 +14,22 @@ import { TypePicker } from "../type-picker";
  * TypePicker or createField.
  */
 describe("inserting a Fieldset", () => {
-	it("offers Fieldset in the type picker", async () => {
+	it("offers Fieldset in the type picker of a Consumer that can search Blueprints", async () => {
 		const user = userEvent.setup();
 		const onSelect = vi.fn();
 		render(
-			<ChakraProvider value={defaultSystem}>
+			<EditorWrap
+				plugins={builtInFieldTypes}
+				adapters={{
+					blueprint: {
+						getSchema: vi.fn().mockResolvedValue([]),
+						getData: vi.fn(),
+						search: vi.fn().mockResolvedValue({ items: [] }),
+					},
+				}}
+			>
 				<TypePicker plugins={builtInFieldTypes} onSelect={onSelect} />
-			</ChakraProvider>,
+			</EditorWrap>,
 		);
 
 		const option = screen.getByTestId("type-option-fieldset");

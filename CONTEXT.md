@@ -210,7 +210,7 @@ A setting or a value that says nothing: absent, `null`, `""`, `[]` or `{}` — a
 _Avoid_: empty (as distinct from unset), cleared, blank
 
 **Adapter**:
-The injected boundary through which backend-dependent field types get their data. Fieldkit never calls a service directly.
+The injected boundary through which backend-dependent field types get their data. Fieldkit never calls a service directly. A Field Type whose settings need an Adapter capability (`requiresAdapters`: `blueprint.search` for `reference`, `single_reference` and `fieldset`, `textType.search` for `rich_text`) is **hidden** from the type picker of a Consumer that does not provide it, never degraded — and a Virtual Table there offers only an embedded Row Spec. Hiding is advice, as `consumers` is: a stored Field of such a type stays valid, and its setting says the application has no source for it (ADR-0027).
 
 **Purpose**:
 Which setting a Blueprint picker is choosing for, told to the `blueprint` Adapter's `search` with each request: `reference_target` (the Blueprints a Reference may point at), `fieldset` (a Release embedded as a Fieldset or as a linked Reference Spec), `row_spec` (the Release a linked Virtual Table's rows hold). It lets one Adapter offer each setting what fits it; fieldkit itself filters nothing (ADR-0002, ADR-0027). The Text Type picker has none — a Text Type is picked for one setting only.

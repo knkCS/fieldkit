@@ -225,10 +225,15 @@ describe("SingleReferenceSettingsEditor", () => {
 });
 
 describe("single_reference in the type picker", () => {
-	it("is offered from the catalogue", () => {
+	it("is offered from the catalogue to a Consumer that can search Blueprints", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<TypePicker plugins={builtInFieldTypes} onSelect={vi.fn()} />
+				<FieldKitProvider
+					plugins={builtInFieldTypes}
+					adapters={searchingAdapter()}
+				>
+					<TypePicker plugins={builtInFieldTypes} onSelect={vi.fn()} />
+				</FieldKitProvider>
 			</ChakraProvider>,
 		);
 
@@ -242,11 +247,16 @@ describe("single_reference in the type picker", () => {
 		const onSelect = vi.fn();
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<TypePicker
+				<FieldKitProvider
 					plugins={builtInFieldTypes}
-					consumer="blueprint"
-					onSelect={onSelect}
-				/>
+					adapters={searchingAdapter()}
+				>
+					<TypePicker
+						plugins={builtInFieldTypes}
+						consumer="blueprint"
+						onSelect={onSelect}
+					/>
+				</FieldKitProvider>
 			</ChakraProvider>,
 		);
 

@@ -57,6 +57,18 @@ does the same through `adapters.textType` (ADR-0027). Without `search` the
 setting says the application has no source for it — there is no id entry. A
 failed search shows that it failed, with a retry, and goes to `onError`.
 
+The provider's adapters also decide **which types the type picker offers**
+(ADR-0027): a type whose settings need an adapter capability the Consumer has
+not provided is hidden, never degraded. `reference`, `single_reference` (and a
+type minted with `createReferencePlugin`) and `fieldset` declare
+`requiresAdapters: ["blueprint.search"]`; `rich_text` declares
+`["textType.search"]`; and a Virtual Table offers its linked Row Spec only with
+`blueprint.search`, embedded otherwise. Every picker hides the same types — the
+canvas's, a Row Spec's, a Reference Spec's — and a bare `TypePicker` outside a
+provider offers none of them. Hiding narrows the picker only: a stored Field of
+such a type still renders, validates and saves as it was, and its setting
+says the application has no source for it, showing what is stored.
+
 The provider's `plugins` registry and the `plugins` prop passed to
 `SpecEditor` must be **the same set**. They serve different jobs (the
 provider resolves a field's component/adapters at render time; the `plugins`
@@ -256,7 +268,8 @@ and Delete is hidden — see [System Fields](#system-fields).
 A thin, hover-revealed (keyboard-focus-revealed too, for
 <kbd>Tab</kbd>-only navigation) insertion row sits between every pair of
 fields, before the first, and after the last in each tab. Clicking its ⊕
-opens `TypePicker` in a popover, filtered by `context` and searchable; the
+opens `TypePicker` in a popover, filtered by `consumer`, by the adapters the
+Consumer can serve (ADR-0027) and searchable; the
 picked type is inserted at that exact position, auto-named and
 auto-accessored (`nextAccessor`: `title`, `title_2`, `title_3`, …), and
 immediately selected so the panel opens on it. An empty tab (or an empty
@@ -956,7 +969,8 @@ Two Virtual Tables, one embedded and one linked (ADR-0017). Select
 value types a row may hold are offered), or `Deliveries` to see the linked
 Blueprint. Switching a field between the two clears the other side, asking
 first where an authored Row Spec would be discarded. This story registers a
-blueprint adapter; without one, only the embedded option is offered.
+blueprint adapter that can `search`; without one, only the embedded option is
+offered.
 
 <Canvas of={Stories.VirtualTableRowSpec} />
 

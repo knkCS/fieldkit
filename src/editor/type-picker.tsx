@@ -11,8 +11,11 @@ import {
 } from "@chakra-ui/react";
 import { Tooltip } from "@knkcs/anker/primitives";
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
+import type { FieldKitAdapters } from "../renderer/adapters";
+import { FieldKitContext } from "../renderer/context";
 import { mergeLabels } from "../renderer/merge-labels";
+import { servedByAdapters } from "../schema/adapter-capabilities";
 import type {
 	Consumer,
 	FieldTypeCategory,
@@ -48,6 +51,19 @@ export const DEFAULT_TYPE_PICKER_LABELS: Required<TypePickerLabels> = {
 	},
 };
 
+/** Outside any `FieldKitProvider` there are no Adapters, so nothing that needs
+ * one is offered. */
+const NO_ADAPTERS: FieldKitAdapters = {};
+
+/**
+ * Offers the Field Types a Consumer can serve (ADR-0027): a type whose
+ * `requiresAdapters` the `FieldKitProvider`'s Adapters do not meet is hidden —
+ * `reference`, `single_reference` and `fieldset` without `blueprint.search`,
+ * `rich_text` without `textType.search`. Read from the provider rather than a
+ * prop, so every picker in the editor — the canvas's, a Row Spec's, a
+ * Reference Spec's — hides the same types. Hiding narrows the picker only; a
+ * stored Field of such a type stays valid and configurable as far as it can be.
+ */
 export interface TypePickerProps {
 	plugins: FieldTypePlugin[];
 	/** Offers only the types this Consumer's picker lists (ADR-0022). Advice:
@@ -80,9 +96,10 @@ function TypePickerInner({
 	labels,
 }: TypePickerProps) {
 	const [search, setSearch] = useState("");
+	const adapters = useContext(FieldKitContext)?.adapters ?? NO_ADAPTERS;
 
 	const filteredPlugins = useMemo(() => {
-		let result = plugins;
+		let result = plugins.filter((p) => servedByAdapters(p, adapters));
 
 		if (consumer) {
 			result = result.filter((p) => offeredToConsumer(p, consumer));
@@ -101,7 +118,7 @@ function TypePickerInner({
 		}
 
 		return result;
-	}, [plugins, consumer, position, search]);
+	}, [plugins, adapters, consumer, position, search]);
 
 	const typeCounts = useMemo(
 		() => (currentSpec ? countByType(currentSpec) : new Map<string, number>()),

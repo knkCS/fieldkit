@@ -309,6 +309,9 @@ export function createReferencePlugin({
 
 		maxPerSpec,
 		consumers,
+		// The settings editor is the shared one, so a minted type picks its
+		// target Blueprints through the Adapter's search too (ADR-0027).
+		requiresAdapters: ["blueprint.search"],
 		positions,
 
 		// The Reference Spec — embedded, and each linked one once resolved — is

@@ -99,5 +99,7 @@ export const singleReferencePlugin: FieldTypePlugin<SingleReferenceSettings> = {
 	settingsRules: referenceSettingsRules,
 
 	consumers: ["blueprint", "task", "form"],
+	// The target Blueprints are picked through the Adapter's search (ADR-0027).
+	requiresAdapters: ["blueprint.search"],
 	positions: ["root", "row", "block_type"],
 };

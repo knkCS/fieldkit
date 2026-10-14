@@ -2,6 +2,13 @@
 
 // The Accessor a name suggests — the editor's preset, shared with blueprinthub
 export { ACCESSOR_MAX_LENGTH, accessorFromName } from "./accessor";
+// Which Consumers can serve a type through their Adapters (advice), ADR-0027
+export {
+	ADAPTER_CAPABILITIES,
+	type AdapterCapabilitySource,
+	hasAdapterCapability,
+	servedByAdapters,
+} from "./adapter-capabilities";
 // The Blueprint a Fieldset or a linked Virtual Table names — one reader for
 // both.
 export { linkedBlueprintId } from "./blueprint-link";
@@ -114,6 +121,7 @@ export {
 } from "./partition-cards";
 // Plugin types
 export type {
+	AdapterCapability,
 	CatalogueFacts,
 	CataloguePin,
 	CellProps,

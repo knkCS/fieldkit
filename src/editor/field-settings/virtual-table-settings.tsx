@@ -4,7 +4,6 @@ import { useConfirmModal } from "@knkcs/anker/feedback";
 import { Radio, RadioGroup } from "@knkcs/anker/primitives";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useFieldKit } from "../../renderer/provider";
 import { linkedBlueprintId } from "../../schema/blueprint-link";
 import type { VirtualTableSettings } from "../../schema/field-types/virtual-table";
 import type { SettingsProps } from "../../schema/plugin";
@@ -43,9 +42,10 @@ type RowSpecMode = "linked" | "embedded";
  * moment a Row Spec is declared one way, the other side goes, because a Spec
  * saved with both is one `validateSpec()` refuses.
  *
- * **Linked is offered only where a Consumer registered a blueprint adapter**
- * (and on a Field that already links one, so an adapter going missing never
- * silently misdescribes a saved Field). Embedded needs no adapter at all,
+ * **Linked is offered only where the Consumer's blueprint adapter can
+ * `search`** — the Row Spec's Blueprint is picked through it, and without it
+ * there is nothing to pick from (ADR-0027) — and on a Field that already links
+ * one, so an adapter going missing never silently misdescribes a saved Field. Embedded needs no adapter at all,
  * which is what keeps `virtual_table` available in every context.
  *
  * Adding a row Field is the ordinary type picker over the flat value types a
@@ -66,7 +66,6 @@ export function VirtualTableSettingsEditor({
 	onDrillIntoChild,
 	plugins,
 }: SettingsProps<VirtualTableSettings>) {
-	const { adapters } = useFieldKit();
 	const { confirm } = useConfirmModal();
 	// Freezing the Blueprint freezes the CHOICE, and with it every write that
 	// changes which way the Row Spec is declared: switching mode, and adding or
@@ -85,10 +84,11 @@ export function VirtualTableSettingsEditor({
 	const declared: RowSpecMode | null =
 		kind === "linked" ? "linked" : kind === "embedded" ? "embedded" : null;
 
-	// Linked needs a Blueprint from somewhere. A Field that already links one
-	// keeps the option even where the adapter has since gone, so the panel
-	// never describes a linked Field as an embedded one.
-	const offersLinked = adapters.blueprint != null || kind === "linked";
+	// Linked needs a Blueprint to pick, which only the adapter's `search`
+	// offers (ADR-0027). A Field that already links one keeps the option even
+	// where the search has since gone — its picker then says there is no
+	// source — so the panel never describes a linked Field as an embedded one.
+	const offersLinked = rowSpecSource != null || kind === "linked";
 	// Switching TO linked discards the row Fields, which is a write to
 	// `children` — impossible without the channel for it (a settings editor
 	// mounted outside the config panel). Switching the other way only clears a

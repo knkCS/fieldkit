@@ -166,7 +166,9 @@ describe("VirtualTableSettingsEditor — choosing the Row Spec", () => {
 describe("VirtualTableSettingsEditor — authoring an embedded Row Spec", () => {
 	it("offers only the flat value types a Row Spec may hold", async () => {
 		const user = userEvent.setup();
-		renderEditor();
+		// A Consumer that can search Blueprints, so single_reference — a flat
+		// value type that needs one (ADR-0027) — is on offer at all.
+		renderEditor({ adapters: blueprintAdapters() });
 
 		await user.click(screen.getByLabelText("Add row field"));
 
