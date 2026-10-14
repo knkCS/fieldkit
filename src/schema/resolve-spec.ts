@@ -29,14 +29,14 @@ export interface BlueprintSchemaAdapter {
  * One Blueprint Release as an Author picks it: the Release id a Fieldset
  * stores, and the name they recognise it by. Deliberately thinner than a
  * Blueprint — nothing here needs its Fields, and asking for them would make
- * listing as expensive as resolving. Extra keys pass through, so a Consumer
+ * searching as expensive as resolving. Extra keys pass through, so a Consumer
  * can carry its own (the Blueprint it releases, its version label).
  *
  * Resolution never reads it; it lives beside `BlueprintSchemaAdapter` because
  * it is the same vocabulary — what fieldkit asks a Consumer for about
  * Blueprints — and a Consumer typing their adapter from `/schema` can reach
- * both. The capability that returns these is the optional
- * `list()` on `FieldKitAdapters["blueprint"]` (#52).
+ * both. The capabilities that return these are the optional
+ * `search()` and `resolve()` on `FieldKitAdapters["blueprint"]` (ADR-0027).
  */
 export interface BlueprintSummary {
 	/** The Release id a Pin stores (ADR-0020). */

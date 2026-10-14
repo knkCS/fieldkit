@@ -10,7 +10,7 @@ import { useFieldKit } from "../provider";
  * console under `context`, so a degrade is never silent.
  *
  * The returned reporter is stable for the life of the component, behind a
- * call-latest ref, as `useBlueprintList` does for the same reason: a Consumer
+ * call-latest ref, for this reason: a Consumer
  * that builds its provider props inline hands down a fresh `onError` on every
  * render of the component above `FieldKitProvider`, and that identity churn
  * must not re-run an effect that reports through it.

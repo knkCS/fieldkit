@@ -49,9 +49,13 @@ therefore be mounted inside the consumer's `FieldKitProvider`** — outside one,
 it throws (`useFieldKit must be used within a FieldKitProvider`).
 
 The provider is also how the config panel's type-settings editors reach the
-adapters: a Fieldset's Blueprint picker lists through
-`adapters.blueprint.list()`, degrading to Blueprint id entry where that
-optional capability is missing.
+adapters: every Blueprint picker (a Reference's targets and linked Reference
+Specs, a Fieldset's Blueprint, a linked Virtual Table's Row Spec) searches and
+pages through `adapters.blueprint.search()`, told which setting is asking by
+its `purpose`, and names stored ids through `resolve()`; the Text Type picker
+does the same through `adapters.textType` (ADR-0027). Without `search` the
+setting says the application has no source for it — there is no id entry. A
+failed search shows that it failed, with a retry, and goes to `onError`.
 
 The provider's `plugins` registry and the `plugins` prop passed to
 `SpecEditor` must be **the same set**. They serve different jobs (the

@@ -3,43 +3,33 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-	BlueprintSummary,
-	FieldKitAdapters,
-} from "../../renderer/adapters";
+import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import { singleReferencePlugin } from "../../schema/field-types/single-reference";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
+import {
+	createFakePickerSource,
+	fakeBlueprintAdapter,
+} from "../../test/fake-picker-adapters";
 import { SingleReferenceSettingsEditor } from "../field-settings/single-reference-settings";
 import { SettingsSection } from "../panel-sections/settings-section";
 import { DEFAULT_EDITOR_LABELS } from "../spec-editor";
 import { TypePicker } from "../type-picker";
 
-const BLUEPRINTS: BlueprintSummary[] = [
-	{ id: "article", name: "Article" },
-	{ id: "author", name: "Author" },
-];
-
-/** A Consumer whose adapter cannot enumerate Blueprints. */
-function schemaOnlyAdapter(): FieldKitAdapters {
+/** A Consumer whose `blueprint` Adapter searches (ADR-0027). */
+function searchingAdapter(): FieldKitAdapters {
 	return {
-		blueprint: {
-			getSchema: vi.fn().mockResolvedValue([]),
-			getData: vi.fn(),
-		},
-	};
-}
-
-function listingAdapter(): FieldKitAdapters {
-	return {
-		blueprint: {
-			getSchema: vi.fn().mockResolvedValue([]),
-			getData: vi.fn(),
-			list: () => Promise.resolve(BLUEPRINTS),
-		},
+		blueprint: fakeBlueprintAdapter(
+			createFakePickerSource({
+				choices: [
+					{ id: "article", name: "Article" },
+					{ id: "author", name: "Author" },
+				],
+			}),
+		),
 	};
 }
 
@@ -64,8 +54,8 @@ function renderEditor({
 } = {}) {
 	const onChange = vi.fn();
 
-	// Stateful so a multi-character id types the way an Author's does — the
-	// config panel applies each change straight back to the draft.
+	// Stateful, as the config panel applies each change straight back to the
+	// draft.
 	function Harness() {
 		const [settings, setSettings] = useState(initial);
 		return (
@@ -96,10 +86,10 @@ function renderEditor({
 }
 
 describe("SingleReferenceSettingsEditor", () => {
-	describe("with a blueprint list", () => {
-		it("offers the blueprints the adapter lists", async () => {
+	describe("with a searching blueprint adapter", () => {
+		it("offers the blueprints the adapter finds", async () => {
 			const user = userEvent.setup();
-			const { blueprints } = renderEditor({ adapters: listingAdapter() });
+			const { blueprints } = renderEditor({ adapters: searchingAdapter() });
 
 			await user.click(await screen.findByLabelText(/Blueprints/));
 
@@ -111,7 +101,7 @@ describe("SingleReferenceSettingsEditor", () => {
 		it("stores the ids of the blueprints the Author picks", async () => {
 			const user = userEvent.setup();
 			const { onChange, blueprints } = renderEditor({
-				adapters: listingAdapter(),
+				adapters: searchingAdapter(),
 			});
 
 			await user.click(await screen.findByLabelText(/Blueprints/));
@@ -132,16 +122,16 @@ describe("SingleReferenceSettingsEditor", () => {
 		it("shows stored blueprints by name, not by id", async () => {
 			renderEditor({
 				initial: { blueprints: [{ blueprint: "author" }] },
-				adapters: listingAdapter(),
+				adapters: searchingAdapter(),
 			});
 
 			expect(await screen.findByText("Author")).toBeInTheDocument();
 		});
 
-		it("keeps a stored blueprint the list does not offer", async () => {
+		it("keeps a stored blueprint the adapter cannot name", async () => {
 			const { onChange } = renderEditor({
 				initial: { blueprints: [{ blueprint: "retired_bp" }] },
-				adapters: listingAdapter(),
+				adapters: searchingAdapter(),
 			});
 
 			// Shown under its raw id, and never silently rewritten just by
@@ -208,50 +198,29 @@ describe("SingleReferenceSettingsEditor", () => {
 	it("offers a linked Reference Spec for each Blueprint", () => {
 		renderEditor({
 			initial: { blueprints: [{ blueprint: "article" }] },
-			adapters: schemaOnlyAdapter(),
+			adapters: searchingAdapter(),
 		});
 
 		expect(
-			screen.getByTestId("single-reference-blueprints-input-spec-article"),
+			screen.getByTestId("single-reference-blueprints-spec-article"),
 		).toBeInTheDocument();
 	});
 
-	describe("with no way to list blueprints", () => {
-		it("sets the blueprint ids the Author types", async () => {
-			const user = userEvent.setup();
-			const { onChange, blueprints } = renderEditor({
-				adapters: schemaOnlyAdapter(),
-			});
-
-			await user.type(blueprints(), "article, author");
-
-			expect(onChange).toHaveBeenLastCalledWith({
-				blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
-			});
-		});
-
-		it("shows the Author's stored blueprint ids", () => {
-			const { blueprints } = renderEditor({
-				initial: {
-					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
+	it("says the application has no source for blueprints when the adapter cannot search", () => {
+		renderEditor({
+			initial: { blueprints: [{ blueprint: "article" }] },
+			adapters: {
+				blueprint: {
+					getSchema: vi.fn().mockResolvedValue([]),
+					getData: vi.fn(),
 				},
-				adapters: schemaOnlyAdapter(),
-			});
-
-			expect(blueprints()).toHaveValue("article, author");
+			},
 		});
 
-		it("treats a cleared input as no blueprint constraint", async () => {
-			const user = userEvent.setup();
-			const { onChange, blueprints } = renderEditor({
-				initial: { blueprints: [{ blueprint: "article" }] },
-				adapters: schemaOnlyAdapter(),
-			});
-
-			await user.clear(blueprints());
-
-			expect(onChange).toHaveBeenLastCalledWith({ blueprints: [] });
-		});
+		expect(
+			screen.getByTestId("single-reference-blueprints-unavailable"),
+		).toHaveTextContent("article");
+		expect(screen.queryByLabelText(/Blueprints/)).toBeNull();
 	});
 });
 
@@ -289,7 +258,10 @@ describe("single_reference in the type picker", () => {
 	it("offers its Blueprints setting in the config panel's Type settings tab", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
+				<FieldKitProvider
+					plugins={builtInFieldTypes}
+					adapters={searchingAdapter()}
+				>
 					<SettingsSection
 						field={FIELD as Field}
 						plugin={singleReferencePlugin as FieldTypePlugin}

@@ -3,26 +3,27 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-	FieldKitAdapters,
-	TextTypeSummary,
-} from "../../renderer/adapters";
+import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import type { RichTextSettings } from "../../schema/field-types/rich-text";
 import type { Field } from "../../schema/types";
+import {
+	createFakePickerSource,
+	fakeTextTypeAdapter,
+} from "../../test/fake-picker-adapters";
 import { RichTextSettingsEditor } from "../field-settings/rich-text-settings";
 
-const TEXT_TYPES: TextTypeSummary[] = [
-	{ id: "article@3", name: "Article" },
-	{ id: "note@1", name: "Note" },
-];
-
-function listingAdapter(): FieldKitAdapters {
+/** A Consumer whose `textType` Adapter searches (ADR-0027). */
+function searchingAdapter(): FieldKitAdapters {
 	return {
-		textType: {
-			get: vi.fn(),
-			list: () => Promise.resolve(TEXT_TYPES),
-		},
+		textType: fakeTextTypeAdapter(
+			createFakePickerSource({
+				choices: [
+					{ id: "article@3", name: "Article" },
+					{ id: "note@1", name: "Note" },
+				],
+			}),
+		),
 	};
 }
 
@@ -61,13 +62,13 @@ function renderEditor({
 			</FieldKitProvider>
 		</ChakraProvider>,
 	);
-	return { onChange, textType: () => screen.getByLabelText(/Text Type/) };
+	return { onChange };
 }
 
 describe("RichTextSettingsEditor", () => {
-	it("pins the Text Type Release the Author picks from the adapter's list", async () => {
+	it("pins the Text Type Release the Author picks from the adapter's search", async () => {
 		const user = userEvent.setup();
-		const { onChange } = renderEditor({ adapters: listingAdapter() });
+		const { onChange } = renderEditor({ adapters: searchingAdapter() });
 
 		await user.click(await screen.findByLabelText(/Text Type/));
 		await user.click(await screen.findByText("Note"));
@@ -78,22 +79,20 @@ describe("RichTextSettingsEditor", () => {
 	it("shows the pinned Text Type by name", async () => {
 		renderEditor({
 			initial: { text_type: "article@3" },
-			adapters: listingAdapter(),
+			adapters: searchingAdapter(),
 		});
 		expect(await screen.findByText("Article")).toBeInTheDocument();
 	});
 
-	it("takes a Text Type Release id without a textType adapter", async () => {
-		const user = userEvent.setup();
-		const { onChange, textType } = renderEditor({
-			initial: { view_mode: "compact" },
+	it("offers no Text Type input without a textType search", () => {
+		renderEditor({
+			initial: { text_type: "article@3", view_mode: "compact" },
+			adapters: { textType: { get: vi.fn() } },
 		});
 
-		await user.type(textType(), "article@3");
-
-		expect(onChange).toHaveBeenLastCalledWith({
-			view_mode: "compact",
-			text_type: "article@3",
-		});
+		expect(
+			screen.getByTestId("rich-text-text-type-unavailable"),
+		).toHaveTextContent("article@3");
+		expect(screen.queryByLabelText(/Text Type/)).toBeNull();
 	});
 });

@@ -3,7 +3,7 @@ import { Box, Text } from "@chakra-ui/react";
 import type { ChangeEvent } from "react";
 import type { FieldsetSettings } from "../../schema/field-types/fieldset";
 import type { SettingsProps } from "../../schema/plugin";
-import { BlueprintPicker } from "./blueprint-picker";
+import { BlueprintPicker, useBlueprintSource } from "./blueprint-picker";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /**
@@ -12,9 +12,8 @@ import { SettingLockReason, useSettingLock } from "./setting-lock";
  * field component lives in the renderer and its cell in the table: `/schema`
  * carries no React of its own (CLAUDE.md, Architecture).
  *
- * The Author picks the Blueprint through the shared `BlueprintPicker`, which
- * owns the degrade to Blueprint id entry when the adapter cannot enumerate
- * them (#52).
+ * The Author picks the Blueprint through the shared `BlueprintPicker`,
+ * searching the `blueprint` Adapter for the `fieldset` purpose (ADR-0027).
  */
 export function FieldsetSettingsEditor({
 	settings,
@@ -22,6 +21,7 @@ export function FieldsetSettingsEditor({
 	onChange,
 }: SettingsProps<FieldsetSettings>) {
 	const collapsibleLock = useSettingLock("collapsible");
+	const source = useBlueprintSource("fieldset");
 
 	function handleCollapsible(e: ChangeEvent<HTMLInputElement>) {
 		onChange({ ...settings, collapsible: e.target.checked });
@@ -38,9 +38,9 @@ export function FieldsetSettingsEditor({
 				// has a single contract for both modes.
 				value={settings?.blueprint ? [settings.blueprint] : []}
 				onChange={(ids) => onChange({ ...settings, blueprint: ids[0] })}
-				selectPlaceholder="Select a blueprint"
-				idInputPlaceholder="Blueprint Release id"
-				idInputTestId="fieldset-blueprint-input"
+				placeholder="Select a blueprint"
+				testId="fieldset-blueprint"
+				source={source}
 			/>
 
 			<Box as="label" display="flex" alignItems="center" gap="2">

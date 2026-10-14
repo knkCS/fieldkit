@@ -1,19 +1,72 @@
 // src/editor/field-settings/blueprint-picker.tsx
-import { Box, chakra, Input, Text } from "@chakra-ui/react";
-import { BaseSelect } from "@knkcs/anker/atoms";
-import { type ChangeEvent, useId, useState } from "react";
-import type { BlueprintSummary } from "../../renderer/adapters";
+import { Box, Button, chakra, HStack, Text } from "@chakra-ui/react";
+import {
+	type BaseOption,
+	type GroupBase,
+	type LookupPage,
+	type LookupResolveArgs,
+	type LookupSearchArgs,
+	LookupSelect,
+	type SelectInstance,
+} from "@knkcs/anker/atoms";
+import { useCallback, useId, useRef, useState } from "react";
+import type {
+	BlueprintPurpose,
+	PickerPage,
+	PickerResolveQuery,
+	PickerSearchQuery,
+	ResolvedChoice,
+} from "../../renderer/adapters";
 import { useAdapterErrorReporter } from "../../renderer/hooks/use-adapter-error-reporter";
 import { useFieldKit } from "../../renderer/provider";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
-import { useBlueprintList } from "./use-blueprint-list";
+
+/** One choice as a picker source names it: what a setting stores, and what
+ * the Author reads. A Blueprint or a Text Type Release alike. */
+interface PickerChoice {
+	id: string;
+	name: string;
+}
+
+/**
+ * Where a picker's choices come from: an Adapter's `search`, with the purpose
+ * already bound, and its optional `resolve`. Built by
+ * {@link useBlueprintSource} for the Blueprint settings and by the rich_text
+ * settings for the Text Type; `undefined` when the Consumer offers no
+ * `search`, which is the "no source" state (ADR-0027).
+ */
+export interface PickerSource {
+	search: (query: PickerSearchQuery) => Promise<PickerPage<PickerChoice>>;
+	resolve?: (
+		query: PickerResolveQuery,
+	) => Promise<ResolvedChoice<PickerChoice>[]>;
+}
+
+/**
+ * The `blueprint` Adapter as a {@link PickerSource} for one setting: its
+ * `search` told which `purpose` is asking, so one Adapter serves every
+ * Blueprint picker in the panel. `undefined` without `search`.
+ *
+ * Called on the Adapter rather than plucked off it: a Consumer may implement
+ * `search` as a method that needs its own `this`.
+ */
+export function useBlueprintSource(
+	purpose: BlueprintPurpose,
+): PickerSource | undefined {
+	const blueprint = useFieldKit().adapters.blueprint;
+	if (!blueprint?.search) return undefined;
+	return {
+		search: async (query) =>
+			(await blueprint.search?.({ ...query, purpose })) ?? { items: [] },
+		resolve: blueprint.resolve
+			? async (query) => (await blueprint.resolve?.(query)) ?? []
+			: undefined,
+	};
+}
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,
  * `label` is what the Author reads. */
-interface BlueprintOption {
-	id: string;
-	label: string;
-}
+type ChoiceOption = BaseOption;
 
 export interface BlueprintPickerProps {
 	/** The Field being configured, so an Adapter failure names the Field it
@@ -22,47 +75,53 @@ export interface BlueprintPickerProps {
 	/**
 	 * The settings key this picker writes — `blueprints` for the reference
 	 * types, `blueprint` for a Fieldset. Declared so the control honours
-	 * `locked_settings` itself, in both of its modes: a frozen setting must not
-	 * become editable just because the adapter cannot enumerate Blueprints and
-	 * the picker degraded to id entry (ADR-0011).
+	 * `locked_settings` itself, in every state: a frozen setting must not
+	 * become editable through a failed search or a missing source (ADR-0011).
 	 */
 	settingsKey: string;
 	label: string;
 	helperText: string;
-	/** Several Blueprints rather than one. Changes the control and how the
-	 * degraded id input is read: one raw id, or a comma-separated list. */
+	/** Several choices rather than one. */
 	multiple?: boolean;
-	/** The Blueprint ids currently set. One-Blueprint callers pass an array of
-	 * zero or one, which is what keeps a single contract for both modes. */
+	/** The ids currently set. One-choice callers pass an array of zero or one,
+	 * which is what keeps a single contract for both modes. */
 	value: string[];
-	onChange: (blueprintIds: string[]) => void;
-	selectPlaceholder: string;
-	idInputPlaceholder: string;
-	idInputTestId: string;
-	/**
-	 * Where the choices come from, when they are not Blueprints: anything that
-	 * lists `{id, name}` Releases, with the same optional `list` and the same
-	 * degrade to id entry without one. The rich_text settings pass the Text
-	 * Type Releases this way (#216). Absent: `adapters.blueprint`.
-	 */
-	source?: { list?: () => Promise<BlueprintSummary[]> };
-	/** What the Author reads when their search matches nothing, and when there
-	 * is nothing to pick at all. Default: the Blueprint wording. */
-	noMatchMessage?: string;
-	noneMessage?: string;
-	/** What an Adapter failure to list is reported as. */
+	onChange: (ids: string[]) => void;
+	placeholder: string;
+	/** Prefix of the test ids this control carries: the picker itself, its
+	 * failure line (`-failed`, with `-retry`) and the no-source note
+	 * (`-unavailable`). */
+	testId: string;
+	/** Where the choices come from — `useBlueprintSource(purpose)`, or the
+	 * Text Type's. `undefined`: the application has no source. */
+	source: PickerSource | undefined;
+	/** What the Author reads when the search found nothing. */
+	emptyMessage?: string;
+	/** What a failed search says, in the menu and below the picker. Also the
+	 * context of the console report when no `onError` is configured. */
 	failureMessage?: string;
+	/** What the setting says in place of an input when there is no source. */
+	unavailableMessage?: string;
 }
 
+/** Appended to the name of a stored choice its source marks archived. */
+const ARCHIVED_SUFFIX = " (archived)";
+
 /**
- * Picks the Blueprint(s) a setting names, from the ones
- * `adapters.blueprint.list()` offers.
+ * Picks the Blueprint(s) — or Text Type Release — a setting names, searching
+ * and paging through the Consumer's Adapter (ADR-0027).
  *
- * That capability is optional (#52), so where it is missing — no blueprint
- * adapter, an adapter from before it existed, or a listing that failed — this
- * falls back to Blueprint id entry rather than leaving the Field
- * unconfigurable. Shared by every settings editor that names Blueprints, so
- * the degrade is written down once.
+ * **This control owns no asynchrony.** Debounce, cancellation, the
+ * stale-answer guard, paging and naming stored ids belong to anker's
+ * `LookupSelect` (anker ADR-0002), as for the Reference value picker beside it
+ * (ADR-0016). What is left here: reporting a failure on the Consumer's channel
+ * and keeping it on screen with a retry, marking archived choices, the
+ * no-source state, and the lock.
+ *
+ * There is no id text box in any state. A setting without a source says so; a
+ * search that failed says so and offers a retry — neither turns into free
+ * text, because an id nobody can look up is not a configuration an Author can
+ * check.
  */
 export function BlueprintPicker({
 	fieldId,
@@ -72,41 +131,80 @@ export function BlueprintPicker({
 	multiple = false,
 	value,
 	onChange,
-	selectPlaceholder,
-	idInputPlaceholder,
-	idInputTestId,
+	placeholder,
+	testId,
 	source,
-	noMatchMessage = "No blueprint matches",
-	noneMessage = "No blueprints available",
-	failureMessage = "Blueprint list fetch failed",
+	emptyMessage = "No blueprint matches",
+	failureMessage = "Blueprint search failed",
+	unavailableMessage = "This application has no source for blueprints.",
 }: BlueprintPickerProps) {
 	const lock = useSettingLock(settingsKey);
-	const { adapters } = useFieldKit();
 	const report = useAdapterErrorReporter(fieldId, failureMessage);
-	const { blueprints, status } = useBlueprintList(
-		source ?? adapters.blueprint,
-		report,
-	);
 	const inputId = useId();
+	const selectRef =
+		useRef<SelectInstance<ChoiceOption, boolean, GroupBase<ChoiceOption>>>(
+			null,
+		);
+	// Outlives the menu: the atom clears its own failure line the moment the
+	// menu closes, and an Author who clicked away must still see that the
+	// search failed and how to try again.
+	const [failed, setFailed] = useState(false);
 
-	const options = toOptions(blueprints, value);
-	const selected = value.map(
-		(id) => options.find((option) => option.id === id) ?? { id, label: id },
+	const search = useCallback(
+		async ({
+			query,
+			cursor,
+			signal,
+		}: LookupSearchArgs): Promise<LookupPage<ChoiceOption>> => {
+			// Unreachable without a source — nothing renders the select then —
+			// but the callback is built unconditionally, as hooks must be.
+			if (!source) return { items: [] };
+			try {
+				const page = await source.search({ query, cursor, signal });
+				if (!signal.aborted) setFailed(false);
+				return {
+					items: page.items.map((item) => ({ id: item.id, label: item.name })),
+					nextCursor: page.nextCursor ?? null,
+				};
+			} catch (error) {
+				// A superseded request is not a failure anyone can act on: the atom
+				// has already moved on to the one that replaced it.
+				if (!signal.aborted) {
+					report(error);
+					setFailed(true);
+				}
+				// Re-thrown so the atom shows its failure line in the open menu.
+				throw error;
+			}
+		},
+		[source, report],
 	);
 
-	// What the Author has actually typed in the degraded id input, which is not
-	// the same string as the stored ids joined back up: parsing a list drops
-	// the separator, so re-deriving the text every keystroke would eat the
-	// comma the moment it was typed. Re-seeded — the documented way to adjust
-	// state from props — only when the stored ids stop matching what is typed,
-	// which is how selecting another Field in the panel refreshes the input.
-	const idsText = value.join(", ");
-	const [typed, setTyped] = useState(idsText);
-	if (parseIds(typed, multiple).join(", ") !== idsText) setTyped(idsText);
+	const resolve = useCallback(
+		async ({ ids, signal }: LookupResolveArgs): Promise<ChoiceOption[]> => {
+			if (!source?.resolve) return [];
+			try {
+				return (await source.resolve({ ids, signal })).map((item) => ({
+					id: item.id,
+					label: item.archived ? `${item.name}${ARCHIVED_SUFFIX}` : item.name,
+				}));
+			} catch (error) {
+				// A StrictMode double-invoke aborts the first pass; without this
+				// guard one failure reports twice for one visible attempt. The atom
+				// keeps the raw id on screen either way.
+				if (!signal.aborted) report(error);
+				throw error;
+			}
+		},
+		[source, report],
+	);
 
-	function handleTyped(e: ChangeEvent<HTMLInputElement>) {
-		setTyped(e.target.value);
-		onChange(parseIds(e.target.value, multiple));
+	function retry() {
+		setFailed(false);
+		// Opening the menu is what asks the source again — the atom searches on
+		// every open — so a retry is exactly what the Author would do by hand.
+		selectRef.current?.focus();
+		selectRef.current?.openMenu("first");
 	}
 
 	return (
@@ -117,7 +215,7 @@ export function BlueprintPicker({
 			    <label> around react-select's composite would name the widget
 			    from everything inside it. */}
 			<chakra.label
-				htmlFor={inputId}
+				htmlFor={source ? inputId : undefined}
 				display="block"
 				fontSize="xs"
 				fontWeight="medium"
@@ -127,39 +225,60 @@ export function BlueprintPicker({
 				{label}
 			</chakra.label>
 
-			{status === "unavailable" ? (
-				<Input
-					id={inputId}
-					size="sm"
-					value={typed}
-					onChange={handleTyped}
-					placeholder={idInputPlaceholder}
-					disabled={lock.locked}
-					data-testid={idInputTestId}
-				/>
+			{source ? (
+				<Box data-testid={testId}>
+					<LookupSelect<ChoiceOption>
+						ref={selectRef}
+						inputId={inputId}
+						// The panel's other controls are small; one setting must not
+						// change size with the Adapter.
+						size="sm"
+						isMulti={multiple}
+						value={multiple ? value : (value[0] ?? null)}
+						search={search}
+						// Presence is what the atom reads: without a resolver a stored
+						// id shows as itself, which is the documented degrade.
+						resolve={source.resolve ? resolve : undefined}
+						disabled={lock.locked}
+						onChange={(next) => {
+							const picked = Array.isArray(next) ? next : next ? [next] : [];
+							onChange(picked.map((option) => option.id));
+						}}
+						placeholder={placeholder}
+						emptyMessage={emptyMessage}
+						errorMessage={failureMessage}
+					/>
+				</Box>
 			) : (
-				<BaseSelect<BlueprintOption>
-					inputId={inputId}
-					// Matches the id input this replaces, and the panel's other
-					// controls — one setting must not change size with the adapter.
-					size="sm"
-					isMulti={multiple}
-					options={options}
-					disabled={lock.locked}
-					value={multiple ? selected : (selected[0] ?? null)}
-					onChange={(next) => {
-						const picked = Array.isArray(next) ? next : next ? [next] : [];
-						onChange(picked.map((option) => option.id));
-					}}
-					loading={status === "loading"}
-					placeholder={selectPlaceholder}
-					// react-select shows this after filtering too, so an Author
-					// whose search matched nothing must not be told they have no
-					// blueprints at all.
-					noOptionsMessage={({ inputValue }) =>
-						inputValue ? noMatchMessage : noneMessage
-					}
-				/>
+				<Box data-testid={`${testId}-unavailable`}>
+					<Text fontSize="sm" color="fg.muted">
+						{unavailableMessage}
+					</Text>
+					{/* What is stored stays readable — never dropped, never editable
+					    here (ADR-0027). */}
+					{value.length > 0 && (
+						<Text fontSize="sm" mt="1">
+							{value.join(", ")}
+						</Text>
+					)}
+				</Box>
+			)}
+
+			{source && failed && (
+				<HStack data-testid={`${testId}-failed`} role="alert" gap="2" mt="1">
+					<Text fontSize="xs" color="fg.error">
+						{failureMessage}
+					</Text>
+					<Button
+						size="2xs"
+						variant="outline"
+						onClick={retry}
+						disabled={lock.locked}
+						data-testid={`${testId}-retry`}
+					>
+						Retry
+					</Button>
+				</HStack>
 			)}
 
 			<Text fontSize="xs" color="fg.muted" mt="1" mb={lock.locked ? "1" : "3"}>
@@ -170,30 +289,3 @@ export function BlueprintPicker({
 	);
 }
 BlueprintPicker.displayName = "BlueprintPicker";
-
-function parseIds(text: string, multiple: boolean): string[] {
-	const parts = multiple ? text.split(",") : [text];
-	return parts.map((id) => id.trim()).filter((id) => id.length > 0);
-}
-
-function toOptions(
-	blueprints: BlueprintSummary[] | null,
-	selectedIds: string[],
-): BlueprintOption[] {
-	const options = (blueprints ?? []).map((blueprint) => ({
-		id: blueprint.id,
-		label: blueprint.name,
-	}));
-
-	// A stored Blueprint the list does not offer — one since deleted, or one
-	// this Author may no longer use — stays selected under its raw id. The
-	// alternative is a picker that silently drops a Spec's setting the moment
-	// it is opened.
-	for (const id of selectedIds) {
-		if (!options.some((option) => option.id === id)) {
-			options.unshift({ id, label: id });
-		}
-	}
-
-	return options;
-}

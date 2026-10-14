@@ -3,43 +3,35 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-	BlueprintSummary,
-	FieldKitAdapters,
-} from "../../renderer/adapters";
+import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldKitProvider } from "../../renderer/provider";
 import { builtInFieldTypes } from "../../schema/field-types";
 import type { ReferenceSettings } from "../../schema/field-types/reference";
 import { referencePlugin } from "../../schema/field-types/reference";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import type { Field } from "../../schema/types";
+import {
+	createFakePickerSource,
+	fakeBlueprintAdapter,
+} from "../../test/fake-picker-adapters";
 import { ReferenceSettingsEditor } from "../field-settings/reference-settings";
 import { SettingsSection } from "../panel-sections/settings-section";
 import { DEFAULT_EDITOR_LABELS } from "../spec-editor";
 import { TypePicker } from "../type-picker";
 
-const BLUEPRINTS: BlueprintSummary[] = [
-	{ id: "article", name: "Article" },
-	{ id: "author", name: "Author" },
-];
-
-/** A Consumer whose adapter cannot enumerate Blueprints. */
-function schemaOnlyAdapter(): FieldKitAdapters {
+/** A Consumer whose `blueprint` Adapter searches (ADR-0027): two target
+ * Blueprints and a Release a Reference Spec may link. */
+function searchingAdapter(): FieldKitAdapters {
 	return {
-		blueprint: {
-			getSchema: vi.fn().mockResolvedValue([]),
-			getData: vi.fn(),
-		},
-	};
-}
-
-function listingAdapter(): FieldKitAdapters {
-	return {
-		blueprint: {
-			getSchema: vi.fn().mockResolvedValue([]),
-			getData: vi.fn(),
-			list: () => Promise.resolve(BLUEPRINTS),
-		},
+		blueprint: fakeBlueprintAdapter(
+			createFakePickerSource({
+				choices: [
+					{ id: "article", name: "Article" },
+					{ id: "author", name: "Author" },
+					{ id: "article-attrs", name: "Article attributes" },
+				],
+			}),
+		),
 	};
 }
 
@@ -64,8 +56,8 @@ function renderEditor({
 } = {}) {
 	const onChange = vi.fn();
 
-	// Stateful so a multi-character id types the way an Author's does — the
-	// config panel applies each change straight back to the draft.
+	// Stateful, as the config panel applies each change straight back to the
+	// draft.
 	function Harness() {
 		const [settings, setSettings] = useState(initial);
 		return (
@@ -103,7 +95,7 @@ describe("ReferenceSettingsEditor", () => {
 	it("stores the ids of the blueprints the Author picks", async () => {
 		const user = userEvent.setup();
 		const { onChange, blueprints } = renderEditor({
-			adapters: listingAdapter(),
+			adapters: searchingAdapter(),
 		});
 
 		await user.click(await screen.findByLabelText(/Blueprints/));
@@ -125,7 +117,7 @@ describe("ReferenceSettingsEditor", () => {
 		const user = userEvent.setup();
 		const { onChange } = renderEditor({
 			initial: { max_items: 3 },
-			adapters: listingAdapter(),
+			adapters: searchingAdapter(),
 		});
 
 		await user.click(await screen.findByLabelText(/Blueprints/));
@@ -140,7 +132,7 @@ describe("ReferenceSettingsEditor", () => {
 	it("shows stored blueprints by name, not by id", async () => {
 		renderEditor({
 			initial: { blueprints: [{ blueprint: "author" }] },
-			adapters: listingAdapter(),
+			adapters: searchingAdapter(),
 		});
 
 		expect(await screen.findByText("Author")).toBeInTheDocument();
@@ -317,19 +309,6 @@ describe("ReferenceSettingsEditor", () => {
 		});
 	});
 
-	it("falls back to blueprint id entry when the adapter cannot list", async () => {
-		const user = userEvent.setup();
-		const { onChange, blueprints } = renderEditor({
-			adapters: schemaOnlyAdapter(),
-		});
-
-		await user.type(blueprints(), "article, author");
-
-		expect(onChange).toHaveBeenLastCalledWith({
-			blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
-		});
-	});
-
 	describe("a linked Reference Spec per Blueprint", () => {
 		const LINKED_FIELD: Field = {
 			field_type: "text",
@@ -348,7 +327,7 @@ describe("ReferenceSettingsEditor", () => {
 				initial: {
 					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
 				},
-				adapters: listingAdapter(),
+				adapters: searchingAdapter(),
 			});
 
 			expect(
@@ -365,13 +344,11 @@ describe("ReferenceSettingsEditor", () => {
 				initial: {
 					blueprints: [{ blueprint: "article" }, { blueprint: "author" }],
 				},
-				adapters: schemaOnlyAdapter(),
+				adapters: searchingAdapter(),
 			});
 
-			await user.type(
-				screen.getByTestId("reference-blueprints-input-spec-article"),
-				"article-attrs",
-			);
+			await user.click(screen.getByLabelText("Reference Spec for article"));
+			await user.click(await screen.findByText("Article attributes"));
 
 			// Only the entry it names — the neighbour keeps using the embedded
 			// Reference Spec.
@@ -396,12 +373,11 @@ describe("ReferenceSettingsEditor", () => {
 					],
 					max_items: 3,
 				},
-				adapters: schemaOnlyAdapter(),
+				adapters: searchingAdapter(),
 			});
 
-			await user.clear(
-				screen.getByTestId("reference-blueprints-input-spec-article"),
-			);
+			await user.click(screen.getByLabelText("Reference Spec for article"));
+			await user.keyboard("{Backspace}");
 
 			// The resolved `spec` belongs to the Release no longer named, so it
 			// goes too — a stale inlined Spec would still replace the embedded one.
@@ -423,10 +399,11 @@ describe("ReferenceSettingsEditor", () => {
 						},
 					],
 				},
-				adapters: schemaOnlyAdapter(),
+				adapters: searchingAdapter(),
 			});
 
-			await user.type(blueprints(), ", author");
+			await user.click(blueprints());
+			await user.click(await screen.findByText("Author"));
 
 			expect(onChange).toHaveBeenLastCalledWith({
 				blueprints: [
@@ -458,7 +435,10 @@ describe("reference in the type picker", () => {
 	it("offers its Blueprints setting in the config panel's Type settings tab", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<FieldKitProvider plugins={builtInFieldTypes} adapters={{}}>
+				<FieldKitProvider
+					plugins={builtInFieldTypes}
+					adapters={searchingAdapter()}
+				>
 					<SettingsSection
 						field={FIELD as Field}
 						plugin={referencePlugin as FieldTypePlugin}

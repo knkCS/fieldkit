@@ -76,7 +76,11 @@ Without `/rich-text`, `rich_text` renders `RichTextField` from `/renderer`: the 
 ```ts
 textType?: {
   get: PartFetcher;                           // (releaseId) => Promise<unknown>: a ResolvedTextType
-  list?: () => Promise<TextTypeSummary[]>;    // the config panel's Text Type picker
+  // The config panel's Text Type picker (ADR-0027): one page per call, and
+  // stored Release ids named, archived ones marked. Without `search` the
+  // setting says the application has no source for Text Types.
+  search?: (query: PickerSearchQuery) => Promise<PickerPage<TextTypeSummary>>;
+  resolve?: (query: PickerResolveQuery) => Promise<ResolvedChoice<TextTypeSummary>[]>;
 };
 editorSettings?: {
   get: () => Promise<unknown>;                // an EditorSettings

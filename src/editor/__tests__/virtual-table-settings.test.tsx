@@ -25,9 +25,9 @@ function blueprintAdapters(): FieldKitAdapters {
 		blueprint: {
 			getSchema: vi.fn().mockResolvedValue([]),
 			getData: vi.fn(),
-			list: vi
-				.fn()
-				.mockResolvedValue([{ id: "line_item_bp", name: "Line item" }]),
+			search: vi.fn().mockResolvedValue({
+				items: [{ id: "line_item_bp", name: "Line item" }],
+			}),
 		},
 	};
 }

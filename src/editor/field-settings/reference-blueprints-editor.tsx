@@ -4,7 +4,7 @@ import {
 	type ReferenceBlueprint,
 	referenceBlueprints,
 } from "../../schema/reference";
-import { BlueprintPicker } from "./blueprint-picker";
+import { BlueprintPicker, useBlueprintSource } from "./blueprint-picker";
 
 export interface ReferenceBlueprintsEditorProps {
 	/** The Field being configured, for the pickers' error reports. */
@@ -12,8 +12,9 @@ export interface ReferenceBlueprintsEditorProps {
 	/** The `blueprints` setting as it stands. */
 	value: ReferenceBlueprint[] | undefined;
 	onChange: (blueprints: ReferenceBlueprint[]) => void;
-	/** Test id of the degraded Blueprint id input. */
-	idInputTestId: string;
+	/** Test id prefix of the pickers; each linked Reference Spec picker adds
+	 * `-spec-<blueprint>`. */
+	testId: string;
 }
 
 /**
@@ -34,8 +35,13 @@ export function ReferenceBlueprintsEditor({
 	fieldId,
 	value,
 	onChange,
-	idInputTestId,
+	testId,
 }: ReferenceBlueprintsEditorProps) {
+	// Two purposes in one setting: the targets are Blueprints a Reference may
+	// point at, and a linked Reference Spec is a Release embedded into each
+	// Reference as a Fieldset's is — so it asks with `fieldset` (ADR-0027).
+	const targetSource = useBlueprintSource("reference_target");
+	const specSource = useBlueprintSource("fieldset");
 	const entries = referenceBlueprints({ blueprints: value });
 
 	function setBlueprints(ids: string[]) {
@@ -67,9 +73,9 @@ export function ReferenceBlueprintsEditor({
 				multiple
 				value={entries.map((entry) => entry.blueprint)}
 				onChange={setBlueprints}
-				selectPlaceholder="Any blueprint"
-				idInputPlaceholder="Blueprint ids, comma separated"
-				idInputTestId={idInputTestId}
+				placeholder="Any blueprint"
+				testId={testId}
+				source={targetSource}
 			/>
 			{entries.map((entry) => (
 				<BlueprintPicker
@@ -80,9 +86,9 @@ export function ReferenceBlueprintsEditor({
 					helperText="A blueprint release whose fields replace the Reference Spec for references to this blueprint. Leave empty to use the Reference Spec below."
 					value={entry.spec_blueprint ? [entry.spec_blueprint] : []}
 					onChange={([release]) => setLinked(entry.blueprint, release)}
-					selectPlaceholder="The Reference Spec below"
-					idInputPlaceholder="Blueprint release id"
-					idInputTestId={`${idInputTestId}-spec-${entry.blueprint}`}
+					placeholder="The Reference Spec below"
+					testId={`${testId}-spec-${entry.blueprint}`}
+					source={specSource}
 				/>
 			))}
 		</Stack>

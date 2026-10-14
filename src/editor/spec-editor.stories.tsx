@@ -157,6 +157,11 @@ const deliveryBlueprint: Schema = [
 	number("quantity", { name: "Quantity", min: 1 }),
 ];
 
+const STORY_BLUEPRINTS = [
+	{ id: "address_bp", name: "Address" },
+	{ id: "delivery_bp", name: "Delivery" },
+];
+
 const blueprintAdapters: FieldKitAdapters = {
 	blueprint: {
 		getSchema: async (id) => {
@@ -169,10 +174,15 @@ const blueprintAdapters: FieldKitAdapters = {
 			return [];
 		},
 		getData: async () => ({ items: [], total: 0, page: 1, page_size: 25 }),
-		list: async () => [
-			{ id: "address_bp", name: "Address" },
-			{ id: "delivery_bp", name: "Delivery" },
-		],
+		// One page, filtered by name: the purpose is ignored here because every
+		// story Blueprint fits every setting (ADR-0027).
+		search: async ({ query }) => ({
+			items: STORY_BLUEPRINTS.filter((blueprint) =>
+				blueprint.name.toLowerCase().includes(query.toLowerCase()),
+			),
+		}),
+		resolve: async ({ ids }) =>
+			STORY_BLUEPRINTS.filter((blueprint) => ids.includes(blueprint.id)),
 	},
 };
 

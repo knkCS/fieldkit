@@ -17,7 +17,7 @@ Use **Rich Text** for structured, formatted content whose vocabulary a Text Type
 
 | Setting       | Type                   | Default  | Description                                    |
 |---------------|------------------------|----------|------------------------------------------------|
-| `text_type`   | `string`               | —        | The Text Type Release the rich text is written in: a Pin (ADR-0020), resolved into the Resolved Spec's `parts.text_type`. The config panel lists them from `adapters.textType.list()` |
+| `text_type`   | `string`               | —        | The Text Type Release the rich text is written in: a Pin (ADR-0020), resolved into the Resolved Spec's `parts.text_type`. The config panel searches them through `adapters.textType.search()` and names a stored one through `resolve()` (ADR-0027) |
 | `view_mode`   | `"full" \| "compact"`  | `"full"` | The knkeditor-backed field's editor: `full` is knkeditor's default view, `compact` its minimal one |
 
 The settings are strict: the legacy `editor_spec` is an `unknown_setting` since 0.18.0 (#216). Migrate a Spec holding it by renaming the key to `text_type` and pointing it at a Text Type Release.

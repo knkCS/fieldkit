@@ -202,7 +202,7 @@ export interface DataPage<T = Record<string, unknown>> {
 /**
  * One Text Type Release as an Author picks it: the Release id a `rich_text`
  * Field's `text_type` Pin stores (ADR-0020), and the name they recognise it
- * by. Thin on purpose, as {@link BlueprintSummary} is: listing must not cost
+ * by. Thin on purpose, as {@link BlueprintSummary} is: searching must not cost
  * what fetching does. Extra keys pass through.
  */
 export interface TextTypeSummary {
@@ -211,6 +211,68 @@ export interface TextTypeSummary {
 	name: string;
 	[key: string]: unknown;
 }
+
+/**
+ * Which setting a Blueprint picker is choosing for (ADR-0027), so one
+ * `blueprint` Adapter can offer each setting what fits it instead of a
+ * Consumer mounting an Adapter per picker:
+ *
+ * - `reference_target` — the Blueprints a `reference` or `single_reference`
+ *   Field may point at (its `blueprints` entries' `blueprint`);
+ * - `fieldset` — a Blueprint Release whose Fields are embedded: a Fieldset's
+ *   `blueprint`, and a linked Reference Spec (a `blueprints` entry's
+ *   `spec_blueprint`), which is embedded into each Reference the same way;
+ * - `row_spec` — the Blueprint Release a linked Virtual Table's rows hold.
+ *
+ * Fieldkit filters nothing itself — it has no notion of a Blueprint kind
+ * (ADR-0002). The purpose is only what it tells the Consumer.
+ */
+export type BlueprintPurpose = "reference_target" | "fieldset" | "row_spec";
+
+/**
+ * One request for a page of choices, the shape anker's `LookupSelect` asks in
+ * (anker ADR-0002) and fieldkit hands through unchanged.
+ */
+export interface PickerSearchQuery {
+	/** What the Author typed, after debouncing. Empty on the first open. */
+	query: string;
+	/** The `nextCursor` of the page before; absent for the first page. Opaque
+	 * to fieldkit — whatever the Adapter handed out, handed back. */
+	cursor?: string;
+	/**
+	 * Aborted once this request stops being the one the picker waits for — a
+	 * newer query, the next page, the menu closing. Honouring it is a courtesy:
+	 * a late answer is discarded either way.
+	 */
+	signal: AbortSignal;
+}
+
+/** A Blueprint picker's request: a {@link PickerSearchQuery} plus the setting
+ * asking. */
+export interface BlueprintSearchQuery extends PickerSearchQuery {
+	purpose: BlueprintPurpose;
+}
+
+/** One page of choices. Omit `nextCursor` (or pass `null`) to say there are no
+ * more. */
+export interface PickerPage<T> {
+	items: T[];
+	nextCursor?: string | null;
+}
+
+/** Ids a setting already stores, to be named. */
+export interface PickerResolveQuery {
+	ids: string[];
+	/** Aborted when the stored ids change again before the answer arrives. */
+	signal: AbortSignal;
+}
+
+/**
+ * A stored choice, named. `archived` marks one the Consumer no longer offers
+ * — the picker still shows it, marked, so an existing setting stays readable
+ * and removable.
+ */
+export type ResolvedChoice<T> = T & { archived?: boolean };
 
 export interface FieldKitAdapters {
 	reference?: {
@@ -288,27 +350,38 @@ export interface FieldKitAdapters {
 	/** `getSchema` is the schema layer's `BlueprintSchemaAdapter`, so the same
 	 * adapters object serves `resolveSpec()` and the provider alike. It takes
 	 * a **Blueprint Release id** — what a Fieldset's or a linked Virtual
-	 * Table's `blueprint` setting pins (ADR-0020) — and so does `list()`'s
-	 * `id`. `getData` is keyed as the Consumer sees fit; fieldkit never calls
-	 * it. */
+	 * Table's `blueprint` setting pins (ADR-0020). `getData` is keyed as the
+	 * Consumer sees fit; fieldkit never calls it. */
 	blueprint?: BlueprintSchemaAdapter & {
 		getData: (blueprintId: string, query: DataQuery) => Promise<DataPage>;
 		/**
-		 * The Blueprint Releases an Author may embed, for the Fieldset config
-		 * panel's picker (#52). Each entry's `id` is the Release id the Pin
-		 * stores (ADR-0020).
+		 * One page of the Blueprints (or Blueprint Releases) an Author may pick
+		 * for the setting `purpose` names — what every Blueprint picker in the
+		 * config panel searches and pages through (ADR-0027). Each item's `id`
+		 * is what the setting stores: a Blueprint id for a `reference_target`,
+		 * a Release id for a Pin (ADR-0020).
 		 *
-		 * **Optional on purpose.** Fetching one Blueprint and enumerating them
-		 * are different capabilities, and a Consumer built against the former
-		 * must keep working: without this, the panel degrades to Blueprint id
-		 * entry rather than breaking.
+		 * **Optional, and it is the capability.** Without it a Blueprint
+		 * setting offers no input at all — it says the application has no
+		 * source for it; there is no typed-id fallback (ADR-0027). A rejected
+		 * call is reported through `onError` and shown with a retry.
 		 *
-		 * Fieldkit does no filtering of its own — it has no notion of a
-		 * Blueprint kind (ADR-0002). Return exactly the Blueprints this Author
-		 * may embed; knkCMS core, for instance, narrows to its `fieldset`
-		 * blueprint type on its side.
+		 * Return exactly what fits the purpose and is not archived; fieldkit
+		 * filters nothing (ADR-0002).
 		 */
-		list?: () => Promise<BlueprintSummary[]>;
+		search?: (
+			query: BlueprintSearchQuery,
+		) => Promise<PickerPage<BlueprintSummary>>;
+		/**
+		 * Names the ids a setting already stores, **archived ones included**
+		 * (marked `archived`), so an existing Spec stays readable. An id with
+		 * nothing behind it is left out of the answer and shows as itself.
+		 *
+		 * Optional (ADR-0009): without it a stored id shows as itself.
+		 */
+		resolve?: (
+			query: PickerResolveQuery,
+		) => Promise<ResolvedChoice<BlueprintSummary>[]>;
 	};
 	/**
 	 * Text Type Releases (#216, #278): what a `rich_text` Field's
@@ -328,12 +401,20 @@ export interface FieldKitAdapters {
 		 */
 		get: PartFetcher;
 		/**
-		 * The Text Type Releases an Author may pick, for the rich_text config
-		 * panel's Text Type picker: each entry's `id` is the Release id the
-		 * Pin stores. **Optional on purpose** (ADR-0009): without it the
-		 * picker degrades to Release id entry.
+		 * One page of the Text Type Releases an Author may pin, for the
+		 * rich_text config panel's Text Type picker — the Blueprint picker's
+		 * `search` without a `purpose`, since a Text Type is picked for one
+		 * setting only. Each item's `id` is the Release id the Pin stores.
+		 *
+		 * Optional on the same terms: without it the Text Type setting offers
+		 * no input, only that the application has no source for it.
 		 */
-		list?: () => Promise<TextTypeSummary[]>;
+		search?: (query: PickerSearchQuery) => Promise<PickerPage<TextTypeSummary>>;
+		/** Names stored Text Type Release ids, archived ones included — as the
+		 * Blueprint Adapter's `resolve`. */
+		resolve?: (
+			query: PickerResolveQuery,
+		) => Promise<ResolvedChoice<TextTypeSummary>[]>;
 	};
 	/**
 	 * The workspace's Editor Settings (#278): knkeditor's `EditorSettings`

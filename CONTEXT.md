@@ -211,3 +211,7 @@ _Avoid_: empty (as distinct from unset), cleared, blank
 
 **Adapter**:
 The injected boundary through which backend-dependent field types get their data. Fieldkit never calls a service directly.
+
+**Purpose**:
+Which setting a Blueprint picker is choosing for, told to the `blueprint` Adapter's `search` with each request: `reference_target` (the Blueprints a Reference may point at), `fieldset` (a Release embedded as a Fieldset or as a linked Reference Spec), `row_spec` (the Release a linked Virtual Table's rows hold). It lets one Adapter offer each setting what fits it; fieldkit itself filters nothing (ADR-0002, ADR-0027). The Text Type picker has none — a Text Type is picked for one setting only.
+_Avoid_: scope, kind (a Blueprint kind is the Consumer's notion, not fieldkit's)
