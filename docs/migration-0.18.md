@@ -189,6 +189,18 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `-retry` and `-unavailable`). To migrate: implement `search` and `resolve`
   over your listing, paging with a cursor of your own, and drop `list`; drop
   any per-picker Adapter you mounted to tell settings apart.
+- **A type you cannot serve is hidden** (ADR-0027, knkCS/contenthub#304).
+  A Field Type declares the Adapter capabilities its settings need,
+  `requiresAdapters`: `reference`, `single_reference`, a type minted with
+  `createReferencePlugin` and `fieldset` need `blueprint.search`; `rich_text`
+  needs `textType.search`. The type picker — every one, a bare `TypePicker`
+  included, reading the `FieldKitProvider`'s Adapters, or its own `adapters`
+  prop (outside a provider and without one it has none) — offers such a type only where they are provided, and a Virtual
+  Table offers its linked Row Spec only with `blueprint.search`. A Spec already
+  holding such a Field stays valid, renders, and its setting says the
+  application has no source for it. To keep offering these types, implement
+  `search`; to drop them, implement nothing. `servedByAdapters(plugin,
+  adapters)` (from `/schema`) answers the same question for your own pickers.
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the

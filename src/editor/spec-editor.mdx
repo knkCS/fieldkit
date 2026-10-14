@@ -65,7 +65,7 @@ type minted with `createReferencePlugin`) and `fieldset` declare
 `["textType.search"]`; and a Virtual Table offers its linked Row Spec only with
 `blueprint.search`, embedded otherwise. Every picker hides the same types — the
 canvas's, a Row Spec's, a Reference Spec's — and a bare `TypePicker` outside a
-provider offers none of them. Hiding narrows the picker only: a stored Field of
+provider offers none of them unless handed `adapters` of its own. Hiding narrows the picker only: a stored Field of
 such a type still renders, validates and saves as it was, and its setting
 says the application has no source for it, showing what is stored.
 

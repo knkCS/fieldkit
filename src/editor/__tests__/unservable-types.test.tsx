@@ -159,6 +159,21 @@ describe("TypePicker on its own", () => {
 		expect(offered("reference")).toBeNull();
 	});
 
+	it("offers it with adapters of its own that meet it, and they win over the provider's", () => {
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<FieldKitProvider plugins={plugins} adapters={ADAPTERS.none()}>
+					<TypePicker
+						plugins={[text, reference]}
+						onSelect={vi.fn()}
+						adapters={ADAPTERS.blueprintSearch()}
+					/>
+				</FieldKitProvider>
+			</ChakraProvider>,
+		);
+		expect(offered("reference")).not.toBeNull();
+	});
+
 	it("offers it inside a provider whose adapters meet it", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
