@@ -159,6 +159,9 @@ export interface EditorLabels {
 	choiceOptionLabelOf?: string;
 	choiceOptionKeyOf?: string;
 	choiceOptionRemove?: string;
+	/** Accessible name of an Option's drag grip, which reorders it by
+	 * pointer or keyboard; "{n}" is its 1-based place. */
+	choiceOptionReorder?: string;
 	/** select's Multiple toggle. */
 	choiceMultiple?: string;
 	/** An Option's inline errors — the rules validateSpec applies on save;

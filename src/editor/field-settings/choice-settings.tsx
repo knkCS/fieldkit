@@ -8,7 +8,24 @@ import {
 	Stack,
 	Text,
 } from "@chakra-ui/react";
-import { Plus, X } from "lucide-react";
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	arrayMove,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Plus, X } from "lucide-react";
 import { createContext, type ReactNode, useContext, useRef } from "react";
 import {
 	type ChoiceOption,
@@ -35,6 +52,7 @@ export interface ChoiceSettingsLabels {
 	choiceOptionLabelOf: string;
 	choiceOptionKeyOf: string;
 	choiceOptionRemove: string;
+	choiceOptionReorder: string;
 	choiceMultiple: string;
 	choiceOptionErrorLabel: string;
 	choiceOptionErrorKey: string;
@@ -50,6 +68,7 @@ export const DEFAULT_CHOICE_SETTINGS_LABELS: ChoiceSettingsLabels = {
 	choiceOptionLabelOf: "Label of option {n}",
 	choiceOptionKeyOf: "Key of option {n}",
 	choiceOptionRemove: "Remove option {n}",
+	choiceOptionReorder: "Reorder option {n}",
 	choiceMultiple: "Multiple",
 	choiceOptionErrorLabel: "Label must not be empty",
 	choiceOptionErrorKey:
@@ -160,8 +179,12 @@ function fill(template: string, values: Record<string, string | number>) {
  * - The rows are the stored list, index for index, so an error's path and its
  *   row agree; an entry that is not an Option reads as a blank row.
  *
- * Reordering Options and fixing a released Option's Key are left to later
- * work (fieldkit#364, #365); a row is laid out so either slots in.
+ * - **Options reorder by their grip** — dragged, or from the keyboard (Space
+ *   lifts, arrows move, Space drops, Escape cancels), dnd-kit's sensors as the
+ *   canvas uses them (`docs/dnd-kit-reference.md`). List order is display
+ *   order (ADR-0028), so a move is written straight into the stored list.
+ *
+ * Fixing a released Option's Key is left to later work (fieldkit#365).
  */
 export function ChoiceSettingsEditor({
 	settings,
@@ -178,19 +201,38 @@ export function ChoiceSettingsEditor({
 	const rows = stored.map(toRow);
 	const errors = rowErrors(stored);
 
-	// Which rows' Keys still follow their Label, by index. Held against the
-	// list this editor last wrote: any other list — a Discard, another Field,
-	// a list it never wrote — follows nothing, so no stored Key is ever
-	// re-derived.
-	const follow = useRef<{ list: unknown[] | null; rows: boolean[] }>({
-		list: null,
-		rows: [],
-	});
-	const following =
-		follow.current.list === raw ? follow.current.rows : stored.map(() => false);
+	// Which rows' Keys still follow their Label, and each row's drag id, by
+	// index. Held against the list this editor last wrote: any other list — a
+	// Discard, another Field, a list it never wrote — follows nothing, so no
+	// stored Key is ever re-derived, and gets fresh ids. The ids are what a
+	// move carries a row's identity by: an Option's Key is what the Author
+	// edits, so it cannot be one, and an index changes with the move itself.
+	const follow = useRef<{
+		list: unknown;
+		rows: boolean[];
+		ids: string[];
+		nextId: number;
+	}>({ list: null, rows: [], ids: [], nextId: 0 });
+	const mint = () => `option-${follow.current.nextId++}`;
+	if (follow.current.list !== raw) {
+		// Recorded during render so the ids stay put until the list changes;
+		// writing the same list twice (StrictMode) records the same thing.
+		follow.current = {
+			...follow.current,
+			list: raw,
+			rows: stored.map(() => false),
+			ids: stored.map(mint),
+		};
+	}
+	const { rows: following, ids } = follow.current;
 
-	function write(next: unknown[], nextFollowing: boolean[]) {
-		follow.current = { list: next, rows: nextFollowing };
+	function write(next: unknown[], nextFollowing: boolean[], nextIds: string[]) {
+		follow.current = {
+			...follow.current,
+			list: next,
+			rows: nextFollowing,
+			ids: nextIds,
+		};
 		// The rows are the stored list index for index, invalid entries
 		// included, so what is written is what validateSpec will judge.
 		onChange({ ...settings, options: next as ChoiceOption[] });
@@ -211,24 +253,40 @@ export function ChoiceSettingsEditor({
 	function setLabel(index: number, label: string) {
 		const patch: Partial<ChoiceOption> = { label };
 		if (following[index]) patch.key = optionKeyFromLabel(label);
-		write(updateRow(index, patch), following);
+		write(updateRow(index, patch), following, ids);
 	}
 
 	function setKey(index: number, key: string) {
 		write(
 			updateRow(index, { key }),
 			following.map((f, i) => (i === index ? false : f)),
+			ids,
 		);
 	}
 
 	function add() {
-		write([...stored, { key: "", label: "" }], [...following, true]);
+		write(
+			[...stored, { key: "", label: "" }],
+			[...following, true],
+			[...ids, mint()],
+		);
 	}
 
 	function remove(index: number) {
 		write(
 			stored.filter((_, i) => i !== index),
 			following.filter((_, i) => i !== index),
+			ids.filter((_, i) => i !== index),
+		);
+	}
+
+	// Moves the row and everything held for it by index, so a Key that was
+	// following its Label still does in its new place.
+	function move(from: number, to: number) {
+		write(
+			arrayMove(stored, from, to),
+			arrayMove(following, from, to),
+			arrayMove(ids, from, to),
 		);
 	}
 
@@ -248,15 +306,17 @@ export function ChoiceSettingsEditor({
 						{labels.choiceOptionsEmpty}
 					</Text>
 				) : (
-					<Stack gap="2" mt="1">
+					<SortableOptionList ids={ids} onMove={move}>
 						{rows.map((row, index) => {
 							const n = index + 1;
 							const blank = row.key === "" && row.label === "";
 							const rowError = blank ? undefined : errors.get(index);
 							return (
-								<Box
-									// biome-ignore lint/suspicious/noArrayIndexKey: an Option's Key is what the Author edits, so the index is its only stable identity
-									key={index}
+								<SortableOptionRow
+									key={ids[index]}
+									id={ids[index]}
+									disabled={optionsLock.locked}
+									gripLabel={fill(labels.choiceOptionReorder, { n })}
 									data-testid={`choice-option-${index}`}
 								>
 									<Flex gap="1" align="center">
@@ -320,10 +380,10 @@ export function ChoiceSettingsEditor({
 												: labels.choiceOptionErrorKey}
 										</Text>
 									)}
-								</Box>
+								</SortableOptionRow>
 							);
 						})}
-					</Stack>
+					</SortableOptionList>
 				)}
 				<Button
 					size="xs"
@@ -365,3 +425,116 @@ export function SelectSettingsEditor(props: SettingsProps<ChoiceSettings>) {
 	return <ChoiceSettingsEditor {...props} offerMultiple />;
 }
 SelectSettingsEditor.displayName = "SelectSettingsEditor";
+
+/**
+ * The Options as one sortable column: the canvas's sensors (a pointer lifts
+ * after 8px, so a click on the grip is a click; Space lifts from the keyboard,
+ * arrows move, Space drops, Escape cancels) and the stock vertical strategy —
+ * the rows are short and alike, so plain displacement is the feedback and no
+ * overlay is needed (`docs/dnd-kit-reference.md`).
+ */
+function SortableOptionList({
+	ids,
+	onMove,
+	children,
+}: {
+	ids: string[];
+	onMove: (from: number, to: number) => void;
+	children: ReactNode;
+}) {
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	);
+
+	function handleDragEnd({ active, over }: DragEndEvent) {
+		if (!over || active.id === over.id) return;
+		const from = ids.indexOf(String(active.id));
+		const to = ids.indexOf(String(over.id));
+		if (from !== -1 && to !== -1) onMove(from, to);
+	}
+
+	return (
+		<DndContext
+			sensors={sensors}
+			collisionDetection={closestCenter}
+			onDragEnd={handleDragEnd}
+		>
+			<SortableContext items={ids} strategy={verticalListSortingStrategy}>
+				<Stack gap="2" mt="1">
+					{children}
+				</Stack>
+			</SortableContext>
+		</DndContext>
+	);
+}
+SortableOptionList.displayName = "SortableOptionList";
+
+/**
+ * One Option row as a sortable item: the whole row is what is measured and
+ * moved, the grip beside it is what lifts it. Only the grip carries the
+ * listeners, so a Space typed into a Label is never a lift.
+ */
+function SortableOptionRow({
+	id,
+	disabled,
+	gripLabel,
+	children,
+	"data-testid": testId,
+}: {
+	id: string;
+	disabled: boolean;
+	gripLabel: string;
+	children: ReactNode;
+	"data-testid": string;
+}) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		setActivatorNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id, disabled });
+	return (
+		<Flex
+			ref={setNodeRef}
+			// A single column: the sideways part of a drag means nothing.
+			style={{
+				transform: CSS.Translate.toString(transform && { ...transform, x: 0 }),
+				transition,
+			}}
+			gap="1"
+			align="start"
+			position="relative"
+			zIndex={isDragging ? 1 : undefined}
+			bg={isDragging ? "bg.panel" : undefined}
+			data-choice-option-row=""
+			data-dragging={isDragging ? "true" : undefined}
+			data-testid={testId}
+		>
+			{/* mt centres the xs grip on the sm inputs' first line, and keeps it
+			    there when an error line grows the row below. */}
+			<IconButton
+				ref={setActivatorNodeRef}
+				aria-label={gripLabel}
+				size="xs"
+				variant="ghost"
+				mt="1"
+				cursor={disabled ? undefined : "grab"}
+				disabled={disabled}
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical size={14} />
+			</IconButton>
+			<Box flex="1" minW="0">
+				{children}
+			</Box>
+		</Flex>
+	);
+}
+SortableOptionRow.displayName = "SortableOptionRow";

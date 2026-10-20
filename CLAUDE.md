@@ -93,7 +93,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
-│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField; choice-settings.tsx: the choice types' Options, shared by select/radio/checkboxes, its strings through a labels context) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
+│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField; choice-settings.tsx: the choice types' Options, shared by select/radio/checkboxes and reordered by drag or keyboard, its strings through a labels context) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
@@ -336,7 +336,7 @@ Read these before working on the corresponding area:
 - **`src/renderer/spec-form/spec-form.mdx`** — SpecForm behavior contract (section tabs, search, read mode, labels, schema partitioning rules).
 - **`src/editor/spec-editor.mdx`** — SpecEditor contract (draft model, schema-prop stability, labels table, migration notes, known limitations).
 - **`docs/react-hook-form-reference.md`** — The four integration patterns (delegation, Controller, watch+setValue, useFieldArray), nested paths, Zod wiring. Read before creating or modifying any field component.
-- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying drag-and-drop anywhere: the editor canvas, or the renderer's Reference Tree.
+- **`docs/dnd-kit-reference.md`** — Sensor config, sortable pattern, drag handle conventions. Read before modifying drag-and-drop anywhere: the editor canvas, the choice types' Options, or the renderer's Reference Tree.
 - **`docs/knkeditor-reference.md`** — knkeditor packages and peers, the `/rich-text` integration (ADR-0026), the adapters, Go delegation and the editor-to-Go fixture, and the deprecated EditorSpec layer. Read before modifying `/rich-text`, rich-text-spec or RichTextField.
 - **`docs/migration-0.18.md`** — the 0.18 release notes' migration section: Spec and value changes, TS and Go API breaks, new codes, deprecations. Add to it when a change for 0.18 needs a Consumer to migrate.
 - **`docs/anker-reference.md`** — ⚠️ Historical: written against anker 0.0.2. Superseded by CLAUDE-ANKER.md above; do not trust its API details.

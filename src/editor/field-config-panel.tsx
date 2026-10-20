@@ -96,6 +96,7 @@ export type PanelLabels = Pick<
 	| "choiceOptionLabelOf"
 	| "choiceOptionKeyOf"
 	| "choiceOptionRemove"
+	| "choiceOptionReorder"
 	| "choiceMultiple"
 	| "choiceOptionErrorLabel"
 	| "choiceOptionErrorKey"

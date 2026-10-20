@@ -20,7 +20,8 @@ with no overlay) — design record:
 
 ## Scope
 
-Two layers drag. The **editor layer** moves fields around a canvas:
+Two layers drag. The **editor layer** moves fields around a canvas (and, in
+the config panel, a choice Field's Options — below):
 
 | File | Role |
 |---|---|
@@ -45,8 +46,21 @@ Table**'s rows (`src/renderer/fields/virtual-table-field.tsx`). anker's
 `DataTable` owns the `DndContext`, the sensors and the handle column from anker
 5.4.0 on; fieldkit only passes `onRowReorder` and applies the reported move to
 its array. Nothing below applies to it — the conventions here are for drag
-fieldkit wires itself. Nothing else (rich-text-spec, `SpecDataTable`) uses
-dnd-kit at all. `EditorSpecEditor` uses toggle checkboxes, not drag-and-drop.
+fieldkit wires itself.
+
+A fourth, and the plainest: the **choice types' Options** in their settings
+editor (`src/editor/field-settings/choice-settings.tsx`, fieldkit#364). One
+`DndContext` + one `SortableContext` per Options list, the canvas's sensors
+(`PointerSensor` at 8px, `KeyboardSensor` with `sortableKeyboardCoordinates`),
+`closestCenter`, and the stock `verticalListSortingStrategy` with no
+`DragOverlay`: the rows are short and alike, so the default displacement is
+the feedback, and the dragged row's transform is serialised vertically only.
+Only the grip carries the listeners, so a Space typed into a Label never
+lifts a row. Rows sort by ids the editor mints and moves with the row, never
+by index or Key — an index changes with the move, and a Key is what the Author
+edits. Its tests drive the keyboard with faked row rects, as the tree's do.
+
+Nothing else (rich-text-spec, `SpecDataTable`) uses dnd-kit at all. `EditorSpecEditor` uses toggle checkboxes, not drag-and-drop.
 
 ### The Reference Tree's differences from the canvas
 
