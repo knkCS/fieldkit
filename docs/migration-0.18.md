@@ -68,7 +68,7 @@ Settings are strict (ADR-0018): a key a type does not declare is
   ADR 0009): `validateSpec` with `resolved: true` (Go `ValidateResolvedSpec`),
   which a Release is checked with, reports `missing_setting` at the setting
   for a `select`, `radio` or `checkboxes` with no Options and a `lookup` with
-  no `source` — Unset, so absent, `""` or `[]` alike. `validateSpec` on an
+  no `source` — Unset, so absent, `""`, `[]` or `{}` alike. `validateSpec` on an
   authored Spec still accepts both, so a draft can be saved before they are
   filled in; fill them in before cutting the Release.
 - **Blueprint ids are Release ids:** the blueprint adapter's ids are Blueprint
