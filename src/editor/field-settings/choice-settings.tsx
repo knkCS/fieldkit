@@ -26,7 +26,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus, X } from "lucide-react";
-import { createContext, type ReactNode, useContext, useRef } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	type ChoiceOption,
 	choiceOptionsRules,
@@ -217,11 +224,14 @@ export function ChoiceSettingsEditor({
 	if (follow.current.list !== raw) {
 		// Recorded during render so the ids stay put until the list changes;
 		// writing the same list twice (StrictMode) records the same thing.
+		// Minted before the record is built: spreading the old record first
+		// would copy the counter from before these ids took their numbers.
+		const fresh = stored.map(mint);
 		follow.current = {
 			...follow.current,
 			list: raw,
 			rows: stored.map(() => false),
-			ids: stored.map(mint),
+			ids: fresh,
 		};
 	}
 	const { rows: following, ids } = follow.current;
@@ -449,7 +459,23 @@ function SortableOptionList({
 		}),
 	);
 
+	// SpecEditor deselects the Field on a document-level Escape, which would
+	// close this panel under a keyboard drag that Escape only means to cancel.
+	// Its listener is older than dnd-kit's, so it runs first; marking the
+	// Escape handled in the capture phase is what it yields to. No
+	// stopPropagation: dnd-kit's own listener still needs the key.
+	const [dragging, setDragging] = useState(false);
+	useEffect(() => {
+		if (!dragging) return;
+		function onKeyDown(event: KeyboardEvent) {
+			if (event.key === "Escape") event.preventDefault();
+		}
+		window.addEventListener("keydown", onKeyDown, true);
+		return () => window.removeEventListener("keydown", onKeyDown, true);
+	}, [dragging]);
+
 	function handleDragEnd({ active, over }: DragEndEvent) {
+		setDragging(false);
 		if (!over || active.id === over.id) return;
 		const from = ids.indexOf(String(active.id));
 		const to = ids.indexOf(String(over.id));
@@ -460,6 +486,8 @@ function SortableOptionList({
 		<DndContext
 			sensors={sensors}
 			collisionDetection={closestCenter}
+			onDragStart={() => setDragging(true)}
+			onDragCancel={() => setDragging(false)}
 			onDragEnd={handleDragEnd}
 		>
 			<SortableContext items={ids} strategy={verticalListSortingStrategy}>

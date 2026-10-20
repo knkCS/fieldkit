@@ -322,7 +322,7 @@ async function keyboardMove(
 ) {
 	const grip = screen.getByRole("button", { name: `Reorder option ${n}` });
 	grip.focus();
-	fireEvent.keyDown(grip, { code: "Space" });
+	fireEvent.keyDown(grip, { code: "Space", key: " " });
 	// The KeyboardSensor attaches its document listener in a setTimeout after
 	// activation — yield a macrotask before the first key.
 	await act(async () => {
@@ -330,7 +330,12 @@ async function keyboardMove(
 	});
 	for (const code of [...codes, release]) {
 		await act(async () => {
-			fireEvent.keyDown(document.activeElement ?? document.body, { code });
+			// `key` as a browser sends it: the editor's own Escape listener
+			// reads `key`, dnd-kit reads `code`.
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				code,
+				key: code === "Space" ? " " : code,
+			});
 		});
 	}
 }
@@ -395,6 +400,11 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 
 			await keyboardMove(3, ["ArrowUp"], "Escape");
 			expect(shownLabels()).toEqual(["Small", "Medium", "Large"]);
+			// The Escape cancelled the drag and nothing else: the Field stays
+			// selected and its panel open.
+			expect(
+				screen.getByRole("button", { name: "Reorder option 3" }),
+			).toBeInTheDocument();
 
 			await keyboardMove(3, ["ArrowUp"]);
 			expect(shownLabels()).toEqual(["Small", "Large", "Medium"]);
@@ -405,6 +415,32 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 					{ key: "s", label: "Small" },
 					{ key: "l", label: "Large" },
 					{ key: "m", label: "Medium" },
+				],
+			});
+		} finally {
+			rects.mockRestore();
+		}
+	});
+
+	it("moves an Option added after stored ones", async () => {
+		const rects = mockOptionRects();
+		try {
+			const { user, onCommit } = await openEditor(
+				choiceField("select", STORED),
+			);
+
+			await user.click(screen.getByTestId("choice-option-add"));
+			await user.type(screen.getByLabelText("Label of option 4"), "XL");
+			await keyboardMove(4, ["ArrowUp"]);
+			expect(shownLabels()).toEqual(["Small", "Medium", "XL", "Large"]);
+
+			await save();
+			expect(committedSettings(onCommit)).toEqual({
+				options: [
+					{ key: "s", label: "Small" },
+					{ key: "m", label: "Medium" },
+					{ key: "xl", label: "XL" },
+					{ key: "l", label: "Large" },
 				],
 			});
 		} finally {
