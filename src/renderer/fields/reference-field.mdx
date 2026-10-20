@@ -367,7 +367,6 @@ An adapter failure reaches the Consumer's `onError` on `FieldKitProvider`, attri
 ## Known Limitations
 
 - Every message the Schema reports *below* the field's own node — an over-`max_depth` branch, a required value — is shown under the tree rather than on the row or the Field that caused it. Deduplicated by text; the paths are in `formState.errors` for a Consumer that wants to point at rows.
-- `select`, `radio` and `checkboxes` have no settings editor anywhere in fieldkit, so their options cannot be authored in the panel — a Reference Spec Field of one of those types needs its `settings.options` hand-authored. Not specific to the Reference Spec.
 - The Reference Spec's Fields are not reorderable in the settings list; they render in declaration order.
 - The row's filled count does not say which value is *invalid*, only how many are filled.
 - The form's own Schema (`specToZodSchema`) is not told whose Blueprint each target is, so in a form a field that links a Reference Spec checks its values as an opaque record; the drawer still offers the right Fields. A Consumer that knows the targets passes `targetBlueprint`, and `validateValue()` on save does.

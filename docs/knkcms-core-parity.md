@@ -22,8 +22,8 @@ Core stores `settings` as free-form JSON. A missing Go `Settings` struct does **
 | id | Settings |
 |---|---|
 | `boolean` `time` | none either side |
-| `checkboxes` `radio` | `options` — identical |
-| `select` | `options`, `multiple` — identical |
+| `checkboxes` `radio` | `options` — an ordered `[{key, label}]` in fieldkit (ADR-0028); converting core's renames `value` to `label` |
+| `select` | `options` as above, `multiple` — identical |
 | `media` | `accept`, `max_items` — identical |
 | `fieldset` | `blueprint`, `collapsible` — identical (ADR-0003) |
 | `list` | `max_items_per_page` — identical (ADR-0005) |

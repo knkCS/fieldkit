@@ -29,7 +29,11 @@ const sectionedSpec: Schema = [
 		number("priority", { name: "Priority", min: 0, max: 10 }),
 		select("visibility", {
 			name: "Visibility",
-			options: { public: "Public", private: "Private", unlisted: "Unlisted" },
+			options: [
+				{ key: "public", label: "Public" },
+				{ key: "private", label: "Private" },
+				{ key: "unlisted", label: "Unlisted" },
+			],
 		}),
 	]),
 ];

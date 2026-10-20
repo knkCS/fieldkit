@@ -111,18 +111,20 @@ func arrayText(_ Field, settings map[string]any, value any, _ map[string]map[str
 }
 
 // choiceText is a choice type's text (#223 D6): the label settings.options
-// gives each selected key, in selection order, one per line. A key without a
-// label — not in options, or labelled "" — adds no line: a key is an
-// identifier, never text. checkboxes and a multiple select hold a list of
-// keys, radio and a single select one key.
+// gives each selected key, one per line, in the Options' order (ADR-0028)
+// whatever order the value holds them in. A key without a label — no Option
+// has it, or its label is "" — adds no line: a key is an identifier, never
+// text. checkboxes and a multiple select hold a list of keys, radio and a
+// single select one key. TS's choiceText.
 func choiceText(f Field, settings map[string]any, value any, _ map[string]map[string]json.RawMessage) string {
-	options, ok := settings["options"].(map[string]any)
-	if !ok {
+	options := choiceOptions(settings)
+	if len(options) == 0 {
 		return ""
 	}
 	multiple, _ := settings["multiple"].(bool)
 	var keys []any
 	if f.FieldType == "checkboxes" || multiple {
+		var ok bool
 		if keys, ok = value.([]any); !ok {
 			return ""
 		}
@@ -133,16 +135,73 @@ func choiceText(f Field, settings map[string]any, value any, _ map[string]map[st
 		keys = []any{value}
 	}
 	lines := make([]string, 0, len(keys))
+	for _, key := range inOptionOrder(options, keys) {
+		if label := optionLabel(options, key); label != "" {
+			lines = append(lines, label)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// choiceOption is one Option of a choice Field (ADR-0028).
+type choiceOption struct{ key, label string }
+
+// choiceOptions are the Options settings hold, read leniently as TS's
+// choiceOptions reads them: anything but a list holds none, and an entry that
+// is not an object, or whose key is not a string, is skipped. A missing label
+// reads as "".
+func choiceOptions(settings map[string]any) []choiceOption {
+	list, _ := settings["options"].([]any)
+	options := make([]choiceOption, 0, len(list))
+	for _, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		key, ok := entry["key"].(string)
+		if !ok {
+			continue
+		}
+		label, _ := entry["label"].(string)
+		options = append(options, choiceOption{key: key, label: label})
+	}
+	return options
+}
+
+// inOptionOrder is the selected keys in the Options' order: the known ones by
+// their first Option's place, then the keys no Option has in the value's
+// order. Non-strings are dropped. TS's inOptionOrder.
+func inOptionOrder(options []choiceOption, keys []any) []string {
+	rank := map[string]int{}
+	for i, o := range options {
+		if _, ok := rank[o.key]; !ok {
+			rank[o.key] = i
+		}
+	}
+	var known, unknown []string
 	for _, key := range keys {
 		k, ok := key.(string)
 		if !ok {
 			continue
 		}
-		if label, _ := options[k].(string); label != "" {
-			lines = append(lines, label)
+		if _, ok := rank[k]; ok {
+			known = append(known, k)
+		} else {
+			unknown = append(unknown, k)
 		}
 	}
-	return strings.Join(lines, "\n")
+	slices.SortStableFunc(known, func(a, b string) int { return rank[a] - rank[b] })
+	return append(known, unknown...)
+}
+
+// optionLabel is the label of the first Option with key, "" for none.
+func optionLabel(options []choiceOption, key string) string {
+	for _, o := range options {
+		if o.key == key {
+			return o.label
+		}
+	}
+	return ""
 }
 
 // compareUTF16 orders strings as JS's default sort does: by UTF-16 code

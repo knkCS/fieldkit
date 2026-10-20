@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"unicode/utf16"
@@ -28,6 +29,35 @@ type Schema struct {
 	ExclusiveMaximum     *float64              `json:"exclusiveMaximum,omitempty"`
 	MinLength            *int                  `json:"minLength,omitempty"`
 	MaxLength            *int                  `json:"maxLength,omitempty"`
+	// Pattern is a string's regular expression, unanchored as in JSON Schema
+	// (an Option's Key anchors its own, ADR-0028). It is read as RE2, so a
+	// Catalogue may only use patterns JS and RE2 read alike; one RE2 cannot
+	// compile fails the Catalogue's decoding.
+	Pattern *schemaPattern `json:"pattern,omitempty"`
+}
+
+// schemaPattern is JSON Schema's "pattern", compiled once when the Catalogue
+// is decoded.
+type schemaPattern struct {
+	source string
+	re     *regexp.Regexp
+}
+
+func (p *schemaPattern) UnmarshalJSON(data []byte) error {
+	var source string
+	if err := json.Unmarshal(data, &source); err != nil {
+		return fmt.Errorf("pattern: want a string: %w", err)
+	}
+	re, err := regexp.Compile(source)
+	if err != nil {
+		return fmt.Errorf("pattern %q: %w", source, err)
+	}
+	*p = schemaPattern{source: source, re: re}
+	return nil
+}
+
+func (p schemaPattern) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.source)
 }
 
 // schemaTypes is JSON Schema's "type": one name, or a list of them.
@@ -187,7 +217,8 @@ func (v *settingsValidator) check(s *Schema, value any, path string) {
 		// Lengths are counted as JS counts them, in UTF-16 code units, so a
 		// string TS accepts is one Go accepts.
 		n := len(utf16.Encode([]rune(x)))
-		if (s.MinLength != nil && n < *s.MinLength) || (s.MaxLength != nil && n > *s.MaxLength) {
+		if (s.MinLength != nil && n < *s.MinLength) || (s.MaxLength != nil && n > *s.MaxLength) ||
+			(s.Pattern != nil && !s.Pattern.re.MatchString(x)) {
 			v.add(path, CodeInvalidSetting)
 		}
 	}

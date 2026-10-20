@@ -65,6 +65,9 @@ var typeRulesByID = map[string]typeRules{ //nolint:gochecknoglobals
 	"blocks":           {settings: duplicateBlockTypes, specs: blockTypeSpecs},
 	"reference":        referenceRules,
 	"single_reference": referenceRules,
+	"select":           {settings: duplicateOptionKeys},
+	"radio":            {settings: duplicateOptionKeys},
+	"checkboxes":       {settings: duplicateOptionKeys},
 }
 
 // linkedBlueprint is the Blueprint a Field links, or "" for none: the setting
@@ -187,6 +190,34 @@ func duplicateBlockTypes(settings any) []Error {
 			continue
 		}
 		seen[typ] = true
+	}
+	return errs
+}
+
+// duplicateOptionKeys reports each Option of a choice Field — select, radio,
+// checkboxes — repeating the key an earlier Option holds (ADR-0028): a Key is
+// unique within its Field, which the list form no longer gives for free.
+// CodeDuplicateOptionKey at each repeat's key. A key that is not a string is
+// the schema's to report, and repeats nothing. TS's choiceOptionsRules.
+func duplicateOptionKeys(settings any) []Error {
+	obj, _ := settings.(map[string]any)
+	options, _ := obj["options"].([]any)
+	var errs []Error
+	seen := map[string]bool{}
+	for i, option := range options {
+		entry, _ := option.(map[string]any)
+		key, ok := entry["key"].(string)
+		if !ok || key == "" {
+			continue
+		}
+		if seen[key] {
+			errs = append(errs, Error{
+				Path: joinPath("", "options", strconv.Itoa(i), "key"),
+				Code: CodeDuplicateOptionKey,
+			})
+			continue
+		}
+		seen[key] = true
 	}
 	return errs
 }

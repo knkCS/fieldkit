@@ -1,4 +1,5 @@
 // src/schema/builders.ts
+import type { ChoiceOption } from "./choice-options";
 import type { Field, FieldConfig, FieldValidation } from "./types";
 
 type BaseOptions = {
@@ -127,7 +128,7 @@ export function boolean(apiAccessor: string, options?: BaseOptions) {
 export function select(
 	apiAccessor: string,
 	options?: BaseOptions & {
-		options?: Record<string, string>;
+		options?: ChoiceOption[];
 		multiple?: boolean;
 	},
 ) {

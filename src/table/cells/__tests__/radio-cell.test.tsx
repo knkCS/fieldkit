@@ -21,7 +21,11 @@ const makeField = (overrides?: {
 });
 
 describe("RadioCell", () => {
-	const options = { sm: "Small", md: "Medium", lg: "Large" };
+	const options = [
+		{ key: "sm", label: "Small" },
+		{ key: "md", label: "Medium" },
+		{ key: "lg", label: "Large" },
+	];
 
 	it("renders label for selected value", () => {
 		render(

@@ -16,6 +16,15 @@ export { boolean, number, section, select, text } from "./builders";
 // Spec resolution: every Pin → a Resolved Spec envelope (ADR-0020), the same
 // answers as the Go module's Resolve and Pins
 export { CATALOGUE_VERSION } from "./catalogue-version";
+// The Options of select, radio and checkboxes (ADR-0028): their shape, the Key
+// rule, and the Key a Label suggests — the editor's preset
+export {
+	type ChoiceOption,
+	choiceOptions,
+	OPTION_KEY_MAX_LENGTH,
+	OPTION_KEY_PATTERN,
+	optionKeyFromLabel,
+} from "./choice-options";
 // Edges and Texts over a whole Content: the same answers as the Go module's
 // Edges and Texts (contenthub ADRs 0009, 0019)
 export {

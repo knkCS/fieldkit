@@ -5,7 +5,7 @@ import * as Stories from "./radio-field.stories";
 
 # Radio
 
-A set of radio buttons for single selection. Options are defined as a `Record<string, string>` mapping value keys to display labels. Uses anker's `RadioGroupField` component.
+A set of radio buttons for single selection. Options are an ordered list of `{ key, label }` — list order is display order, and the stored value is the key (ADR-0028). Authors set them up in the SpecEditor's Type settings tab. Uses anker's `RadioGroupField` component.
 
 ## When to Use
 
@@ -15,7 +15,7 @@ Use **Radio** when you have 2-5 options and want all choices visible at once. Fo
 
 | Setting   | Type                     | Default | Description                         |
 |-----------|--------------------------|---------|-------------------------------------|
-| `options` | `Record<string, string>` | `{}`    | Map of option values to display labels |
+| `options` | `{ key: string; label: string }[]` | `[]` | The Options in display order. A key matches `^[a-z0-9][a-z0-9_-]{0,63}$` and is unique in the Field; a label is non-empty |
 
 ## Validation
 

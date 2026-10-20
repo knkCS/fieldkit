@@ -16,6 +16,15 @@ func TestValidateSettingsRunsTheSettingsRules(t *testing.T) {
 	}
 }
 
+func TestValidateSettingsRunsTheOptionKeyRule(t *testing.T) {
+	for _, typ := range []string{"select", "radio", "checkboxes"} {
+		errs := ValidateSettings(typ, json.RawMessage(`{"options":[{"key":"a","label":"A"},{"key":"a","label":"B"}]}`))
+		if len(errs) != 1 || errs[0].Path != "/options/1/key" || errs[0].Code != CodeDuplicateOptionKey {
+			t.Errorf("%s: got %v", typ, errs)
+		}
+	}
+}
+
 func TestBlockTypeFieldsThatAreNotASpec(t *testing.T) {
 	spec, err := DecodeSpec([]byte(`[{"field_type":"blocks","config":{"name":"C","api_accessor":"content","required":false,"instructions":""},"settings":{"allowed_blocks":[
 		{"type":"a","name":"A","fields":[` + validField + `,"title"]},

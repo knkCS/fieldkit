@@ -6,6 +6,7 @@
 // answer. A value not of the type's shape yields `""`: `texts()` reads what
 // validation accepted, and never reports.
 
+import { choiceOptions, inOptionOrder, optionLabel } from "./choice-options";
 import type { Field } from "./types";
 
 /** A string value itself. */
@@ -53,18 +54,19 @@ export function arrayText(
 }
 
 /**
- * A choice type's text — `select`, `radio`, `checkboxes` (#223 D6): the label
- * `settings.options` gives each selected key, in selection order, one per
- * line. A key without a label — not in `options`, or labelled `""` — adds no
- * line: a key is an identifier, never text. `checkboxes` and a multiple
- * `select` hold a list of keys, `radio` and a single `select` one key.
+ * A choice type's text — `select`, `radio`, `checkboxes` (#223 D6): the Label
+ * `settings.options` gives each selected Key, one per line, in the Options'
+ * order (ADR-0028) whatever order the value holds them in. A Key without a
+ * Label — no Option has it, or its Label is `""` — adds no line: a Key is an
+ * identifier, never text. `checkboxes` and a multiple `select` hold a list of
+ * Keys, `radio` and a single `select` one Key.
  */
 export function choiceText(
 	field: Field<{ options?: unknown; multiple?: boolean } | undefined>,
 	value: unknown,
 ): string {
-	const options = field.settings?.options;
-	if (!isRecord(options)) return "";
+	const options = choiceOptions(field.settings);
+	if (options.length === 0) return "";
 	const many = field.field_type === "checkboxes" || !!field.settings?.multiple;
 	let keys: unknown[];
 	if (many) {
@@ -75,10 +77,9 @@ export function choiceText(
 		keys = [value];
 	}
 	const lines: string[] = [];
-	for (const key of keys) {
-		if (typeof key !== "string" || !Object.hasOwn(options, key)) continue;
-		const label = options[key];
-		if (typeof label === "string" && label !== "") lines.push(label);
+	for (const key of inOptionOrder(options, keys)) {
+		const label = optionLabel(options, key);
+		if (label) lines.push(label);
 	}
 	return lines.join("\n");
 }

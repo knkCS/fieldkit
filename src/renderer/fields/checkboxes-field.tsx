@@ -1,5 +1,6 @@
 import { Stack } from "@chakra-ui/react";
 import { CheckboxField, FormField } from "@knkcs/anker/forms";
+import { choiceOptions } from "../../schema/choice-options";
 import type { CheckboxesSettings } from "../../schema/field-types/checkboxes";
 import type { FieldProps } from "../../schema/plugin";
 
@@ -8,7 +9,8 @@ export function CheckboxesField({
 	readOnly,
 }: FieldProps<CheckboxesSettings>) {
 	const { config, settings } = field;
-	const { options = {} } = settings ?? {};
+	// In the Options' order: list order is display order (ADR-0028).
+	const options = choiceOptions(settings);
 
 	return (
 		<FormField
@@ -19,9 +21,10 @@ export function CheckboxesField({
 		>
 			{() => (
 				<Stack>
-					{Object.entries(options).map(([key, label]) => (
+					{options.map(({ key, label }, index) => (
 						<CheckboxField
-							key={key}
+							// biome-ignore lint/suspicious/noArrayIndexKey: a draft may repeat a Key until it is saved (ADR-0028), so the Key alone is no identity
+							key={`${index}:${key}`}
 							name={config.api_accessor}
 							value={key}
 							label={label}

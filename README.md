@@ -37,7 +37,7 @@ import { FieldRenderer } from "@knkcs/fieldkit/renderer";
 const spec = defineSpec([
   text("name", { required: true, placeholder: "Product name" }),
   number("price", { min: 0 }),
-  select("category", { options: { electronics: "Electronics", clothing: "Clothing" } }),
+  select("category", { options: [{ key: "electronics", label: "Electronics" }, { key: "clothing", label: "Clothing" }] }),
 ]);
 
 // Render a form

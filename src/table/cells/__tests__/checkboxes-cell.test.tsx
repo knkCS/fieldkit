@@ -21,7 +21,11 @@ const makeField = (overrides?: {
 });
 
 describe("CheckboxesCell", () => {
-	const options = { js: "JavaScript", ts: "TypeScript", py: "Python" };
+	const options = [
+		{ key: "js", label: "JavaScript" },
+		{ key: "ts", label: "TypeScript" },
+		{ key: "py", label: "Python" },
+	];
 
 	it("renders labels for selected values", () => {
 		render(
@@ -31,6 +35,16 @@ describe("CheckboxesCell", () => {
 			/>,
 		);
 		expect(screen.getByText("JavaScript, TypeScript")).toBeDefined();
+	});
+
+	it("lists labels in the options' order, whatever the value's order", () => {
+		render(
+			<CheckboxesCell
+				field={makeField({ settings: { options } })}
+				value={["py", "js"]}
+			/>,
+		);
+		expect(screen.getByText("JavaScript, Python")).toBeDefined();
 	});
 
 	it("falls back to raw value if no option match", () => {

@@ -755,6 +755,18 @@ are shown.
 | `settingsRemoveItem` | `"Remove"` | Generic settings form: aria-label of a list item's remove button |
 | `settingsNotSet` | `"Not set"` | Generic settings form: placeholder of an unset choice setting |
 | `settingsReadOnly` | `"This setting can't be edited here — shown as stored."` | Generic settings form: note under a setting it shows as read-only JSON |
+| `choiceOptions` | `"Options"` | Choice types' settings editor (select, radio, checkboxes; ADR-0028): caption of the Options list |
+| `choiceOptionsEmpty` | `"No options yet"` | Choice settings: shown while the Field has no Options |
+| `choiceOptionAdd` | `"Add option"` | Choice settings: appends an Option |
+| `choiceOptionLabel` | `"Label"` | Choice settings: placeholder of an Option's Label input |
+| `choiceOptionKey` | `"Key"` | Choice settings: placeholder of an Option's Key input |
+| `choiceOptionLabelOf` | `"Label of option {n}"` | Choice settings: accessible name of an Option's Label input (`{n}` 1-based) |
+| `choiceOptionKeyOf` | `"Key of option {n}"` | Choice settings: accessible name of an Option's Key input |
+| `choiceOptionRemove` | `"Remove option {n}"` | Choice settings: aria-label of an Option's remove button |
+| `choiceMultiple` | `"Multiple"` | Choice settings: select's Multiple toggle |
+| `choiceOptionErrorLabel` | `"Label must not be empty"` | Choice settings: inline error of an Option with an empty Label |
+| `choiceOptionErrorKey` | `"Key must be lowercase letters, digits, - or _, start with a letter or digit, and be at most 64 characters"` | Choice settings: inline error of a Key outside the pattern |
+| `choiceOptionErrorDuplicateKey` | `'Key "{key}" is used by an earlier option'` | Choice settings: inline error of a repeated Key (`duplicate_option_key`) |
 | `panelChildren` | `"Children"` | Group children heading inside the General tab |
 | `panelBack` | `"Back"` | Panel drill-in Back button |
 | `panelClose` | `"Close"` | Panel close button aria-label |

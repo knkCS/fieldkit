@@ -50,7 +50,15 @@ describe("text()", () => {
 });
 
 describe("a choice type's text", () => {
-	const options = { settings: { options: { a: "Alpha", b: "Beta", c: "" } } };
+	const options = {
+		settings: {
+			options: [
+				{ key: "a", label: "Alpha" },
+				{ key: "b", label: "Beta" },
+				{ key: "c", label: "" },
+			],
+		},
+	};
 
 	it("is the label of the selected key, never the key", () => {
 		for (const type of ["select", "radio"]) {
@@ -60,14 +68,14 @@ describe("a choice type's text", () => {
 		}
 	});
 
-	it("is the labels of the selected keys in selection order, one per line", () => {
+	it("is the labels of the selected keys in the options' order, one per line", () => {
 		expect(
 			valueText(
 				field("checkboxes", "c", options),
 				["b", "a"],
 				builtInFieldTypes,
 			),
-		).toBe("Beta\nAlpha");
+		).toBe("Alpha\nBeta");
 		expect(
 			valueText(
 				field("select", "s", {
@@ -76,7 +84,7 @@ describe("a choice type's text", () => {
 				["b", "a"],
 				builtInFieldTypes,
 			),
-		).toBe("Beta\nAlpha");
+		).toBe("Alpha\nBeta");
 	});
 
 	it("yields nothing for a key without a label", () => {

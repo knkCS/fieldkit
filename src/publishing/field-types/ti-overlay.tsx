@@ -149,7 +149,12 @@ const ENTRY_FIELDS: Field[] = [
 	}),
 	field("text", "command", "Command"),
 	field("select", "source", "Source", {
-		settings: { options: { editor: "Editor", oasys: "OASYS" } },
+		settings: {
+			options: [
+				{ key: "editor", label: "Editor" },
+				{ key: "oasys", label: "OASYS" },
+			],
+		},
 	}),
 	field("textarea", "notes", "Notes"),
 ];

@@ -21,11 +21,11 @@ const makeField = (overrides?: {
 });
 
 describe("SelectCell", () => {
-	const options = {
-		draft: "Draft",
-		published: "Published",
-		archived: "Archived",
-	};
+	const options = [
+		{ key: "draft", label: "Draft" },
+		{ key: "published", label: "Published" },
+		{ key: "archived", label: "Archived" },
+	];
 
 	it("renders label for single value", () => {
 		render(
@@ -45,6 +45,16 @@ describe("SelectCell", () => {
 			/>,
 		);
 		expect(screen.getByText("Draft, Published")).toBeDefined();
+	});
+
+	it("lists a multi-select's labels in the options' order, unknown keys last", () => {
+		render(
+			<SelectCell
+				field={makeField({ settings: { options, multiple: true } })}
+				value={["gone", "archived", "draft"]}
+			/>,
+		);
+		expect(screen.getByText("Draft, Archived, gone")).toBeDefined();
 	});
 
 	it("falls back to raw value if no option match", () => {

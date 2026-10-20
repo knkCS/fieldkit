@@ -1,0 +1,326 @@
+{
+	"description": "Options are an ordered list of key and label (ADR-0028): keys of lowercase letters, digits, - and _ starting with a letter or digit, up to 64 characters, integer-like ones included; a list round-trips in its order through resolve, and the texts follow it — the labels of the selected keys in the options' order, whatever order the value holds them in. An empty list, or none, is valid in a Spec",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "months",
+				"api_accessor": "months",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "12",
+						"label": "Dezember"
+					},
+					{
+						"key": "1",
+						"label": "Januar"
+					},
+					{
+						"key": "2",
+						"label": "Februar"
+					},
+					{
+						"key": "10",
+						"label": "Oktober"
+					}
+				],
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "priority",
+				"api_accessor": "priority",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "low",
+						"label": "Low"
+					},
+					{
+						"key": "medium",
+						"label": "Medium"
+					},
+					{
+						"key": "high",
+						"label": "High"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "formats",
+				"api_accessor": "formats",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "print",
+						"label": "Print"
+					},
+					{
+						"key": "e-book",
+						"label": "E-Book"
+					},
+					{
+						"key": "audio_cd",
+						"label": "Audio-CD"
+					},
+					{
+						"key": "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+						"label": "Größtmögliche Länge"
+					},
+					{
+						"key": "0",
+						"label": "Null"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "draft_single",
+				"api_accessor": "draft_single",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": []
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "draft_radio",
+				"api_accessor": "draft_radio",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": []
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "draft_checks",
+				"api_accessor": "draft_checks",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": []
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "no_options",
+				"api_accessor": "no_options",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"months": [
+			"10",
+			"1",
+			"12"
+		],
+		"priority": "medium",
+		"formats": [
+			"0",
+			"print",
+			"abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		]
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateValue": [],
+		"pins": [],
+		"resolve": {
+			"vocabulary": "",
+			"fields": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "months",
+						"api_accessor": "months",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": [
+							{
+								"key": "12",
+								"label": "Dezember"
+							},
+							{
+								"key": "1",
+								"label": "Januar"
+							},
+							{
+								"key": "2",
+								"label": "Februar"
+							},
+							{
+								"key": "10",
+								"label": "Oktober"
+							}
+						],
+						"multiple": true
+					},
+					"system": false
+				},
+				{
+					"field_type": "radio",
+					"config": {
+						"name": "priority",
+						"api_accessor": "priority",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": [
+							{
+								"key": "low",
+								"label": "Low"
+							},
+							{
+								"key": "medium",
+								"label": "Medium"
+							},
+							{
+								"key": "high",
+								"label": "High"
+							}
+						]
+					},
+					"system": false
+				},
+				{
+					"field_type": "checkboxes",
+					"config": {
+						"name": "formats",
+						"api_accessor": "formats",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": [
+							{
+								"key": "print",
+								"label": "Print"
+							},
+							{
+								"key": "e-book",
+								"label": "E-Book"
+							},
+							{
+								"key": "audio_cd",
+								"label": "Audio-CD"
+							},
+							{
+								"key": "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+								"label": "Größtmögliche Länge"
+							},
+							{
+								"key": "0",
+								"label": "Null"
+							}
+						]
+					},
+					"system": false
+				},
+				{
+					"field_type": "select",
+					"config": {
+						"name": "draft_single",
+						"api_accessor": "draft_single",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": []
+					},
+					"system": false
+				},
+				{
+					"field_type": "radio",
+					"config": {
+						"name": "draft_radio",
+						"api_accessor": "draft_radio",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": []
+					},
+					"system": false
+				},
+				{
+					"field_type": "checkboxes",
+					"config": {
+						"name": "draft_checks",
+						"api_accessor": "draft_checks",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": []
+					},
+					"system": false
+				},
+				{
+					"field_type": "select",
+					"config": {
+						"name": "no_options",
+						"api_accessor": "no_options",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			],
+			"parts": {}
+		},
+		"texts": [
+			{
+				"path": "/months",
+				"weight": "D",
+				"text": "Dezember\nJanuar\nOktober"
+			},
+			{
+				"path": "/priority",
+				"weight": "D",
+				"text": "Medium"
+			},
+			{
+				"path": "/formats",
+				"weight": "D",
+				"text": "Print\nGrößtmögliche Länge\nNull"
+			}
+		]
+	}
+}

@@ -50,6 +50,19 @@ Settings are strict (ADR-0018): a key a type does not declare is
   re-validate on save, not on read, so a stored Spec still loads; its next
   save is refused until the key is dropped, and the editor shows it in the
   Validation tab so the author can.
+- **Choice options are an ordered list** (ADR-0028, #363, **breaking between
+  release candidates**): `select`, `radio` and `checkboxes` store
+  `options: [{ key, label }, …]`, list order being display order, where they
+  stored a `{ [key]: label }` map whose order `jsonb` and JavaScript lost. The
+  map is `invalid_setting` at `options`; no reader of it is kept. A Key
+  matches `^[a-z0-9][a-z0-9_-]{0,63}$` (`invalid_setting` at the Key) and is
+  unique within its Field (`duplicate_option_key` at each repeat's Key); a
+  Label is non-empty (`invalid_setting` at the Label). An empty list is valid
+  in a Spec. To migrate: `{"low": "Low", "high": "High"}` becomes
+  `[{"key": "low", "label": "Low"}, {"key": "high", "label": "High"}]`, in the
+  order the Author meant — every option key in core's data already fits the
+  pattern. Content values are unchanged and still not checked against the
+  Options.
 - **Blueprint ids are Release ids:** the blueprint adapter's ids are Blueprint
   **Release** ids, and a Pin is a single opaque Release id string (#212).
 - **Publishing package** (#219, #220, #221):
@@ -125,8 +138,10 @@ What a value yields to contenthub's Content Graph and to search changes too:
   and no check of their values.
 - **Choice types' option labels are searchable** (#223 D6, #283): `select`,
   `radio` and `checkboxes` have `has_text`; their text is the labels of the
-  selected keys, one per line in selection order, and a key without a label
-  yields none. `config.search` is now valid on them.
+  selected keys, one per line, and a key without a label yields none.
+  `config.search` is now valid on them. Since #363 the labels follow the
+  Options' order (ADR-0028) whatever order the value holds the keys in; #283
+  shipped them in selection order. Table cells list them the same way.
 - **`reference_filter` yields `exclude` edges** (#223 D8, #285), one per
   distinct id (an id listed twice is one edge, as a media Field's Asset is),
   at the Field inside the Reference's `values`, target `{content}` with no
@@ -211,6 +226,14 @@ What a value yields to contenthub's Content Graph and to search changes too:
   the same Unset (ADR-0021), so a submitted form still omits it. Tests that
   drove the native control (`getByRole("listbox")`, `<option>` elements) now
   find a `combobox` and open its menu.
+- **Choice options** (ADR-0028, #363): `SelectSettings`, `RadioSettings` and
+  `CheckboxesSettings` hold `options: ChoiceOption[]` (`{ key, label }`), and
+  the `select()` builder takes the list too. The three types have a settings
+  editor now (`settingsComponent`): an Author adds, relabels and removes
+  Options, a new Option's Key is suggested from its Label, select has its
+  Multiple toggle, and invalid rows are shown inline. Its strings are new
+  `EditorLabels` keys, `choiceOptions`… `choiceOptionErrorDuplicateKey`
+  (`spec-editor.mdx`).
 - **The core renderer's `rich_text` field is read-only** (#278, ADR-0026): it
   shows the document's text and says it can't be edited there, where it was a
   JSON textarea. It never writes the value. Editing needs
@@ -222,6 +245,9 @@ What a value yields to contenthub's Content Graph and to search changes too:
 `settingsRules`, `referenceSpecFor`, `referenceBlueprintIds` (#215);
 `FieldKitProvider`'s `parts` prop — the Resolved Spec's `parts`, where a
 Field finds what it pins (#278).
+`ChoiceOption`, `choiceOptions`, `optionKeyFromLabel`, `OPTION_KEY_PATTERN`
+and `OPTION_KEY_MAX_LENGTH` from `/schema` (#363): the Options' shape, a
+lenient reader, the Key a Label suggests, and the Key rule.
 `accessorFromName` and `ACCESSOR_MAX_LENGTH` from `/schema` (#312): the
 Accessor a name suggests, which the editor now derives through. It spells out
 German letters (`Straßenname` → `strassenname`, where it was `straenname`),
@@ -253,6 +279,9 @@ extension packages). No other subpath imports them. Details in
 
 - **New:** `MintIDs` (#211), `ValidateResolvedValue` (#216),
   `WithTargetBlueprints` (#215).
+- **`CodeDuplicateOptionKey`** (#363). The Catalogue's settings schemas may
+  use JSON Schema's `pattern`, read as RE2; `Schema.Pattern` holds it, and a
+  Catalogue whose pattern RE2 cannot compile fails to decode.
 - **`rich_text`** delegates validation, edges, text, Compare and Merge to
   knkeditor's Go module (#216, [`knkeditor-reference.md`](knkeditor-reference.md)).
   The TS/Go rich_text parity gap is accepted for 0.18 (#223 D12, #259).
@@ -271,6 +300,7 @@ Codes only ever grow (ADR-0019); these are new in 0.18.
 | Spec | `invalid_position` (was `virtual_table_row_field_type`), `reserved_accessor`, `invalid_config`, `search_without_text` | #209, #284 |
 | Spec | `duplicate_blueprint` | #215 |
 | Spec | `inapplicable_validation` | #313 |
+| Spec | `duplicate_option_key` | #363 |
 | Resolve | `resolve_*` — cycle, fetch cap, depth cap, fetch failure, invalid Release | #212 |
 | Value | `required`, `not_canonical`, `invalid_type`, `invalid_format`, `too_small`, `too_big`, `too_many_items`, `too_many_bytes`, `invalid_value` | #210, #284 |
 | Value | `too_deep`, `missing_id`, `duplicate_id` | #211 |

@@ -85,10 +85,16 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"apple": "Apple",
-					"banana": "Banana"
-				},
+				"options": [
+					{
+						"key": "apple",
+						"label": "Apple"
+					},
+					{
+						"key": "banana",
+						"label": "Banana"
+					}
+				],
 				"multiple": true
 			},
 			"system": false
@@ -102,10 +108,16 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"yes": "Yes",
-					"no": "No"
-				}
+				"options": [
+					{
+						"key": "yes",
+						"label": "Yes"
+					},
+					{
+						"key": "no",
+						"label": "No"
+					}
+				]
 			},
 			"system": false
 		},
@@ -118,9 +130,12 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"cheese": "Cheese"
-				}
+				"options": [
+					{
+						"key": "cheese",
+						"label": "Cheese"
+					}
+				]
 			},
 			"system": false
 		},
@@ -323,7 +338,7 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {},
+				"options": [],
 				"multiple": false
 			},
 			"system": false

@@ -18,7 +18,12 @@ describe("selectPlugin", () => {
 				required: true,
 				instructions: "",
 			},
-			settings: { options: { draft: "Draft", published: "Published" } },
+			settings: {
+				options: [
+					{ key: "draft", label: "Draft" },
+					{ key: "published", label: "Published" },
+				],
+			},
 			children: null,
 			system: false,
 		};
@@ -36,7 +41,12 @@ describe("selectPlugin", () => {
 				required: false,
 				instructions: "",
 			},
-			settings: { options: { draft: "Draft", published: "Published" } },
+			settings: {
+				options: [
+					{ key: "draft", label: "Draft" },
+					{ key: "published", label: "Published" },
+				],
+			},
 			children: null,
 			system: false,
 		};
@@ -54,7 +64,13 @@ describe("selectPlugin", () => {
 				required: false,
 				instructions: "",
 			},
-			settings: { options: { a: "A", b: "B" }, multiple: true },
+			settings: {
+				options: [
+					{ key: "a", label: "A" },
+					{ key: "b", label: "B" },
+				],
+				multiple: true,
+			},
 			children: null,
 			system: false,
 		};
@@ -73,7 +89,13 @@ describe("selectPlugin", () => {
 				required: true,
 				instructions: "",
 			},
-			settings: { options: { a: "A", b: "B" }, multiple: true },
+			settings: {
+				options: [
+					{ key: "a", label: "A" },
+					{ key: "b", label: "B" },
+				],
+				multiple: true,
+			},
 			children: null,
 			system: false,
 		};
@@ -93,7 +115,7 @@ describe("selectPlugin", () => {
 				required,
 				instructions: "",
 			},
-			settings: { options: { draft: "Draft" } },
+			settings: { options: [{ key: "draft", label: "Draft" }] },
 			children: null,
 			system: false,
 		});

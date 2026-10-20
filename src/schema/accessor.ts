@@ -21,6 +21,19 @@ const TRANSLITERATIONS: Record<string, string> = {
 };
 
 /**
+ * German letters spelled out (`ä→ae`, `ß→ss`), then every other accent
+ * stripped through NFKD (`é→e`): the folding every preset derived from a name
+ * starts with — an Accessor here, an Option's Key (`optionKeyFromLabel`).
+ * Case is kept; the caller lowercases.
+ */
+export function foldLetters(text: string): string {
+	return text
+		.replace(/[äöüÄÖÜßẞ]/g, (letter) => TRANSLITERATIONS[letter] ?? letter)
+		.normalize("NFKD")
+		.replace(/\p{M}/gu, "");
+}
+
+/**
  * The Accessor a name suggests: what the editor presets while a new Field's
  * Accessor still follows its name, and what blueprinthub presets for its
  * Blueprints, Text Types, Symbol Sets and TI Sets.
@@ -39,10 +52,7 @@ const TRANSLITERATIONS: Record<string, string> = {
  * A preset only: an Accessor already stored is never re-derived from it.
  */
 export function accessorFromName(name: string): string {
-	const accessor = name
-		.replace(/[äöüÄÖÜßẞ]/g, (letter) => TRANSLITERATIONS[letter] ?? letter)
-		.normalize("NFKD")
-		.replace(/\p{M}/gu, "")
+	const accessor = foldLetters(name)
 		.toLowerCase()
 		.replace(/[\s-]+/g, "_")
 		.replace(/[^a-z0-9_]/g, "")

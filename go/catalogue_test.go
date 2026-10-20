@@ -66,8 +66,12 @@ func TestParseCatalogueIsStrict(t *testing.T) {
 			want: `unknown field "vocabulary"`,
 		},
 		"a JSON Schema keyword the validator does not implement": {
-			json: `{"version":"1.0.0","types":[{"id":"t","since":"1.0.0","settings_schema":{"type":"string","pattern":"^a"},"positions":["root"],"consumers":[],"pins":[],"has_text":false}]}`,
-			want: `unknown field "pattern"`,
+			json: `{"version":"1.0.0","types":[{"id":"t","since":"1.0.0","settings_schema":{"type":"string","format":"email"},"positions":["root"],"consumers":[],"pins":[],"has_text":false}]}`,
+			want: `unknown field "format"`,
+		},
+		"a pattern RE2 cannot compile": {
+			json: `{"version":"1.0.0","types":[{"id":"t","since":"1.0.0","settings_schema":{"type":"string","pattern":"^(?=a)"},"positions":["root"],"consumers":[],"pins":[],"has_text":false}]}`,
+			want: `pattern "^(?=a)"`,
 		},
 		"a type listed twice": {
 			json: `{"version":"1.0.0","types":[{"id":"t","since":"1.0.0","settings_schema":{},"positions":[],"consumers":[],"pins":[],"has_text":false},{"id":"t","since":"1.0.0","settings_schema":{},"positions":[],"consumers":[],"pins":[],"has_text":false}]}`,
@@ -89,11 +93,11 @@ func TestParseCatalogueIsStrict(t *testing.T) {
 }
 
 func TestCatalogueValidatesAgainstItsOwnTypes(t *testing.T) {
-	c, err := ParseCatalogue([]byte(`{"version":"9.9.9","types":[{"id":"flag","since":"9.9.9","settings_schema":{"type":"object","properties":{"mode":{"enum":["a","b"]},"tags":{"type":"array","items":{"type":"string","minLength":2}},"label":{"type":"string","maxLength":2}},"required":["mode"],"additionalProperties":{"type":"boolean"}},"positions":["root"],"consumers":[],"pins":[],"has_text":false}]}`))
+	c, err := ParseCatalogue([]byte(`{"version":"9.9.9","types":[{"id":"flag","since":"9.9.9","settings_schema":{"type":"object","properties":{"mode":{"enum":["a","b"]},"tags":{"type":"array","items":{"type":"string","minLength":2}},"label":{"type":"string","maxLength":2},"code":{"type":"string","pattern":"^[a-z]+$"},"slug":{"type":"string","pattern":"^[a-z]+$"}},"required":["mode"],"additionalProperties":{"type":"boolean"}},"positions":["root"],"consumers":[],"pins":[],"has_text":false}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec, err := DecodeSpec([]byte(`[{"field_type":"flag","config":{"name":"F","api_accessor":"f","required":false,"instructions":""},"settings":{"mode":"c","tags":["ok","x"],"label":"😀","extra":1,"fine":true},"system":false},{"field_type":"text","config":{"name":"T","api_accessor":"t","required":false,"instructions":""},"system":false}]`))
+	spec, err := DecodeSpec([]byte(`[{"field_type":"flag","config":{"name":"F","api_accessor":"f","required":false,"instructions":""},"settings":{"mode":"c","tags":["ok","x"],"label":"😀","code":"A1","slug":"ok","extra":1,"fine":true},"system":false},{"field_type":"text","config":{"name":"T","api_accessor":"t","required":false,"instructions":""},"system":false}]`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,6 +108,7 @@ func TestCatalogueValidatesAgainstItsOwnTypes(t *testing.T) {
 	want := map[string]string{
 		"/f/settings/mode":   CodeInvalidSetting,
 		"/f/settings/tags/1": CodeInvalidSetting,
+		"/f/settings/code":   CodeInvalidSetting,
 		"/f/settings/extra":  CodeInvalidSetting,
 		"/t":                 CodeUnknownFieldType,
 	}

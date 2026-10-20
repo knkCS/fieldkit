@@ -91,9 +91,12 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"a": "A"
-				},
+				"options": [
+					{
+						"key": "a",
+						"label": "A"
+					}
+				],
 				"multiselect": true
 			},
 			"system": false
@@ -107,9 +110,12 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"a": "A"
-				},
+				"options": [
+					{
+						"key": "a",
+						"label": "A"
+					}
+				],
 				"multiple": true
 			},
 			"system": false

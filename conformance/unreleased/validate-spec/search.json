@@ -121,9 +121,12 @@
 				"search": "B"
 			},
 			"settings": {
-				"options": {
-					"novel": "Novel"
-				}
+				"options": [
+					{
+						"key": "novel",
+						"label": "Novel"
+					}
+				]
 			},
 			"system": false
 		},

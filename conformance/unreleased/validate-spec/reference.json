@@ -72,9 +72,12 @@
 							"instructions": ""
 						},
 						"settings": {
-							"options": {
-								"author": "Author"
-							}
+							"options": [
+								{
+									"key": "author",
+									"label": "Author"
+								}
+							]
 						},
 						"system": false
 					}

@@ -42,12 +42,12 @@
 			"settings": {
 				"options": [
 					{
-						"label": "A",
-						"value": "a"
+						"key": "a",
+						"label": "A"
 					},
 					{
-						"label": "B",
-						"value": "b"
+						"key": "b",
+						"label": "B"
 					}
 				]
 			},
@@ -64,12 +64,12 @@
 			"settings": {
 				"options": [
 					{
-						"label": "X",
-						"value": "x"
+						"key": "x",
+						"label": "X"
 					},
 					{
-						"label": "Y",
-						"value": "y"
+						"key": "y",
+						"label": "Y"
 					}
 				]
 			},

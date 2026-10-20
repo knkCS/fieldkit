@@ -40,9 +40,12 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"s": "Small"
-				}
+				"options": [
+					{
+						"key": "s",
+						"label": "Small"
+					}
+				]
 			},
 			"system": false
 		},

@@ -31,7 +31,7 @@ function field(
 const spec: Field[] = [
 	field("text", "title"),
 	field("text", "subtitle"),
-	field("checkboxes", "tags", { options: { a: "A" } }),
+	field("checkboxes", "tags", { options: [{ key: "a", label: "A" }] }),
 	field("list", "entries"),
 	field("number", "count"),
 	field("boolean", "published"),

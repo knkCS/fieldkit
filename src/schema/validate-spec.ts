@@ -46,6 +46,10 @@ export type SpecFieldErrorCode =
 	 * entry already names — two Reference Specs for one target. At each
 	 * repeat's `blueprint`. */
 	| "duplicate_blueprint"
+	/** A choice Field's Option repeating the `key` an earlier Option of the
+	 * same Field holds (ADR-0028). At each repeat's `key`:
+	 * `/size/settings/options/2/key`. */
+	| "duplicate_option_key"
 	/** A Field whose `field_type` no plugin in the map registers. Its
 	 * settings are not checked — there is nothing to check them against. */
 	| "unknown_field_type"

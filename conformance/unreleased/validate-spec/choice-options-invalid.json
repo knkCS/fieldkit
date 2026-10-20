@@ -1,0 +1,334 @@
+{
+	"description": "Each rule of an Option (ADR-0028), at the Option's path: a key not matching ^[a-z0-9][a-z0-9_-]{0,63}$ is invalid_setting at its key; a key an earlier option of the Field holds is duplicate_option_key at each repeat's key; an empty, missing or non-string label is invalid_setting at the label, and an Unset key (\"\", absent) invalid_setting at the key, repeating nothing; an entry that is not an object is invalid_setting at the entry, and a key an option does not declare unknown_setting; the old key-to-label map is invalid_setting at options, for every choice type and inside a Group's rows",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "bad_keys",
+				"api_accessor": "bad_keys",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "Low",
+						"label": "Low"
+					},
+					{
+						"key": "-x",
+						"label": "Dash first"
+					},
+					{
+						"key": "_x",
+						"label": "Underscore first"
+					},
+					{
+						"key": "a b",
+						"label": "Space"
+					},
+					{
+						"key": "größe",
+						"label": "Umlaut"
+					},
+					{
+						"key": "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbc",
+						"label": "65 characters"
+					},
+					{
+						"key": "fine",
+						"label": "Fine"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "duplicates",
+				"api_accessor": "duplicates",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "a",
+						"label": "A"
+					},
+					{
+						"key": "b",
+						"label": "B"
+					},
+					{
+						"key": "a",
+						"label": "A again"
+					},
+					{
+						"key": "a",
+						"label": "A thrice"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "labels",
+				"api_accessor": "labels",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "empty",
+						"label": ""
+					},
+					{
+						"key": "missing"
+					},
+					{
+						"key": "null",
+						"label": null
+					},
+					{
+						"key": "number",
+						"label": 1
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "keys",
+				"api_accessor": "keys",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "",
+						"label": "Empty key"
+					},
+					{
+						"label": "Missing key"
+					},
+					{
+						"key": 7,
+						"label": "Number key"
+					},
+					{
+						"key": "",
+						"label": "Empty key again"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "entries",
+				"api_accessor": "entries",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					"a",
+					null,
+					{
+						"key": "ok",
+						"label": "OK",
+						"value": "ok"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "old_select",
+				"api_accessor": "old_select",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"low": "Low",
+					"high": "High"
+				},
+				"multiple": true
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "old_radio",
+				"api_accessor": "old_radio",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"yes": "Yes",
+					"no": "No"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "old_checkboxes",
+				"api_accessor": "old_checkboxes",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": {
+					"print": "Print"
+				}
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "rows",
+				"api_accessor": "rows",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "size",
+						"api_accessor": "size",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": [
+							{
+								"key": "s",
+								"label": "S"
+							},
+							{
+								"key": "s",
+								"label": "Small"
+							}
+						]
+					},
+					"system": false
+				}
+			],
+			"system": false
+		}
+	],
+	"expect": {
+		"validateSpec": [
+			{
+				"path": "/bad_keys/settings/options/0/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad_keys/settings/options/1/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad_keys/settings/options/2/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad_keys/settings/options/3/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad_keys/settings/options/4/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/bad_keys/settings/options/5/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/duplicates/settings/options/2/key",
+				"code": "duplicate_option_key"
+			},
+			{
+				"path": "/duplicates/settings/options/3/key",
+				"code": "duplicate_option_key"
+			},
+			{
+				"path": "/labels/settings/options/0/label",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/labels/settings/options/1/label",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/labels/settings/options/2/label",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/labels/settings/options/3/label",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/keys/settings/options/0/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/keys/settings/options/1/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/keys/settings/options/2/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/keys/settings/options/3/key",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/entries/settings/options/0",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/entries/settings/options/1",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/entries/settings/options/2/value",
+				"code": "unknown_setting"
+			},
+			{
+				"path": "/old_select/settings/options",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/old_radio/settings/options",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/old_checkboxes/settings/options",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/rows/children/size/settings/options/1/key",
+				"code": "duplicate_option_key"
+			}
+		]
+	}
+}

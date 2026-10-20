@@ -18,7 +18,12 @@ describe("radioPlugin", () => {
 				required: true,
 				instructions: "",
 			},
-			settings: { options: { low: "Low", high: "High" } },
+			settings: {
+				options: [
+					{ key: "low", label: "Low" },
+					{ key: "high", label: "High" },
+				],
+			},
 			children: null,
 			system: false,
 		};
@@ -36,7 +41,12 @@ describe("radioPlugin", () => {
 				required: false,
 				instructions: "",
 			},
-			settings: { options: { low: "Low", high: "High" } },
+			settings: {
+				options: [
+					{ key: "low", label: "Low" },
+					{ key: "high", label: "High" },
+				],
+			},
 			children: null,
 			system: false,
 		};
