@@ -58,6 +58,11 @@ const (
 	// checkboxes — repeating the key an earlier Option of the same Field
 	// holds (ADR-0028). At each repeat's key.
 	CodeDuplicateOptionKey = "duplicate_option_key"
+	// CodeMissingSetting is a setting a Release needs left Unset (ADR-0021):
+	// a select, radio or checkboxes with no Options (ADR-0028), a lookup
+	// with no source. ValidateResolvedSpec only — a draft may lack them, so
+	// ValidateSpec accepts both. At the setting: "/size/settings/options".
+	CodeMissingSetting = "missing_setting"
 
 	// The codes Resolve fails with (a *ResolveError), shared with TS's
 	// resolveSpec (ResolveSpecError). Prefixed, because a value's depth cap is
