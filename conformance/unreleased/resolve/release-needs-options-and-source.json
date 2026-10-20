@@ -1,0 +1,233 @@
+{
+	"description": "A Release needs what a draft may lack (ADR-0028, blueprinthub ADR 0009): a select, radio or checkboxes with no Options, and a lookup with no source, are valid in a Spec and missing_setting at that setting in the Resolved Spec — at the root, in a group's children and in a Blueprint Release inlined into a Fieldset — while a choice Field with Options and a lookup with a source stay valid",
+	"spec": [
+		{
+			"field_type": "select",
+			"config": {
+				"name": "size",
+				"api_accessor": "size",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": []
+			},
+			"system": false
+		},
+		{
+			"field_type": "radio",
+			"config": {
+				"name": "tone",
+				"api_accessor": "tone",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"system": false
+		},
+		{
+			"field_type": "checkboxes",
+			"config": {
+				"name": "tags",
+				"api_accessor": "tags",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "select",
+			"config": {
+				"name": "level",
+				"api_accessor": "level",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"options": [
+					{
+						"key": "low",
+						"label": "Low"
+					}
+				]
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "layout",
+				"api_accessor": "layout",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"source": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "printer",
+				"api_accessor": "printer",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {},
+			"system": false
+		},
+		{
+			"field_type": "lookup",
+			"config": {
+				"name": "profile",
+				"api_accessor": "profile",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"source": "printing:profiles"
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "extra",
+				"api_accessor": "extra",
+				"required": false,
+				"instructions": ""
+			},
+			"children": [
+				{
+					"field_type": "radio",
+					"config": {
+						"name": "mood",
+						"api_accessor": "mood",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": []
+					},
+					"system": false
+				},
+				{
+					"field_type": "lookup",
+					"config": {
+						"name": "style",
+						"api_accessor": "style",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"source": ""
+					},
+					"system": false
+				}
+			],
+			"system": false
+		},
+		{
+			"field_type": "fieldset",
+			"config": {
+				"name": "address",
+				"api_accessor": "address",
+				"required": false,
+				"instructions": ""
+			},
+			"settings": {
+				"blueprint": "bp-address@1"
+			},
+			"system": false
+		}
+	],
+	"releases": {
+		"blueprint": {
+			"bp-address@1": [
+				{
+					"field_type": "select",
+					"config": {
+						"name": "country",
+						"api_accessor": "country",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": []
+					},
+					"system": false
+				},
+				{
+					"field_type": "lookup",
+					"config": {
+						"name": "region",
+						"api_accessor": "region",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				},
+				{
+					"field_type": "checkboxes",
+					"config": {
+						"name": "kinds",
+						"api_accessor": "kinds",
+						"required": false,
+						"instructions": ""
+					},
+					"settings": {
+						"options": [
+							{
+								"key": "low",
+								"label": "Low"
+							}
+						]
+					},
+					"system": false
+				}
+			]
+		}
+	},
+	"expect": {
+		"validateSpec": [],
+		"validateResolvedSpec": [
+			{
+				"path": "/size/settings/options",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/tone/settings/options",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/tags/settings/options",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/layout/settings/source",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/printer/settings/source",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/extra/children/mood/settings/options",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/extra/children/style/settings/source",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/address/children/country/settings/options",
+				"code": "missing_setting"
+			},
+			{
+				"path": "/address/children/region/settings/source",
+				"code": "missing_setting"
+			}
+		]
+	}
+}

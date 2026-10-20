@@ -58,11 +58,19 @@ Settings are strict (ADR-0018): a key a type does not declare is
   matches `^[a-z0-9][a-z0-9_-]{0,63}$` (`invalid_setting` at the Key) and is
   unique within its Field (`duplicate_option_key` at each repeat's Key); a
   Label is non-empty (`invalid_setting` at the Label). An empty list is valid
-  in a Spec. To migrate: `{"low": "Low", "high": "High"}` becomes
+  in a Spec and refused in a Resolved Spec (`missing_setting` at `options`).
+  To migrate: `{"low": "Low", "high": "High"}` becomes
   `[{"key": "low", "label": "Low"}, {"key": "high", "label": "High"}]`, in the
   order the Author meant — every option key in core's data already fits the
   pattern. Content values are unchanged and still not checked against the
   Options.
+- **A Release needs what a draft may lack** (#366, ADR-0028, blueprinthub
+  ADR 0009): `validateSpec` with `resolved: true` (Go `ValidateResolvedSpec`),
+  which a Release is checked with, reports `missing_setting` at the setting
+  for a `select`, `radio` or `checkboxes` with no Options and a `lookup` with
+  no `source` — Unset, so absent, `""`, `[]` or `{}` alike. `validateSpec` on an
+  authored Spec still accepts both, so a draft can be saved before they are
+  filled in; fill them in before cutting the Release.
 - **Blueprint ids are Release ids:** the blueprint adapter's ids are Blueprint
   **Release** ids, and a Pin is a single opaque Release id string (#212).
 - **Publishing package** (#219, #220, #221):
@@ -282,6 +290,7 @@ extension packages). No other subpath imports them. Details in
 
 - **New:** `MintIDs` (#211), `ValidateResolvedValue` (#216),
   `WithTargetBlueprints` (#215).
+- **`CodeMissingSetting`** (#366), reported by `ValidateResolvedSpec` only.
 - **`CodeDuplicateOptionKey`** (#363). The Catalogue's settings schemas may
   use JSON Schema's `pattern`, read as RE2; `Schema.Pattern` holds it, and a
   Catalogue whose pattern RE2 cannot compile fails to decode.
@@ -304,6 +313,7 @@ Codes only ever grow (ADR-0019); these are new in 0.18.
 | Spec | `duplicate_blueprint` | #215 |
 | Spec | `inapplicable_validation` | #313 |
 | Spec | `duplicate_option_key` | #363 |
+| Resolved Spec | `missing_setting` — a choice Field's `options`, a `lookup`'s `source` | #366 |
 | Resolve | `resolve_*` — cycle, fetch cap, depth cap, fetch failure, invalid Release | #212 |
 | Value | `required`, `not_canonical`, `invalid_type`, `invalid_format`, `too_small`, `too_big`, `too_many_items`, `too_many_bytes`, `invalid_value` | #210, #284 |
 | Value | `too_deep`, `missing_id`, `duplicate_id` | #211 |
