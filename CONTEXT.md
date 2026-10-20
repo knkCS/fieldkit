@@ -166,6 +166,12 @@ _Avoid_: blueprint version, blueprint id (a bare id no longer names a shape)
 A fixed Release. A Reference may carry one, naming one of its target Content's Releases; whether a Reference Field's References may be pinned at all is settled once per Field. A Field that uses a shared part — a Fieldset, a linked Row Spec or Reference Spec, a Text Type — always pins that part's Release. A Pin never names a Revision.
 _Avoid_: lock, freeze, snapshot, version pin
 
+## Choices
+
+**Option**:
+One value a select, radio or checkboxes Field offers: a Key, which Content stores, and a Label, which is shown. A Field's Options are ordered, and once an Option is released its Key is fixed; its Label may change (ADR-0028).
+_Avoid_: choice, value (for the Option), enum entry, item
+
 ## Lookups
 
 **Lookup**:
