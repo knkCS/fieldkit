@@ -120,22 +120,23 @@ export function LookupSettingsEditor({
 				/>
 			</Box>
 
-			{/* The lock's reason replaces the helper rather than joining it: it
-			    is the one sentence about an edit that can still be made. */}
+			{/* An unregistered id is the one warning a lock does not silence: it
+			    says the Field can't be served here, which is true whether or not
+			    the Author may change it. The helper and "no Sources" lines are
+			    about choosing, so the lock's reason replaces them. */}
+			{notRegistered && (
+				<Text fontSize="xs" color="fg.warning" mt="1">
+					{labels.sourceNotRegistered}
+				</Text>
+			)}
 			{lock.locked ? (
 				<SettingLockReason lock={lock} />
 			) : (
-				<Text
-					fontSize="xs"
-					color={notRegistered ? "fg.warning" : "fg.muted"}
-					mt="1"
-				>
-					{noSources
-						? labels.noSourcesRegistered
-						: notRegistered
-							? labels.sourceNotRegistered
-							: labels.sourceHelper}
-				</Text>
+				!notRegistered && (
+					<Text fontSize="xs" color="fg.muted" mt="1">
+						{noSources ? labels.noSourcesRegistered : labels.sourceHelper}
+					</Text>
+				)
 			)}
 		</Box>
 	);

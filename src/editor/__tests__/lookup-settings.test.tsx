@@ -15,6 +15,7 @@ import {
 	LookupSettingsEditor,
 	type LookupSettingsLabels,
 } from "../field-settings/lookup-settings";
+import { SettingLockProvider } from "../field-settings/setting-lock";
 
 const L = DEFAULT_LOOKUP_SETTINGS_LABELS;
 
@@ -137,6 +138,40 @@ describe("LookupSettingsEditor — a stored id that isn't registered", () => {
 
 		await user.click(screen.getByRole("option", { name: "print:printer" }));
 		expect(onChange).toHaveBeenLastCalledWith({ source: "print:printer" });
+	});
+});
+
+describe("LookupSettingsEditor — a locked Source", () => {
+	function renderLocked(stored: string) {
+		render(
+			<ChakraProvider value={defaultSystem}>
+				<FieldKitProvider plugins={[]} adapters={{ lookup: TWO_SOURCES }}>
+					<SettingLockProvider
+						locked={[{ key: "source", reason: "Content uses it." }]}
+					>
+						<LookupSettingsEditor
+							settings={{ source: stored }}
+							onChange={vi.fn()}
+						/>
+					</SettingLockProvider>
+				</FieldKitProvider>
+			</ChakraProvider>,
+		);
+	}
+
+	it("is disabled, and gives the lock's reason in place of the helper", () => {
+		renderLocked("layout:stylesheet");
+
+		expect(input()).toBeDisabled();
+		expect(screen.getByText(/Content uses it\./)).toBeInTheDocument();
+		expect(screen.queryByText(L.sourceHelper)).toBeNull();
+	});
+
+	it("still warns that a locked id isn't registered here", () => {
+		renderLocked("legacy:thing");
+
+		expect(screen.getByText(L.sourceNotRegistered)).toBeInTheDocument();
+		expect(screen.getByText(/Content uses it\./)).toBeInTheDocument();
 	});
 });
 
