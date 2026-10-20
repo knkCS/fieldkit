@@ -234,6 +234,9 @@ What a value yields to contenthub's Content Graph and to search changes too:
   Multiple toggle, and invalid rows are shown inline. Its strings are new
   `EditorLabels` keys, `choiceOptions`… `choiceOptionErrorDuplicateKey`
   (`spec-editor.mdx`).
+  Given the latest Release's Spec as `SpecEditor`'s optional `releasedSpec`
+  (#365), the editor makes a released Option's Key read-only, explained by
+  the `choiceOptionKeyReleased` label.
 - **The core renderer's `rich_text` field is read-only** (#278, ADR-0026): it
   shows the document's text and says it can't be edited there, where it was a
   JSON textarea. It never writes the value. Editing needs
