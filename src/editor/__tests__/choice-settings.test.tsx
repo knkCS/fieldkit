@@ -1,5 +1,11 @@
 // src/editor/__tests__/choice-settings.test.tsx
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { checkboxesPlugin } from "../../schema/field-types/checkboxes";
@@ -13,7 +19,13 @@ import {
 	type EditorLabels,
 	SpecEditor,
 } from "../spec-editor";
-import { EditorWrap, testPlugins } from "./editor-helpers";
+import {
+	EditorWrap,
+	keyboardMoveOption,
+	mockOptionRects,
+	shownOptionLabels,
+	testPlugins,
+} from "./editor-helpers";
 
 /**
  * The choice types' Options, authored in a rendered SpecEditor the way an
@@ -273,5 +285,161 @@ describe("the choice types' Options in the SpecEditor", () => {
 		expect(screen.getByLabelText("Multiple")).toBeDisabled();
 		expect(screen.getByText("Content uses these")).toBeInTheDocument();
 		expect(screen.getByText("Fixed by the app")).toBeInTheDocument();
+	});
+});
+
+describe("reordering the choice types' Options (fieldkit#364)", () => {
+	const STORED = {
+		options: [
+			{ key: "s", label: "Small" },
+			{ key: "m", label: "Medium" },
+			{ key: "l", label: "Large" },
+		],
+	};
+
+	it.each([
+		"select",
+		"radio",
+		"checkboxes",
+	])("%s: moves an Option from the keyboard, and the order round-trips through save", async (type) => {
+		const rects = mockOptionRects();
+		try {
+			const { onCommit } = await openEditor(choiceField(type, STORED));
+
+			await keyboardMoveOption(1, ["ArrowDown", "ArrowDown"]);
+			expect(shownOptionLabels()).toEqual(["Medium", "Large", "Small"]);
+			// A moved stored Option keeps its Key: nothing is re-derived.
+			expect(screen.getByLabelText("Key of option 3")).toHaveValue("s");
+
+			await save();
+			const settings = committedSettings(onCommit);
+			expect(settings).toEqual({
+				options: [
+					{ key: "m", label: "Medium" },
+					{ key: "l", label: "Large" },
+					{ key: "s", label: "Small" },
+				],
+			});
+
+			// What was saved opens again in the order it was saved in.
+			cleanup();
+			await openEditor({
+				...choiceField(type),
+				settings: settings as Record<string, unknown>,
+			});
+			expect(shownOptionLabels()).toEqual(["Medium", "Large", "Small"]);
+		} finally {
+			rects.mockRestore();
+		}
+	});
+
+	it("moves an Option up, and a cancelled drag changes nothing", async () => {
+		const rects = mockOptionRects();
+		try {
+			const { onCommit } = await openEditor(choiceField("radio", STORED));
+
+			await keyboardMoveOption(3, ["ArrowUp"], "Escape");
+			expect(shownOptionLabels()).toEqual(["Small", "Medium", "Large"]);
+			// The Escape cancelled the drag and nothing else: the Field stays
+			// selected and its panel open.
+			expect(
+				screen.getByRole("button", { name: "Reorder option 3" }),
+			).toBeInTheDocument();
+
+			await keyboardMoveOption(3, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["Small", "Large", "Medium"]);
+
+			await save();
+			expect(committedSettings(onCommit)).toEqual({
+				options: [
+					{ key: "s", label: "Small" },
+					{ key: "l", label: "Large" },
+					{ key: "m", label: "Medium" },
+				],
+			});
+		} finally {
+			rects.mockRestore();
+		}
+	});
+
+	it("moves an Option added after stored ones", async () => {
+		const rects = mockOptionRects();
+		try {
+			const { user, onCommit } = await openEditor(
+				choiceField("select", STORED),
+			);
+
+			await user.click(screen.getByTestId("choice-option-add"));
+			await user.type(screen.getByLabelText("Label of option 4"), "XL");
+			await keyboardMoveOption(4, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["Small", "Medium", "XL", "Large"]);
+
+			await save();
+			expect(committedSettings(onCommit)).toEqual({
+				options: [
+					{ key: "s", label: "Small" },
+					{ key: "m", label: "Medium" },
+					{ key: "xl", label: "XL" },
+					{ key: "l", label: "Large" },
+				],
+			});
+		} finally {
+			rects.mockRestore();
+		}
+	});
+
+	it("carries which Keys still follow their Label through a move", async () => {
+		const rects = mockOptionRects();
+		try {
+			const { user, onCommit } = await openEditor(choiceField("select"));
+
+			await user.click(screen.getByTestId("choice-option-add"));
+			await user.type(screen.getByLabelText("Label of option 1"), "Low");
+			await user.click(screen.getByTestId("choice-option-add"));
+			await user.type(screen.getByLabelText("Label of option 2"), "High");
+			// Option 1's Key is now the Author's own; option 2's still follows.
+			const lowKey = screen.getByLabelText("Key of option 1");
+			await user.clear(lowKey);
+			await user.type(lowKey, "lo");
+
+			await keyboardMoveOption(2, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["High", "Low"]);
+
+			await user.type(screen.getByLabelText("Label of option 1"), " end");
+			await user.type(screen.getByLabelText("Label of option 2"), " end");
+			expect(screen.getByLabelText("Key of option 1")).toHaveValue("high-end");
+			expect(screen.getByLabelText("Key of option 2")).toHaveValue("lo");
+
+			await save();
+			expect(committedSettings(onCommit)).toEqual({
+				options: [
+					{ key: "high-end", label: "High end" },
+					{ key: "lo", label: "Low end" },
+				],
+			});
+		} finally {
+			rects.mockRestore();
+		}
+	});
+
+	it("offers no reordering while the options setting is frozen (ADR-0011)", async () => {
+		const field = choiceField("select", STORED);
+		field.config.locked_settings = [
+			{ key: "options", reason: "Content uses these" },
+		];
+		await openEditor(field);
+
+		expect(
+			screen.getByRole("button", { name: "Reorder option 1" }),
+		).toBeDisabled();
+	});
+
+	it("names the grip from the editor's labels", async () => {
+		await openEditor(choiceField("select", STORED), {
+			choiceOptionReorder: "Option {n} verschieben",
+		});
+		expect(
+			screen.getByRole("button", { name: "Option 2 verschieben" }),
+		).toBeInTheDocument();
 	});
 });

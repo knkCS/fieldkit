@@ -12,7 +12,13 @@ import {
 	type EditorLabels,
 	SpecEditor,
 } from "../spec-editor";
-import { EditorWrap, testPlugins } from "./editor-helpers";
+import {
+	EditorWrap,
+	keyboardMoveOption,
+	mockOptionRects,
+	shownOptionLabels,
+	testPlugins,
+} from "./editor-helpers";
 
 /**
  * A released Option's Key is fixed in the editor (ADR-0028, fieldkit#365):
@@ -167,6 +173,42 @@ describe("a released Option's Key in the SpecEditor", () => {
 				{ key: "s", label: "S" },
 			],
 		});
+	});
+
+	it("stays with its Option when the Option is reordered (fieldkit#364)", async () => {
+		const rects = mockOptionRects();
+		try {
+			const { user, onCommit } = await openEditor(RELEASED, RELEASED);
+
+			await keyboardMoveOption(1, ["ArrowDown"]);
+			expect(shownOptionLabels()).toEqual(["Medium", "Small"]);
+			expect(key(1)).toHaveValue("m");
+			expect(key(1)).toHaveAttribute("readonly");
+			expect(key(2)).toHaveValue("s");
+			expect(key(2)).toHaveAttribute("readonly");
+
+			// An Option added in this session under a released Key stays the
+			// Author's to edit wherever it moves: what was added moves with it.
+			await user.click(screen.getByRole("button", { name: "Remove option 2" }));
+			await user.click(screen.getByTestId("choice-option-add"));
+			await user.type(screen.getByLabelText("Label of option 2"), "S");
+			await keyboardMoveOption(2, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["S", "Medium"]);
+			expect(key(1)).toHaveValue("s");
+			expect(key(1)).not.toHaveAttribute("readonly");
+			expect(key(2)).toHaveValue("m");
+			expect(key(2)).toHaveAttribute("readonly");
+
+			await save();
+			expect(onCommit.mock.calls[0][0][0].settings).toEqual({
+				options: [
+					{ key: "s", label: "S" },
+					{ key: "m", label: "Medium" },
+				],
+			});
+		} finally {
+			rects.mockRestore();
+		}
 	});
 
 	it("leaves every Key editable without a releasedSpec", async () => {

@@ -1,6 +1,7 @@
 // src/editor/__tests__/editor-helpers.tsx
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { ConfirmModalProvider } from "@knkcs/anker/feedback";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { vi } from "vitest";
 import { z } from "zod";
@@ -140,3 +141,71 @@ export function CanvasHarness({
 	);
 }
 CanvasHarness.displayName = "CanvasHarness";
+
+// The choice types' Options, reordered from the keyboard (fieldkit#364).
+
+/**
+ * jsdom lays nothing out, so dnd-kit's keyboard coordinate getter would find
+ * no direction to move in. Fake a column: one Option row per 60px, every
+ * other element a zero rect — the Reference Tree's drag tests do the same.
+ */
+export function mockOptionRects() {
+	return vi
+		.spyOn(Element.prototype, "getBoundingClientRect")
+		.mockImplementation(function (this: Element) {
+			const rows = Array.from(
+				document.querySelectorAll("[data-choice-option-row]"),
+			);
+			const index = rows.indexOf(this);
+			const top = index === -1 ? 0 : index * 60;
+			const height = index === -1 ? 0 : 50;
+			return {
+				top,
+				bottom: top + height,
+				left: 0,
+				right: index === -1 ? 0 : 300,
+				width: index === -1 ? 0 : 300,
+				height,
+				x: 0,
+				y: top,
+				toJSON() {
+					return this;
+				},
+			} as DOMRect;
+		});
+}
+
+/** Lifts an Option by its grip from the keyboard, presses `codes` while it is
+ * in flight, then releases it with `release` (Space drops, Escape cancels). */
+export async function keyboardMoveOption(
+	n: number,
+	codes: string[],
+	release: "Space" | "Escape" = "Space",
+) {
+	const grip = screen.getByRole("button", { name: `Reorder option ${n}` });
+	grip.focus();
+	fireEvent.keyDown(grip, { code: "Space", key: " " });
+	// The KeyboardSensor attaches its document listener in a setTimeout after
+	// activation — yield a macrotask before the first key.
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
+	for (const code of [...codes, release]) {
+		await act(async () => {
+			// `key` as a browser sends it: the editor's own Escape listener
+			// reads `key`, dnd-kit reads `code`.
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				code,
+				key: code === "Space" ? " " : code,
+			});
+		});
+	}
+}
+
+export function shownOptionLabels(): string[] {
+	return Array.from(
+		document.querySelectorAll<HTMLInputElement>(
+			'[data-choice-option-row] input[aria-label^="Label of option"]',
+		),
+	).map((input) => input.value);
+}
