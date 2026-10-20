@@ -1,5 +1,16 @@
 // @knkcs/fieldkit/editor — Specification editor
 
+// The Lookup settings editor's labels (English defaults). Exported so a
+// Consumer translating it can wrap `lookupPlugin.settingsComponent` and pass
+// its own — settings editors get no labels from the config panel.
+export type {
+	LookupSettingsEditorProps,
+	LookupSettingsLabels,
+} from "./field-settings/lookup-settings";
+export {
+	DEFAULT_LOOKUP_SETTINGS_LABELS,
+	LookupSettingsEditor,
+} from "./field-settings/lookup-settings";
 // Locked settings (ADR-0011). Exported because the ADR's requirement is that
 // EVERY settings editor honours the list, "including the ones Consumers write
 // themselves" — a Consumer's own `settingsComponent` needs the same hook
