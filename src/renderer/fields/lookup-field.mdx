@@ -47,9 +47,16 @@ carries neither. A label is never stored — it is resolved on load, every load.
 |----------|----------|---------|----------------------------------------------------|
 | `source` | `string` | `""`    | The id this application registered the Source under |
 
-The id is opaque to fieldkit: it never parses it, never enumerates the Sources
-and has no notion of what any of them hold (ADR-0002). Writing it
-`service:collection` is a Consumer convention.
+The id is opaque to fieldkit: it never parses it and has no notion of what any
+Source holds (ADR-0002). Writing it `service:collection` is a Consumer
+convention.
+
+The settings editor offers the ids registered on `adapters.lookup` as a select
+— the registered Sources are the list (blueprinthub ADR 0009). A stored id this
+application did not register stays as stored, shown raw with a "not registered
+here" warning; with no Sources registered the select is disabled and says so.
+Its strings are `LookupSettingsLabels` (`@knkcs/fieldkit/editor`), English by
+default.
 
 ## Registering a Source
 
