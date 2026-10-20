@@ -93,7 +93,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
-│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField; choice-settings.tsx: the choice types' Options, shared by select/radio/checkboxes and reordered by drag or keyboard, its strings through a labels context) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
+│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField; choice-settings.tsx: the choice types' Options, shared by select/radio/checkboxes and reordered by drag or keyboard, its strings through a labels context, a released Option's Key read-only from released-field.tsx — the Field as `SpecEditor`'s `releasedSpec` holds it, matched by Accessor path, through a context) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx

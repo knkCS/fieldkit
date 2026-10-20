@@ -19,7 +19,13 @@ import {
 	type EditorLabels,
 	SpecEditor,
 } from "../spec-editor";
-import { EditorWrap, testPlugins } from "./editor-helpers";
+import {
+	EditorWrap,
+	keyboardMoveOption,
+	mockOptionRects,
+	shownOptionLabels,
+	testPlugins,
+} from "./editor-helpers";
 
 /**
  * The choice types' Options, authored in a rendered SpecEditor the way an
@@ -282,72 +288,6 @@ describe("the choice types' Options in the SpecEditor", () => {
 	});
 });
 
-/**
- * jsdom lays nothing out, so dnd-kit's keyboard coordinate getter would find
- * no direction to move in. Fake a column: one Option row per 60px, every
- * other element a zero rect — the Reference Tree's drag tests do the same.
- */
-function mockOptionRects() {
-	return vi
-		.spyOn(Element.prototype, "getBoundingClientRect")
-		.mockImplementation(function (this: Element) {
-			const rows = Array.from(
-				document.querySelectorAll("[data-choice-option-row]"),
-			);
-			const index = rows.indexOf(this);
-			const top = index === -1 ? 0 : index * 60;
-			const height = index === -1 ? 0 : 50;
-			return {
-				top,
-				bottom: top + height,
-				left: 0,
-				right: index === -1 ? 0 : 300,
-				width: index === -1 ? 0 : 300,
-				height,
-				x: 0,
-				y: top,
-				toJSON() {
-					return this;
-				},
-			} as DOMRect;
-		});
-}
-
-/** Lifts an Option by its grip from the keyboard, presses `codes` while it is
- * in flight, then releases it with `release` (Space drops, Escape cancels). */
-async function keyboardMove(
-	n: number,
-	codes: string[],
-	release: "Space" | "Escape" = "Space",
-) {
-	const grip = screen.getByRole("button", { name: `Reorder option ${n}` });
-	grip.focus();
-	fireEvent.keyDown(grip, { code: "Space", key: " " });
-	// The KeyboardSensor attaches its document listener in a setTimeout after
-	// activation — yield a macrotask before the first key.
-	await act(async () => {
-		await new Promise((resolve) => setTimeout(resolve, 0));
-	});
-	for (const code of [...codes, release]) {
-		await act(async () => {
-			// `key` as a browser sends it: the editor's own Escape listener
-			// reads `key`, dnd-kit reads `code`.
-			fireEvent.keyDown(document.activeElement ?? document.body, {
-				code,
-				key: code === "Space" ? " " : code,
-			});
-		});
-	}
-}
-
-function shownLabels(): string[] {
-	return Array.from(
-		document.querySelectorAll<HTMLInputElement>(
-			'[data-choice-option-row] input[aria-label^="Label of option"]',
-		),
-	).map((input) => input.value);
-}
-
 describe("reordering the choice types' Options (fieldkit#364)", () => {
 	const STORED = {
 		options: [
@@ -366,8 +306,8 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 		try {
 			const { onCommit } = await openEditor(choiceField(type, STORED));
 
-			await keyboardMove(1, ["ArrowDown", "ArrowDown"]);
-			expect(shownLabels()).toEqual(["Medium", "Large", "Small"]);
+			await keyboardMoveOption(1, ["ArrowDown", "ArrowDown"]);
+			expect(shownOptionLabels()).toEqual(["Medium", "Large", "Small"]);
 			// A moved stored Option keeps its Key: nothing is re-derived.
 			expect(screen.getByLabelText("Key of option 3")).toHaveValue("s");
 
@@ -387,7 +327,7 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 				...choiceField(type),
 				settings: settings as Record<string, unknown>,
 			});
-			expect(shownLabels()).toEqual(["Medium", "Large", "Small"]);
+			expect(shownOptionLabels()).toEqual(["Medium", "Large", "Small"]);
 		} finally {
 			rects.mockRestore();
 		}
@@ -398,16 +338,16 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 		try {
 			const { onCommit } = await openEditor(choiceField("radio", STORED));
 
-			await keyboardMove(3, ["ArrowUp"], "Escape");
-			expect(shownLabels()).toEqual(["Small", "Medium", "Large"]);
+			await keyboardMoveOption(3, ["ArrowUp"], "Escape");
+			expect(shownOptionLabels()).toEqual(["Small", "Medium", "Large"]);
 			// The Escape cancelled the drag and nothing else: the Field stays
 			// selected and its panel open.
 			expect(
 				screen.getByRole("button", { name: "Reorder option 3" }),
 			).toBeInTheDocument();
 
-			await keyboardMove(3, ["ArrowUp"]);
-			expect(shownLabels()).toEqual(["Small", "Large", "Medium"]);
+			await keyboardMoveOption(3, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["Small", "Large", "Medium"]);
 
 			await save();
 			expect(committedSettings(onCommit)).toEqual({
@@ -431,8 +371,8 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 
 			await user.click(screen.getByTestId("choice-option-add"));
 			await user.type(screen.getByLabelText("Label of option 4"), "XL");
-			await keyboardMove(4, ["ArrowUp"]);
-			expect(shownLabels()).toEqual(["Small", "Medium", "XL", "Large"]);
+			await keyboardMoveOption(4, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["Small", "Medium", "XL", "Large"]);
 
 			await save();
 			expect(committedSettings(onCommit)).toEqual({
@@ -462,8 +402,8 @@ describe("reordering the choice types' Options (fieldkit#364)", () => {
 			await user.clear(lowKey);
 			await user.type(lowKey, "lo");
 
-			await keyboardMove(2, ["ArrowUp"]);
-			expect(shownLabels()).toEqual(["High", "Low"]);
+			await keyboardMoveOption(2, ["ArrowUp"]);
+			expect(shownOptionLabels()).toEqual(["High", "Low"]);
 
 			await user.type(screen.getByLabelText("Label of option 1"), " end");
 			await user.type(screen.getByLabelText("Label of option 2"), " end");

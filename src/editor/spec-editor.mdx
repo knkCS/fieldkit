@@ -39,6 +39,7 @@ most consumers won't need it directly.
 | `title`         | `ReactNode`                          | —       | Rendered on its own line **above the toolbar** — put a spec/content-type name here. Nothing renders when omitted. |
 | `labels`        | `EditorLabels`                       | —       | Overrides for every author-facing string. Merges over `DEFAULT_EDITOR_LABELS`. |
 | `formatSaveError` | `(reason: unknown) => string \| null` | —     | Formats a rejected `onCommit` reason into the `saveFailed` toast description; return `null` to suppress it. See [Save-failure description](#save-failure-description-formatsaveerror) below. |
+| `releasedSpec` | `Schema` | — | The Spec of the latest Release. The choice types' settings editor makes the Key of every Option this Spec holds for the same Field (the same Accessor path) read-only, with the `choiceOptionKeyReleased` note: Content stores Keys (ADR-0028). The Option can still be relabelled, reordered and removed, and Options added in the session keep editable Keys. Advice, never validated. Without it, every Key can be edited. |
 
 ### FieldKitProvider requirement
 
@@ -768,6 +769,7 @@ are shown.
 | `choiceOptionErrorLabel` | `"Label must not be empty"` | Choice settings: inline error of an Option with an empty Label |
 | `choiceOptionErrorKey` | `"Key must be lowercase letters, digits, - or _, start with a letter or digit, and be at most 64 characters"` | Choice settings: inline error of a Key outside the pattern |
 | `choiceOptionErrorDuplicateKey` | `'Key "{key}" is used by an earlier option'` | Choice settings: inline error of a repeated Key (`duplicate_option_key`) |
+| `choiceOptionKeyReleased` | `"A released option keeps its Key: content stores it. Relabel, move or remove the option instead."` | Choice settings: note beside a released Option's read-only Key (`releasedSpec`) |
 | `panelChildren` | `"Children"` | Group children heading inside the General tab |
 | `panelBack` | `"Back"` | Panel drill-in Back button |
 | `panelClose` | `"Close"` | Panel close button aria-label |

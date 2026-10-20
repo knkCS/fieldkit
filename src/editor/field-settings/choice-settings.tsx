@@ -25,12 +25,13 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, X } from "lucide-react";
+import { GripVertical, Lock, Plus, X } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
 	useContext,
 	useEffect,
+	useId,
 	useRef,
 	useState,
 } from "react";
@@ -41,7 +42,9 @@ import {
 	optionKeyFromLabel,
 } from "../../schema/choice-options";
 import type { SettingsProps } from "../../schema/plugin";
+import type { Field } from "../../schema/types";
 import { validateSettings } from "../../schema/validate-settings";
+import { useReleasedField } from "./released-field";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /**
@@ -64,6 +67,7 @@ export interface ChoiceSettingsLabels {
 	choiceOptionErrorLabel: string;
 	choiceOptionErrorKey: string;
 	choiceOptionErrorDuplicateKey: string;
+	choiceOptionKeyReleased: string;
 }
 
 export const DEFAULT_CHOICE_SETTINGS_LABELS: ChoiceSettingsLabels = {
@@ -81,6 +85,8 @@ export const DEFAULT_CHOICE_SETTINGS_LABELS: ChoiceSettingsLabels = {
 	choiceOptionErrorKey:
 		"Key must be lowercase letters, digits, - or _, start with a letter or digit, and be at most 64 characters",
 	choiceOptionErrorDuplicateKey: 'Key "{key}" is used by an earlier option',
+	choiceOptionKeyReleased:
+		"A released option keeps its Key: content stores it. Relabel, move or remove the option instead.",
 };
 
 /**
@@ -165,6 +171,16 @@ function rowErrors(options: unknown[]): Map<number, RowErrors> {
 	return byRow;
 }
 
+/** The Keys a released choice Field holds, read as leniently as the rows
+ * are: an entry that is not an Option holds no Key. */
+function releasedOptionKeys(field: Field | undefined): Set<string> {
+	const options = (field?.settings as { options?: unknown } | null)?.options;
+	if (!Array.isArray(options)) return new Set();
+	return new Set(
+		options.map((entry) => toRow(entry).key).filter((key) => key !== ""),
+	);
+}
+
 function fill(template: string, values: Record<string, string | number>) {
 	return template.replace(/\{(\w+)\}/g, (match, name: string) =>
 		name in values ? String(values[name]) : match,
@@ -186,12 +202,17 @@ function fill(template: string, values: Record<string, string | number>) {
  * - The rows are the stored list, index for index, so an error's path and its
  *   row agree; an entry that is not an Option reads as a blank row.
  *
+ * - **A released Option's Key is read-only** (ADR-0028, fieldkit#365): an
+ *   Option whose Key the latest Release holds for this Field, as the panel
+ *   publishes it (`useReleasedField`). The lock is the Key's, not the row's
+ *   place, so it moves with the Option. An Option added in this session is
+ *   never locked, even under a released Key — the Author is still typing it;
+ *   once the list comes back from outside (a save, another Field) it is the
+ *   released Option again and locks.
  * - **Options reorder by their grip** — dragged, or from the keyboard (Space
  *   lifts, arrows move, Space drops, Escape cancels), dnd-kit's sensors as the
  *   canvas uses them (`docs/dnd-kit-reference.md`). List order is display
  *   order (ADR-0028), so a move is written straight into the stored list.
- *
- * Fixing a released Option's Key is left to later work (fieldkit#365).
  */
 export function ChoiceSettingsEditor({
 	settings,
@@ -207,19 +228,24 @@ export function ChoiceSettingsEditor({
 	const stored: unknown[] = Array.isArray(raw) ? raw : [];
 	const rows = stored.map(toRow);
 	const errors = rowErrors(stored);
+	const releasedKeys = releasedOptionKeys(useReleasedField());
+	const releasedNoteId = useId();
 
-	// Which rows' Keys still follow their Label, and each row's drag id, by
-	// index. Held against the list this editor last wrote: any other list — a
-	// Discard, another Field, a list it never wrote — follows nothing, so no
-	// stored Key is ever re-derived, and gets fresh ids. The ids are what a
-	// move carries a row's identity by: an Option's Key is what the Author
-	// edits, so it cannot be one, and an index changes with the move itself.
+	// Which rows' Keys still follow their Label, which rows this editor
+	// added, and each row's drag id, by index. Held against the list this
+	// editor last wrote: any other list — a Discard, another Field, a list it
+	// never wrote — follows nothing, so no stored Key is ever re-derived; was
+	// added by nothing, so a released Key on it locks; and gets fresh ids. The
+	// ids are what a move carries a row's identity by: an Option's Key is what
+	// the Author edits, so it cannot be one, and an index changes with the
+	// move itself.
 	const follow = useRef<{
 		list: unknown;
 		rows: boolean[];
+		added: boolean[];
 		ids: string[];
 		nextId: number;
-	}>({ list: null, rows: [], ids: [], nextId: 0 });
+	}>({ list: null, rows: [], added: [], ids: [], nextId: 0 });
 	const mint = () => `option-${follow.current.nextId++}`;
 	if (follow.current.list !== raw) {
 		// Recorded during render so the ids stay put until the list changes;
@@ -231,16 +257,26 @@ export function ChoiceSettingsEditor({
 			...follow.current,
 			list: raw,
 			rows: stored.map(() => false),
+			added: stored.map(() => false),
 			ids: fresh,
 		};
 	}
-	const { rows: following, ids } = follow.current;
+	const { rows: following, added, ids } = follow.current;
+	const keyReleased = rows.map(
+		(row, i) => !added[i] && releasedKeys.has(row.key),
+	);
 
-	function write(next: unknown[], nextFollowing: boolean[], nextIds: string[]) {
+	function write(
+		next: unknown[],
+		nextFollowing: boolean[],
+		nextAdded: boolean[] = added,
+		nextIds: string[] = ids,
+	) {
 		follow.current = {
 			...follow.current,
 			list: next,
 			rows: nextFollowing,
+			added: nextAdded,
 			ids: nextIds,
 		};
 		// The rows are the stored list index for index, invalid entries
@@ -263,14 +299,14 @@ export function ChoiceSettingsEditor({
 	function setLabel(index: number, label: string) {
 		const patch: Partial<ChoiceOption> = { label };
 		if (following[index]) patch.key = optionKeyFromLabel(label);
-		write(updateRow(index, patch), following, ids);
+		write(updateRow(index, patch), following);
 	}
 
 	function setKey(index: number, key: string) {
+		if (keyReleased[index]) return;
 		write(
 			updateRow(index, { key }),
 			following.map((f, i) => (i === index ? false : f)),
-			ids,
 		);
 	}
 
@@ -278,6 +314,7 @@ export function ChoiceSettingsEditor({
 		write(
 			[...stored, { key: "", label: "" }],
 			[...following, true],
+			[...added, true],
 			[...ids, mint()],
 		);
 	}
@@ -286,16 +323,19 @@ export function ChoiceSettingsEditor({
 		write(
 			stored.filter((_, i) => i !== index),
 			following.filter((_, i) => i !== index),
+			added.filter((_, i) => i !== index),
 			ids.filter((_, i) => i !== index),
 		);
 	}
 
 	// Moves the row and everything held for it by index, so a Key that was
-	// following its Label still does in its new place.
+	// following its Label still does in its new place, and a row this editor
+	// added is still its own (a released Key's lock reads that).
 	function move(from: number, to: number) {
 		write(
 			arrayMove(stored, from, to),
 			arrayMove(following, from, to),
+			arrayMove(added, from, to),
 			arrayMove(ids, from, to),
 		);
 	}
@@ -352,6 +392,10 @@ export function ChoiceSettingsEditor({
 											aria-invalid={rowError?.key ? true : undefined}
 											borderColor={rowError?.key ? "danger.600" : undefined}
 											disabled={optionsLock.locked}
+											readOnly={keyReleased[index]}
+											aria-describedby={
+												keyReleased[index] ? releasedNoteId : undefined
+											}
 											onChange={(e) => setKey(index, e.target.value)}
 											data-testid={`choice-option-${index}-key`}
 										/>
@@ -394,6 +438,19 @@ export function ChoiceSettingsEditor({
 							);
 						})}
 					</SortableOptionList>
+				)}
+				{keyReleased.some(Boolean) && (
+					<Flex
+						align="center"
+						gap="1"
+						mt="1"
+						data-testid="choice-option-key-released"
+					>
+						<Lock size={12} aria-hidden="true" />
+						<Text id={releasedNoteId} fontSize="xs" color="fg.muted">
+							{labels.choiceOptionKeyReleased}
+						</Text>
+					</Flex>
 				)}
 				<Button
 					size="xs"
