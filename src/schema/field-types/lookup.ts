@@ -12,9 +12,11 @@ export interface LookupSettings {
 	 * The Source this Field points into — the key it was registered under on
 	 * `adapters.lookup`.
 	 *
-	 * An opaque string. Fieldkit never parses it, never enumerates the Sources
-	 * and has no notion of what any of them hold (ADR-0002); the convention of
-	 * writing it `service:collection` is the Consumer's, not fieldkit's.
+	 * An opaque string. Fieldkit never parses it and has no notion of what any
+	 * Source holds (ADR-0002); the convention of writing it
+	 * `service:collection` is the Consumer's, not fieldkit's. The settings
+	 * editor offers the ids registered on `adapters.lookup` (blueprinthub ADR
+	 * 0009), but never rewrites one that isn't.
 	 *
 	 * Absent or empty means the Field names no Source, which the control says
 	 * rather than throwing.
