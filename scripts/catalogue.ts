@@ -55,6 +55,9 @@ const SUPPORTED_KEYWORDS = new Set([
 	"exclusiveMaximum",
 	"minLength",
 	"maxLength",
+	// Read as RE2 in Go: a pattern must mean the same to JS and RE2 — an
+	// Option's Key (ADR-0028) does. Go refuses to decode one RE2 cannot compile.
+	"pattern",
 ]);
 
 type JsonSchema = { [keyword: string]: unknown };

@@ -1,10 +1,12 @@
 import { RadioGroupField } from "@knkcs/anker/forms";
+import { choiceOptions } from "../../schema/choice-options";
 import type { RadioSettings } from "../../schema/field-types/radio";
 import type { FieldProps } from "../../schema/plugin";
 
 export function RadioField({ field, readOnly }: FieldProps<RadioSettings>) {
 	const { config, settings } = field;
-	const { options = {} } = settings ?? {};
+	// In the Options' order: list order is display order (ADR-0028).
+	const options = choiceOptions(settings);
 
 	return (
 		<RadioGroupField
@@ -13,10 +15,7 @@ export function RadioField({ field, readOnly }: FieldProps<RadioSettings>) {
 			helperText={config.instructions || undefined}
 			required={config.required}
 			readOnly={readOnly}
-			options={Object.entries(options).map(([value, label]) => ({
-				value,
-				label,
-			}))}
+			options={options.map(({ key, label }) => ({ value: key, label }))}
 		/>
 	);
 }

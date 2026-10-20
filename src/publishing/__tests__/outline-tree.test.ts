@@ -45,7 +45,10 @@ const outline = field("outline_tree", "outline", {
 	children: [
 		field("select", "kind", {
 			settings: {
-				options: { part: "Part", chapter: "Chapter" },
+				options: [
+					{ key: "part", label: "Part" },
+					{ key: "chapter", label: "Chapter" },
+				],
 			},
 		}),
 		field("text", "title", {}, true),

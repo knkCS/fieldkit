@@ -1,13 +1,20 @@
 import { CheckSquare } from "lucide-react";
 import { z } from "zod";
+import { ChoiceSettingsEditor } from "../../editor/field-settings/choice-settings";
 import { CheckboxesField } from "../../renderer/fields/checkboxes-field";
 import { CheckboxesCell } from "../../table/cells/checkboxes-cell";
+import {
+	type ChoiceOption,
+	choiceOptionsRules,
+	choiceOptionsSchema,
+} from "../choice-options";
 import type { FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { choiceText } from "../value-text";
 
 export interface CheckboxesSettings {
-	options: Record<string, string>;
+	/** The Options, in display order (ADR-0028). */
+	options: ChoiceOption[];
 }
 
 export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
@@ -18,6 +25,7 @@ export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
 	category: "selection",
 
 	fieldComponent: CheckboxesField,
+	settingsComponent: ChoiceSettingsEditor,
 	cellComponent: CheckboxesCell,
 
 	toZodType(field: Field<CheckboxesSettings>) {
@@ -30,15 +38,17 @@ export const checkboxesPlugin: FieldTypePlugin<CheckboxesSettings> = {
 
 	settingsSchema: z
 		.object({
-			options: z.record(z.string()).optional(),
+			options: choiceOptionsSchema.optional(),
 		})
 		.strict(),
+	// A Key is unique within the Field (ADR-0028).
+	settingsRules: choiceOptionsRules,
 
 	// Its text is the selected keys' labels, never the keys (#223 D6).
 	catalogue: { since: "0.18.0", hasText: true, pins: [] },
 	text: choiceText,
 
-	defaultSettings: { options: {} },
+	defaultSettings: { options: [] },
 
 	defaultValue: () => [],
 

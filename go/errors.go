@@ -54,6 +54,10 @@ const (
 	// Blueprint an earlier entry names — two Reference Specs for one target.
 	// At each repeat's blueprint.
 	CodeDuplicateBlueprint = "duplicate_blueprint"
+	// CodeDuplicateOptionKey is a choice Field's Option — select, radio,
+	// checkboxes — repeating the key an earlier Option of the same Field
+	// holds (ADR-0028). At each repeat's key.
+	CodeDuplicateOptionKey = "duplicate_option_key"
 
 	// The codes Resolve fails with (a *ResolveError), shared with TS's
 	// resolveSpec (ResolveSpecError). Prefixed, because a value's depth cap is

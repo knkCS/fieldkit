@@ -14,11 +14,11 @@ const defaultRadioField: Field = {
 		instructions: "Select a priority level",
 	},
 	settings: {
-		options: {
-			low: "Low",
-			medium: "Medium",
-			high: "High",
-		},
+		options: [
+			{ key: "low", label: "Low" },
+			{ key: "medium", label: "Medium" },
+			{ key: "high", label: "High" },
+		],
 	},
 	children: null,
 	system: false,
@@ -33,16 +33,16 @@ const manyOptionsField: Field = {
 		instructions: "Select your department",
 	},
 	settings: {
-		options: {
-			engineering: "Engineering",
-			design: "Design",
-			marketing: "Marketing",
-			sales: "Sales",
-			hr: "Human Resources",
-			finance: "Finance",
-			legal: "Legal",
-			operations: "Operations",
-		},
+		options: [
+			{ key: "engineering", label: "Engineering" },
+			{ key: "design", label: "Design" },
+			{ key: "marketing", label: "Marketing" },
+			{ key: "sales", label: "Sales" },
+			{ key: "hr", label: "Human Resources" },
+			{ key: "finance", label: "Finance" },
+			{ key: "legal", label: "Legal" },
+			{ key: "operations", label: "Operations" },
+		],
 	},
 	children: null,
 	system: false,
@@ -57,11 +57,11 @@ const requiredField: Field = {
 		instructions: "You must select a plan",
 	},
 	settings: {
-		options: {
-			free: "Free",
-			pro: "Pro",
-			enterprise: "Enterprise",
-		},
+		options: [
+			{ key: "free", label: "Free" },
+			{ key: "pro", label: "Pro" },
+			{ key: "enterprise", label: "Enterprise" },
+		],
 	},
 	children: null,
 	system: false,
@@ -76,11 +76,11 @@ const readOnlyField: Field = {
 		instructions: "",
 	},
 	settings: {
-		options: {
-			low: "Low",
-			medium: "Medium",
-			high: "High",
-		},
+		options: [
+			{ key: "low", label: "Low" },
+			{ key: "medium", label: "Medium" },
+			{ key: "high", label: "High" },
+		],
 	},
 	children: null,
 	system: false,

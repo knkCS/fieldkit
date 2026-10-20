@@ -78,7 +78,11 @@ const horizontalSpec = defineSpec([
 		number("priority", { name: "Priority", min: 0, max: 10 }),
 		select("visibility", {
 			name: "Visibility",
-			options: { public: "Public", private: "Private", unlisted: "Unlisted" },
+			options: [
+				{ key: "public", label: "Public" },
+				{ key: "private", label: "Private" },
+				{ key: "unlisted", label: "Unlisted" },
+			],
 		}),
 	]),
 ]);
@@ -93,7 +97,11 @@ const verticalSpec = defineSpec([
 	section("Preferences", [
 		select("theme", {
 			name: "Theme",
-			options: { light: "Light", dark: "Dark", system: "System" },
+			options: [
+				{ key: "light", label: "Light" },
+				{ key: "dark", label: "Dark" },
+				{ key: "system", label: "System" },
+			],
 		}),
 	]),
 ]);

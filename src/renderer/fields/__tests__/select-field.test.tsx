@@ -72,7 +72,11 @@ describe("SelectField", () => {
 			instructions: "Pick a category",
 		},
 		settings: {
-			options: { news: "News", blog: "Blog", tutorial: "Tutorial" },
+			options: [
+				{ key: "news", label: "News" },
+				{ key: "blog", label: "Blog" },
+				{ key: "tutorial", label: "Tutorial" },
+			],
 		},
 		children: null,
 		system: false,
@@ -87,7 +91,11 @@ describe("SelectField", () => {
 			instructions: "",
 		},
 		settings: {
-			options: { js: "JavaScript", ts: "TypeScript", py: "Python" },
+			options: [
+				{ key: "js", label: "JavaScript" },
+				{ key: "ts", label: "TypeScript" },
+				{ key: "py", label: "Python" },
+			],
 			multiple: true,
 		},
 		children: null,
@@ -102,7 +110,7 @@ describe("SelectField", () => {
 			required: false,
 			instructions: "",
 		},
-		settings: { options: {} },
+		settings: { options: [] },
 		children: null,
 		system: false,
 	};

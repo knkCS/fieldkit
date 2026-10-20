@@ -2,6 +2,7 @@
 import { Text } from "@chakra-ui/react";
 import { restoreLockedSettings } from "../../schema/locked-settings";
 import type { PanelSectionProps } from "../field-config-panel";
+import { ChoiceSettingsLabelsProvider } from "../field-settings/choice-settings";
 import {
 	GenericSettingsForm,
 	hasGenericSettings,
@@ -67,29 +68,34 @@ export function SettingsSection({
 
 	return (
 		<SettingLockProvider locked={locked}>
-			<SettingsComponent
-				settings={settings}
-				field={field}
-				onChange={(next) =>
-					onFieldChange({
-						...field,
-						settings: restoreLockedSettings(locked, settings, next),
-					})
-				}
-				// A settings editor holding a Spec of its own configures it through
-				// the panel's incumbent drill-in rather than a nested editor of its
-				// own — see SettingsProps.onDrillIn.
-				onDrillIn={onDrillIn}
-				// A settings editor whose type authors its Spec in `children`
-				// rather than in a setting (a Virtual Table's embedded Row Spec)
-				// writes it here. `restoreLockedSettings` does not apply: children
-				// are not settings, and what freezing one means for a Row Spec is
-				// the settings editor's own call — it freezes the choice of Row
-				// Spec with the `blueprint` key that names the linked one.
-				onChildrenChange={(children) => onFieldChange({ ...field, children })}
-				onDrillIntoChild={onDrillIntoChild}
-				plugins={plugins}
-			/>
+			{/* The host's labels for fieldkit's own settings editors that render
+			    strings of their own (the choice types' Options), through a
+			    context so SettingsProps stays the contract it is. */}
+			<ChoiceSettingsLabelsProvider labels={labels}>
+				<SettingsComponent
+					settings={settings}
+					field={field}
+					onChange={(next) =>
+						onFieldChange({
+							...field,
+							settings: restoreLockedSettings(locked, settings, next),
+						})
+					}
+					// A settings editor holding a Spec of its own configures it through
+					// the panel's incumbent drill-in rather than a nested editor of its
+					// own — see SettingsProps.onDrillIn.
+					onDrillIn={onDrillIn}
+					// A settings editor whose type authors its Spec in `children`
+					// rather than in a setting (a Virtual Table's embedded Row Spec)
+					// writes it here. `restoreLockedSettings` does not apply: children
+					// are not settings, and what freezing one means for a Row Spec is
+					// the settings editor's own call — it freezes the choice of Row
+					// Spec with the `blueprint` key that names the linked one.
+					onChildrenChange={(children) => onFieldChange({ ...field, children })}
+					onDrillIntoChild={onDrillIntoChild}
+					plugins={plugins}
+				/>
+			</ChoiceSettingsLabelsProvider>
 		</SettingLockProvider>
 	);
 }

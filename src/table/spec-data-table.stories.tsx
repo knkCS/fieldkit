@@ -17,7 +17,11 @@ const sampleSchema: Schema = [
 	boolean("active", { name: "Active" }),
 	select("role", {
 		name: "Role",
-		options: { admin: "Admin", editor: "Editor", viewer: "Viewer" },
+		options: [
+			{ key: "admin", label: "Admin" },
+			{ key: "editor", label: "Editor" },
+			{ key: "viewer", label: "Viewer" },
+		],
 	}),
 ];
 

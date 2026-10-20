@@ -56,7 +56,12 @@ describe("Integration: Schema -> Zod -> validation", () => {
 			text("name", { required: true, placeholder: "Enter name" }),
 			number("age"),
 			boolean("active", { default_value: true }),
-			select("role", { options: { admin: "Admin", user: "User" } }),
+			select("role", {
+				options: [
+					{ key: "admin", label: "Admin" },
+					{ key: "user", label: "User" },
+				],
+			}),
 		]);
 
 		expect(spec.fields).toHaveLength(4);
@@ -76,7 +81,12 @@ describe("Integration: Schema -> Zod -> validation", () => {
 			text("name", { required: true }),
 			number("age"),
 			boolean("active", { default_value: true }),
-			select("role", { options: { admin: "Admin", user: "User" } }),
+			select("role", {
+				options: [
+					{ key: "admin", label: "Admin" },
+					{ key: "user", label: "User" },
+				],
+			}),
 		]);
 
 		const zodSchema = specToZodSchema(spec.fields, builtInFieldTypes);

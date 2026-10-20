@@ -42,7 +42,10 @@ const ROLE = attribute(
 	"Role",
 	{ required: true },
 	{
-		options: { author: "Author", editor: "Editor" },
+		options: [
+			{ key: "author", label: "Author" },
+			{ key: "editor", label: "Editor" },
+		],
 	},
 );
 

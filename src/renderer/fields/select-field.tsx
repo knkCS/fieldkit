@@ -1,5 +1,6 @@
 import { BaseSelectField } from "@knkcs/anker/forms";
 import { useMemo } from "react";
+import { choiceOptions } from "../../schema/choice-options";
 import type { SelectSettings } from "../../schema/field-types/select";
 import type { FieldProps } from "../../schema/plugin";
 
@@ -16,7 +17,9 @@ export function SelectField({ field, readOnly }: FieldProps<SelectSettings>) {
 	const multiple = settings?.multiple ?? false;
 
 	const choices = useMemo(
-		() => Object.entries(options ?? {}).map(([id, label]) => ({ id, label })),
+		// In the Options' order: list order is display order (ADR-0028).
+		() =>
+			choiceOptions({ options }).map(({ key, label }) => ({ id: key, label })),
 		[options],
 	);
 

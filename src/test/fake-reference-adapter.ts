@@ -231,7 +231,10 @@ function field(
  */
 export const FAKE_SEARCH_FILTERS: Field[] = [
 	field("select", "status", "Status", {
-		options: { draft: "Draft", published: "Published" },
+		options: [
+			{ key: "draft", label: "Draft" },
+			{ key: "published", label: "Published" },
+		],
 	}),
 ];
 

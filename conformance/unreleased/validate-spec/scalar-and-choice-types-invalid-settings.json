@@ -1,5 +1,5 @@
 {
-	"description": "A declared setting of the scalar, choice and marker types holding the wrong type, a value outside its enum, a fraction or a negative cap is invalid_setting at that setting; options and keys are checked per entry; settings that are not an object are invalid_setting at settings",
+	"description": "A declared setting of the scalar, choice and marker types holding the wrong type, a value outside its enum, a fraction or a negative cap is invalid_setting at that setting; list entries and keys are checked per entry, and choice options in the old key-to-label map are invalid_setting at options (ADR-0028); settings that are not an object are invalid_setting at settings",
 	"spec": [
 		{
 			"field_type": "section",
@@ -353,7 +353,11 @@
 				"code": "invalid_setting"
 			},
 			{
-				"path": "/fruit/settings/options",
+				"path": "/fruit/settings/options/0",
+				"code": "invalid_setting"
+			},
+			{
+				"path": "/fruit/settings/options/1",
 				"code": "invalid_setting"
 			},
 			{
@@ -361,7 +365,7 @@
 				"code": "invalid_setting"
 			},
 			{
-				"path": "/answer/settings/options/a",
+				"path": "/answer/settings/options",
 				"code": "invalid_setting"
 			},
 			{

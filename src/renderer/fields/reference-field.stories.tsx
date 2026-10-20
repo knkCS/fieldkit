@@ -293,7 +293,10 @@ export const WithAttributes: Story = {
 								"Role",
 								{ required: true },
 								{
-									options: { cited: "Cited", background: "Background" },
+									options: [
+										{ key: "cited", label: "Cited" },
+										{ key: "background", label: "Background" },
+									],
 								},
 							),
 						],

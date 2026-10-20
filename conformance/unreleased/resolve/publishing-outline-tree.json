@@ -58,10 +58,16 @@
 						"instructions": ""
 					},
 					"settings": {
-						"options": {
-							"part": "Part",
-							"chapter": "Chapter"
-						}
+						"options": [
+							{
+								"key": "part",
+								"label": "Part"
+							},
+							{
+								"key": "chapter",
+								"label": "Chapter"
+							}
+						]
 					},
 					"system": false
 				},
@@ -183,10 +189,16 @@
 								"instructions": ""
 							},
 							"settings": {
-								"options": {
-									"part": "Part",
-									"chapter": "Chapter"
-								}
+								"options": [
+									{
+										"key": "part",
+										"label": "Part"
+									},
+									{
+										"key": "chapter",
+										"label": "Chapter"
+									}
+								]
 							},
 							"system": false
 						},
@@ -224,10 +236,16 @@
 								"instructions": ""
 							},
 							"settings": {
-								"options": {
-									"part": "Part",
-									"chapter": "Chapter"
-								}
+								"options": [
+									{
+										"key": "part",
+										"label": "Part"
+									},
+									{
+										"key": "chapter",
+										"label": "Chapter"
+									}
+								]
 							},
 							"system": false
 						},

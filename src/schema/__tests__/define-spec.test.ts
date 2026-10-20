@@ -39,10 +39,18 @@ describe("defineSpec", () => {
 
 	it("should handle select with options", () => {
 		const spec = defineSpec([
-			select("status", { options: { draft: "Draft", published: "Published" } }),
+			select("status", {
+				options: [
+					{ key: "draft", label: "Draft" },
+					{ key: "published", label: "Published" },
+				],
+			}),
 		]);
 		expect(spec.fields[0].settings).toEqual({
-			options: { draft: "Draft", published: "Published" },
+			options: [
+				{ key: "draft", label: "Draft" },
+				{ key: "published", label: "Published" },
+			],
 		});
 	});
 

@@ -1,5 +1,5 @@
 {
-	"description": "A choice type's text is the labels settings.options gives the selected keys, never the keys: select and radio the one key's label; checkboxes and a multiple select each selected key's label in selection order, one per line. A key without a label (not in options, or labelled \"\") yields no text, and neither does a choice Field whose search is off. Unset search weighs D, inside a row as at the root",
+	"description": "A choice type's text is the labels settings.options gives the selected keys, never the keys: select and radio the one key's label; checkboxes and a multiple select each selected key's label in the options' order whatever order the value holds them in (ADR-0028), one per line. A key no option has yields no text, and neither does a choice Field whose search is off. Unset search weighs D, inside a row as at the root",
 	"spec": [
 		{
 			"field_type": "select",
@@ -10,10 +10,16 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"novel": "Roman",
-					"poetry": "Lyrik"
-				}
+				"options": [
+					{
+						"key": "novel",
+						"label": "Roman"
+					},
+					{
+						"key": "poetry",
+						"label": "Lyrik"
+					}
+				]
 			},
 			"system": false
 		},
@@ -27,11 +33,20 @@
 				"search": "B"
 			},
 			"settings": {
-				"options": {
-					"kids": "Kinder",
-					"teens": "Jugendliche",
-					"adults": "Erwachsene"
-				},
+				"options": [
+					{
+						"key": "kids",
+						"label": "Kinder"
+					},
+					{
+						"key": "teens",
+						"label": "Jugendliche"
+					},
+					{
+						"key": "adults",
+						"label": "Erwachsene"
+					}
+				],
 				"multiple": true
 			},
 			"system": false
@@ -46,10 +61,16 @@
 				"search": "C"
 			},
 			"settings": {
-				"options": {
-					"hardcover": "Gebunden",
-					"paperback": "Taschenbuch"
-				}
+				"options": [
+					{
+						"key": "hardcover",
+						"label": "Gebunden"
+					},
+					{
+						"key": "paperback",
+						"label": "Taschenbuch"
+					}
+				]
 			},
 			"system": false
 		},
@@ -62,11 +83,16 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"print": "Print",
-					"ebook": "E-Book",
-					"audio": ""
-				}
+				"options": [
+					{
+						"key": "print",
+						"label": "Print"
+					},
+					{
+						"key": "ebook",
+						"label": "E-Book"
+					}
+				]
 			},
 			"system": false
 		},
@@ -79,9 +105,12 @@
 				"instructions": ""
 			},
 			"settings": {
-				"options": {
-					"a": "Alpha"
-				}
+				"options": [
+					{
+						"key": "a",
+						"label": "Alpha"
+					}
+				]
 			},
 			"system": false
 		},
@@ -95,9 +124,12 @@
 				"search": "off"
 			},
 			"settings": {
-				"options": {
-					"review": "Needs review"
-				}
+				"options": [
+					{
+						"key": "review",
+						"label": "Needs review"
+					}
+				]
 			},
 			"system": false
 		},
@@ -120,10 +152,16 @@
 						"search": "A"
 					},
 					"settings": {
-						"options": {
-							"de": "Deutsch",
-							"en": "Englisch"
-						}
+						"options": [
+							{
+								"key": "de",
+								"label": "Deutsch"
+							},
+							{
+								"key": "en",
+								"label": "Englisch"
+							}
+						]
 					},
 					"system": false
 				}
@@ -161,7 +199,7 @@
 			{
 				"path": "/audiences",
 				"weight": "B",
-				"text": "Erwachsene\nJugendliche"
+				"text": "Jugendliche\nErwachsene"
 			},
 			{
 				"path": "/binding",
@@ -171,7 +209,7 @@
 			{
 				"path": "/formats",
 				"weight": "D",
-				"text": "E-Book\nPrint"
+				"text": "Print\nE-Book"
 			},
 			{
 				"path": "/editions/e1/language",

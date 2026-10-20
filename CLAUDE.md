@@ -72,6 +72,7 @@ src/
 │   ├── validations.ts   # Which `validation` keys (and `config.unique`) a type honours, from its Catalogue facts' `validations` (#313): what validateSpec refuses as `inapplicable_validation` and what the editor's Validation tab offers
 │   ├── content-walk.ts  # edges() / texts() / valueText() — a Content's data walked against its Resolved Spec, Go's Edges/Texts/ValueText: each Field read by its plugin's `text`/`edges`, containers — and a Reference's values — entered through their `records` (ADR-0007)
 │   ├── value-text.ts    # The `text()` the types with text share (string, List, Array, and the choice types' option labels)
+│   ├── choice-options.ts # The Options of select/radio/checkboxes (ADR-0028): `[{key, label}]` in display order, the Key pattern and `duplicate_option_key` (settingsRules), the lenient reader and inOptionOrder every renderer shows them through, optionKeyFromLabel — the editor's Key preset
 │   ├── accessor.ts      # accessorFromName() — the Accessor a name suggests (German letters spelled out, accents stripped, cut at ACCESSOR_MAX_LENGTH); the editor's preset, exported for blueprinthub
 │   ├── marker-convention.ts # Marker field-type conventions
 │   ├── define-spec.ts   # defineSpec() API
@@ -92,7 +93,7 @@ src/
 │   ├── card-menu.tsx    # Card ⋯ menu (rename, delete-merge, delete-with-fields)
 │   ├── field-config-panel.tsx  # Side panel: General/Validation/Type-settings tabs, accessor gate, drill-in
 │   ├── panel-sections/  # Tab bodies (config/validation/settings) + system summary
-│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
+│   ├── field-settings/  # Per-type settings editors (date-settings.tsx: `min_date`/`max_date` with anker's DatePickerField; choice-settings.tsx: the choice types' Options, shared by select/radio/checkboxes, its strings through a labels context) + the controls they share (BlueprintPicker, CapInput, PinModePicker, setting-lock.tsx — the ADR-0011 lock every control honours), and generic-settings-form.tsx — the form for a type with no settingsComponent, read from its settingsSchema by settings-schema-model.ts
 │   ├── section-menu.tsx # Per-tab ⌄ menu (rename, move, delete, orientation)
 │   ├── type-picker-popover.tsx  # ⊕ insertion popover (wraps TypePicker)
 │   ├── type-picker.tsx
@@ -137,7 +138,7 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── positions.go         # The Position constants (ADR-0022) and the Catalogue lookup behind the Position check
 ├── cards.go             # The card-marker rule (loose_field_in_carded_tab), as TS's checkCardLayout
 ├── settings.go          # ValidateSettings — generic over the Catalogue's JSON Schemas
-├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec and its children's `row` Position, blocks' Block Types in `block_type`, the Reference types' in reference.go); linkedBlueprint/pinReleases read Pins by the Catalogue's keys
+├── rules.go             # The per-type hooks for rules a schema cannot state (virtual_table's Row Spec and its children's `row` Position, blocks' Block Types in `block_type`, the choice types' unique Option Keys, the Reference types' in reference.go); linkedBlueprint/pinReleases read Pins by the Catalogue's keys
 ├── reference.go         # reference/single_reference: settings rules (duplicate_blueprint), the Reference Specs held in settings, referenceSpecFor, node values (WithTargetBlueprints), edges and records
 ├── reference_compare.go # Compare/Merge of a Reference Tree per node by `_id`, parent (`_parent`) and position as fields; a Single Reference per field
 ├── values.go            # ValidateValue — Unset/required, not_canonical, the caps (items, bytes, depth), and validateFields, the composer a container hands its children to (ADR-0007)

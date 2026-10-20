@@ -24,6 +24,7 @@ import {
 import { EditorCanvas } from "./editor-canvas";
 import { EditorToolbar } from "./editor-toolbar";
 import { FieldConfigPanel } from "./field-config-panel";
+import { DEFAULT_CHOICE_SETTINGS_LABELS } from "./field-settings/choice-settings";
 import { TryItView } from "./try-it-view";
 import { useSpecDraft } from "./use-spec-draft";
 
@@ -145,6 +146,26 @@ export interface EditorLabels {
 	settingsNotSet?: string;
 	/** Generic settings form: the note under a setting it can only show. */
 	settingsReadOnly?: string;
+	/** The choice types' settings editor (select, radio, checkboxes,
+	 * ADR-0028): its caption, empty state and add button. */
+	choiceOptions?: string;
+	choiceOptionsEmpty?: string;
+	choiceOptionAdd?: string;
+	/** Placeholders of an Option's two inputs. */
+	choiceOptionLabel?: string;
+	choiceOptionKey?: string;
+	/** Accessible names of an Option's inputs and remove button; "{n}" is
+	 * the Option's 1-based place. */
+	choiceOptionLabelOf?: string;
+	choiceOptionKeyOf?: string;
+	choiceOptionRemove?: string;
+	/** select's Multiple toggle. */
+	choiceMultiple?: string;
+	/** An Option's inline errors — the rules validateSpec applies on save;
+	 * "{key}" is the repeated Key. */
+	choiceOptionErrorLabel?: string;
+	choiceOptionErrorKey?: string;
+	choiceOptionErrorDuplicateKey?: string;
 	panelChildren?: string;
 	panelBack?: string;
 	panelClose?: string;
@@ -302,6 +323,7 @@ export const DEFAULT_EDITOR_LABELS: Required<EditorLabels> = {
 	settingsRemoveItem: "Remove",
 	settingsNotSet: "Not set",
 	settingsReadOnly: "This setting can't be edited here — shown as stored.",
+	...DEFAULT_CHOICE_SETTINGS_LABELS,
 	panelChildren: "Children",
 	panelBack: "Back",
 	panelClose: "Close",

@@ -86,11 +86,11 @@ const withChildrenField: Field = {
 				instructions: "",
 			},
 			settings: {
-				options: {
-					developer: "Developer",
-					designer: "Designer",
-					manager: "Manager",
-				},
+				options: [
+					{ key: "developer", label: "Developer" },
+					{ key: "designer", label: "Designer" },
+					{ key: "manager", label: "Manager" },
+				],
 			},
 			children: null,
 			system: false,

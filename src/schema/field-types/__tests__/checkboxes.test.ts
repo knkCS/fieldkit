@@ -18,7 +18,13 @@ describe("checkboxesPlugin", () => {
 				required: true,
 				instructions: "",
 			},
-			settings: { options: { a: "A", b: "B", c: "C" } },
+			settings: {
+				options: [
+					{ key: "a", label: "A" },
+					{ key: "b", label: "B" },
+					{ key: "c", label: "C" },
+				],
+			},
 			children: null,
 			system: false,
 		};
@@ -37,7 +43,12 @@ describe("checkboxesPlugin", () => {
 				required: false,
 				instructions: "",
 			},
-			settings: { options: { a: "A", b: "B" } },
+			settings: {
+				options: [
+					{ key: "a", label: "A" },
+					{ key: "b", label: "B" },
+				],
+			},
 			children: null,
 			system: false,
 		};

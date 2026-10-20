@@ -23,7 +23,11 @@ const mixedSpec = defineSpec([
 	boolean("published", { name: "Published" }),
 	select("category", {
 		name: "Category",
-		options: { tech: "Technology", art: "Art", science: "Science" },
+		options: [
+			{ key: "tech", label: "Technology" },
+			{ key: "art", label: "Art" },
+			{ key: "science", label: "Science" },
+		],
 	}),
 ]);
 
