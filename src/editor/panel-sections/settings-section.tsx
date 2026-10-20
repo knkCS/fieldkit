@@ -7,6 +7,7 @@ import {
 	GenericSettingsForm,
 	hasGenericSettings,
 } from "../field-settings/generic-settings-form";
+import { ReleasedFieldProvider } from "../field-settings/released-field";
 import { SettingLockProvider } from "../field-settings/setting-lock";
 
 /**
@@ -35,6 +36,7 @@ export function SettingsSection({
 	onDrillIn,
 	onDrillIntoChild,
 	plugins,
+	releasedField,
 }: PanelSectionProps) {
 	const SettingsComponent = plugin?.settingsComponent;
 	const settingsSchema = plugin?.settingsSchema;
@@ -72,29 +74,36 @@ export function SettingsSection({
 			    strings of their own (the choice types' Options), through a
 			    context so SettingsProps stays the contract it is. */}
 			<ChoiceSettingsLabelsProvider labels={labels}>
-				<SettingsComponent
-					settings={settings}
-					field={field}
-					onChange={(next) =>
-						onFieldChange({
-							...field,
-							settings: restoreLockedSettings(locked, settings, next),
-						})
-					}
-					// A settings editor holding a Spec of its own configures it through
-					// the panel's incumbent drill-in rather than a nested editor of its
-					// own — see SettingsProps.onDrillIn.
-					onDrillIn={onDrillIn}
-					// A settings editor whose type authors its Spec in `children`
-					// rather than in a setting (a Virtual Table's embedded Row Spec)
-					// writes it here. `restoreLockedSettings` does not apply: children
-					// are not settings, and what freezing one means for a Row Spec is
-					// the settings editor's own call — it freezes the choice of Row
-					// Spec with the `blueprint` key that names the linked one.
-					onChildrenChange={(children) => onFieldChange({ ...field, children })}
-					onDrillIntoChild={onDrillIntoChild}
-					plugins={plugins}
-				/>
+				{/* The Field as the latest Release holds it, for a settings editor
+				    that must keep what Content already stores (a released Option's
+				    Key, ADR-0028) — a context for the same reason. */}
+				<ReleasedFieldProvider field={releasedField}>
+					<SettingsComponent
+						settings={settings}
+						field={field}
+						onChange={(next) =>
+							onFieldChange({
+								...field,
+								settings: restoreLockedSettings(locked, settings, next),
+							})
+						}
+						// A settings editor holding a Spec of its own configures it through
+						// the panel's incumbent drill-in rather than a nested editor of its
+						// own — see SettingsProps.onDrillIn.
+						onDrillIn={onDrillIn}
+						// A settings editor whose type authors its Spec in `children`
+						// rather than in a setting (a Virtual Table's embedded Row Spec)
+						// writes it here. `restoreLockedSettings` does not apply: children
+						// are not settings, and what freezing one means for a Row Spec is
+						// the settings editor's own call — it freezes the choice of Row
+						// Spec with the `blueprint` key that names the linked one.
+						onChildrenChange={(children) =>
+							onFieldChange({ ...field, children })
+						}
+						onDrillIntoChild={onDrillIntoChild}
+						plugins={plugins}
+					/>
+				</ReleasedFieldProvider>
 			</ChoiceSettingsLabelsProvider>
 		</SettingLockProvider>
 	);

@@ -67,6 +67,10 @@ export interface PanelSectionProps {
 	/** Every registered field type, for a settings editor that offers a type
 	 * picker of its own. Absent when the panel was given no registry. */
 	plugins?: FieldTypePlugin[];
+	/** The active Field as the latest Release holds it, matched by its
+	 * Accessor path (`releasedCounterpart`); absent without a Release or
+	 * without such a Field. */
+	releasedField?: Field;
 }
 
 /**
@@ -100,6 +104,7 @@ export type PanelLabels = Pick<
 	| "choiceOptionErrorLabel"
 	| "choiceOptionErrorKey"
 	| "choiceOptionErrorDuplicateKey"
+	| "choiceOptionKeyReleased"
 	| "panelChildren"
 	| "panelBack"
 	| "panelClose"
@@ -196,6 +201,9 @@ export interface FieldConfigPanelProps {
 	 * all.
 	 */
 	plugins?: FieldTypePlugin[];
+	/** The Spec of the latest Release (`SpecEditorProps.releasedSpec`), from
+	 * which the active Field's released counterpart is found. */
+	releasedSpec?: Schema;
 }
 
 /** The config panel's three tab ids (0.10.0 tabs redesign). Captions come
@@ -278,6 +286,33 @@ function resolveChain(field: Field, drillStack: DrillFrame[]): Field[] {
 	return chain;
 }
 
+/**
+ * The active Field as the latest Release holds it: the top-level Field with
+ * the same Accessor, then the same drill path below it, holder for holder.
+ * `undefined` when any step is missing from the Release.
+ *
+ * Matched by Accessor because that is a Field's identity everywhere else:
+ * fieldkit gives Fields no stable id, Content stores a Field's value under its
+ * Accessor path, and `resolveChain` finds the drilled Field the same way. That
+ * makes "the same Field" mean what Content means by it — a Field renamed
+ * since the Release is, to Content, a different one, and its Keys orphan
+ * nothing (the rename itself is what disconnects data, and the Accessor
+ * warning says so). The draft's live Accessor is used, not SpecEditor's
+ * rename baseline: that baseline is the last *save*, not the Release.
+ */
+function releasedCounterpart(
+	releasedSpec: Schema | undefined,
+	field: Field,
+	frames: DrillFrame[],
+): Field | undefined {
+	const top = releasedSpec?.find(
+		(f) => isField(f) && f.config.api_accessor === field.config.api_accessor,
+	);
+	if (!top) return undefined;
+	const chain = resolveChain(top, frames);
+	return chain.length === frames.length + 1 ? chain[frames.length] : undefined;
+}
+
 export function FieldConfigPanel({
 	field,
 	plugin,
@@ -290,6 +325,7 @@ export function FieldConfigPanel({
 	baselineAccessor,
 	labels,
 	plugins,
+	releasedSpec,
 }: FieldConfigPanelProps) {
 	const [drillStack, setDrillStack] = useState<DrillFrame[]>([]);
 	// Panel-local active tab (spec Decision 3). General is the default; the
@@ -649,6 +685,13 @@ export function FieldConfigPanel({
 		onDrillIn: drillIntoSettings,
 		onDrillIntoChild: drillIntoChild,
 		plugins,
+		// The frames down to the ACTIVE Field — the deepest the draft resolves,
+		// which a broken deeper frame can leave short of the stack's end.
+		releasedField: releasedCounterpart(
+			releasedSpec,
+			field,
+			drillStack.slice(0, chain.length - 1),
+		),
 	};
 
 	const children = activeField.children ?? [];
