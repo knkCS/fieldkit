@@ -166,6 +166,8 @@ export interface EditorLabels {
 	choiceOptionErrorLabel?: string;
 	choiceOptionErrorKey?: string;
 	choiceOptionErrorDuplicateKey?: string;
+	/** The note beside a released Option's read-only Key (ADR-0028). */
+	choiceOptionKeyReleased?: string;
 	panelChildren?: string;
 	panelBack?: string;
 	panelClose?: string;
@@ -428,6 +430,16 @@ export interface SpecEditorProps {
 	 * the pre-0.7 title-only toast. Default: Error → message, otherwise
 	 * String(reason). */
 	formatSaveError?: (reason: unknown) => string | null;
+	/**
+	 * The Spec of the latest Release, when there is one. Content already
+	 * stores the Keys of the Options it holds, so the choice types' settings
+	 * editor locks the Key of every Option this Spec holds for the same Field
+	 * — the same Accessor path — while the Option can still be relabelled,
+	 * reordered and removed (ADR-0028). Advice, never validated: a renamed
+	 * Key looks the same as a removed Option plus a new one. Without it,
+	 * every Key can be edited.
+	 */
+	releasedSpec?: Schema;
 }
 
 export function SpecEditor({
@@ -442,6 +454,7 @@ export function SpecEditor({
 	title,
 	labels,
 	formatSaveError,
+	releasedSpec,
 }: SpecEditorProps) {
 	const mergedLabels = useMemo<Required<EditorLabels>>(
 		() => mergeLabels(DEFAULT_EDITOR_LABELS, labels),
@@ -883,6 +896,7 @@ export function SpecEditor({
 										: ""
 								}
 								labels={mergedLabels}
+								releasedSpec={releasedSpec}
 							/>
 						)}
 					</Flex>
