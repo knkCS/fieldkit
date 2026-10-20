@@ -65,9 +65,34 @@ var typeRulesByID = map[string]typeRules{ //nolint:gochecknoglobals
 	"blocks":           {settings: duplicateBlockTypes, specs: blockTypeSpecs},
 	"reference":        referenceRules,
 	"single_reference": referenceRules,
-	"select":           {settings: duplicateOptionKeys},
-	"radio":            {settings: duplicateOptionKeys},
-	"checkboxes":       {settings: duplicateOptionKeys},
+	"select":           {settings: duplicateOptionKeys, field: neededForRelease("options")},
+	"radio":            {settings: duplicateOptionKeys, field: neededForRelease("options")},
+	"checkboxes":       {settings: duplicateOptionKeys, field: neededForRelease("options")},
+	"lookup":           {field: neededForRelease("source")},
+}
+
+// neededForRelease is the rule that a setting a draft may leave Unset must be
+// set once a Release is cut (ADR-0028, blueprinthub ADR 0009): a choice
+// Field with no Options could hold no value, so a required one could never be
+// valid, and a lookup with no source points at nothing. ValidateSpec accepts
+// both, so an Author can save a Field before filling it in; only
+// ValidateResolvedSpec, which a Release is checked with, refuses it, with
+// CodeMissingSetting at the setting. TS's checkReleaseSettings.
+//
+// Unset is canonicalSettings' (ADR-0021): absent, "", [] or {}. A value of the
+// wrong shape is set, and the schema's to report, as are settings that are
+// not an object.
+func neededForRelease(key string) func(c *Catalogue, f Field, settings any, resolved bool) []Error {
+	return func(_ *Catalogue, _ Field, settings any, resolved bool) []Error {
+		obj, ok := settings.(map[string]any)
+		if !resolved || !ok {
+			return nil
+		}
+		if _, set := obj[key]; set {
+			return nil
+		}
+		return []Error{{Path: joinPath("", "settings", key), Code: CodeMissingSetting}}
+	}
 }
 
 // linkedBlueprint is the Blueprint a Field links, or "" for none: the setting

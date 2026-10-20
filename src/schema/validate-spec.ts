@@ -5,6 +5,7 @@ import type { FieldTypePlugin, Position } from "./plugin";
 import { allowedInPosition } from "./positions";
 import { isSearchWeight } from "./search";
 import type { Field } from "./types";
+import { canonicalValue, isPlainObject } from "./unset";
 import { toPath, validateSettings } from "./validate-settings";
 import { inapplicableValidations } from "./validations";
 import { virtualTableRowSpecKind } from "./virtual-table-row-spec";
@@ -50,6 +51,11 @@ export type SpecFieldErrorCode =
 	 * same Field holds (ADR-0028). At each repeat's `key`:
 	 * `/size/settings/options/2/key`. */
 	| "duplicate_option_key"
+	/** A setting a Release needs left Unset (ADR-0021): a `select`, `radio`
+	 * or `checkboxes` with no Options (ADR-0028), a `lookup` with no
+	 * `source`. Only with `resolved` — a draft may lack them. At the setting:
+	 * `/size/settings/options`. */
+	| "missing_setting"
 	/** A Field whose `field_type` no plugin in the map registers. Its
 	 * settings are not checked — there is nothing to check them against. */
 	| "unknown_field_type"
@@ -171,6 +177,9 @@ export function validateSpec(
 	checkBlockTypes(fields, [], plugins, fieldErrors);
 	checkSettingsRules(fields, [], plugins, fieldErrors);
 	checkFields(fields, [], "root", plugins, options.policy, fieldErrors);
+	if (options.resolved) {
+		checkReleaseSettings(fields, [], plugins, fieldErrors);
+	}
 	for (const fe of fieldErrors) {
 		errors.push(fe.message);
 	}
@@ -513,6 +522,59 @@ function checkSettingsRules(
 		}
 		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
 			checkSettingsRules(nested.fields, nested.list, plugins, fieldErrors);
+		}
+	}
+}
+
+/**
+ * The settings a draft may leave Unset but a Release needs, by `field_type`:
+ * the Options of a choice Field (ADR-0028) — with none, Content could hold no
+ * value and a required Field could never be valid — and a Lookup's `source`
+ * (blueprinthub ADR 0009), without which it points at nothing.
+ */
+const RELEASE_SETTINGS: Readonly<Record<string, string>> = {
+	select: "options",
+	radio: "options",
+	checkboxes: "options",
+	lookup: "source",
+};
+
+/**
+ * With `resolved` only — a Release is being cut — each setting
+ * `RELEASE_SETTINGS` names that is Unset (ADR-0021: absent, `""`, `[]`, `{}`,
+ * read on the canonical settings) is `missing_setting` at the setting. An
+ * authored Spec may lack them, so an Author can save a Field before filling it
+ * in. A value of the wrong shape is set, and the settings schema's to report,
+ * as are settings that are not an object.
+ * Keyed by `field_type`, registered or not, and walks every nested Spec, as
+ * Go's `neededForRelease` does.
+ */
+function checkReleaseSettings(
+	fields: Field[],
+	list: Segments,
+	plugins: Map<string, FieldTypePlugin>,
+	fieldErrors: SpecFieldError[],
+): void {
+	for (const field of fields) {
+		const accessor = field.config.api_accessor;
+		const segments = [...list, accessor];
+		const key = Object.hasOwn(RELEASE_SETTINGS, field.field_type)
+			? RELEASE_SETTINGS[field.field_type]
+			: undefined;
+		if (key !== undefined) {
+			// Settings that are not an object are the schema's to report.
+			const settings = canonicalValue(field.settings) ?? {};
+			if (isPlainObject(settings) && !Object.hasOwn(settings, key)) {
+				fieldErrors.push({
+					accessor,
+					code: "missing_setting",
+					message: `Field "${accessor}" needs its "${key}" setting before a Release is cut`,
+					path: toPath([...segments, "settings", key]),
+				});
+			}
+		}
+		for (const nested of nestedSpecs(field, segments, "root", plugins)) {
+			checkReleaseSettings(nested.fields, nested.list, plugins, fieldErrors);
 		}
 	}
 }
