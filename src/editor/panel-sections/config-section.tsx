@@ -190,6 +190,19 @@ export function ConfigSection({
 		});
 	}
 
+	// A Boolean Field's default is a boolean, never the text input's string:
+	// on stores `true`, off removes the key — absent is off (the plugin's
+	// own default), so the one state is stored one way. The key is the one
+	// every Field's default lives under, `config.default_value`, and a host
+	// whose editor writes Boolean defaults must use the same (knkboor/general#1859).
+	function handleBooleanDefaultChange(e: ChangeEvent<HTMLInputElement>) {
+		const { default_value: _dropped, ...config } = field.config;
+		apply({
+			...field,
+			config: e.target.checked ? { ...config, default_value: true } : config,
+		});
+	}
+
 	function handleCheckbox(
 		key: "required" | "hidden" | "read_only" | "localizable",
 	) {
@@ -290,18 +303,30 @@ export function ConfigSection({
 				/>
 			</Box>
 
-			<Box as="label" display="block" mb="3">
-				<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
-					{labels.defaultValue}
-				</Text>
-				<Input
-					size="sm"
-					mt="1"
-					value={defaultValue}
-					onChange={handleDefaultValueChange}
-					data-testid="panel-default-input"
-				/>
-			</Box>
+			{field.field_type === "boolean" ? (
+				<Box as="label" display="flex" alignItems="center" gap="2" mb="3">
+					<input
+						type="checkbox"
+						checked={field.config.default_value === true}
+						onChange={handleBooleanDefaultChange}
+						data-testid="panel-default-input"
+					/>
+					<Text fontSize="sm">{labels.defaultValue}</Text>
+				</Box>
+			) : (
+				<Box as="label" display="block" mb="3">
+					<Text as="span" fontSize="xs" fontWeight="medium" color="fg.muted">
+						{labels.defaultValue}
+					</Text>
+					<Input
+						size="sm"
+						mt="1"
+						value={defaultValue}
+						onChange={handleDefaultValueChange}
+						data-testid="panel-default-input"
+					/>
+				</Box>
+			)}
 
 			<Flex gap="4">
 				<Box as="label" display="flex" alignItems="center" gap="2">
