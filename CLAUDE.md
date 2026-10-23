@@ -108,6 +108,7 @@ src/
 │   ├── adapters.ts      # Backend adapter interfaces
 │   ├── hooks/
 │   │   ├── use-resolved-content-names.ts # Names for every Reference in a tree, fetched in batches and merged; answers { names, nameState } so Find can tell "no match" from "not yet resolved" (ADR-0013)
+│   │   ├── use-resolved-media.ts # Names for a media value's asset ids through the media Adapter's optional `resolve` (ADR-0029), shared by the media field and its cell: each id asked once per mount, an id left out (or a failed call) shown as itself
 │   │   └── batch-ids.ts # The batching rule as a pure function, plus the PROVISIONAL batch size — no Adapter is ever handed a whole tree's ids in one call
 │   └── fields/          # Built-in field components
 │       ├── reference-find.tsx        # Find over the shared SearchCombobox: the Field's control, since the Field owns the resolved names. Never claims "/"

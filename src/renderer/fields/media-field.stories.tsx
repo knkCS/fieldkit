@@ -21,32 +21,42 @@ const mockMediaAdapter: FieldKitAdapters["media"] = {
 			size: file.size,
 		};
 	},
-	browse: async () => {
-		return [
-			{
-				id: "media-1",
-				filename: "hero-banner.jpg",
-				url: "https://cdn.example.com/uploads/hero-banner.jpg",
-				mime_type: "image/jpeg",
-				size: 245000,
-			},
-			{
-				id: "media-2",
-				filename: "logo.png",
-				url: "https://cdn.example.com/uploads/logo.png",
-				mime_type: "image/png",
-				size: 18400,
-			},
-			{
-				id: "media-3",
-				filename: "product-overview.pdf",
-				url: "https://cdn.example.com/uploads/product-overview.pdf",
-				mime_type: "application/pdf",
-				size: 1250000,
-			},
-		];
-	},
+	browse: async ({ query = "", mime_types }) =>
+		MOCK_LIBRARY.filter(
+			(item) =>
+				item.filename.toLowerCase().includes(query.toLowerCase()) &&
+				(!mime_types || mime_types.includes(item.mime_type)),
+		),
+	resolve: async (ids) => MOCK_LIBRARY.filter((item) => ids.includes(item.id)),
 };
+
+function mockLibrary(): MediaItem[] {
+	return [
+		{
+			id: "media-1",
+			filename: "hero-banner.jpg",
+			url: "https://cdn.example.com/uploads/hero-banner.jpg",
+			mime_type: "image/jpeg",
+			size: 245000,
+		},
+		{
+			id: "media-2",
+			filename: "logo.png",
+			url: "https://cdn.example.com/uploads/logo.png",
+			mime_type: "image/png",
+			size: 18400,
+		},
+		{
+			id: "media-3",
+			filename: "product-overview.pdf",
+			url: "https://cdn.example.com/uploads/product-overview.pdf",
+			mime_type: "application/pdf",
+			size: 1250000,
+		},
+	];
+}
+
+const MOCK_LIBRARY = mockLibrary();
 
 const defaultMediaField: Field = {
 	field_type: "media",

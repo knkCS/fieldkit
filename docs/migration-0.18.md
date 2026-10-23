@@ -245,6 +245,22 @@ What a value yields to contenthub's Content Graph and to search changes too:
   Given the latest Release's Spec as `SpecEditor`'s optional `releasedSpec`
   (#365), the editor makes a released Option's Key read-only, explained by
   the `choiceOptionKeyReleased` label.
+- **The media field names and picks** (ADR-0029, knkCS/taskhub#505). The
+  `media` Adapter's `browse` is **optional** now — it is the capability for a
+  picker that searches existing assets, called with `{ query, mime_types }`
+  (the Field's `accept`) when somebody opens it, and **never on mount**. A
+  Field whose Adapter has no `browse` offers upload only. New, optional
+  `resolve(ids)` names stored ids by file name, type and size, answering
+  `ResolvedMediaItem`s (`deleted: true` for an asset the Consumer no longer
+  holds, still listed and removable); without it a stored id shows as
+  itself, and the table cell counts files as before. `upload(file, context)`
+  receives `{ field }` (`MediaUploadContext`) so the Consumer decides where a
+  file is stored. An existing Adapter keeps working unchanged; code that
+  *calls* `adapters.media.browse` itself now needs `?.`. A failed upload says
+  "Upload failed" and is reported through `onError`. The cell names its files
+  through `resolve` where one is given. The picker is anker's `LookupSelect`,
+  a `combobox`. To migrate: add `resolve` over your asset store's get-by-ids,
+  and use `context.field` in `upload` if uploads should land per Field.
 - **The core renderer's `rich_text` field is read-only** (#278, ADR-0026): it
   shows the document's text and says it can't be edited there, where it was a
   JSON textarea. It never writes the value. Editing needs

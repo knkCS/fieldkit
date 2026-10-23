@@ -112,9 +112,29 @@ export interface MediaItem {
 	[key: string]: unknown;
 }
 
+/**
+ * A stored media id, named (ADR-0029). `deleted` marks an asset the Consumer
+ * no longer holds — the field still lists it, marked, so a value pointing at
+ * it stays readable and removable rather than turning into a bare id.
+ */
+export type ResolvedMediaItem = MediaItem & { deleted?: boolean };
+
+/** What the media picker asks `browse` for (ADR-0029). */
 export interface MediaFilter {
+	/** The Field's `accept`, when it declares one. Absent means any type. */
 	mime_types?: string[];
+	/** What the person filling in the form typed. */
 	query?: string;
+}
+
+/**
+ * What an upload is for (ADR-0029): the Field whose control uploaded the
+ * file, so the Consumer — not the Spec — decides where the upload is stored
+ * (an asset type, a folder). Whatever else the Consumer needs to decide it
+ * (the record being edited, its type) it closes over in its own adapter.
+ */
+export interface MediaUploadContext {
+	field: Field;
 }
 
 /**
@@ -328,8 +348,31 @@ export interface FieldKitAdapters {
 		getResultColumns?: () => Field[];
 	};
 	media?: {
-		upload: (file: File) => Promise<MediaItem>;
-		browse: (filter: MediaFilter) => Promise<MediaItem[]>;
+		/**
+		 * Stores a new file and answers the asset it became. The second
+		 * argument names the Field it is for (ADR-0029); an adapter written
+		 * before it simply ignores it.
+		 */
+		upload: (file: File, context: MediaUploadContext) => Promise<MediaItem>;
+		/**
+		 * Searches the existing assets — what the media picker offers
+		 * (ADR-0029). Called with what was typed and the Field's `accept`, and
+		 * only once somebody opens the picker — never on mount.
+		 *
+		 * **Optional, and it is the capability** (ADR-0027): without it the
+		 * field offers upload only. Return what matches; fieldkit drops only
+		 * the assets the Field already holds.
+		 */
+		browse?: (filter: MediaFilter) => Promise<MediaItem[]>;
+		/**
+		 * Names the ids a Field stores — by file name, type and size —
+		 * **deleted assets included** (marked `deleted`). An id with nothing
+		 * behind it is left out of the answer and shows as itself.
+		 *
+		 * Optional (ADR-0009, ADR-0029): without it a stored id shows as
+		 * itself, and the table cell counts the files.
+		 */
+		resolve?: (ids: string[]) => Promise<ResolvedMediaItem[]>;
 	};
 	/**
 	 * The Sources a `lookup` Field may point into, keyed by the id its

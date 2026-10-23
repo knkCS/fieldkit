@@ -14,6 +14,7 @@ export type {
 	LookupSource,
 	MediaFilter,
 	MediaItem,
+	MediaUploadContext,
 	PickerPage,
 	PickerResolveQuery,
 	PickerSearchQuery,
@@ -22,6 +23,7 @@ export type {
 	ReferenceSearchQuery,
 	ReferenceSearchResult,
 	ResolvedChoice,
+	ResolvedMediaItem,
 	TextTypeSummary,
 } from "./adapters";
 export type { FieldComponentProps } from "./field-component";

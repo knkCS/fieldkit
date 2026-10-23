@@ -5,18 +5,18 @@ import * as Stories from "./media-field.stories";
 
 # Media
 
-Upload or select media files. Provides a file upload button and displays selected media items as a list. Requires a `media` adapter to be configured via `FieldKitProvider`.
+Upload a new file or pick an existing one. Stored files are listed by name, type and size. Requires a `media` adapter to be configured via `FieldKitProvider` (ADR-0029).
 
 ## When to Use
 
-Use **Media** for file uploads such as images, documents, or other attachments. The field stores an array of media IDs that are resolved through the adapter.
+Use **Media** for file uploads such as images, documents, or other attachments. The field stores an array of asset ids; the adapter names them.
 
 ## Settings
 
 | Setting     | Type       | Default     | Description                                    |
 |-------------|------------|-------------|------------------------------------------------|
-| `accept`    | `string[]` | `undefined` | Allowed MIME types (e.g. `["image/jpeg", "image/png"]`). Filters the file picker and is passed to the `browse` adapter method. |
-| `max_items` | `number`   | `undefined` | Maximum number of files allowed. When the limit is reached, the upload button is hidden. |
+| `accept`    | `string[]` | `undefined` | Allowed MIME types (e.g. `["image/jpeg", "image/png"]`). Filters the upload dialog and is passed to `browse` as `mime_types`. |
+| `max_items` | `number`   | `undefined` | Maximum number of files allowed. When the limit is reached, upload and the picker are hidden. |
 
 ## Adapter Interface
 
@@ -24,12 +24,17 @@ The media field requires a `media` adapter injected via `FieldKitProvider`:
 
 ```ts
 media: {
-  upload: (file: File) => Promise<MediaItem>;
-  browse: (filter: MediaFilter) => Promise<MediaItem[]>;
+  upload: (file: File, context: MediaUploadContext) => Promise<MediaItem>;
+  browse?: (filter: MediaFilter) => Promise<MediaItem[]>;
+  resolve?: (ids: string[]) => Promise<ResolvedMediaItem[]>;
 }
 ```
 
-Where `MediaItem` and `MediaFilter` are:
+- **`upload`** receives the Field as `context.field`, so the Consumer — not the Spec — decides where a file is stored.
+- **`browse`** is the picker's source. It is asked only once somebody opens the picker, with what they typed and the Field's `accept`: `{ query, mime_types }`. Assets the Field already holds are dropped from the answer. **Without `browse` the field offers upload only** (ADR-0027).
+- **`resolve`** names stored ids, deleted assets included (`deleted: true`, shown marked and still removable). An id it leaves out — or every id, without `resolve` — shows as itself.
+
+Where `MediaItem`, `ResolvedMediaItem`, `MediaFilter` and `MediaUploadContext` are:
 ```ts
 interface MediaItem {
   id: string;
@@ -40,11 +45,19 @@ interface MediaItem {
   [key: string]: unknown;
 }
 
+type ResolvedMediaItem = MediaItem & { deleted?: boolean };
+
 interface MediaFilter {
   mime_types?: string[];
   query?: string;
 }
+
+interface MediaUploadContext {
+  field: Field;
+}
 ```
+
+A rejected `upload` or `resolve` is reported through `FieldKitProvider`'s `onError`; a failed upload also says "Upload failed" under the field.
 
 ## Validation
 
@@ -64,30 +77,28 @@ z.array(z.string())
 
 ## Table Cell
 
-Renders a file count via `MediaCell` (e.g. "3 files", "1 file"). Shows an em-dash for null/empty values.
+With the adapter's `resolve`, `MediaCell` names its files ("a.pdf, b.pdf (deleted)"), counting them while the names are on their way. Without it, it renders a file count (e.g. "3 files", "1 file"). Shows an em-dash for null/empty values.
 
 ## Known Limitations
 
-- No browse/select-existing UI — only upload is supported
 - No image preview (`MediaItem.url` is unused)
 - No drag-and-drop upload
-- Upload errors are silently swallowed
 - `max_items` is not reflected in the Zod schema
 - No file size limit setting
 - No single-item mode (always stores an array)
-- Cell shows only the count (no filenames or thumbnails)
+- `browse` answers one list — the picker does not page
 
 ## Examples
 
 ### Default With Mock Adapter
 
-Click "Upload file" to simulate uploading. The mock adapter returns a new `MediaItem` after a brief delay.
+Click "Upload file" to simulate uploading, or open the picker to choose an existing file. The mock adapter returns a new `MediaItem` after a brief delay.
 
 <Canvas of={Stories.DefaultWithMockAdapter} />
 
 ### With Accept Filter
 
-Restricted to image files (JPEG, PNG, WebP) with `max_items: 1`. The file picker dialog will filter by accepted types.
+Restricted to image files (JPEG, PNG, WebP) with `max_items: 1`. The upload dialog and the picker both filter by accepted types.
 
 <Canvas of={Stories.WithAcceptFilter} />
 
