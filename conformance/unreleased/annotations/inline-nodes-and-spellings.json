@@ -1,0 +1,365 @@
+{
+	"description": "Annotations on an inline node count as on text — a comment on an inline image, an inline image proposed for insertion — and the spelling of what is unchanged is no change: a mark's empty attrs and none, a number written 1 and 1.0",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "image_comment",
+				"api_accessor": "image_comment",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "image_proposed",
+				"api_accessor": "image_proposed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "image_changed",
+				"api_accessor": "image_changed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "spelling",
+				"api_accessor": "spelling",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"image_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See "
+											},
+											{
+												"type": "inlineImage",
+												"attrs": {
+													"src": "asset-1"
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"image_proposed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"image_changed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See "
+											},
+											{
+												"type": "inlineImage",
+												"attrs": {
+													"src": "asset-1"
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"spelling": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001",
+							"level": 1
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "x",
+												"marks": [
+													{
+														"type": "bold",
+														"attrs": {}
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		"next": {
+			"image_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See "
+											},
+											{
+												"type": "inlineImage",
+												"attrs": {
+													"src": "asset-1"
+												},
+												"marks": [
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "t1"
+														}
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"image_proposed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See"
+											},
+											{
+												"type": "inlineImage",
+												"attrs": {
+													"src": "asset-1"
+												},
+												"marks": [
+													{
+														"type": "suggestionInsert",
+														"attrs": {
+															"suggestionId": "s1",
+															"userId": "u1",
+															"userName": "Ute",
+															"timestamp": 1
+														}
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"image_changed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "See "
+											},
+											{
+												"type": "inlineImage",
+												"attrs": {
+													"src": "asset-2"
+												},
+												"marks": [
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "t1"
+														}
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"spelling": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001",
+							"level": 1.0
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "x",
+												"marks": [
+													{
+														"type": "bold"
+													},
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "t1"
+														}
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"annotationOnly": {
+			"image_comment": true,
+			"image_proposed": true,
+			"image_changed": false,
+			"spelling": true
+		},
+		"openSuggestion": {
+			"base": {
+				"image_comment": false,
+				"image_proposed": false,
+				"image_changed": false,
+				"spelling": false
+			},
+			"next": {
+				"image_comment": false,
+				"image_proposed": true,
+				"image_changed": false,
+				"spelling": false
+			}
+		}
+	}
+}

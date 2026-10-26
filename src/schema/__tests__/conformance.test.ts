@@ -8,7 +8,11 @@ import { publishingFieldTypes } from "../../publishing";
 import { CATALOGUE_VERSION } from "../catalogue-version";
 import { type Edge, edges, type FieldText, texts } from "../content-walk";
 import { builtInFieldTypes } from "../field-types";
-import type { FieldTypePlugin, ValueContext } from "../plugin";
+import type {
+	FieldAnnotations,
+	FieldTypePlugin,
+	ValueContext,
+} from "../plugin";
 import {
 	type ResolvedSpec,
 	resolveSpec,
@@ -31,6 +35,8 @@ const OPERATIONS = [
 	"validateResolvedSpec",
 	"edges",
 	"texts",
+	"annotationOnly",
+	"openSuggestion",
 ];
 
 /** The operations only Go implements: versionkit's Compare and Merge (#213),
@@ -58,6 +64,9 @@ interface Fixture {
 	spec: Field[];
 	/** The stored data `validateValue` checks against `spec`. */
 	data?: unknown;
+	/** Named versions of the data: `base` and `next` for the Annotation
+	 * operations (and Go's compare and merge). */
+	revisions?: Record<string, Record<string, unknown>>;
 	/** What resolving `spec` fetches: kind → Release id → Release. */
 	releases?: Record<string, Record<string, unknown>>;
 	/** Resolution's caps, overriding `RESOLVE_CAPS`. */
@@ -295,6 +304,37 @@ describe("conformance fixtures", () => {
 				expect(inAnyOrder(got)).toEqual(inAnyOrder(want));
 			}
 
+			// Both ask each Field's type, as contenthub does (plugin.annotations).
+			if (bound.includes("annotationOnly")) {
+				const want = fixture.expect.annotationOnly as Record<string, boolean>;
+				const base = revisionOf(fixture, "base");
+				const next = revisionOf(fixture, "next");
+				for (const [accessor, expected] of Object.entries(want)) {
+					const annotations = annotationsOf(fixture, plugins, accessor);
+					expect(
+						annotations.annotationOnly(base[accessor], next[accessor]),
+						`annotationOnly ${accessor}`,
+					).toBe(expected);
+				}
+			}
+
+			if (bound.includes("openSuggestion")) {
+				const want = fixture.expect.openSuggestion as Record<
+					string,
+					Record<string, boolean>
+				>;
+				for (const [name, fields] of Object.entries(want)) {
+					const values = revisionOf(fixture, name);
+					for (const [accessor, expected] of Object.entries(fields)) {
+						const annotations = annotationsOf(fixture, plugins, accessor);
+						expect(
+							annotations.openSuggestion(values[accessor]),
+							`openSuggestion ${name}/${accessor}`,
+						).toBe(expected);
+					}
+				}
+			}
+
 			if (bound.includes("texts")) {
 				const want = fixture.expect.texts as FieldText[];
 				const resolved = await resolveFixture(fixture);
@@ -309,6 +349,27 @@ describe("conformance fixtures", () => {
 		});
 	}
 });
+
+function revisionOf(fixture: Fixture, name: string): Record<string, unknown> {
+	const revision = fixture.revisions?.[name];
+	if (!revision) throw new Error(`the fixture has no revision "${name}"`);
+	return revision;
+}
+
+/** What the type of the fixture's top-level Field `accessor` tells about its
+ * Annotations; a type that tells nothing fails the fixture, as in Go. */
+function annotationsOf(
+	fixture: Fixture,
+	plugins: ReadonlyMap<string, FieldTypePlugin>,
+	accessor: string,
+): FieldAnnotations {
+	const field = fixture.spec.find((f) => f.config.api_accessor === accessor);
+	const annotations = field && plugins.get(field.field_type)?.annotations;
+	if (!annotations) {
+		throw new Error(`${accessor}: not a Field whose type tells Annotations`);
+	}
+	return annotations;
+}
 
 /** A list in one order whatever order it came in, for the walkers' answers. */
 function inAnyOrder<T>(items: T[]): T[] {

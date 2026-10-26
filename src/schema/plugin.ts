@@ -281,6 +281,15 @@ export interface HeldRecord {
 	segments: readonly string[];
 }
 
+/** What a type tells about the Annotations its values hold (see
+ * `FieldTypePlugin.annotations`). Both take present values, as stored. */
+export interface FieldAnnotations {
+	/** Whether `next` differs from `base` only in Annotations. */
+	annotationOnly: (base: unknown, next: unknown) => boolean;
+	/** Whether `value` holds an open suggestion. */
+	openSuggestion: (value: unknown) => boolean;
+}
+
 /**
  * A field type plugin defines everything about a field type:
  * metadata, UI components, Zod validation, and constraints.
@@ -398,6 +407,14 @@ export interface FieldTypePlugin<S = unknown> {
 	 * `documentTypes` lists the same types.
 	 */
 	opaqueDocument?: boolean;
+	/**
+	 * The Annotations a value of this type holds — comment anchors and
+	 * suggestions — told for contenthub's Annotation rules (contenthub ADR
+	 * 0014, amended), so a Consumer asks the type and never reads its values.
+	 * `rich_text`'s; Go's `Annotator`. Absent: the type holds none, so any
+	 * change to its value is not Annotation-only.
+	 */
+	annotations?: FieldAnnotations;
 	maxPerSpec?: number;
 	/**
 	 * The Consumers whose type picker offers this type (ADR-0022). Advice for

@@ -1,0 +1,391 @@
+{
+	"description": "A mark that is not an Annotation added, removed or changed is not Annotation-only, even beside an Annotation; marks are a set, so the same marks in another order are no change",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "bold_added",
+				"api_accessor": "bold_added",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "bold_and_comment",
+				"api_accessor": "bold_and_comment",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "link_changed",
+				"api_accessor": "link_changed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "reordered",
+				"api_accessor": "reordered",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"bold_added": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"bold_and_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"link_changed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "weblink",
+														"attrs": {
+															"href": "https://a.example"
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"reordered": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "bold"
+													},
+													{
+														"type": "italic"
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		"next": {
+			"bold_added": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "bold"
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"bold_and_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "bold"
+													},
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "t1"
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"link_changed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "weblink",
+														"attrs": {
+															"href": "https://b.example"
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"reordered": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "italic"
+													},
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "t1"
+														}
+													},
+													{
+														"type": "bold"
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"annotationOnly": {
+			"bold_added": false,
+			"bold_and_comment": false,
+			"link_changed": false,
+			"reordered": true
+		},
+		"openSuggestion": {
+			"base": {
+				"bold_added": false,
+				"bold_and_comment": false,
+				"link_changed": false,
+				"reordered": false
+			},
+			"next": {
+				"bold_added": false,
+				"bold_and_comment": false,
+				"link_changed": false,
+				"reordered": false
+			}
+		}
+	}
+}

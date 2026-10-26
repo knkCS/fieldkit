@@ -1,0 +1,186 @@
+{
+	"description": "A suggestion knkeditor records on a node (its suggestion attribute — a block proposed inserted, deleted, changed or moved) is an open suggestion; adding, accepting or rejecting one is never read as Annotation-only, since what it proposes is the node itself",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "proposed",
+				"api_accessor": "proposed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "default_null",
+				"api_accessor": "default_null",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"proposed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"default_null": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		"next": {
+			"proposed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000002",
+							"suggestion": {
+								"type": "insert",
+								"suggestionId": "s5",
+								"userId": "u1",
+								"userName": "Ute",
+								"timestamp": 1
+							}
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "New block"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"default_null": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001",
+							"suggestion": null,
+							"commentThreadIds": []
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"annotationOnly": {
+			"proposed": false,
+			"default_null": true
+		},
+		"openSuggestion": {
+			"base": {
+				"proposed": false,
+				"default_null": false
+			},
+			"next": {
+				"proposed": true,
+				"default_null": false
+			}
+		}
+	}
+}

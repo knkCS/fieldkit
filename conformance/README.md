@@ -45,6 +45,7 @@ conformance/
 | [`validate-value/`](unreleased/validate-value) | `validateValue` over every type with a value — rich text against its Text Type (Go only past its shape): Unset and `required` (ADR-0021), `not_canonical` at every depth, each type's valid and invalid values, formats (email, URL, slug, pattern), lengths in UTF-16 code units, Unset settings and validation, hidden Fields — checked, never required, nor anything inside them (#223 D4) — and Markers, path escaping; the containers' rows, Blocks and records, each child checked by its own type (ADR-0007), the rows' `_id`s and `_id` paths (ADR-0023), and `too_deep`; Unset and the depth cap stopping at a `rich_text` document (ADR-0025); a document the knkeditor-backed field saved (`rich-text-saved-by-editor.json`, written by `src/rich-text` tests, #278); Reference nodes, their tree-wide `_id`s, caps and values against the right Reference Spec per target; a `reference_filter` in a Reference's values, an `outline_tree`'s nodes — tree-wide `_id`s, each node's `values` against its resolved Blueprint, strict nodes and their optional `origin`, `overridden` and `source` — a `template_text`'s string, and `ti_overlay`'s flattened `{entries}`, each naming the Content it anchors in (`content` required, `pin` optional), its inline anchors in knkeditor's shape and core's removed keys, and — against the Resolved Spec, Go only — each command in the pinned TI Set; and `manipulation_tree` nodes — a Reference Tree's rules, each node's `intent` and a replace's `with`, values per intent (`publishing-…`) |
 | [`compare/`](unreleased/compare) | `compare` through the versionkit adapter (ADR-0023, [docs/compare-and-merge.md](../docs/compare-and-merge.md)): whole values equal whatever their spelling, with no detail; rows by `_id` with each row's status, `moved` and each changed child's detail nested; a Fieldset per child Field; a Reference Tree per node, parent and position as fields — a `manipulation_tree` too, its intent a field, and an `outline_tree`, its `origin`, `overridden` and `source` fields; `rich_text` by knkeditor, its detail nested unchanged; `ti_overlay` per entry under `entries` (`publishing-…`). Go only |
 | [`merge/`](unreleased/merge) | `merge` through the versionkit adapter: per row and per child Field, different columns of one row on each side, Conflicts by `_id` path, a reorder on one side taken, reorders on both sides at `_order`, an insert while the other side reorders; Blocks and a Fieldset; a Reference Tree per node — a move on one side and a values edit on the other clean, moves on both sides at `_parent` — a `manipulation_tree` too, intents changed on both sides at `intent`, and an `outline_tree`, its TOC-generation keys changed on both sides at the key; `rich_text` by knkeditor's Merger, Conflicts by node id; `ti_overlay` per entry and key (`publishing-…`). Go only |
+| [`annotations/`](unreleased/annotations) | `annotationOnly` and `openSuggestion` over `rich_text` values: comment marks added, moved, removed and on a node (`commentThreadIds`); each suggestion mark proposed — insertion, deletion, format change — and accepted (not Annotation-only) or rejected (Annotation-only), and revised — a proposed insertion's own text edited, a suggestion mark moved; text, attributes, nodes or another mark changed beside an Annotation; marks as a set; Annotations in table cells and nested lists; a suggestion on a node (never Annotation-only, always open); inline nodes and spellings (empty mark attrs, a node's `attrs: null`, `1` and `1.0`) |
 
 ## Fixture format
 
@@ -65,8 +66,9 @@ conformance/
 - `data` — stored data (a Content's values) checked against `spec`; read by
   `validateValue`, `edges` and `texts`. Absent is `{}`.
 - `revisions` — named versions of the data, for the versionkit operations:
-  `a` and `b` for `compare`, `base`, `ours` and `theirs` for `merge`. Each is
-  stored data, as `data` is.
+  `a` and `b` for `compare`, `base`, `ours` and `theirs` for `merge`; for the
+  Annotation operations, `base` and `next`. Each is stored data, as `data`
+  is.
 - `releases` — what resolving `spec` fetches, as kind → Release id → the
   Release: a `blueprint` Release is its Fields (a Spec); any other kind is an
   opaque part. The resolve operations read it, and `edges` and `texts`, which walk the Resolved Spec. A Release it does not
@@ -254,6 +256,18 @@ conformance/
   neither (its `GO_ONLY_OPERATIONS`). In a released version's folder a
   `compare` binds, and a `merge` binds unless it expects a Conflict — a type
   may yet merge finer.
+
+- **`annotationOnly`** and **`openSuggestion`** — what the rich-text field
+  type tells about the Annotations in its values (comment anchors and
+  suggestions, contenthub ADR 0014 amended; `go/annotations.go`,
+  `src/schema/annotations.ts`). Each runner asks the Field's type, as
+  contenthub does: Go the `Annotator` its `SchemaFields` Type is, TS the
+  plugin's `annotations`. `annotationOnly` expects
+  `{ <accessor>: boolean }` — whether `next` differs from `base` in that
+  Field only in Annotations; `openSuggestion` expects
+  `{ <revision>: { <accessor>: boolean } }` — whether the Field's value in
+  that revision holds a suggestion. Both runners implement them; a Field
+  whose type tells no Annotations fails the fixture.
 
 ## Paths
 

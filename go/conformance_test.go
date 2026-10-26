@@ -20,7 +20,7 @@ const conformanceDir = "../conformance"
 
 // operations are the operations this runner implements. A fixture expecting
 // another fails, so a fixture is never silently skipped by one runner.
-var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec", "edges", "texts", "compare", "merge"} //nolint:gochecknoglobals
+var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec", "edges", "texts", "compare", "merge", "annotationOnly", "openSuggestion"} //nolint:gochecknoglobals
 
 type expectedError struct {
 	Path string `json:"path"`
@@ -158,6 +158,10 @@ func TestConformance(t *testing.T) {
 					runCompare(t, fx, raw)
 				case "merge":
 					runMerge(t, fx, raw)
+				case "annotationOnly":
+					runAnnotationOnly(t, fx, raw)
+				case "openSuggestion":
+					runOpenSuggestion(t, fx, raw)
 				default:
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
