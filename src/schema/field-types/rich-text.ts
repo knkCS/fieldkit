@@ -3,6 +3,7 @@ import { z } from "zod";
 import { RichTextSettingsEditor } from "../../editor/field-settings/rich-text-settings";
 import { RichTextField } from "../../renderer/fields/rich-text-field";
 import { RichTextCell } from "../../table/cells/rich-text-cell";
+import { richTextAnnotationOnly, richTextOpenSuggestion } from "../annotations";
 import type { CataloguePin, FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { TEXT_TYPE_KIND } from "../vocabulary-version";
@@ -49,6 +50,14 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 	// `"attributes": {}` are its own, so the form never strips them and
 	// `validateValue` never calls them `not_canonical`.
 	opaqueDocument: true,
+
+	// The comment anchors and suggestions knkeditor stores in the document,
+	// for contenthub's Annotation rules — the same answers as Go's Annotator
+	// (go/annotations.go), held to them by the shared fixtures.
+	annotations: {
+		annotationOnly: richTextAnnotationOnly,
+		openSuggestion: richTextOpenSuggestion,
+	},
 
 	settingsSchema: z
 		.object({

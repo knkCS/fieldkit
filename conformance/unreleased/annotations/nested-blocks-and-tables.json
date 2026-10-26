@@ -1,0 +1,453 @@
+{
+	"description": "Annotations deep in nested blocks and table cells are found as at the top: a comment in a cell and a suggestion in a nested list item are Annotation-only and the suggestion is open; a cell's text changed beside them is not",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "table_comment",
+				"api_accessor": "table_comment",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "table_text",
+				"api_accessor": "table_text",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "list_suggestion",
+				"api_accessor": "list_suggestion",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"table_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Intro"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "table",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000009"
+						},
+						"content": [
+							{
+								"type": "tableRow",
+								"content": [
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "A1"
+													}
+												]
+											}
+										]
+									},
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "B1"
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"table_text": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Intro"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "table",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000009"
+						},
+						"content": [
+							{
+								"type": "tableRow",
+								"content": [
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "A1"
+													}
+												]
+											}
+										]
+									},
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "B1"
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"list_suggestion": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "bulletList",
+						"content": [
+							{
+								"type": "listItem",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Outer"
+											}
+										]
+									},
+									{
+										"type": "bulletList",
+										"content": [
+											{
+												"type": "listItem",
+												"content": [
+													{
+														"type": "textWrapper",
+														"content": [
+															{
+																"type": "text",
+																"text": "Inner"
+															}
+														]
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		"next": {
+			"table_comment": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Intro"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "table",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000009"
+						},
+						"content": [
+							{
+								"type": "tableRow",
+								"content": [
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "A1"
+													}
+												]
+											}
+										]
+									},
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "B"
+													},
+													{
+														"type": "text",
+														"text": "1",
+														"marks": [
+															{
+																"type": "commentMark",
+																"attrs": {
+																	"threadId": "t1"
+																}
+															}
+														]
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"table_text": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Intro"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "table",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000009"
+						},
+						"content": [
+							{
+								"type": "tableRow",
+								"content": [
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "A1"
+													}
+												]
+											}
+										]
+									},
+									{
+										"type": "tableCell",
+										"content": [
+											{
+												"type": "textWrapper",
+												"content": [
+													{
+														"type": "text",
+														"text": "B2",
+														"marks": [
+															{
+																"type": "commentMark",
+																"attrs": {
+																	"threadId": "t1"
+																}
+															}
+														]
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"list_suggestion": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "bulletList",
+						"content": [
+							{
+								"type": "listItem",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Outer"
+											}
+										]
+									},
+									{
+										"type": "bulletList",
+										"content": [
+											{
+												"type": "listItem",
+												"content": [
+													{
+														"type": "textWrapper",
+														"content": [
+															{
+																"type": "text",
+																"text": "Inner"
+															},
+															{
+																"type": "text",
+																"text": " more",
+																"marks": [
+																	{
+																		"type": "suggestionInsert",
+																		"attrs": {
+																			"suggestionId": "s9",
+																			"userId": "u1",
+																			"userName": "Ute",
+																			"timestamp": 1
+																		}
+																	}
+																]
+															}
+														]
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"annotationOnly": {
+			"table_comment": true,
+			"table_text": false,
+			"list_suggestion": true
+		},
+		"openSuggestion": {
+			"base": {
+				"table_comment": false,
+				"table_text": false,
+				"list_suggestion": false
+			},
+			"next": {
+				"table_comment": false,
+				"table_text": false,
+				"list_suggestion": true
+			}
+		}
+	}
+}

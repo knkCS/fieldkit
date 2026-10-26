@@ -9,6 +9,18 @@ export {
 	hasAdapterCapability,
 	servedByAdapters,
 } from "./adapter-capabilities";
+// Annotations in rich text — comment anchors and suggestions — for
+// contenthub's Annotation rules: the same answers as the Go module's Annotator
+export {
+	ATTR_COMMENT_THREADS,
+	ATTR_SUGGESTION,
+	MARK_COMMENT,
+	MARK_SUGGESTION_DELETE,
+	MARK_SUGGESTION_FORMAT_CHANGE,
+	MARK_SUGGESTION_INSERT,
+	richTextAnnotationOnly,
+	richTextOpenSuggestion,
+} from "./annotations";
 // The Blueprint a Fieldset or a linked Virtual Table names — one reader for
 // both.
 export { linkedBlueprintId } from "./blueprint-link";
@@ -138,6 +150,7 @@ export type {
 	ComposeChildrenSchema,
 	Consumer,
 	EdgeTarget,
+	FieldAnnotations,
 	FieldProps,
 	FieldTypeCategory,
 	FieldTypePlugin,

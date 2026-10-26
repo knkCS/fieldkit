@@ -1,0 +1,393 @@
+{
+	"description": "Only suggestion marks added is Annotation-only — an insertion proposed (its text is not yet the text), a deletion proposed (its text still is), a format change proposed (bold applied, read as before it) — and each value holding one has an open suggestion",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "insert",
+				"api_accessor": "insert",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "delete",
+				"api_accessor": "delete",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "format",
+				"api_accessor": "format",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "unbold",
+				"api_accessor": "unbold",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"revisions": {
+		"base": {
+			"insert": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"delete": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"format": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"unbold": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "bold"
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		"next": {
+			"insert": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello brave "
+											},
+											{
+												"type": "text",
+												"text": "new ",
+												"marks": [
+													{
+														"type": "suggestionInsert",
+														"attrs": {
+															"suggestionId": "s1",
+															"userId": "u1",
+															"userName": "Ute",
+															"timestamp": 1
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": "world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"delete": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave ",
+												"marks": [
+													{
+														"type": "suggestionDelete",
+														"attrs": {
+															"suggestionId": "s2",
+															"userId": "u1",
+															"userName": "Ute",
+															"timestamp": 1
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": "world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"format": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "bold"
+													},
+													{
+														"type": "suggestionFormatChange",
+														"attrs": {
+															"suggestionId": "s3",
+															"userId": "u1",
+															"userName": "Ute",
+															"timestamp": 1,
+															"addedMarks": [
+																{
+																	"name": "bold"
+																}
+															],
+															"removedMarks": []
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"unbold": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"content": [
+									{
+										"type": "textWrapper",
+										"content": [
+											{
+												"type": "text",
+												"text": "Hello "
+											},
+											{
+												"type": "text",
+												"text": "brave",
+												"marks": [
+													{
+														"type": "suggestionFormatChange",
+														"attrs": {
+															"suggestionId": "s4",
+															"userId": "u1",
+															"userName": "Ute",
+															"timestamp": 1,
+															"addedMarks": [],
+															"removedMarks": [
+																{
+																	"name": "bold"
+																}
+															]
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " world"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"annotationOnly": {
+			"insert": true,
+			"delete": true,
+			"format": true,
+			"unbold": true
+		},
+		"openSuggestion": {
+			"base": {
+				"insert": false,
+				"delete": false,
+				"format": false,
+				"unbold": false
+			},
+			"next": {
+				"insert": true,
+				"delete": true,
+				"format": true,
+				"unbold": true
+			}
+		}
+	}
+}

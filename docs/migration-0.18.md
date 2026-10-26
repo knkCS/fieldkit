@@ -306,6 +306,14 @@ extension packages). No other subpath imports them. Details in
 
 - **New:** `MintIDs` (#211), `ValidateResolvedValue` (#216),
   `WithTargetBlueprints` (#215).
+- **New: `Annotator`** (#392). `rich_text`'s `SchemaFields` Type also tells
+  `AnnotationOnly` and `OpenSuggestion` — whether a change is only comment
+  anchors and suggestion marks, and whether a value holds a suggestion — for
+  contenthub's Annotation rules; `RichTextAnnotationOnly` and
+  `RichTextOpenSuggestion` are the same on a bare value. TS: the plugin's
+  `annotations` (`FieldAnnotations`), and `richTextAnnotationOnly` /
+  `richTextOpenSuggestion` from `/schema`. See
+  [`compare-and-merge.md`](compare-and-merge.md#annotations).
 - **`CodeMissingSetting`** (#366), reported by `ValidateResolvedSpec` only.
 - **`CodeDuplicateOptionKey`** (#363). The Catalogue's settings schemas may
   use JSON Schema's `pattern`, read as RE2; `Schema.Pattern` holds it, and a

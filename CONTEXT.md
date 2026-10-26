@@ -18,6 +18,10 @@ _Avoid_: bare "schema" for the authored document — that's a Spec
 A Spec whose every Pin has been resolved, so a reader never follows a second one: each pinned Blueprint Release is expanded into inline Fields, and each other pinned part — a Text Type, a Typesetting Instruction Set — is carried once beside the Fields, however many Fields pin it. Only a Resolved Spec can produce a complete Schema, and only a Resolved Spec can validate a value.
 _Avoid_: expanded spec, flattened spec
 
+**Annotation**:
+A comment anchor or a suggestion in a rich-text value: a mark knkeditor's comment or suggestion extension stores in the document, saying something about the text or proposing a change to it without being the text. The rich-text field type tells whether a change is only Annotations and whether a value holds an open suggestion (contenthub ADR 0014, amended); a Consumer asks it and never reads the document.
+_Avoid_: review state (knkeditor's word for the same marks), markup, track change
+
 **Blueprint**:
 A stored Spec, addressable by id and resolvable through the blueprint adapter. Fieldkit never owns blueprints — it asks a Consumer for them.
 

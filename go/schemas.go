@@ -136,6 +136,10 @@ func (c *Catalogue) SchemaFields(resolved *ResolvedSpec) ([]SchemaField, error) 
 // Catalogue section's type that compares finer but has no Merge of its own is
 // a whole-value Type to versionkit, which then merges it as a whole value.
 func (c *Catalogue) typeFor(fieldType string) Comparer {
+	if fieldType == "rich_text" {
+		// rich_text also tells its Annotations (annotations.go).
+		return richTextType{finerValueType{wholeValueType{c}}}
+	}
 	if _, finer := finerRuleFor(fieldType); finer {
 		return finerValueType{wholeValueType{c}}
 	}

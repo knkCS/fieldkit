@@ -16,7 +16,7 @@ the fixtures are `conformance/unreleased/compare/` and `merge/`.
 | `Accessor` | the Field's `api_accessor` |
 | `TypeID` | its `field_type` |
 | `Settings` | `{"field": <the whole resolved Field>, "parts": {<kind>: {<release>: <part>}}}` — `parts` only the opaque parts the Field pins, at any depth, and absent when it pins none (`SchemaSettings`, `DecodeSchemaSettings`) |
-| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` — and, through a Catalogue that holds the publishing package, `manipulation_tree` and `outline_tree` |
+| `Type` | a `Comparer`; a `Merger` for `group`, `virtual_table`, `blocks`, `fieldset`, `reference`, `single_reference` and `rich_text` — and, through a Catalogue that holds the publishing package, `manipulation_tree` and `outline_tree`. `rich_text`'s is also an `Annotator` (see [Annotations](#annotations)) |
 
 fieldkit never imports versionkit (versionkit ADR 0002). `Comparer` and
 `Merger` have exactly versionkit's `FieldType` and `FieldMerger` method sets,
@@ -243,3 +243,30 @@ at any level holds, or whose `children` are not a list, is an `err` too.
   below the Field's path (`body/a`, `r1/body/a` in a row), a JSON Pointer
   into the merged document for an invalid merge outside such a node, or the
   Field itself.
+
+## Annotations
+
+`rich_text`'s Type is also an `Annotator` (`go/annotations.go`; TS: the
+plugin's `annotations`, `src/schema/annotations.ts`), for contenthub's
+Annotation rules (contenthub ADR 0014, amended 2026-10-26): a service asks it
+through the `SchemaField`, never reading rich text itself.
+
+- **`AnnotationOnly(settings, base, next)`** — whether `next` differs from
+  `base` only in Annotations: knkeditor's comment marks (`commentMark`, and
+  a node's `commentThreadIds`) and suggestion marks (`suggestionInsert`,
+  `suggestionDelete`, `suggestionFormatChange`) added, removed or moved.
+  Both values are read with every Annotation taken out and every suggestion
+  rejected — proposed insertions dropped, proposed deletions kept, format
+  changes undone — and compared as JSON, marks as a set and adjacent text
+  with the same marks joined. So accepting a suggestion changes the text and
+  is not Annotation-only; rejecting one is. A suggestion on a whole node (its
+  `suggestion` attribute) is never Annotation-only: it proposes the node
+  itself. This is stricter than Compare, which reads attributes with their
+  defaults: a spelling Compare calls unchanged may read as a change here,
+  which only ever counts a saver as an author.
+- **`OpenSuggestion(settings, value)`** — whether the value holds any
+  suggestion mark, or a node's `suggestion`, at any depth.
+
+A Type that is no `Annotator` holds no Annotations: any change to it is not
+Annotation-only. A `rich_text` Field inside a row, a Block or a Fieldset is
+reached through its container's Type, which is no `Annotator` yet.
