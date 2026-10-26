@@ -28,7 +28,7 @@ const resolved = await resolveSpec(spec, {
 </FieldKitProvider>;
 ```
 
-`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`. Its peers are `@knkcms/knkeditor-editor` (^1.8.0) and `@knkcms/knkeditor-vocabulary` (^0.1.0), plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next, react-icons, emotion and its extension packages). No other subpath imports any of them — `npm run verify-peers` checks the built `dist`.
+`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`. Its peers are `@knkcms/knkeditor-editor` (^1.8.0) and `@knkcms/knkeditor-vocabulary` (>=0.1.0 <0.9.0), plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next, react-icons, emotion and its extension packages). No other subpath imports any of them — `npm run verify-peers` checks the built `dist`.
 
 ## Where its configuration comes from
 
