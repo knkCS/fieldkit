@@ -1,0 +1,641 @@
+{
+	"description": "A working value — a Branch's — merges admitting Annotations (mergeAdmittingAnnotations, SchemaFields with AdmitAnnotations, knkeditor's merge mode): a comment added on one side and text changed in another node merge clean, at the root and in a group's row; merged strictly, every node holding Annotations is an invalid Conflict",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"children": [
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "text",
+						"api_accessor": "text",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	],
+	"revisions": {
+		"base": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t1",
+							"commentThreadIds": [
+								"c1"
+							]
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "One.",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c1"
+										}
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t2"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Two."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t3"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Three.",
+								"marks": [
+									{
+										"type": "suggestionInsert",
+										"attrs": {
+											"suggestionId": "s1",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000
+										}
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"notes": [
+				{
+					"_id": "r1",
+					"text": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t1",
+									"commentThreadIds": [
+										"c1"
+									]
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "One.",
+										"marks": [
+											{
+												"type": "commentMark",
+												"attrs": {
+													"threadId": "c1"
+												}
+											}
+										]
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t2"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Two."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t3"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Three.",
+										"marks": [
+											{
+												"type": "suggestionInsert",
+												"attrs": {
+													"suggestionId": "s1",
+													"userId": "u1",
+													"userName": "Ada",
+													"timestamp": 1761400000000
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		"ours": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t1",
+							"commentThreadIds": [
+								"c1"
+							]
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "One.",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c1"
+										}
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t2"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Two",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c2"
+										}
+									}
+								]
+							},
+							{
+								"type": "text",
+								"text": "."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t3"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Three.",
+								"marks": [
+									{
+										"type": "suggestionInsert",
+										"attrs": {
+											"suggestionId": "s1",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000
+										}
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"notes": [
+				{
+					"_id": "r1",
+					"text": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t1",
+									"commentThreadIds": [
+										"c1"
+									]
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "One.",
+										"marks": [
+											{
+												"type": "commentMark",
+												"attrs": {
+													"threadId": "c1"
+												}
+											}
+										]
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t2"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Two",
+										"marks": [
+											{
+												"type": "commentMark",
+												"attrs": {
+													"threadId": "c2"
+												}
+											}
+										]
+									},
+									{
+										"type": "text",
+										"text": "."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t3"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Three.",
+										"marks": [
+											{
+												"type": "suggestionInsert",
+												"attrs": {
+													"suggestionId": "s1",
+													"userId": "u1",
+													"userName": "Ada",
+													"timestamp": 1761400000000
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		},
+		"theirs": {
+			"body": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t1",
+							"commentThreadIds": [
+								"c1"
+							]
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "One, edited.",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c1"
+										}
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t2"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Two."
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "t3"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Three.",
+								"marks": [
+									{
+										"type": "suggestionInsert",
+										"attrs": {
+											"suggestionId": "s1",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000
+										}
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"notes": [
+				{
+					"_id": "r1",
+					"text": {
+						"type": "doc",
+						"content": [
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t1",
+									"commentThreadIds": [
+										"c1"
+									]
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "One, edited.",
+										"marks": [
+											{
+												"type": "commentMark",
+												"attrs": {
+													"threadId": "c1"
+												}
+											}
+										]
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t2"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Two."
+									}
+								]
+							},
+							{
+								"type": "textWrapper",
+								"attrs": {
+									"id": "t3"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Three.",
+										"marks": [
+											{
+												"type": "suggestionInsert",
+												"attrs": {
+													"suggestionId": "s1",
+													"userId": "u1",
+													"userName": "Ada",
+													"timestamp": 1761400000000
+												}
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				}
+			]
+		}
+	},
+	"expect": {
+		"merge": {
+			"body": {
+				"conflicts": [
+					"t1",
+					"t2",
+					"t3"
+				]
+			},
+			"notes": {
+				"conflicts": [
+					"r1/text/t1",
+					"r1/text/t2",
+					"r1/text/t3"
+				]
+			}
+		},
+		"mergeAdmittingAnnotations": {
+			"body": {
+				"merged": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "t1",
+								"commentThreadIds": [
+									"c1"
+								]
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "One, edited.",
+									"marks": [
+										{
+											"type": "commentMark",
+											"attrs": {
+												"threadId": "c1"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "t2"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Two",
+									"marks": [
+										{
+											"type": "commentMark",
+											"attrs": {
+												"threadId": "c2"
+											}
+										}
+									]
+								},
+								{
+									"type": "text",
+									"text": "."
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "t3"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Three.",
+									"marks": [
+										{
+											"type": "suggestionInsert",
+											"attrs": {
+												"suggestionId": "s1",
+												"userId": "u1",
+												"userName": "Ada",
+												"timestamp": 1761400000000
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			},
+			"notes": {
+				"merged": [
+					{
+						"_id": "r1",
+						"text": {
+							"type": "doc",
+							"content": [
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "t1",
+										"commentThreadIds": [
+											"c1"
+										]
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "One, edited.",
+											"marks": [
+												{
+													"type": "commentMark",
+													"attrs": {
+														"threadId": "c1"
+													}
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "t2"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Two",
+											"marks": [
+												{
+													"type": "commentMark",
+													"attrs": {
+														"threadId": "c2"
+													}
+												}
+											]
+										},
+										{
+											"type": "text",
+											"text": "."
+										}
+									]
+								},
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "t3"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Three.",
+											"marks": [
+												{
+													"type": "suggestionInsert",
+													"attrs": {
+														"suggestionId": "s1",
+														"userId": "u1",
+														"userName": "Ada",
+														"timestamp": 1761400000000
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					}
+				]
+			}
+		}
+	}
+}

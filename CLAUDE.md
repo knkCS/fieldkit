@@ -52,7 +52,7 @@ src/
 │   ├── vocabulary-version.ts # The Resolved Spec's `vocabulary`: the highest `minimumVocabularyVersion` among its Text Types, compared as knkeditor compares versions
 │   ├── validate-value.ts # validateValue() — stored data against a Spec, as `{path, code}`, with Go's answers: each type's toZodType, plus Unset/`required`, `not_canonical` and the VALUE_CAPS (ADR-0021); `targetBlueprint` (ValueContext) says which Reference Spec a Reference follows
 │   ├── unset.ts         # isUnset(), canonicalValue(), canonicalSpecSettings() — Unset is one state, stored as absent (ADR-0021)
-│   ├── annotations.ts   # richTextAnnotationOnly() / richTextOpenSuggestion() — the rich_text plugin's `annotations`: whether a change is only comment anchors and suggestion marks, and whether a value holds a suggestion (contenthub ADR 0014, amended); the mark names knkeditor's, pinned against knkeditor-core in src/rich-text tests; Go's annotations.go
+│   ├── annotations.ts   # richTextAnnotationOnly() / richTextOpenSuggestion() / richTextRemoveCommentAnchors() — the rich_text plugin's `annotations`: whether a change is only comment anchors and suggestion marks, whether a value holds a suggestion, and the value without its comment anchors, as contenthub publishes it (contenthub ADR 0014, amended; contenthub#358); the names knkeditor's Annotations, restated because /schema may not import knkeditor (ADR-0026) and pinned against @knkcms/knkeditor-vocabulary in src/rich-text tests; Go's annotations.go
 │   ├── documents.ts     # valueDocuments() — the rich-text documents a value holds (plugins marked `opaqueDocument`), where Unset and the depth cap stop (ADR-0025); Go's documents.go
 │   ├── zod-builder.ts   # specToZodSchema() — its parsed output is canonical, Unset keys stripped — and getDefaultValues()
 │   ├── form-defaults.ts # formDefaults() — a form's seed: the stored value over getDefaultValues(), missing row `_id`s minted; EditDrawer seeds through it, as a Consumer whose form outlives SpecForm should
@@ -153,8 +153,8 @@ go/                      # Go module github.com/knkcs/fieldkit/go (package field
 ├── schemas.go           # SchemaFields — the versionkit adapter: Settings = the whole resolved Field + its pinned parts, Type = Comparer/Merger, versionkit's interfaces by shape, never imported (docs/compare-and-merge.md)
 ├── compare.go           # Compare/Merge composer (ADR-0023): whole values by equality; rows by `_id` (detail, per-child merge, `_order`), a Fieldset per child, Reference trees (reference_compare.go) — finerRuleFor is where rich_text plugs in
 ├── value_types.go       # One value rule per type, each the Go reading of that type's toZodType
-├── annotations.go       # Annotator — rich_text's SchemaFields Type also tells AnnotationOnly and OpenSuggestion (RichTextAnnotationOnly / RichTextOpenSuggestion), TS's annotations.ts
-├── rich_text.go         # rich_text delegated to knkeditor's Go module (github.com/knkcms/knkeditor/go, the module's one external dependency): validation (invalid_rich_text), edges, text, Compare/Merge, the Text Type read from the Resolved Spec's parts
+├── annotations.go       # Annotator — rich_text's SchemaFields Type also tells AnnotationOnly and OpenSuggestion and does RemoveCommentAnchors (RichTextAnnotationOnly / RichTextOpenSuggestion / RichTextRemoveCommentAnchors), the names knkeditor's own constants; TS's annotations.ts
+├── rich_text.go         # rich_text delegated to knkeditor's Go module (github.com/knkcms/knkeditor/go, the module's one external dependency): validation (invalid_rich_text), edges, text, Compare/Merge, the Text Type read from the Resolved Spec's parts; strict, or admitting Annotations for a working value (AdmitAnnotations, a ValueOption that SchemaFields takes too)
 └── url.go               # isURL — the success half of the WHATWG URL parser, as Zod's url() uses it (testdata/urls.json recorded from Node)
 conformance/             # Shared fixtures, replayed by Vitest and go test — format in conformance/README.md
 ├── unreleased/<area>/*.json
@@ -298,7 +298,7 @@ Consuming projects must install:
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
-- `@knkcms/knkeditor-editor` ^1.8.0 and `@knkcms/knkeditor-vocabulary` ^0.1.0,
+- `@knkcms/knkeditor-editor` ^1.8.0 and `@knkcms/knkeditor-vocabulary` >=0.1.0 <0.9.0,
   plus the peers knkeditor-editor declares itself (TipTap 3, i18next,
   react-i18next, react-icons, emotion, its extension packages). Both are
   devDependencies here, for that subpath's tests and stories

@@ -98,7 +98,8 @@ func ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error
 
 // ValidateValue is the package-level ValidateValue against this Catalogue.
 func (c *Catalogue) ValidateValue(spec Spec, data json.RawMessage, opts ...ValueOption) []Error {
-	return c.validateValue(spec, data, &richTextContext{}, valueOptionsOf(opts))
+	o := valueOptionsOf(opts)
+	return c.validateValue(spec, data, &richTextContext{admitAnnotations: o.admitAnnotations}, o)
 }
 
 // ValidateResolvedValue is ValidateValue against a Resolved Spec (ADR-0020):
@@ -115,9 +116,9 @@ func ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ..
 func (c *Catalogue) ValidateResolvedValue(resolved *ResolvedSpec, data json.RawMessage, opts ...ValueOption) []Error {
 	o := valueOptionsOf(opts)
 	if resolved == nil {
-		return c.validateValue(nil, data, &richTextContext{strict: true}, o)
+		return c.validateValue(nil, data, &richTextContext{strict: true, admitAnnotations: o.admitAnnotations}, o)
 	}
-	return c.validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true}, o)
+	return c.validateValue(resolved.Fields, data, &richTextContext{parts: resolved.Parts, strict: true, admitAnnotations: o.admitAnnotations}, o)
 }
 
 func (c *Catalogue) validateValue(spec Spec, data json.RawMessage, richText *richTextContext, o valueOptions) []Error {
@@ -221,11 +222,26 @@ func (c *valueContext) enterHidden(hidden bool) func() {
 	return func() { c.hidden = false }
 }
 
-// ValueOption configures ValidateValue, Edges and Texts.
+// ValueOption configures ValidateValue, Edges and Texts, and SchemaFields'
+// Merge (AdmitAnnotations).
 type ValueOption func(*valueOptions)
 
 type valueOptions struct {
-	targetBlueprint func(contentID string) string
+	targetBlueprint  func(contentID string) string
+	admitAnnotations bool
+}
+
+// AdmitAnnotations validates and merges a working value (contenthub ADR 0010,
+// contenthub#358): rich text may hold Annotations — the comment anchors and
+// suggestions knkeditor's comment and suggestion extensions write, which it
+// calls review state (its AdmitReviewState, knkeditor ADR 0006) — each in the
+// shape its extension stores. contenthub validates a Branch's saves this way, and merges a
+// Branch's values this way (SchemaFields). Without it a rich_text value
+// holding Annotations is invalid_rich_text, as a Release, Delivery and an
+// import validate it: nothing released holds Annotations. Every other type
+// is checked as without it. TS's ValueContext.admitAnnotations.
+func AdmitAnnotations() ValueOption {
+	return func(o *valueOptions) { o.admitAnnotations = true }
 }
 
 // WithTargetBlueprints says whose Blueprint each referenced Content is — ""

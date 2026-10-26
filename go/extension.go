@@ -220,9 +220,10 @@ func (e TypeEnv) MergeTree(f Field, base, ours, theirs any, fieldsOf func(nodes 
 	c := &composer{catalogue: e.catalogue, parts: e.Parts}
 	if e.composer != nil {
 		c.catalogue, c.parts, c.richText = e.composer.catalogue, e.composer.parts, e.composer.richText
+		c.admitAnnotations = e.composer.admitAnnotations
 	}
 	if c.richText == nil {
-		c.richText = &richTextContext{parts: c.parts}
+		c.richText = &richTextContext{parts: c.parts, admitAnnotations: c.admitAnnotations}
 	}
 	merged, err := mergeTree(c, &f, base, ours, theirs, "", fieldsOf)
 	if err != nil {

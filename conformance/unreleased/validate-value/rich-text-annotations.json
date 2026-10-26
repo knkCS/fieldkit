@@ -1,0 +1,248 @@
+{
+	"description": "Annotations — comment anchors (commentMark, commentThreadIds) and suggestions (the three suggestion marks, a node's suggestion) — are admitted in the working mode (validateValueAdmittingAnnotations, knkeditor's AdmitReviewState) at the root and in a group's rows, and refused by the strict default, as a Release, Delivery or an import validates (Go only: TS checks a rich_text value's shape alone in both modes)",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "commented",
+				"api_accessor": "commented",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "suggested",
+				"api_accessor": "suggested",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "group",
+			"config": {
+				"name": "notes",
+				"api_accessor": "notes",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false,
+			"children": [
+				{
+					"field_type": "rich_text",
+					"config": {
+						"name": "body",
+						"api_accessor": "body",
+						"required": false,
+						"instructions": ""
+					},
+					"system": false
+				}
+			]
+		}
+	],
+	"data": {
+		"commented": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000001",
+						"commentThreadIds": [
+							"c2"
+						]
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Reviewed",
+							"marks": [
+								{
+									"type": "commentMark",
+									"attrs": {
+										"threadId": "c1"
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " text."
+						}
+					]
+				}
+			]
+		},
+		"suggested": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000001"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Kept "
+						},
+						{
+							"type": "text",
+							"text": "proposed",
+							"marks": [
+								{
+									"type": "suggestionInsert",
+									"attrs": {
+										"suggestionId": "s1",
+										"userId": "u1",
+										"userName": "Ada",
+										"timestamp": 1761400000000
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " struck",
+							"marks": [
+								{
+									"type": "suggestionDelete",
+									"attrs": {
+										"suggestionId": "s2",
+										"userId": "u1",
+										"userName": "Ada",
+										"timestamp": 1761400000000
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " bold",
+							"marks": [
+								{
+									"type": "bold"
+								},
+								{
+									"type": "suggestionFormatChange",
+									"attrs": {
+										"suggestionId": "s3",
+										"userId": "u1",
+										"userName": "Ada",
+										"timestamp": 1761400000000,
+										"addedMarks": [
+											{
+												"name": "bold"
+											}
+										],
+										"removedMarks": []
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000002",
+						"suggestion": {
+							"type": "insert",
+							"suggestionId": "s4",
+							"userId": "u1",
+							"userName": "Ada",
+							"timestamp": 1761400000000
+						}
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Whole node proposed."
+						}
+					]
+				}
+			]
+		},
+		"notes": [
+			{
+				"_id": "7f3a0000-0000-4000-8000-000000000001",
+				"body": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000001",
+								"commentThreadIds": [
+									"c2"
+								]
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Reviewed",
+									"marks": [
+										{
+											"type": "commentMark",
+											"attrs": {
+												"threadId": "c1"
+											}
+										}
+									]
+								},
+								{
+									"type": "text",
+									"text": " text."
+								}
+							]
+						}
+					]
+				}
+			}
+		]
+	},
+	"goOnly": [
+		"validateValue"
+	],
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/commented/content/0/attrs/commentThreadIds",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/commented/content/0/content/0/marks/0",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/suggested/content/0/content/1/marks/0",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/suggested/content/0/content/2/marks/0",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/suggested/content/0/content/3/marks/1",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/suggested/content/1/attrs/suggestion",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/notes/7f3a0000-0000-4000-8000-000000000001/body/content/0/attrs/commentThreadIds",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/notes/7f3a0000-0000-4000-8000-000000000001/body/content/0/content/0/marks/0",
+				"code": "invalid_rich_text"
+			}
+		],
+		"validateValueAdmittingAnnotations": []
+	}
+}

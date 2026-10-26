@@ -89,16 +89,23 @@ func DecodeSchemaSettings(data json.RawMessage) (*SchemaSettings, error) {
 // types, merges — its values. fieldkit never imports versionkit: a service
 // builds its versionkit.Field from each entry by assignment, and hands the
 // Resolved Spec's entries back from its Schemas.Fields.
-func SchemaFields(resolved *ResolvedSpec) ([]SchemaField, error) {
-	return DefaultCatalogue().SchemaFields(resolved)
+//
+// opts are ValidateValue's, of which SchemaFields reads AdmitAnnotations: its
+// Types then merge rich text — at the top level or inside a row, a Block, a
+// record or a tree — admitting Annotations, for a working value such as a
+// contenthub Branch's. Without it they merge strictly, and a rich-text node
+// holding Annotations is a Conflict.
+func SchemaFields(resolved *ResolvedSpec, opts ...ValueOption) ([]SchemaField, error) {
+	return DefaultCatalogue().SchemaFields(resolved, opts...)
 }
 
 // SchemaFields is the package-level SchemaFields against this Catalogue, which
 // says which settings pin a part.
-func (c *Catalogue) SchemaFields(resolved *ResolvedSpec) ([]SchemaField, error) {
+func (c *Catalogue) SchemaFields(resolved *ResolvedSpec, opts ...ValueOption) ([]SchemaField, error) {
 	if resolved == nil {
 		return nil, errors.New("fieldkit: schema fields: no Resolved Spec")
 	}
+	mode := valueOptionsOf(opts)
 	out := make([]SchemaField, 0, len(resolved.Fields))
 	for _, f := range resolved.Fields {
 		if markerTypes[f.FieldType] {
@@ -126,34 +133,41 @@ func (c *Catalogue) SchemaFields(resolved *ResolvedSpec) ([]SchemaField, error) 
 			Accessor: f.Config.APIAccessor,
 			TypeID:   f.FieldType,
 			Settings: raw,
-			Type:     c.typeFor(f.FieldType),
+			Type:     c.typeFor(f.FieldType, mode.admitAnnotations),
 		})
 	}
 	return out, nil
 }
 
-// typeFor is the Type a Field Type's values compare and merge by. A
-// Catalogue section's type that compares finer but has no Merge of its own is
-// a whole-value Type to versionkit, which then merges it as a whole value.
-func (c *Catalogue) typeFor(fieldType string) Comparer {
+// typeFor is the Type a Field Type's values compare and merge by, merging rich
+// text admitting Annotations when admitAnnotations says so. A Catalogue
+// section's type that compares finer but has no Merge of its own is a
+// whole-value Type to versionkit, which then merges it as a whole value.
+func (c *Catalogue) typeFor(fieldType string, admitAnnotations bool) Comparer {
+	whole := wholeValueType{catalogue: c, admitAnnotations: admitAnnotations}
 	if fieldType == "rich_text" {
 		// rich_text also tells its Annotations (annotations.go).
-		return richTextType{finerValueType{wholeValueType{c}}}
+		return richTextType{finerValueType{whole}}
 	}
 	if _, finer := finerRuleFor(fieldType); finer {
-		return finerValueType{wholeValueType{c}}
+		return finerValueType{whole}
 	}
 	if tc, ok := c.codeOf(fieldType); ok && tc.Compare != nil && tc.Merge != nil {
-		return finerValueType{wholeValueType{c}}
+		return finerValueType{whole}
 	}
-	return wholeValueType{c}
+	return whole
 }
 
 // wholeValueType compares any Field by the composer, which for every type
 // without a finer rule is equality of the whole value. It has no Merge, so
 // versionkit merges such a Field as a whole value. catalogue is the one
-// SchemaFields ran against, whose sections' types compare by their code.
-type wholeValueType struct{ catalogue *Catalogue }
+// SchemaFields ran against, whose sections' types compare by their code;
+// admitAnnotations is its AdmitAnnotations, which the Merge of a finer type
+// hands every rich_text value it reaches.
+type wholeValueType struct {
+	catalogue        *Catalogue
+	admitAnnotations bool
+}
 
 // Compare compares a and b under settings.
 func (t wholeValueType) Compare(settings, a, b json.RawMessage) (bool, json.RawMessage, error) {
@@ -198,7 +212,7 @@ func (t finerValueType) Merge(settings, base, ours, theirs json.RawMessage) (jso
 			return nil, nil, err
 		}
 	}
-	c := composer{catalogue: t.catalogue, parts: s.Parts}
+	c := composer{catalogue: t.catalogue, parts: s.Parts, admitAnnotations: t.admitAnnotations}
 	merged, err := c.merge(&s.Field, values[0], values[1], values[2], "")
 	if err != nil {
 		return nil, nil, err

@@ -297,7 +297,8 @@ A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
 KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
 built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
 optional peers are `@knkcms/knkeditor-editor` `^1.8.0` and
-`@knkcms/knkeditor-vocabulary` `^0.1.0`, plus the peers knkeditor-editor
+`@knkcms/knkeditor-vocabulary` `>=0.1.0 <0.9.0` (#346: every minor from 0.1
+to 0.8, where `^0.1.0` admitted 0.1 alone), plus the peers knkeditor-editor
 declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
 extension packages). No other subpath imports them. Details in
 [`knkeditor-reference.md`](knkeditor-reference.md).
@@ -314,6 +315,28 @@ extension packages). No other subpath imports them. Details in
   `annotations` (`FieldAnnotations`), and `richTextAnnotationOnly` /
   `richTextOpenSuggestion` from `/schema`. See
   [`compare-and-merge.md`](compare-and-merge.md#annotations).
+- **New: `Annotator.RemoveCommentAnchors`** (#395) — the value with its
+  comment anchors taken out and its suggestions left, what contenthub
+  publishes (contenthub#358); `AnnotationOnly(value, removed)` holds.
+  `RichTextRemoveCommentAnchors` on a bare value. `Annotator` gains the
+  method, so a type of your own implementing it implements this too. TS:
+  `FieldAnnotations.removeCommentAnchors`, and `richTextRemoveCommentAnchors`
+  from `/schema`.
+- **New: `AdmitAnnotations()`** (#395), a `ValueOption`: validates a
+  **working** value, whose rich text may hold Annotations — comment anchors
+  and suggestions, knkeditor's `AdmitReviewState` (knkeditor#766) — as a
+  contenthub Branch's saves do. `SchemaFields(resolved, opts...)` takes the
+  same options now, and with it its Types merge rich text as a working value
+  (knkeditor#768). The default stays strict, for a Release, Delivery and an
+  import. TS: `ValueContext.admitAnnotations`, accepted but changing nothing,
+  since TS checks a rich_text value's shape only.
+- **knkeditor's Go module is `v0.8.0`** (was `v0.1.0`, #395). A rich_text
+  value follows its vocabulary, which only widened in between: a description
+  list item's term as a node (`descriptionListItemTerm`), a two-level table
+  (`table` → `tableGroup`) with an optional `tableCaption`, a list starting or
+  ending with an interjection, a paragraph of several parts, and `attributes`
+  on `customSymbol` and `imageCaption`. Every value 0.1.0 accepted is still
+  accepted; Texts read the new nodes' text as knkeditor does.
 - **`CodeMissingSetting`** (#366), reported by `ValidateResolvedSpec` only.
 - **`CodeDuplicateOptionKey`** (#363). The Catalogue's settings schemas may
   use JSON Schema's `pattern`, read as RE2; `Schema.Pattern` holds it, and a

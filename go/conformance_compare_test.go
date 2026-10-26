@@ -42,13 +42,13 @@ func mergeConflicts(raw json.RawMessage) bool {
 	return false
 }
 
-func schemaFieldsFixture(t *testing.T, fx fixture) []SchemaField {
+func schemaFieldsFixture(t *testing.T, fx fixture, opts ...ValueOption) []SchemaField {
 	t.Helper()
 	resolved, err := resolveFixture(t, fx)
 	if err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	fields, err := fx.catalogue.SchemaFields(resolved)
+	fields, err := fx.catalogue.SchemaFields(resolved, opts...)
 	if err != nil {
 		t.Fatalf("SchemaFields: %v", err)
 	}
@@ -107,8 +107,9 @@ func runCompare(t *testing.T, fx fixture, raw json.RawMessage) {
 
 // runMerge merges base, ours and theirs Field by Field, for every Field all
 // three hold whose type is a Merger — the others versionkit merges itself —
-// and expects exactly those. Conflicts compare in any order.
-func runMerge(t *testing.T, fx fixture, raw json.RawMessage) {
+// and expects exactly those. Conflicts compare in any order. With
+// AdmitAnnotations, SchemaFields' mode, it is mergeAdmittingAnnotations.
+func runMerge(t *testing.T, fx fixture, raw json.RawMessage, mode ...ValueOption) {
 	t.Helper()
 	var want map[string]mergeExpectation
 	if err := decodeStrict(raw, &want); err != nil {
@@ -116,7 +117,7 @@ func runMerge(t *testing.T, fx fixture, raw json.RawMessage) {
 	}
 	base, ours, theirs := revision(t, fx, "base"), revision(t, fx, "ours"), revision(t, fx, "theirs")
 	merged := map[string]bool{}
-	for _, f := range schemaFieldsFixture(t, fx) {
+	for _, f := range schemaFieldsFixture(t, fx, mode...) {
 		vb, inB := base[f.Accessor]
 		vo, inO := ours[f.Accessor]
 		vt, inT := theirs[f.Accessor]

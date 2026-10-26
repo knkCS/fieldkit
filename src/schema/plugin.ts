@@ -216,6 +216,18 @@ export interface ValueContext {
 	/** The Blueprint of a target Content, by its id; `undefined` when not
 	 * known. Go's `WithTargetBlueprints`. */
 	targetBlueprint?: (contentId: string) => string | undefined;
+	/**
+	 * Validates a working value (contenthub ADR 0010, contenthub#358): rich
+	 * text may hold Annotations — the comment anchors and suggestions
+	 * knkeditor's comment and suggestion extensions write — as a contenthub
+	 * Branch's saves may. Go's `AdmitAnnotations`, which hands it to
+	 * knkeditor's validator; without it Go refuses Annotations, as a Release,
+	 * Delivery and an import validate. TS checks a rich_text value's shape
+	 * only (the schema layer has no knkeditor reader, ADR-0026), so here it
+	 * changes nothing yet: it is accepted so a Consumer states the mode once,
+	 * for both.
+	 */
+	admitAnnotations?: boolean;
 }
 
 /**
@@ -288,6 +300,10 @@ export interface FieldAnnotations {
 	annotationOnly: (base: unknown, next: unknown) => boolean;
 	/** Whether `value` holds an open suggestion. */
 	openSuggestion: (value: unknown) => boolean;
+	/** `value` with every comment anchor taken out and its suggestions left
+	 * where they are — what contenthub publishes. `annotationOnly(value,
+	 * removed)` holds. */
+	removeCommentAnchors: (value: unknown) => unknown;
 }
 
 /**

@@ -106,6 +106,9 @@ type composer struct {
 	// richText builds knkeditor's Merger once per Text Type for the whole
 	// Merge, not once per rich_text value (fieldkit#222).
 	richText *richTextContext
+	// admitAnnotations merges every rich_text value admitting Annotations
+	// (AdmitAnnotations, through SchemaFields).
+	admitAnnotations bool
 }
 
 // compare compares two present values of a Field — nil for a key no Field

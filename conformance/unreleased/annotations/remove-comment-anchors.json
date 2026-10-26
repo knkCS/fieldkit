@@ -1,0 +1,932 @@
+{
+	"description": "removeCommentAnchors takes out every comment mark and commentThreadIds — in nested paragraphs, a table's cells and a list's items, an attrs left empty absent — and joins the text an anchor had split, and only that; suggestions stay where they are, a value without anchors comes back as it was, and each result is Annotation-only against its input. The nested value, once its comments are out, is valid as released (validateValue of data)",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "nested",
+				"api_accessor": "nested",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "anchored_node",
+				"api_accessor": "anchored_node",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "mixed",
+				"api_accessor": "mixed",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "plain",
+				"api_accessor": "plain",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		},
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "unsplit",
+				"api_accessor": "unsplit",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"nested": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "paragraph",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000010"
+					},
+					"content": [
+						{
+							"type": "paragraphContent",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000011"
+							},
+							"content": [
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000012"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Commented and "
+										},
+										{
+											"type": "text",
+											"text": "bold",
+											"marks": [
+												{
+													"type": "bold"
+												}
+											]
+										},
+										{
+											"type": "text",
+											"text": " text."
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "table",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000020"
+					},
+					"content": [
+						{
+							"type": "tableGroup",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000021"
+							},
+							"content": [
+								{
+									"type": "tableRow",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000022"
+									},
+									"content": [
+										{
+											"type": "tableCell",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000030"
+											},
+											"content": [
+												{
+													"type": "textWrapper",
+													"attrs": {
+														"id": "00000000-0000-4000-8000-000000000031"
+													},
+													"content": [
+														{
+															"type": "text",
+															"text": "A1"
+														}
+													]
+												}
+											]
+										},
+										{
+											"type": "tableCell",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000040"
+											},
+											"content": [
+												{
+													"type": "textWrapper",
+													"attrs": {
+														"id": "00000000-0000-4000-8000-000000000041"
+													},
+													"content": [
+														{
+															"type": "text",
+															"text": "B1"
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "bulletList",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000050"
+					},
+					"content": [
+						{
+							"type": "listItem",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000051"
+							},
+							"content": [
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000052"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Item "
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "listItem",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000053"
+							},
+							"content": [
+								{
+									"type": "textWrapper",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000054"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Nested"
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"revisions": {
+		"head": {
+			"nested": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "paragraph",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000010",
+							"commentThreadIds": [
+								"c3"
+							]
+						},
+						"content": [
+							{
+								"type": "paragraphContent",
+								"attrs": {
+									"id": "00000000-0000-4000-8000-000000000011"
+								},
+								"content": [
+									{
+										"type": "textWrapper",
+										"attrs": {
+											"id": "00000000-0000-4000-8000-000000000012"
+										},
+										"content": [
+											{
+												"type": "text",
+												"text": "Commented ",
+												"marks": [
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "c1"
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": "and "
+											},
+											{
+												"type": "text",
+												"text": "bold",
+												"marks": [
+													{
+														"type": "bold"
+													},
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "c1"
+														}
+													},
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "c2"
+														}
+													}
+												]
+											},
+											{
+												"type": "text",
+												"text": " text."
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "table",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000020"
+						},
+						"content": [
+							{
+								"type": "tableGroup",
+								"attrs": {
+									"id": "00000000-0000-4000-8000-000000000021"
+								},
+								"content": [
+									{
+										"type": "tableRow",
+										"attrs": {
+											"id": "00000000-0000-4000-8000-000000000022"
+										},
+										"content": [
+											{
+												"type": "tableCell",
+												"attrs": {
+													"id": "00000000-0000-4000-8000-000000000030"
+												},
+												"content": [
+													{
+														"type": "textWrapper",
+														"attrs": {
+															"id": "00000000-0000-4000-8000-000000000031"
+														},
+														"content": [
+															{
+																"type": "text",
+																"text": "A",
+																"marks": [
+																	{
+																		"type": "commentMark",
+																		"attrs": {
+																			"threadId": "c4"
+																		}
+																	}
+																]
+															},
+															{
+																"type": "text",
+																"text": "1"
+															}
+														]
+													}
+												]
+											},
+											{
+												"type": "tableCell",
+												"attrs": {
+													"id": "00000000-0000-4000-8000-000000000040"
+												},
+												"content": [
+													{
+														"type": "textWrapper",
+														"attrs": {
+															"id": "00000000-0000-4000-8000-000000000041"
+														},
+														"content": [
+															{
+																"type": "text",
+																"text": "B1"
+															}
+														]
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "bulletList",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000050"
+						},
+						"content": [
+							{
+								"type": "listItem",
+								"attrs": {
+									"id": "00000000-0000-4000-8000-000000000051"
+								},
+								"content": [
+									{
+										"type": "textWrapper",
+										"attrs": {
+											"id": "00000000-0000-4000-8000-000000000052"
+										},
+										"content": [
+											{
+												"type": "text",
+												"text": "Item ",
+												"marks": [
+													{
+														"type": "commentMark",
+														"attrs": {
+															"threadId": "c5"
+														}
+													}
+												]
+											}
+										]
+									}
+								]
+							},
+							{
+								"type": "listItem",
+								"attrs": {
+									"id": "00000000-0000-4000-8000-000000000053"
+								},
+								"content": [
+									{
+										"type": "textWrapper",
+										"attrs": {
+											"id": "00000000-0000-4000-8000-000000000054"
+										},
+										"content": [
+											{
+												"type": "text",
+												"text": "Nested"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"anchored_node": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"commentThreadIds": [
+								"c6"
+							]
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Anchored node"
+							}
+						]
+					}
+				]
+			},
+			"mixed": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000004"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Kept ",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c1"
+										}
+									}
+								]
+							},
+							{
+								"type": "text",
+								"text": "proposed",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c1"
+										}
+									},
+									{
+										"type": "suggestionInsert",
+										"attrs": {
+											"suggestionId": "s1",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000
+										}
+									}
+								]
+							},
+							{
+								"type": "text",
+								"text": " struck",
+								"marks": [
+									{
+										"type": "suggestionDelete",
+										"attrs": {
+											"suggestionId": "s2",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000
+										}
+									}
+								]
+							},
+							{
+								"type": "text",
+								"text": " bold",
+								"marks": [
+									{
+										"type": "bold"
+									},
+									{
+										"type": "suggestionFormatChange",
+										"attrs": {
+											"suggestionId": "s3",
+											"userId": "u1",
+											"userName": "Ada",
+											"timestamp": 1761400000000,
+											"addedMarks": [
+												{
+													"name": "bold"
+												}
+											],
+											"removedMarks": []
+										}
+									},
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c2"
+										}
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000005",
+							"commentThreadIds": [
+								"c7"
+							],
+							"suggestion": {
+								"type": "insert",
+								"suggestionId": "s4",
+								"userId": "u1",
+								"userName": "Ada",
+								"timestamp": 1761400000000
+							}
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Whole node proposed."
+							}
+						]
+					}
+				]
+			},
+			"plain": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "Nothing to remove",
+								"marks": [
+									{
+										"type": "bold"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"unsplit": {
+				"type": "doc",
+				"content": [
+					{
+						"type": "textWrapper",
+						"attrs": {
+							"id": "00000000-0000-4000-8000-000000000001"
+						},
+						"content": [
+							{
+								"type": "text",
+								"text": "one ",
+								"marks": [
+									{
+										"type": "commentMark",
+										"attrs": {
+											"threadId": "c8"
+										}
+									}
+								]
+							},
+							{
+								"type": "text",
+								"text": "two "
+							},
+							{
+								"type": "text",
+								"text": "three"
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"expect": {
+		"removeCommentAnchors": {
+			"head": {
+				"nested": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "paragraph",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000010"
+							},
+							"content": [
+								{
+									"type": "paragraphContent",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000011"
+									},
+									"content": [
+										{
+											"type": "textWrapper",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000012"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "Commented and "
+												},
+												{
+													"type": "text",
+													"text": "bold",
+													"marks": [
+														{
+															"type": "bold"
+														}
+													]
+												},
+												{
+													"type": "text",
+													"text": " text."
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "table",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000020"
+							},
+							"content": [
+								{
+									"type": "tableGroup",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000021"
+									},
+									"content": [
+										{
+											"type": "tableRow",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000022"
+											},
+											"content": [
+												{
+													"type": "tableCell",
+													"attrs": {
+														"id": "00000000-0000-4000-8000-000000000030"
+													},
+													"content": [
+														{
+															"type": "textWrapper",
+															"attrs": {
+																"id": "00000000-0000-4000-8000-000000000031"
+															},
+															"content": [
+																{
+																	"type": "text",
+																	"text": "A1"
+																}
+															]
+														}
+													]
+												},
+												{
+													"type": "tableCell",
+													"attrs": {
+														"id": "00000000-0000-4000-8000-000000000040"
+													},
+													"content": [
+														{
+															"type": "textWrapper",
+															"attrs": {
+																"id": "00000000-0000-4000-8000-000000000041"
+															},
+															"content": [
+																{
+																	"type": "text",
+																	"text": "B1"
+																}
+															]
+														}
+													]
+												}
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "bulletList",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000050"
+							},
+							"content": [
+								{
+									"type": "listItem",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000051"
+									},
+									"content": [
+										{
+											"type": "textWrapper",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000052"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "Item "
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "listItem",
+									"attrs": {
+										"id": "00000000-0000-4000-8000-000000000053"
+									},
+									"content": [
+										{
+											"type": "textWrapper",
+											"attrs": {
+												"id": "00000000-0000-4000-8000-000000000054"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "Nested"
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				"anchored_node": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"content": [
+								{
+									"type": "text",
+									"text": "Anchored node"
+								}
+							]
+						}
+					]
+				},
+				"mixed": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000004"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Kept "
+								},
+								{
+									"type": "text",
+									"text": "proposed",
+									"marks": [
+										{
+											"type": "suggestionInsert",
+											"attrs": {
+												"suggestionId": "s1",
+												"userId": "u1",
+												"userName": "Ada",
+												"timestamp": 1761400000000
+											}
+										}
+									]
+								},
+								{
+									"type": "text",
+									"text": " struck",
+									"marks": [
+										{
+											"type": "suggestionDelete",
+											"attrs": {
+												"suggestionId": "s2",
+												"userId": "u1",
+												"userName": "Ada",
+												"timestamp": 1761400000000
+											}
+										}
+									]
+								},
+								{
+									"type": "text",
+									"text": " bold",
+									"marks": [
+										{
+											"type": "bold"
+										},
+										{
+											"type": "suggestionFormatChange",
+											"attrs": {
+												"suggestionId": "s3",
+												"userId": "u1",
+												"userName": "Ada",
+												"timestamp": 1761400000000,
+												"addedMarks": [
+													{
+														"name": "bold"
+													}
+												],
+												"removedMarks": []
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000005",
+								"suggestion": {
+									"type": "insert",
+									"suggestionId": "s4",
+									"userId": "u1",
+									"userName": "Ada",
+									"timestamp": 1761400000000
+								}
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Whole node proposed."
+								}
+							]
+						}
+					]
+				},
+				"plain": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000001"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Nothing to remove",
+									"marks": [
+										{
+											"type": "bold"
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				"unsplit": {
+					"type": "doc",
+					"content": [
+						{
+							"type": "textWrapper",
+							"attrs": {
+								"id": "00000000-0000-4000-8000-000000000001"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "one two "
+								},
+								{
+									"type": "text",
+									"text": "three"
+								}
+							]
+						}
+					]
+				}
+			}
+		},
+		"openSuggestion": {
+			"head": {
+				"nested": false,
+				"anchored_node": false,
+				"mixed": true,
+				"plain": false,
+				"unsplit": false
+			}
+		},
+		"validateValue": []
+	}
+}

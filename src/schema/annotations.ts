@@ -4,34 +4,37 @@
 // and suggestions knkeditor's comment and suggestion extensions store in a
 // rich_text document. The rich-text field type tells two things about its
 // values — whether a change is Annotation-only, and whether a value holds an
-// open suggestion — so contenthub never reads rich text itself. Go's
+// open suggestion — and takes a value's comment anchors out at Publish, so
+// contenthub never reads rich text itself. Go's
 // go/annotations.go is the same rule; the fixtures in
 // conformance/*/annotations hold both to one answer (contenthub ADR 0010).
 //
 // A pure walk over the stored JSON: the schema layer has no knkeditor reader
-// (ADR-0026), and knkeditor's vocabulary leaves what it calls review state out ("it
-// annotates a document from outside", knkeditor's CONTEXT.md), so neither
-// @knkcms/knkeditor-vocabulary nor knkeditor's Go module names these marks.
-// The names are knkeditor's own: the marks' from @knkcms/knkeditor-core
-// (COMMENT_MARK, SUGGESTION_INSERT, …), pinned against it by a test
-// (src/rich-text/__tests__); the two node attributes' from its comment and
-// suggestion extensions, which export no constant for them.
+// (ADR-0026). The names are knkeditor's, which calls these marks and node
+// attributes review state and exports them (@knkcms/knkeditor-vocabulary's
+// review-state.ts, knkeditor#766) — but knkeditor is an optional peer of the
+// /rich-text subpath only, so the schema layer cannot import it and restates
+// them here, pinned to knkeditor's exports by a test
+// (src/rich-text/__tests__/annotation-names.test.ts). Go reads knkeditor's
+// own constants (go/annotations.go).
 
 import { isPlainObject } from "./unset";
 
 /** knkeditor's comment-anchor mark (`COMMENT_MARK`). */
 export const MARK_COMMENT = "commentMark";
-/** Text proposed for insertion: not yet the text (`SUGGESTION_INSERT`). */
+/** Text proposed for insertion: not yet the text (`SUGGESTION_INSERT_MARK`). */
 export const MARK_SUGGESTION_INSERT = "suggestionInsert";
-/** Text proposed for deletion: still the text (`SUGGESTION_DELETE`). */
+/** Text proposed for deletion: still the text (`SUGGESTION_DELETE_MARK`). */
 export const MARK_SUGGESTION_DELETE = "suggestionDelete";
 /** Text whose marks a suggestion changed — already applied, the change
- * recorded in `addedMarks` and `removedMarks` (`SUGGESTION_FORMAT_CHANGE`). */
+ * recorded in `addedMarks` and `removedMarks`
+ * (`SUGGESTION_FORMAT_CHANGE_MARK`). */
 export const MARK_SUGGESTION_FORMAT_CHANGE = "suggestionFormatChange";
-/** The node attribute anchoring comments on a whole node. */
+/** The node attribute anchoring comments on a whole node
+ * (`COMMENT_THREADS_ATTRIBUTE`). */
 export const ATTR_COMMENT_THREADS = "commentThreadIds";
 /** The node attribute recording a suggestion on a whole node — inserted,
- * deleted, modified or moved. */
+ * deleted, modified or moved (`SUGGESTION_ATTRIBUTE`). */
 export const ATTR_SUGGESTION = "suggestion";
 
 type JsonObject = Record<string, unknown>;
@@ -77,6 +80,83 @@ export function richTextOpenSuggestion(value: unknown): boolean {
 	const attrs = value.attrs;
 	if (isObject(attrs) && attrs[ATTR_SUGGESTION] != null) return true;
 	return Object.values(value).some(richTextOpenSuggestion);
+}
+
+/**
+ * The rich_text value with every comment anchor taken out — each comment
+ * mark, and each node's `commentThreadIds` — and everything else as it is,
+ * suggestions included: contenthub refuses Publish while a value holds one,
+ * so what it publishes is a value without its comment anchors
+ * (contenthub#358). Text an anchor had split is joined again, as the editor
+ * would, and marks or attrs left empty are absent. Only a node's content is
+ * entered, as for {@link richTextAnnotationOnly}, which holds between the
+ * value and the result. The value itself is not modified. Go's
+ * `RichTextRemoveCommentAnchors`.
+ */
+export function richTextRemoveCommentAnchors(value: unknown): unknown {
+	return withoutCommentAnchors(value).node;
+}
+
+/** A node without its comment anchors, its content's too; `removed` says
+ * whether it held any itself. */
+function withoutCommentAnchors(value: unknown): {
+	node: unknown;
+	removed: boolean;
+} {
+	if (!isObject(value)) return { node: value, removed: false };
+	const out: JsonObject = { ...value };
+	let removed = false;
+	if (Array.isArray(value.marks)) {
+		const kept = value.marks.filter(
+			(mark) => !(isObject(mark) && mark.type === MARK_COMMENT),
+		);
+		if (kept.length < value.marks.length) {
+			removed = true;
+			if (kept.length === 0) delete out.marks;
+			else out.marks = kept;
+		}
+	}
+	const attrs = value.attrs;
+	if (isObject(attrs) && ATTR_COMMENT_THREADS in attrs) {
+		removed = true;
+		const { [ATTR_COMMENT_THREADS]: _, ...kept } = attrs;
+		if (Object.keys(kept).length === 0) delete out.attrs;
+		else out.attrs = kept;
+	}
+	if (Array.isArray(value.content)) {
+		out.content = contentWithoutCommentAnchors(value.content);
+	}
+	return { node: out, removed };
+}
+
+/** A node's children without their comment anchors, two adjacent text nodes
+ * joined where a comment mark taken out of either leaves them with the same
+ * marks: the anchor was what split them. */
+function contentWithoutCommentAnchors(content: unknown[]): unknown[] {
+	const out: unknown[] = [];
+	let prevRemoved = false;
+	for (const child of content) {
+		const { node, removed } = withoutCommentAnchors(child);
+		const prev = out[out.length - 1];
+		if (
+			(removed || prevRemoved) &&
+			isObject(prev) &&
+			isObject(node) &&
+			joinable(prev, node)
+		) {
+			out[out.length - 1] = {
+				...prev,
+				text: (prev.text as string) + (node.text as string),
+			};
+			// The joined node ends with this one: only an anchor taken out of
+			// it lets the next join it too.
+			prevRemoved = removed;
+			continue;
+		}
+		out.push(node);
+		prevRemoved = removed;
+	}
+	return out;
 }
 
 /** A settled node dropped: a proposed insertion, not yet the text. */

@@ -20,7 +20,10 @@ const conformanceDir = "../conformance"
 
 // operations are the operations this runner implements. A fixture expecting
 // another fails, so a fixture is never silently skipped by one runner.
-var operations = []string{"validateSpec", "validateValue", "resolve", "pins", "validateResolvedSpec", "edges", "texts", "compare", "merge", "annotationOnly", "openSuggestion"} //nolint:gochecknoglobals
+var operations = []string{ //nolint:gochecknoglobals
+	"validateSpec", "validateValue", "validateValueAdmittingAnnotations", "resolve", "pins", "validateResolvedSpec", "edges", "texts",
+	"compare", "merge", "mergeAdmittingAnnotations", "annotationOnly", "openSuggestion", "removeCommentAnchors",
+}
 
 type expectedError struct {
 	Path string `json:"path"`
@@ -144,6 +147,8 @@ func TestConformance(t *testing.T) {
 					runValidateSpec(t, fx, raw)
 				case "validateValue":
 					runValidateValue(t, fx, raw)
+				case "validateValueAdmittingAnnotations":
+					runValidateValue(t, fx, raw, AdmitAnnotations())
 				case "resolve":
 					runResolve(t, fx, raw)
 				case "pins":
@@ -158,10 +163,14 @@ func TestConformance(t *testing.T) {
 					runCompare(t, fx, raw)
 				case "merge":
 					runMerge(t, fx, raw)
+				case "mergeAdmittingAnnotations":
+					runMerge(t, fx, raw, AdmitAnnotations())
 				case "annotationOnly":
 					runAnnotationOnly(t, fx, raw)
 				case "openSuggestion":
 					runOpenSuggestion(t, fx, raw)
+				case "removeCommentAnchors":
+					runRemoveCommentAnchors(t, fx, raw)
 				default:
 					t.Errorf("unknown operation %q (this runner implements %v)", op, operations)
 				}
@@ -191,7 +200,7 @@ func binds(version, op string, raw json.RawMessage) bool {
 	switch op {
 	// Both operations answer with a list of errors, and a valid case is an
 	// empty one.
-	case "validateSpec", "validateValue", "validateResolvedSpec":
+	case "validateSpec", "validateValue", "validateValueAdmittingAnnotations", "validateResolvedSpec":
 		var want []json.RawMessage
 		if err := json.Unmarshal(raw, &want); err != nil {
 			return true // malformed: let the run report it
@@ -208,7 +217,7 @@ func binds(version, op string, raw json.RawMessage) bool {
 		return want.Error == ""
 	// A Conflict may become a clean merge once a type merges finer; a clean
 	// merge binds, as a Compare does.
-	case "merge":
+	case "merge", "mergeAdmittingAnnotations":
 		return !mergeConflicts(raw)
 	default:
 		return true
@@ -236,6 +245,8 @@ func TestBinds(t *testing.T) {
 		{"a released Compare", "0.18.0", "compare", json.RawMessage(`{"a":{"equal":true}}`), true},
 		{"a released clean merge", "0.18.0", "merge", json.RawMessage(`{"a":{"merged":[]}}`), true},
 		{"a released conflict", "0.18.0", "merge", json.RawMessage(`{"a":{"conflicts":["x"]}}`), false},
+		{"a released invalid working value", "0.18.0", "validateValueAdmittingAnnotations", invalid, false},
+		{"a released working conflict", "0.18.0", "mergeAdmittingAnnotations", json.RawMessage(`{"a":{"conflicts":["x"]}}`), false},
 	}
 	for _, c := range cases {
 		if got := binds(c.version, c.op, c.raw); got != c.want {
@@ -268,7 +279,9 @@ func runValidateSpec(t *testing.T, fx fixture, raw json.RawMessage) {
 	}
 }
 
-func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
+// runValidateValue runs validateValue, and with AdmitAnnotations
+// validateValueAdmittingAnnotations.
+func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage, mode ...ValueOption) {
 	t.Helper()
 	var want []expectedError
 	if err := decodeStrict(raw, &want); err != nil {
@@ -278,7 +291,8 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 	if err != nil {
 		t.Fatalf("DecodeSpec: %v", err)
 	}
-	errs := fx.catalogue.ValidateValue(spec, fx.Data, fx.valueOptions()...)
+	opts := append(fx.valueOptions(), mode...)
+	errs := fx.catalogue.ValidateValue(spec, fx.Data, opts...)
 	// A fixture with releases validates against its Resolved Spec: a
 	// rich_text Field's Text Type is in its parts.
 	if len(fx.Releases) > 0 {
@@ -286,7 +300,7 @@ func runValidateValue(t *testing.T, fx fixture, raw json.RawMessage) {
 		if err != nil {
 			t.Fatalf("resolve: %v", err)
 		}
-		errs = fx.catalogue.ValidateResolvedValue(resolved, fx.Data, fx.valueOptions()...)
+		errs = fx.catalogue.ValidateResolvedValue(resolved, fx.Data, opts...)
 	}
 	got := []expectedError{}
 	for _, e := range errs {
