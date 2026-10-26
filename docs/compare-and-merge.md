@@ -31,8 +31,13 @@ for i, f := range fields {
 }
 ```
 
-`Type` holds no state: it reads the Field back from the `Settings` versionkit
-hands it, so the Settings must reach it unchanged, as versionkit promises.
+`Type` holds no state but the mode `SchemaFields` was called in: it reads the
+Field back from the `Settings` versionkit hands it, so the Settings must reach
+it unchanged, as versionkit promises. `SchemaFields(resolved,
+fieldkit.AdmitAnnotations())` makes Types that merge rich text as a **working
+value** — a contenthub Branch's — whose Annotations, comment anchors and
+suggestions, are content like any other (see [Rich text](#rich-text)); without
+it they merge strictly, as anything released is.
 
 ## Equal
 
@@ -242,7 +247,10 @@ at any level holds, or whose `children` are not a list, is an `err` too.
   must hold (a Merge without it is an `err`). A Conflict is the node's id
   below the Field's path (`body/a`, `r1/body/a` in a row), a JSON Pointer
   into the merged document for an invalid merge outside such a node, or the
-  Field itself.
+  Field itself. Merged strictly, every node holding Annotations is such a
+  Conflict; with `AdmitAnnotations` (knkeditor's merge mode, knkeditor#768)
+  Annotations merge as content of its node, and the result is validated
+  admitting it — wherever the rich text sits, a row's or a tree's too.
 
 ## Annotations
 
@@ -266,6 +274,14 @@ through the `SchemaField`, never reading rich text itself.
   which only ever counts a saver as an author.
 - **`OpenSuggestion(settings, value)`** — whether the value holds any
   suggestion mark, or a node's `suggestion`, at any depth.
+- **`RemoveCommentAnchors(settings, value)`** — the value with every comment
+  anchor taken out (each `commentMark`, and each node's `commentThreadIds`;
+  marks or attrs left empty absent) and the text an anchor had split joined
+  again; suggestions stay where they are. contenthub refuses Publish while a
+  value holds a suggestion, so what it publishes is the head with its
+  comment anchors removed (contenthub#358): `AnnotationOnly(value, removed)`
+  holds, so every Check Result recorded on the head still covers it. A value
+  holding only comment anchors is then valid as released.
 
 A Type that is no `Annotator` holds no Annotations: any change to it is not
 Annotation-only. A `rich_text` Field inside a row, a Block or a Fieldset is

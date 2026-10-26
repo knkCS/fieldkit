@@ -30,6 +30,7 @@ const CONFORMANCE = path.resolve(__dirname, "../../../conformance");
 const OPERATIONS = [
 	"validateSpec",
 	"validateValue",
+	"validateValueAdmittingAnnotations",
 	"resolve",
 	"pins",
 	"validateResolvedSpec",
@@ -37,13 +38,14 @@ const OPERATIONS = [
 	"texts",
 	"annotationOnly",
 	"openSuggestion",
+	"removeCommentAnchors",
 ];
 
 /** The operations only Go implements: versionkit's Compare and Merge (#213),
- * which no TS code performs. This runner recognises them, so a fixture holding
+ * strict or of a working value, which no TS code performs. This runner recognises them, so a fixture holding
  * them is not unknown, and runs nothing for them — the one deliberate
  * exception to "no fixture is skipped by one runner alone". */
-const GO_ONLY_OPERATIONS = ["compare", "merge"];
+const GO_ONLY_OPERATIONS = ["compare", "merge", "mergeAdmittingAnnotations"];
 
 /** The operations one fixture marks Go-only in its `goOnly`: TS implements
  * them, but not for what this fixture holds — rich text knkeditor reads,
@@ -179,6 +181,7 @@ function binds(version: string, operation: string, expected: unknown): boolean {
 		// empty one.
 		case "validateSpec":
 		case "validateValue":
+		case "validateValueAdmittingAnnotations":
 		case "validateResolvedSpec":
 			return Array.isArray(expected) && expected.length === 0;
 		// A refusal may loosen, as an invalid case may; an envelope binds.
@@ -259,6 +262,18 @@ describe("conformance fixtures", () => {
 				expect(sorted(got)).toEqual(sorted(want));
 			}
 
+			// The working mode (Go's AdmitAnnotations): TS checks a rich_text
+			// value's shape alone in either mode.
+			if (bound.includes("validateValueAdmittingAnnotations")) {
+				const want = fixture.expect
+					.validateValueAdmittingAnnotations as ExpectedError[];
+				const got = validateValue(fixture.spec, fixture.data, plugins, {
+					...valueContext(fixture),
+					admitAnnotations: true,
+				});
+				expect(sorted(got)).toEqual(sorted(want));
+			}
+
 			if (bound.includes("pins")) {
 				const want = fixture.expect.pins as SpecPin[];
 				const byPath = (a: SpecPin, b: SpecPin) =>
@@ -331,6 +346,33 @@ describe("conformance fixtures", () => {
 							annotations.openSuggestion(values[accessor]),
 							`openSuggestion ${name}/${accessor}`,
 						).toBe(expected);
+					}
+				}
+			}
+
+			// Whatever it expects, each result is Annotation-only against its
+			// input and holds a suggestion exactly when the input did.
+			if (bound.includes("removeCommentAnchors")) {
+				const want = fixture.expect.removeCommentAnchors as Record<
+					string,
+					Record<string, unknown>
+				>;
+				for (const [name, fields] of Object.entries(want)) {
+					const values = revisionOf(fixture, name);
+					for (const [accessor, expected] of Object.entries(fields)) {
+						const annotations = annotationsOf(fixture, plugins, accessor);
+						const value = values[accessor];
+						const before = JSON.stringify(value);
+						const got = annotations.removeCommentAnchors(value);
+						const at = `removeCommentAnchors ${name}/${accessor}`;
+						expect(got, at).toEqual(expected);
+						expect(JSON.stringify(value), `${at} modified its input`).toBe(
+							before,
+						);
+						expect(annotations.annotationOnly(value, got), at).toBe(true);
+						expect(annotations.openSuggestion(got), at).toBe(
+							annotations.openSuggestion(value),
+						);
 					}
 				}
 			}

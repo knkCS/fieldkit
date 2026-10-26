@@ -19,8 +19,12 @@ A Spec whose every Pin has been resolved, so a reader never follows a second one
 _Avoid_: expanded spec, flattened spec
 
 **Annotation**:
-A comment anchor or a suggestion in a rich-text value: a mark knkeditor's comment or suggestion extension stores in the document, saying something about the text or proposing a change to it without being the text. The rich-text field type tells whether a change is only Annotations and whether a value holds an open suggestion (contenthub ADR 0014, amended); a Consumer asks it and never reads the document.
+A comment anchor or a suggestion in a rich-text value: a mark knkeditor's comment or suggestion extension stores in the document, saying something about the text or proposing a change to it without being the text. The rich-text field type tells whether a change is only Annotations and whether a value holds an open suggestion, and takes a value's comment anchors out (contenthub ADR 0014, amended); a Consumer asks it and never reads the document.
 _Avoid_: review state (knkeditor's word for the same marks), markup, track change
+
+**Working value**:
+A value still being worked on — a contenthub Branch's — whose rich text may hold Annotations; everything released, delivered or imported holds none. Validated and merged admitting Annotations (`AdmitAnnotations`, `admitAnnotations`), where every other value is validated strictly; before it is released its comment anchors are taken out (`removeCommentAnchors`), and it may not hold a suggestion (contenthub#358).
+_Avoid_: draft (a **Draft** is the Spec editor's), branch value
 
 **Blueprint**:
 A stored Spec, addressable by id and resolvable through the blueprint adapter. Fieldkit never owns blueprints — it asks a Consumer for them.

@@ -7,9 +7,10 @@ import (
 	"testing"
 )
 
-// The conformance runner's Annotation operations, annotationOnly and
-// openSuggestion (conformance/README.md): the rich-text field type's two
-// answers for contenthub's Annotation rules (contenthub ADR 0014, amended).
+// The conformance runner's Annotation operations, annotationOnly,
+// openSuggestion and removeCommentAnchors (conformance/README.md): what the
+// rich-text field type answers, and does, for contenthub's Annotation rules
+// (contenthub ADR 0014, amended).
 // Each asks the Field's Type from SchemaFields, as contenthub does — it never
 // reads rich text itself — so a Type that is no Annotator answers nothing.
 
@@ -77,6 +78,47 @@ func runOpenSuggestion(t *testing.T, fx fixture, raw json.RawMessage) {
 			}
 			if got != want[name][accessor] {
 				t.Errorf("openSuggestion %s/%s = %v, want %v", name, accessor, got, want[name][accessor])
+			}
+		}
+	}
+}
+
+// runRemoveCommentAnchors takes the comment anchors out of each Field's value,
+// Revision by Revision, and expects the value given. Whatever it expects, the
+// result must be Annotation-only against its input, and hold a suggestion
+// exactly when the input did: only comment anchors are taken out.
+func runRemoveCommentAnchors(t *testing.T, fx fixture, raw json.RawMessage) {
+	t.Helper()
+	var want map[string]map[string]json.RawMessage
+	if err := decodeStrict(raw, &want); err != nil {
+		t.Fatalf("malformed removeCommentAnchors expectation: %v", err)
+	}
+	fields := annotatorsOf(t, fx)
+	for _, name := range slices.Sorted(maps.Keys(want)) {
+		values := revision(t, fx, name)
+		for _, accessor := range slices.Sorted(maps.Keys(want[name])) {
+			f, ok := fields[accessor]
+			if !ok {
+				t.Errorf("removeCommentAnchors %s/%s: not a Field whose type is an Annotator", name, accessor)
+				continue
+			}
+			annotator := f.Type.(Annotator)
+			value := values[accessor]
+			got, err := annotator.RemoveCommentAnchors(f.Settings, value)
+			if err != nil {
+				t.Errorf("removeCommentAnchors %s/%s: %v", name, accessor, err)
+				continue
+			}
+			if !sameJSONOrNone(t, got, want[name][accessor]) {
+				t.Errorf("removeCommentAnchors %s/%s\n got: %s\nwant: %s", name, accessor, got, want[name][accessor])
+			}
+			if only, err := annotator.AnnotationOnly(f.Settings, value, got); err != nil || !only {
+				t.Errorf("removeCommentAnchors %s/%s: AnnotationOnly(value, removed) = %v, %v; want true", name, accessor, only, err)
+			}
+			before, _ := annotator.OpenSuggestion(f.Settings, value)
+			after, _ := annotator.OpenSuggestion(f.Settings, got)
+			if before != after {
+				t.Errorf("removeCommentAnchors %s/%s: OpenSuggestion %v before, %v after", name, accessor, before, after)
 			}
 		}
 	}

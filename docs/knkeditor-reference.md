@@ -11,7 +11,7 @@ A `rich_text` Field pins a **Text Type Release** in `settings.text_type` (ADR-00
 | Package | Version fieldkit needs | Used by | Purpose |
 |---|---|---|---|
 | `@knkcms/knkeditor-editor` | `^1.8.0` | `/rich-text` | The React editor (`Editor`, default export). 1.8.0 is the floor: it registers `UniqueID` on every editor it builds, and loading a document's ids is not an edit (knkeditor#608) — without that, saved documents fail knkeditor's validation (the vocabulary requires a node id on every block) |
-| `@knkcms/knkeditor-vocabulary` | `^0.1.0` | `/rich-text` | `ResolvedTextType`, `EditorSettings`, `needsNewerVocabulary`; the tests also use its `validate` |
+| `@knkcms/knkeditor-vocabulary` | `>=0.1.0 <0.9.0` (0.8.0 here) | `/rich-text` | `ResolvedTextType`, `EditorSettings`, `needsNewerVocabulary`; the tests also use its `validate` and its review-state names (`review-state.ts`), which pin `src/schema/annotations.ts`'s. A range, not a caret: on 0.x a caret covers one minor, and every minor from 0.1 to 0.8 serves `/rich-text` unchanged (#346). The Go module needs 0.8.0, whose review-state mode it uses |
 | `github.com/knkcms/knkeditor/go` | `go/go.mod` | fieldkit's Go module | Validation, edges, text, Compare, Merge (below) |
 
 All three packages live in GitHub Packages (`@knkcms:registry=https://npm.pkg.github.com/`). Both npm packages are **optional peers** of `@knkcs/fieldkit`, needed only by `/rich-text`, and devDependencies here, for its tests and stories.
@@ -105,11 +105,11 @@ fieldkit's **Go** module delegates every reading of a `rich_text` value to knked
 
 | Operation | knkeditor | fieldkit's answer |
 |---|---|---|
-| `ValidateResolvedValue` | `Validator.Validate`, the stored JSON text scanned for `invalid-json-value` first | `invalid_rich_text` at the Field's path + knkeditor's JSON Pointer, knkeditor's code in `params.code`; `ValidateValue` (no Resolved Spec) validates against the vocabulary alone |
+| `ValidateResolvedValue` | `Validator.Validate`, the stored JSON text scanned for `invalid-json-value` first | `invalid_rich_text` at the Field's path + knkeditor's JSON Pointer, knkeditor's code in `params.code`; `ValidateValue` (no Resolved Spec) validates against the vocabulary alone. With `AdmitAnnotations`, knkeditor's `AdmitReviewState`: Annotations is admitted in its extensions' shapes, for a working value |
 | `Edges` | `Edges` | `link` (Content, Anchor), `footnote` (Content), `media` (Asset), at the Field |
 | `Texts` | `Text`, with the Text Type's Symbol Set | its reading text |
 | Compare | `Compare` | `equal` is `unchanged`; detail is its `Comparison` unchanged |
-| Merge | `NewMerger(...).MergeJSON` | conflicts are node ids below the Field's path |
+| Merge | `NewMerger(...).MergeJSON`, with `AdmitAnnotations` when `SchemaFields` was given it | conflicts are node ids below the Field's path |
 | `Resolve` | `ParseTextType`, `CompareVersions` | a `text_type` part must parse (`resolve_invalid_release`); `vocabulary` is the highest `minimumVocabularyVersion` |
 
 

@@ -3,7 +3,11 @@ import { z } from "zod";
 import { RichTextSettingsEditor } from "../../editor/field-settings/rich-text-settings";
 import { RichTextField } from "../../renderer/fields/rich-text-field";
 import { RichTextCell } from "../../table/cells/rich-text-cell";
-import { richTextAnnotationOnly, richTextOpenSuggestion } from "../annotations";
+import {
+	richTextAnnotationOnly,
+	richTextOpenSuggestion,
+	richTextRemoveCommentAnchors,
+} from "../annotations";
 import type { CataloguePin, FieldTypePlugin } from "../plugin";
 import type { Field } from "../types";
 import { TEXT_TYPE_KIND } from "../vocabulary-version";
@@ -39,8 +43,9 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 	// may hold is knkeditor's to say, under the Field's Text Type: Go's
 	// ValidateValue delegates to knkeditor's module (#216). TS checks the
 	// shape only — the npm side has no knkeditor validator — so an object
-	// knkeditor refuses passes here and is `invalid_rich_text` in Go. The
-	// shared fixtures that hold such a document are Go-only
+	// knkeditor refuses passes here and is `invalid_rich_text` in Go, review
+	// state outside the working mode (`ValueContext.admitAnnotations`)
+	// included. The shared fixtures that hold such a document are Go-only
 	// (conformance/README.md, `goOnly`).
 	toZodType(_field: Field<RichTextSettings>) {
 		return z.record(z.unknown());
@@ -57,6 +62,7 @@ export const richTextPlugin: FieldTypePlugin<RichTextSettings> = {
 	annotations: {
 		annotationOnly: richTextAnnotationOnly,
 		openSuggestion: richTextOpenSuggestion,
+		removeCommentAnchors: richTextRemoveCommentAnchors,
 	},
 
 	settingsSchema: z

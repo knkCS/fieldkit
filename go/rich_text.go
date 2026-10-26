@@ -114,9 +114,20 @@ type richTextContext struct {
 	// and they do not hold is an error. Without a Resolved Spec (ValidateValue
 	// on an authored Spec) there are no parts, and a Field is validated
 	// against the vocabulary alone.
-	strict     bool
-	validators map[string]*vocabulary.Validator
-	mergers    map[string]*vocabulary.Merger
+	strict bool
+	// admitAnnotations validates and merges a working value, holding review
+	// state (AdmitAnnotations); false is strict, as anything released is.
+	admitAnnotations bool
+	validators       map[string]*vocabulary.Validator
+	mergers          map[string]*vocabulary.Merger
+}
+
+// options are knkeditor's validator options for the context's mode.
+func (r *richTextContext) options() []vocabulary.ValidatorOption {
+	if r.admitAnnotations {
+		return []vocabulary.ValidatorOption{vocabulary.AdmitReviewState()}
+	}
+	return nil
 }
 
 // textTypeRelease is the Text Type Release a Field pins, "" for none.
@@ -154,15 +165,15 @@ func (r *richTextContext) textType(f Field) (release string, textType *vocabular
 func (r *richTextContext) validator(f Field) (*vocabulary.Validator, error) {
 	return built(r, f, &r.validators, func(textType *vocabulary.TextType) (*vocabulary.Validator, error) {
 		if textType == nil {
-			return vocabulary.NewValidator(packagedVocabulary())
+			return vocabulary.NewValidator(packagedVocabulary(), r.options()...)
 		}
-		return vocabulary.NewTextTypeValidator(packagedVocabulary(), textType)
+		return vocabulary.NewTextTypeValidator(packagedVocabulary(), textType, r.options()...)
 	})
 }
 
 func (r *richTextContext) merger(f Field) (*vocabulary.Merger, error) {
 	return built(r, f, &r.mergers, func(textType *vocabulary.TextType) (*vocabulary.Merger, error) {
-		return vocabulary.NewMerger(packagedVocabulary(), textType)
+		return vocabulary.NewMerger(packagedVocabulary(), textType, r.options()...)
 	})
 }
 
@@ -369,12 +380,14 @@ func compareRichText(_ *composer, f *Field, a, b any) (bool, *CompareDetail, err
 }
 
 // mergeRichText is knkeditor's Merger under the Field's Text Type, which the
-// Settings' parts must hold. Its Conflicts are top-level node ids — or, for a
-// merged document the Text Type refuses outside such a node, a JSON Pointer
-// into it; "" is the whole value — each placed below path.
+// Settings' parts must hold — admitting Annotations when the SchemaFields
+// call that made the Type did (AdmitAnnotations). Its Conflicts are top-level
+// node ids — or, for a merged document the Text Type refuses outside such a
+// node, a JSON Pointer into it; "" is the whole value — each placed below
+// path.
 func mergeRichText(c *composer, f *Field, base, ours, theirs any, path string) (any, error) {
 	if c.richText == nil {
-		c.richText = &richTextContext{parts: c.parts, strict: true}
+		c.richText = &richTextContext{parts: c.parts, strict: true, admitAnnotations: c.admitAnnotations}
 	}
 	merger, err := c.richText.merger(*f)
 	if err != nil {

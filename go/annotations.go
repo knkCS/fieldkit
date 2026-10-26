@@ -3,44 +3,43 @@ package fieldkit
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+
+	vocabulary "github.com/knkcms/knkeditor/go"
 )
 
 // Annotations (contenthub ADR 0014, amended 2026-10-26): the comment anchors
 // and suggestions knkeditor's comment and suggestion extensions store in a
 // rich_text document. The rich-text field type tells contenthub two things
 // about its values — whether a change is Annotation-only, and whether a value
-// holds an open suggestion — beside the Compare and Merge it already owns, so
-// contenthub never reads rich text itself. src/schema/annotations.ts is the
+// holds an open suggestion — beside the Compare and Merge it already owns, and
+// takes a value's comment anchors out at Publish, so contenthub never reads
+// rich text itself. src/schema/annotations.ts is the
 // same rule in TS; the conformance fixtures in conformance/*/annotations hold
 // both to one answer.
 //
-// knkeditor's vocabulary leaves review state out ("it annotates a document
-// from outside", knkeditor CONTEXT.md), so neither its Go module nor
-// @knkcms/knkeditor-vocabulary names these marks. The names are knkeditor's
-// own: the marks' from @knkcms/knkeditor-core (COMMENT_MARK,
-// SUGGESTION_INSERT, …), which the TS half pins in a test, and the node
-// attributes' from its comment and suggestion extensions, which export no
-// constant for them. The shared fixtures pin Go to the TS half.
+// The names are knkeditor's (#766, knkeditor ADR 0006), which calls the same
+// marks and node attributes review state: its module exports them
+// (reviewstate.go), and these are they.
 const (
-	// MarkComment is knkeditor's comment-anchor mark (COMMENT_MARK).
-	MarkComment = "commentMark"
+	// MarkComment is knkeditor's comment-anchor mark.
+	MarkComment = vocabulary.CommentMark
 	// MarkSuggestionInsert marks text proposed for insertion: it is not yet
-	// the text (SUGGESTION_INSERT).
-	MarkSuggestionInsert = "suggestionInsert"
+	// the text.
+	MarkSuggestionInsert = vocabulary.SuggestionInsertMark
 	// MarkSuggestionDelete marks text proposed for deletion: it still is the
-	// text (SUGGESTION_DELETE).
-	MarkSuggestionDelete = "suggestionDelete"
+	// text.
+	MarkSuggestionDelete = vocabulary.SuggestionDeleteMark
 	// MarkSuggestionFormatChange marks text whose marks a suggestion changed
 	// — already applied, the change recorded in its addedMarks and
-	// removedMarks (SUGGESTION_FORMAT_CHANGE).
-	MarkSuggestionFormatChange = "suggestionFormatChange"
+	// removedMarks.
+	MarkSuggestionFormatChange = vocabulary.SuggestionFormatChangeMark
 	// AttrCommentThreads is the node attribute anchoring comments on a
-	// whole node (the comment extension's commentThreadIds).
-	AttrCommentThreads = "commentThreadIds"
+	// whole node.
+	AttrCommentThreads = vocabulary.CommentThreadsAttribute
 	// AttrSuggestion is the node attribute recording a suggestion on a whole
-	// node — inserted, deleted, modified or moved (the suggestion
-	// extension's node attribute).
-	AttrSuggestion = "suggestion"
+	// node — inserted, deleted, modified or moved.
+	AttrSuggestion = vocabulary.SuggestionAttribute
 )
 
 // Annotator is the Type of a Field whose values hold Annotations: rich_text's,
@@ -60,6 +59,14 @@ type Annotator interface {
 	// OpenSuggestion reports whether value holds any suggestion: a suggestion
 	// mark, or a suggestion on a node.
 	OpenSuggestion(settings, value json.RawMessage) (bool, error)
+	// RemoveCommentAnchors is value with every comment anchor taken out —
+	// each comment mark, and each node's commentThreadIds — and everything
+	// else as it is, suggestions included: contenthub refuses Publish while a
+	// value holds one, so what it publishes is a value without its comment
+	// anchors (contenthub#358). Text the anchors had split is joined again,
+	// as the editor would. AnnotationOnly(value, removed) holds, so whatever
+	// was recorded on value still covers what is published.
+	RemoveCommentAnchors(settings, value json.RawMessage) (json.RawMessage, error)
 }
 
 // richTextType is rich_text's Type: a finer Type that is also an Annotator.
@@ -73,6 +80,102 @@ func (richTextType) AnnotationOnly(_, base, next json.RawMessage) (bool, error) 
 // OpenSuggestion is RichTextOpenSuggestion; settings are not needed.
 func (richTextType) OpenSuggestion(_, value json.RawMessage) (bool, error) {
 	return RichTextOpenSuggestion(value)
+}
+
+// RemoveCommentAnchors is RichTextRemoveCommentAnchors; settings are not
+// needed.
+func (richTextType) RemoveCommentAnchors(_, value json.RawMessage) (json.RawMessage, error) {
+	return RichTextRemoveCommentAnchors(value)
+}
+
+// RichTextRemoveCommentAnchors is the rich_text value with its comment anchors
+// taken out (Annotator.RemoveCommentAnchors), at any depth a node's content
+// reaches. A value that is not JSON is an error; one holding no comment anchor
+// comes back as it is, re-encoded.
+func RichTextRemoveCommentAnchors(value json.RawMessage) (json.RawMessage, error) {
+	v, err := decodeJSON(value)
+	if err != nil {
+		return nil, fmt.Errorf("fieldkit: annotations: %w", err)
+	}
+	removed, _ := withoutCommentAnchors(v)
+	out, err := encodeValue(removed)
+	if err != nil {
+		return nil, fmt.Errorf("fieldkit: annotations: %w", err)
+	}
+	return out, nil
+}
+
+// withoutCommentAnchors is a node without its comment marks and
+// commentThreadIds, its content's too; removed says whether it held any
+// itself. Marks or attrs left empty are absent. Only a node's content is
+// entered, as settled enters it: a suggestion's snapshot of a node is the
+// suggestion's, and stays as it is.
+func withoutCommentAnchors(value any) (_ any, removed bool) {
+	node, ok := value.(map[string]any)
+	if !ok {
+		return value, false
+	}
+	out := maps.Clone(node)
+	if marks, ok := node["marks"].([]any); ok {
+		kept := make([]any, 0, len(marks))
+		for _, m := range marks {
+			if mark, ok := m.(map[string]any); ok && mark["type"] == MarkComment {
+				removed = true
+				continue
+			}
+			kept = append(kept, m)
+		}
+		switch {
+		case !removed:
+		case len(kept) == 0:
+			delete(out, "marks")
+		default:
+			out["marks"] = kept
+		}
+	}
+	if attrs, ok := node["attrs"].(map[string]any); ok {
+		if _, anchored := attrs[AttrCommentThreads]; anchored {
+			removed = true
+			kept := maps.Clone(attrs)
+			delete(kept, AttrCommentThreads)
+			if len(kept) == 0 {
+				delete(out, "attrs")
+			} else {
+				out["attrs"] = kept
+			}
+		}
+	}
+	if content, ok := node["content"].([]any); ok {
+		out["content"] = contentWithoutCommentAnchors(content)
+	}
+	return out, removed
+}
+
+// contentWithoutCommentAnchors is a node's children without their comment
+// anchors, and two adjacent text nodes joined where a comment mark taken out
+// of either leaves them with the same marks: the anchor was what split them.
+func contentWithoutCommentAnchors(content []any) []any {
+	out := make([]any, 0, len(content))
+	var prevRemoved bool
+	for _, child := range content {
+		node, removed := withoutCommentAnchors(child)
+		if len(out) > 0 && (removed || prevRemoved) {
+			prev, okPrev := out[len(out)-1].(map[string]any)
+			next, okNext := node.(map[string]any)
+			if okPrev && okNext && joinable(prev, next) {
+				joined := maps.Clone(prev)
+				joined["text"] = prev["text"].(string) + next["text"].(string)
+				out[len(out)-1] = joined
+				// The joined node ends with this one: only an anchor taken out
+				// of it lets the next join it too.
+				prevRemoved = removed
+				continue
+			}
+		}
+		out = append(out, node)
+		prevRemoved = removed
+	}
+	return out
 }
 
 // RichTextAnnotationOnly reports whether the rich_text value next differs

@@ -20,6 +20,7 @@ export {
 	MARK_SUGGESTION_INSERT,
 	richTextAnnotationOnly,
 	richTextOpenSuggestion,
+	richTextRemoveCommentAnchors,
 } from "./annotations";
 // The Blueprint a Fieldset or a linked Virtual Table names — one reader for
 // both.

@@ -1,0 +1,81 @@
+{
+	"description": "The working mode admits Annotations only in the shape its extension stores: a suggestion without its userId and timestamp, and the diff viewer's marks, which are not Annotations, are refused in both modes (Go only)",
+	"spec": [
+		{
+			"field_type": "rich_text",
+			"config": {
+				"name": "body",
+				"api_accessor": "body",
+				"required": false,
+				"instructions": ""
+			},
+			"system": false
+		}
+	],
+	"data": {
+		"body": {
+			"type": "doc",
+			"content": [
+				{
+					"type": "textWrapper",
+					"attrs": {
+						"id": "00000000-0000-4000-8000-000000000001"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Anonymous",
+							"marks": [
+								{
+									"type": "suggestionInsert",
+									"attrs": {
+										"suggestionId": "s1"
+									}
+								}
+							]
+						},
+						{
+							"type": "text",
+							"text": " diffed",
+							"marks": [
+								{
+									"type": "diffInsert"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"goOnly": [
+		"validateValue",
+		"validateValueAdmittingAnnotations"
+	],
+	"expect": {
+		"validateValue": [
+			{
+				"path": "/body/content/0/content/0/marks/0",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/body/content/0/content/1/marks/0",
+				"code": "invalid_rich_text"
+			}
+		],
+		"validateValueAdmittingAnnotations": [
+			{
+				"path": "/body/content/0/content/0/marks/0/attrs/timestamp",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/body/content/0/content/0/marks/0/attrs/userId",
+				"code": "invalid_rich_text"
+			},
+			{
+				"path": "/body/content/0/content/1/marks/0",
+				"code": "invalid_rich_text"
+			}
+		]
+	}
+}
