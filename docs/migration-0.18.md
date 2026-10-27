@@ -215,7 +215,7 @@ What a value yields to contenthub's Content Graph and to search changes too:
 - **A type you cannot serve is hidden** (ADR-0027, knkCS/contenthub#304).
   A Field Type declares the Adapter capabilities its settings need,
   `requiresAdapters`: `reference`, `single_reference`, a type minted with
-  `createReferencePlugin` and `fieldset` need `blueprint.search`; `rich_text`
+  `createReferencePlugin` and `fieldset` need `blueprint.search` (for a purpose since #399, below); `rich_text`
   needs `textType.search`. The type picker — every one, a bare `TypePicker`
   included, reading the `FieldKitProvider`'s Adapters, or its own `adapters`
   prop (outside a provider and without one it has none) — offers such a type only where they are provided, and a Virtual
