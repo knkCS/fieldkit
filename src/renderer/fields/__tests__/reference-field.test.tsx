@@ -1564,7 +1564,11 @@ describe("ReferenceField", () => {
 		});
 
 		describe("where there are no names to find by", () => {
-			it("offers no Find at all with no Adapter configured", () => {
+			it("offers no input with no Adapter configured, but reads as read mode does — Find included", async () => {
+				// The stored tree stays readable (ADR-0027, amended: by value): it is
+				// drawn by read mode's own component, whose Find matches ids exactly
+				// as it does with no Adapter there. What goes is every way to change
+				// the value.
 				renderField({
 					adapters: {},
 					value: fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
@@ -1573,7 +1577,11 @@ describe("ReferenceField", () => {
 				expect(
 					screen.getByText("Reference adapter not configured"),
 				).toBeInTheDocument();
-				expect(findControl()).not.toBeInTheDocument();
+				expect(await screen.findByText("article-1")).toBeInTheDocument();
+				expect(findControl()).toBeInTheDocument();
+				expect(
+					screen.queryByRole("button", { name: /add|remove/i }),
+				).not.toBeInTheDocument();
 			});
 
 			it("matches the ids the rows are left showing after a failed lookup", async () => {

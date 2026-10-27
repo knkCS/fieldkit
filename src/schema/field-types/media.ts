@@ -58,5 +58,8 @@ export const mediaPlugin: FieldTypePlugin<MediaSettings> = {
 	defaultValue: () => [],
 
 	consumers: ["blueprint", "task", "form"],
+	// Its value is uploaded through the `media` Adapter; without one nobody
+	// filling in the form could add a file (ADR-0027, amended).
+	requiresAdapters: ["media"],
 	positions: ["root", "row", "reference_spec", "block_type"],
 };

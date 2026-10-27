@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@chakra-ui/react";
+import { Box, Flex } from "@chakra-ui/react";
 import {
 	type BaseOption,
 	BaseSelect,
@@ -19,6 +19,7 @@ import { usePinTargets } from "../hooks/use-pin-targets";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds, withoutExcluded } from "./exclude-referenced";
+import { NoSourceField } from "./no-source-field";
 
 /**
  * react-select's option shape (anker's `BaseOption`): `id` is the value,
@@ -284,19 +285,11 @@ export function SingleReferenceField({
 
 	if (!adapter) {
 		return (
-			<FormField
-				name={accessor}
-				label={config.name}
-				helperText={config.instructions || undefined}
-				required={config.required}
+			<NoSourceField
+				field={field}
 				readOnly={readOnly}
-			>
-				{() => (
-					<Text color="fg.muted" fontSize="sm">
-						Reference adapter not configured
-					</Text>
-				)}
-			</FormField>
+				message="Reference adapter not configured"
+			/>
 		);
 	}
 

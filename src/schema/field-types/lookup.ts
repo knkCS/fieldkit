@@ -95,5 +95,8 @@ export const lookupPlugin: FieldTypePlugin<LookupSettings> = {
 	defaultValue: () => null,
 
 	consumers: ["blueprint", "task", "form"],
+	// Its value is picked from a Source on `adapters.lookup`; with none
+	// registered there is nothing to point into (ADR-0027, amended).
+	requiresAdapters: ["lookup"],
 	positions: ["root", "row", "reference_spec", "block_type"],
 };

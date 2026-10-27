@@ -24,6 +24,7 @@ import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds } from "./exclude-referenced";
+import { NoSourceField } from "./no-source-field";
 
 import { describeAppend } from "./reference-destination";
 import { ReferenceFind } from "./reference-find";
@@ -209,19 +210,11 @@ export function ReferenceField({
 
 	if (!adapter) {
 		return (
-			<FormField
-				name={accessor}
-				label={config.name}
-				helperText={config.instructions || undefined}
-				required={config.required}
+			<NoSourceField
+				field={field}
 				readOnly={readOnly}
-			>
-				{() => (
-					<Text color="fg.muted" fontSize="sm">
-						Reference adapter not configured
-					</Text>
-				)}
-			</FormField>
+				message="Reference adapter not configured"
+			/>
 		);
 	}
 

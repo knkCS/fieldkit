@@ -311,8 +311,9 @@ export function createReferencePlugin({
 		consumers,
 		// The settings editor is the shared one, so a minted type picks its
 		// target Blueprints through the Adapter's search too, for the purpose
-		// `reference_target` (ADR-0027, amended).
-		requiresAdapters: ["blueprint.search:reference_target"],
+		// `reference_target`; and its value is the shared Reference Tree, filled
+		// in through the `reference` Adapter's search (ADR-0027, amended).
+		requiresAdapters: ["blueprint.search:reference_target", "reference.search"],
 		positions,
 
 		// The Reference Spec — embedded, and each linked one once resolved — is

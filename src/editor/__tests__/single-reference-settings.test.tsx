@@ -14,6 +14,7 @@ import {
 	createFakePickerSource,
 	fakeBlueprintAdapter,
 } from "../../test/fake-picker-adapters";
+import { createFakeReferenceAdapter } from "../../test/fake-reference-adapter";
 import { SingleReferenceSettingsEditor } from "../field-settings/single-reference-settings";
 import { SettingsSection } from "../panel-sections/settings-section";
 import { DEFAULT_EDITOR_LABELS } from "../spec-editor";
@@ -31,6 +32,12 @@ function searchingAdapter(): FieldKitAdapters {
 			}),
 		),
 	};
+}
+
+/** A Consumer that can serve the type: its targets picked through the
+ * Blueprint search, its value through the Content one (ADR-0027, amended). */
+function servingAdapters(): FieldKitAdapters {
+	return { ...searchingAdapter(), reference: createFakeReferenceAdapter() };
 }
 
 const FIELD: Field<SingleReferenceSettings> = {
@@ -225,12 +232,12 @@ describe("SingleReferenceSettingsEditor", () => {
 });
 
 describe("single_reference in the type picker", () => {
-	it("is offered from the catalogue to a Consumer that can search Blueprints", () => {
+	it("is offered from the catalogue to a Consumer that can search Blueprints and Contents", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
 				<FieldKitProvider
 					plugins={builtInFieldTypes}
-					adapters={searchingAdapter()}
+					adapters={servingAdapters()}
 				>
 					<TypePicker plugins={builtInFieldTypes} onSelect={vi.fn()} />
 				</FieldKitProvider>
@@ -249,7 +256,7 @@ describe("single_reference in the type picker", () => {
 			<ChakraProvider value={defaultSystem}>
 				<FieldKitProvider
 					plugins={builtInFieldTypes}
-					adapters={searchingAdapter()}
+					adapters={servingAdapters()}
 				>
 					<TypePicker
 						plugins={builtInFieldTypes}
@@ -270,7 +277,7 @@ describe("single_reference in the type picker", () => {
 			<ChakraProvider value={defaultSystem}>
 				<FieldKitProvider
 					plugins={builtInFieldTypes}
-					adapters={searchingAdapter()}
+					adapters={servingAdapters()}
 				>
 					<SettingsSection
 						field={FIELD as Field}

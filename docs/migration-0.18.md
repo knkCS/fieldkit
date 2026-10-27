@@ -239,6 +239,20 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `declinesBlueprintPurpose`. To migrate: nothing, unless your publish refuses
   some purposes — then declare the ones it serves (taskhub:
   `purposes: ["reference_target"]`).
+- **A type whose value you cannot fill is hidden too** (ADR-0027, amended,
+  #356). Three new capabilities: `reference.search` (the `reference`
+  adapter's `search`, the value picker), `media` (the `media` adapter's
+  `upload`) and `lookup` (at least one Source on `adapters.lookup` that
+  searches). `reference`, `single_reference` and `createReferencePlugin` types
+  now require `reference.search` beside their Blueprint capability, `media`
+  requires `media`, `lookup` requires `lookup`. A Consumer with
+  `blueprint.search` but no `reference` adapter is no longer offered the
+  reference types. A stored Field of such a type renders its label, the
+  existing "… not configured" / "not registered" note, and its stored value as
+  read mode shows it, with no input. The bare `blueprint.search` capability is
+  kept, unchanged, for your own types. To migrate: nothing if you provide
+  every adapter (blueprinthub, contenthub); otherwise provide the adapters for
+  the types you mean to offer.
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the

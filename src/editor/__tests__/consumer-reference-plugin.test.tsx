@@ -55,8 +55,9 @@ function renderInEditor(children: React.ReactNode) {
 	);
 }
 
-/** The picker, for a Consumer whose Blueprint Adapter can search — what a
- * reference-shaped type needs to be offered at all (ADR-0027). */
+/** The picker, for a Consumer whose Blueprint Adapter can search and that
+ * has a Content source — what a reference-shaped type needs to be offered at
+ * all (ADR-0027, amended). */
 function renderPicker(currentSpec: Field[]) {
 	return render(
 		<EditorWrap
@@ -67,6 +68,7 @@ function renderPicker(currentSpec: Field[]) {
 					getData: vi.fn(),
 					search: vi.fn().mockResolvedValue({ items: [] }),
 				},
+				reference: createFakeReferenceAdapter(),
 			}}
 		>
 			<TypePicker

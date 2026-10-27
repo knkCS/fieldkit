@@ -26,23 +26,28 @@ export type FieldTypeCategory =
 export type Consumer = "blueprint" | "task" | "form";
 
 /**
- * An Adapter capability a Field Type's settings need before an Author can
- * configure it (ADR-0027, amended): `blueprint.search:<purpose>` for a
- * setting that picks a Blueprint for that purpose — the `blueprint` Adapter
- * searches and its `purposes` (absent: all) include it — and
- * `textType.search` for one that picks a Text Type Release. The bare
- * `blueprint.search` asks only that the Adapter searches, for any purpose; a
- * built-in type names the purpose instead.
+ * An Adapter capability a Field Type needs before it can be served (ADR-0027,
+ * amended). For its **settings**: `blueprint.search:<purpose>` for a setting
+ * that picks a Blueprint for that purpose — the `blueprint` Adapter searches
+ * and its `purposes` (absent: all) include it — and `textType.search` for one
+ * that picks a Text Type Release. The bare `blueprint.search` asks only that
+ * the Adapter searches, for any purpose; a built-in type names the purpose
+ * instead. For its **value**: `reference.search`, the Content picker a
+ * Reference is filled in with; `media`, the `media` Adapter's `upload`; and
+ * `lookup`, at least one Source registered on `adapters.lookup`.
  *
  * A Consumer whose Adapters lack one is not offered the type in its type
  * picker — hidden, never degraded. Advice for pickers only, as `consumers`
- * is: a stored Field of such a type stays valid, renders, and its setting says
- * the application has no source for it.
+ * is: a stored Field of such a type stays valid, renders, and its setting —
+ * or its value's control — says the application has no source for it.
  */
 export type AdapterCapability =
 	| "blueprint.search"
 	| BlueprintPurposeCapability
-	| "textType.search";
+	| "textType.search"
+	| "reference.search"
+	| "media"
+	| "lookup";
 
 /**
  * Where in a Spec a Field sits, which decides the Field Types it may be
@@ -447,7 +452,8 @@ export interface FieldTypePlugin<S = unknown> {
 	 */
 	consumers?: Consumer[];
 	/**
-	 * The Adapter capabilities this type's settings need (ADR-0027). The type
+	 * The Adapter capabilities this type's settings and value need (ADR-0027,
+	 * amended). The type
 	 * picker offers the type only where the Consumer's Adapters provide every
 	 * one (`servedByAdapters()`). Advice for pickers only — nothing validates
 	 * it, and the Catalogue does not carry it. Absent: needs none.

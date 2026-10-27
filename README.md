@@ -184,14 +184,16 @@ offers a retry, reported through `onError`. Without `search` the setting offers
 no input and says the application has no source for it.
 
 **A type you cannot serve is hidden.** Each Field Type declares the adapter
-capabilities its settings need (`requiresAdapters`): `reference` and
-`single_reference` need `blueprint.search:reference_target`, `fieldset` needs
-`blueprint.search:fieldset`, `rich_text` needs `textType.search`.
-`SpecEditor`'s type picker offers a type only when your `FieldKitProvider`'s
-adapters provide them, and a Virtual Table offers its linked Row Spec only with
-`blueprint.search:row_spec` — embedded otherwise. To offer these types,
-implement `search` (and `resolve`) on the adapter; to hide them, implement
-nothing. A `blueprint.search:<purpose>` capability holds when the adapter has
+capabilities its settings and its value need (`requiresAdapters`): `reference`
+and `single_reference` need `blueprint.search:reference_target` for their
+targets and `reference.search` for their value, `fieldset` needs
+`blueprint.search:fieldset`, `rich_text` needs `textType.search`, `media`
+needs `media` (the `media` adapter's `upload`) and `lookup` needs `lookup` (at
+least one Source on `adapters.lookup`). `SpecEditor`'s type picker offers a
+type only when your `FieldKitProvider`'s adapters provide them, and a Virtual
+Table offers its linked Row Spec only with `blueprint.search:row_spec` —
+embedded otherwise. To offer these types, implement the adapters (`search`
+and `resolve` on the picker ones); to hide them, implement nothing. A `blueprint.search:<purpose>` capability holds when the adapter has
 `search` and its optional `purposes` include that purpose — **absent means
 every purpose**. A Consumer serving only some declares them: with
 `purposes: ["reference_target"]` the reference types are offered with a
@@ -199,8 +201,8 @@ targets picker and an embedded Reference Spec but no linked one, `fieldset` is
 hidden, and a Virtual Table offers an embedded Row Spec only (ADR-0027,
 amended). Hiding never invalidates a stored Spec: a Field of a hidden
 type that is already stored renders, validates and saves unchanged, and its
-setting shows what is stored with the note that this application has no source
-for it. `servedByAdapters(plugin, adapters)` (from `/schema`) answers the same
+setting — or, for a type hidden by its value, its control — shows what is
+stored with the note that this application has no source for it. `servedByAdapters(plugin, adapters)` (from `/schema`) answers the same
 question for your own pickers.
 
 ## Tech Stack

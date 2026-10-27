@@ -36,6 +36,9 @@ export const ADAPTER_CAPABILITIES: readonly AdapterCapability[] = [
 	"blueprint.search",
 	...BLUEPRINT_PURPOSES.map(blueprintSearchFor),
 	"textType.search",
+	"reference.search",
+	"media",
+	"lookup",
 ];
 
 /**
@@ -46,6 +49,9 @@ export const ADAPTER_CAPABILITIES: readonly AdapterCapability[] = [
 export interface AdapterCapabilitySource {
 	blueprint?: { search?: unknown; purposes?: readonly string[] };
 	textType?: { search?: unknown };
+	reference?: { search?: unknown };
+	media?: { upload?: unknown };
+	lookup?: Record<string, { search?: unknown } | undefined>;
 }
 
 /** The capability a setting choosing for `purpose` needs. */
@@ -86,8 +92,8 @@ export function declinesBlueprintPurpose(
 
 /** Whether the Adapters provide this capability: the Adapter is registered,
  * offers the method and — for a purpose-specific Blueprint capability —
- * serves that purpose. An Adapter without `search` is no source for a
- * picker (ADR-0027). */
+ * serves that purpose; for `lookup`, at least one registered Source
+ * searches. An Adapter without the method is no source (ADR-0027). */
 export function hasAdapterCapability(
 	adapters: AdapterCapabilitySource,
 	capability: AdapterCapability,
@@ -104,6 +110,16 @@ export function hasAdapterCapability(
 			return canSearchBlueprints(adapters);
 		case "textType.search":
 			return typeof adapters.textType?.search === "function";
+		// What a value needs (ADR-0027, amended: by value): something to pick
+		// from, or to upload to, for the person filling in the form.
+		case "reference.search":
+			return typeof adapters.reference?.search === "function";
+		case "media":
+			return typeof adapters.media?.upload === "function";
+		case "lookup":
+			return Object.values(adapters.lookup ?? {}).some(
+				(source) => typeof source?.search === "function",
+			);
 	}
 	return false;
 }
