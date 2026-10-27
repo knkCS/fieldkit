@@ -1,6 +1,8 @@
 // src/schema/plugin.ts
+
 import type { ComponentType, ReactNode } from "react";
 import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
+import type { BlueprintPurposeCapability } from "./adapter-capabilities";
 import type { Field } from "./types";
 import type { ValidationKey } from "./validations";
 
@@ -25,15 +27,22 @@ export type Consumer = "blueprint" | "task" | "form";
 
 /**
  * An Adapter capability a Field Type's settings need before an Author can
- * configure it (ADR-0027): `blueprint.search` for a setting that picks a
- * Blueprint, `textType.search` for one that picks a Text Type Release.
+ * configure it (ADR-0027, amended): `blueprint.search:<purpose>` for a
+ * setting that picks a Blueprint for that purpose — the `blueprint` Adapter
+ * searches and its `purposes` (absent: all) include it — and
+ * `textType.search` for one that picks a Text Type Release. The bare
+ * `blueprint.search` asks only that the Adapter searches, for any purpose; a
+ * built-in type names the purpose instead.
  *
  * A Consumer whose Adapters lack one is not offered the type in its type
  * picker — hidden, never degraded. Advice for pickers only, as `consumers`
  * is: a stored Field of such a type stays valid, renders, and its setting says
  * the application has no source for it.
  */
-export type AdapterCapability = "blueprint.search" | "textType.search";
+export type AdapterCapability =
+	| "blueprint.search"
+	| BlueprintPurposeCapability
+	| "textType.search";
 
 /**
  * Where in a Spec a Field sits, which decides the Field Types it may be

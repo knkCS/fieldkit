@@ -61,10 +61,15 @@ failed search shows that it failed, with a retry, and goes to `onError`.
 The provider's adapters also decide **which types the type picker offers**
 (ADR-0027): a type whose settings need an adapter capability the Consumer has
 not provided is hidden, never degraded. `reference`, `single_reference` (and a
-type minted with `createReferencePlugin`) and `fieldset` declare
-`requiresAdapters: ["blueprint.search"]`; `rich_text` declares
-`["textType.search"]`; and a Virtual Table offers its linked Row Spec only with
-`blueprint.search`, embedded otherwise. Every picker hides the same types — the
+type minted with `createReferencePlugin`) declare
+`requiresAdapters: ["blueprint.search:reference_target"]`, `fieldset`
+`["blueprint.search:fieldset"]`; `rich_text` declares `["textType.search"]`;
+and a Virtual Table offers its linked Row Spec only with
+`blueprint.search:row_spec`, embedded otherwise. A purpose capability holds
+when `adapters.blueprint` has `search` and its optional `purposes` (absent:
+all) include the purpose; a reference Field's linked Reference Spec picker is
+hidden, too, where `fieldset` is declined, and shows only a stored one,
+readable (ADR-0027, amended). Every picker hides the same types — the
 canvas's, a Row Spec's, a Reference Spec's — and a bare `TypePicker` outside a
 provider offers none of them unless handed `adapters` of its own. Hiding narrows the picker only: a stored Field of
 such a type still renders, validates and saves as it was, and its setting

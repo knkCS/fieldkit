@@ -215,7 +215,7 @@ What a value yields to contenthub's Content Graph and to search changes too:
 - **A type you cannot serve is hidden** (ADR-0027, knkCS/contenthub#304).
   A Field Type declares the Adapter capabilities its settings need,
   `requiresAdapters`: `reference`, `single_reference`, a type minted with
-  `createReferencePlugin` and `fieldset` need `blueprint.search`; `rich_text`
+  `createReferencePlugin` and `fieldset` need `blueprint.search` (for a purpose since #399, below); `rich_text`
   needs `textType.search`. The type picker — every one, a bare `TypePicker`
   included, reading the `FieldKitProvider`'s Adapters, or its own `adapters`
   prop (outside a provider and without one it has none) — offers such a type only where they are provided, and a Virtual
@@ -224,6 +224,21 @@ What a value yields to contenthub's Content Graph and to search changes too:
   application has no source for it. To keep offering these types, implement
   `search`; to drop them, implement nothing. `servedByAdapters(plugin,
   adapters)` (from `/schema`) answers the same question for your own pickers.
+- **The `blueprint` Adapter may declare the purposes it serves** (ADR-0027,
+  amended, #399). `purposes?: BlueprintPurpose[]` on `adapters.blueprint`;
+  **absent means every purpose**, so nothing changes unless you declare it.
+  The built-in types now require a purpose-specific capability —
+  `reference`, `single_reference` and `createReferencePlugin` types
+  `blueprint.search:reference_target`, `fieldset`
+  `blueprint.search:fieldset` — and a Virtual Table's linked Row Spec needs
+  `row_spec`, a reference Field's linked Reference Spec (`spec_blueprint`)
+  `fieldset`. A setting whose purpose you leave out is hidden; a stored value
+  of it stays readable. The bare `blueprint.search` capability remains for
+  your own types. New exports from `/schema`: `BlueprintPurpose` (still
+  exported from `/renderer` too), `BLUEPRINT_PURPOSES`, `blueprintSearchFor`,
+  `declinesBlueprintPurpose`. To migrate: nothing, unless your publish refuses
+  some purposes — then declare the ones it serves (taskhub:
+  `purposes: ["reference_target"]`).
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the

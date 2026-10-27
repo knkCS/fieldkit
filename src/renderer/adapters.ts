@@ -1,4 +1,5 @@
 // src/renderer/adapters.ts
+import type { BlueprintPurpose } from "../schema/adapter-capabilities";
 import type { PinningMode } from "../schema/reference";
 import type {
 	BlueprintSchemaAdapter,
@@ -232,22 +233,10 @@ export interface TextTypeSummary {
 	[key: string]: unknown;
 }
 
-/**
- * Which setting a Blueprint picker is choosing for (ADR-0027), so one
- * `blueprint` Adapter can offer each setting what fits it instead of a
- * Consumer mounting an Adapter per picker:
- *
- * - `reference_target` — the Blueprints a `reference` or `single_reference`
- *   Field may point at (its `blueprints` entries' `blueprint`);
- * - `fieldset` — a Blueprint Release whose Fields are embedded: a Fieldset's
- *   `blueprint`, and a linked Reference Spec (a `blueprints` entry's
- *   `spec_blueprint`), which is embedded into each Reference the same way;
- * - `row_spec` — the Blueprint Release a linked Virtual Table's rows hold.
- *
- * Fieldkit filters nothing itself — it has no notion of a Blueprint kind
- * (ADR-0002). The purpose is only what it tells the Consumer.
- */
-export type BlueprintPurpose = "reference_target" | "fieldset" | "row_spec";
+/** Which setting a Blueprint picker is choosing for — defined beside the
+ * capabilities it decides (ADR-0027, amended), re-exported here for the
+ * Adapter that is told it. */
+export type { BlueprintPurpose };
 
 /**
  * One request for a page of choices, the shape anker's `LookupSelect` asks in
@@ -415,6 +404,22 @@ export interface FieldKitAdapters {
 		search?: (
 			query: BlueprintSearchQuery,
 		) => Promise<PickerPage<BlueprintSummary>>;
+		/**
+		 * The purposes this Adapter's `search` serves (ADR-0027, amended).
+		 * **Absent: every purpose** — what every Consumer that predates it gets.
+		 *
+		 * A purpose left out is a setting the application cannot serve, so it
+		 * is hidden as a type it cannot serve is: without `fieldset` no
+		 * Fieldset type and no linked Reference Spec picker; without `row_spec`
+		 * a Virtual Table offers an embedded Row Spec only; without
+		 * `reference_target` no `reference` or `single_reference` type. A
+		 * Consumer whose publish refuses linked parts — taskhub, whose task
+		 * types name target Blueprints only — declares
+		 * `purposes: ["reference_target"]`. A stored setting of a hidden
+		 * purpose stays readable, never editable. `search` is never asked with
+		 * a purpose left out.
+		 */
+		purposes?: readonly BlueprintPurpose[];
 		/**
 		 * Names the ids a setting already stores, **archived ones included**
 		 * (marked `archived`), so an existing Spec stays readable. An id with
