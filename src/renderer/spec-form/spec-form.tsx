@@ -10,6 +10,7 @@ import { partitionSchemaBySections } from "../../schema/partition";
 import { partitionTabByCards } from "../../schema/partition-cards";
 import type { Schema } from "../../schema/types";
 import { formatCount, mergeLabels } from "../merge-labels";
+import { DEFAULT_READ_VALUE_LABELS } from "../read-value";
 import { CardedFields, CardedReadTab } from "./carded-fields";
 import { FieldSearch } from "./field-search";
 import { formMemory, type RecordKey } from "./form-memory";
@@ -132,8 +133,7 @@ export const DEFAULT_LABELS: Required<SpecFormLabels> = {
 	tabErrorsOne: "1 invalid field",
 	unsavedChanges: "Unsaved changes",
 	searchLabel: "Find field",
-	booleanYes: "Yes",
-	booleanNo: "No",
+	...DEFAULT_READ_VALUE_LABELS,
 };
 
 interface SpecFormTabsProps {

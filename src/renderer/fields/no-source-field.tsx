@@ -3,10 +3,7 @@ import { Stack, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { useWatch } from "react-hook-form";
 import type { Field } from "../../schema/types";
-import { ReadValue, type ReadValueLabels } from "../spec-form/read-tab";
-
-/** The control renders outside SpecForm's labels, as its note does. */
-const READ_LABELS: ReadValueLabels = { booleanYes: "Yes", booleanNo: "No" };
+import { DEFAULT_READ_VALUE_LABELS, ReadValue } from "../read-value";
 
 /**
  * A value control with nothing to fill it from: the Consumer registered no
@@ -46,7 +43,11 @@ export function NoSourceField({
 					>
 						{message}
 					</Text>
-					<ReadValue field={field} value={value} labels={READ_LABELS} />
+					<ReadValue
+						field={field}
+						value={value}
+						labels={DEFAULT_READ_VALUE_LABELS}
+					/>
 				</Stack>
 			)}
 		</FormField>
