@@ -15,7 +15,7 @@ function isEmpty(value: unknown): boolean {
 	);
 }
 
-interface ReadValueLabels {
+export interface ReadValueLabels {
 	booleanYes: string;
 	booleanNo: string;
 }
@@ -78,7 +78,7 @@ function formatFallback(
  * against — and for reference types a name check could not work at all, since
  * a Consumer mints reference-shaped types under ids of its own (ADR-0010).
  */
-function ReadValue({
+export function ReadValue({
 	field,
 	value,
 	labels,

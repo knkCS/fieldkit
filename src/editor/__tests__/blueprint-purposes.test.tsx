@@ -23,6 +23,7 @@ import {
 	createFakePickerSource,
 	fakeBlueprintAdapter,
 } from "../../test/fake-picker-adapters";
+import { createFakeReferenceAdapter } from "../../test/fake-reference-adapter";
 import { DEFAULT_EDITOR_LABELS, SpecEditor } from "../spec-editor";
 
 const L = DEFAULT_EDITOR_LABELS;
@@ -37,6 +38,10 @@ function scopedAdapters(purposes: readonly BlueprintPurpose[]) {
 	});
 	const adapters: FieldKitAdapters = {
 		blueprint: { ...fakeBlueprintAdapter(source), purposes },
+		// taskhub's Content source too: a reference type is offered only where
+		// its value can be picked (ADR-0027, amended: by value). Without it
+		// every reference type would be hidden whatever the purposes say.
+		reference: createFakeReferenceAdapter(),
 	};
 	return { source, adapters };
 }

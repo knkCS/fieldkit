@@ -59,11 +59,12 @@ setting says the application has no source for it — there is no id entry. A
 failed search shows that it failed, with a retry, and goes to `onError`.
 
 The provider's adapters also decide **which types the type picker offers**
-(ADR-0027): a type whose settings need an adapter capability the Consumer has
-not provided is hidden, never degraded. `reference`, `single_reference` (and a
-type minted with `createReferencePlugin`) declare
-`requiresAdapters: ["blueprint.search:reference_target"]`, `fieldset`
-`["blueprint.search:fieldset"]`; `rich_text` declares `["textType.search"]`;
+(ADR-0027): a type whose settings or value need an adapter capability the
+Consumer has not provided is hidden, never degraded. `reference`,
+`single_reference` (and a type minted with `createReferencePlugin`) declare
+`requiresAdapters: ["blueprint.search:reference_target", "reference.search"]`,
+`fieldset` `["blueprint.search:fieldset"]`; `rich_text` declares
+`["textType.search"]`, `media` `["media"]` and `lookup` `["lookup"]`;
 and a Virtual Table offers its linked Row Spec only with
 `blueprint.search:row_spec`, embedded otherwise. A purpose capability holds
 when `adapters.blueprint` has `search` and its optional `purposes` (absent:
@@ -73,7 +74,8 @@ readable (ADR-0027, amended). Every picker hides the same types — the
 canvas's, a Row Spec's, a Reference Spec's — and a bare `TypePicker` outside a
 provider offers none of them unless handed `adapters` of its own. Hiding narrows the picker only: a stored Field of
 such a type still renders, validates and saves as it was, and its setting
-says the application has no source for it, showing what is stored.
+says the application has no source for it, showing what is stored — as does
+the value control of a type hidden for its value, in the form.
 
 The provider's `plugins` registry and the `plugins` prop passed to
 `SpecEditor` must be **the same set**. They serve different jobs (the

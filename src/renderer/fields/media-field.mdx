@@ -104,7 +104,7 @@ Restricted to image files (JPEG, PNG, WebP) with `max_items: 1`. The upload dial
 
 ### No Adapter
 
-When no media adapter is configured, the field shows a "Media adapter not configured" message.
+When no media adapter is configured, the field shows a "Media adapter not configured" message in place of any input, and below it the stored value as read mode shows it. The type picker does not offer `media` to such a Consumer at all (ADR-0027, amended), so only a Field stored before is ever drawn this way.
 
 <Canvas of={Stories.NoAdapter} />
 

@@ -131,7 +131,10 @@ its id on screen. The stored value is never rewritten in either case.
 
 A field naming a Source nobody registered says so and names the id, rather than
 throwing — the same way a missing reference adapter degrades. A field naming no
-Source at all says that instead, because the two are different mistakes.
+Source at all says that instead, because the two are different mistakes. Either
+way the stored id stays on screen below the note, and no input is offered. The
+type picker offers `lookup` only where at least one Source is registered
+(ADR-0027, amended).
 
 <Canvas of={Stories.SourceNotRegistered} />
 

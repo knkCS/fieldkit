@@ -32,6 +32,18 @@ function blueprintAdapters(): FieldKitAdapters {
 	};
 }
 
+/** Every Adapter, so a type missing from a picker is missing for its
+ * Position, never because the Consumer cannot serve it (ADR-0027, amended). */
+function servingAdapters(): FieldKitAdapters {
+	return {
+		...blueprintAdapters(),
+		textType: { get: vi.fn(), search: vi.fn() },
+		reference: { search: vi.fn(), fetch: vi.fn() },
+		media: { upload: vi.fn() },
+		lookup: { "layout:stylesheet": { search: vi.fn() } },
+	};
+}
+
 /** The Field under configuration: a 'line items' table, the neutral example. */
 function lineItems(
 	settings: VirtualTableSettings | null = {},
@@ -166,17 +178,18 @@ describe("VirtualTableSettingsEditor — choosing the Row Spec", () => {
 describe("VirtualTableSettingsEditor — authoring an embedded Row Spec", () => {
 	it("offers only the flat value types a Row Spec may hold", async () => {
 		const user = userEvent.setup();
-		// A Consumer that can search Blueprints, so single_reference — a flat
-		// value type that needs one (ADR-0027) — is on offer at all.
-		renderEditor({ adapters: blueprintAdapters() });
+		// A Consumer with every Adapter, so the flat value types that need one
+		// (ADR-0027, amended) — single_reference, media, lookup — are on offer
+		// at all, and whatever is missing is missing for its Position.
+		renderEditor({ adapters: servingAdapters() });
 
 		await user.click(screen.getByLabelText("Add row field"));
 
 		// A flat value type is on offer…
 		expect(await screen.findByTestId("type-option-text")).toBeInTheDocument();
-		expect(
-			screen.getByTestId("type-option-single_reference"),
-		).toBeInTheDocument();
+		for (const id of ["single_reference", "media", "lookup"]) {
+			expect(screen.getByTestId(`type-option-${id}`)).toBeInTheDocument();
+		}
 		// …and neither a container nor a Marker is: a second level under one
 		// cell, or a Tab/Card inside a row (ADR-0017).
 		for (const id of [

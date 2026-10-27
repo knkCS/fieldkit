@@ -22,6 +22,7 @@ import {
 	useResolvedMedia,
 } from "../hooks/use-resolved-media";
 import { useFieldKit } from "../provider";
+import { NoSourceField } from "./no-source-field";
 
 /** An asset as the picker offers it: anker's option, with the asset kept so
  * a pick names itself without a `resolve` round trip. */
@@ -147,13 +148,11 @@ export function MediaField({ field, readOnly }: FieldProps<MediaSettings>) {
 
 	if (!mediaAdapter) {
 		return (
-			<FormField name={accessor} label={config.name} readOnly={readOnly}>
-				{() => (
-					<Text color="fg.muted" fontSize="sm">
-						Media adapter not configured
-					</Text>
-				)}
-			</FormField>
+			<NoSourceField
+				field={field}
+				readOnly={readOnly}
+				message="Media adapter not configured"
+			/>
 		);
 	}
 

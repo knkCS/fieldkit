@@ -17,6 +17,7 @@ import type { FieldProps } from "../../schema/plugin";
 import type { LookupItem } from "../adapters";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { useFieldKit } from "../provider";
+import { NoSourceField } from "./no-source-field";
 
 /**
  * A Source's item as the select sees it. `id` is the value and `label` is what
@@ -199,27 +200,21 @@ export function LookupField({ field, readOnly }: FieldProps<LookupSettings>) {
 	);
 
 	if (!source) {
+		// Two different mistakes, said apart. A Field that names no Source was
+		// never finished; a Field naming one nobody registered is a Consumer
+		// wiring gap, and only naming the id makes it findable. Neither throws —
+		// a missing adapter degrades visibly (ADR-0009) — and the stored id stays
+		// on screen (ADR-0027, amended).
 		return (
-			<FormField
-				name={accessor}
-				label={config.name}
-				helperText={config.instructions || undefined}
-				required={config.required}
+			<NoSourceField
+				field={field}
 				readOnly={readOnly}
-			>
-				{() => (
-					<Text color="fg.muted" fontSize="sm">
-						{/* Two different mistakes, said apart. A Field that names no
-						    Source was never finished; a Field naming one nobody
-						    registered is a Consumer wiring gap, and only naming the id
-						    makes it findable. Neither throws — a missing adapter
-						    degrades visibly (ADR-0009). */}
-						{sourceId
-							? `Lookup source "${sourceId}" is not registered`
-							: "No lookup source configured"}
-					</Text>
-				)}
-			</FormField>
+				message={
+					sourceId
+						? `Lookup source "${sourceId}" is not registered`
+						: "No lookup source configured"
+				}
+			/>
 		);
 	}
 

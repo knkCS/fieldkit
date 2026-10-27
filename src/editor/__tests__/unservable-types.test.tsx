@@ -1,7 +1,8 @@
 // src/editor/__tests__/unservable-types.test.tsx
 //
 // ADR-0027: a Field Type a Consumer cannot serve is hidden, never degraded.
-// Each type declares the Adapter capabilities its settings need; SpecEditor's
+// Each type declares the Adapter capabilities its settings — and, since the
+// amendment (#356), its value — need; SpecEditor's
 // type picker offers it only where the Consumer's Adapters meet them, a
 // Virtual Table offers its linked Row Spec only with a Blueprint search, and
 // a Field of a hidden type that is already stored still renders, reads, and
@@ -40,6 +41,16 @@ const blueprintWithoutSearch = (): NonNullable<
 	getData: vi.fn(),
 });
 
+/** A Content source: what a Reference's value is picked from. */
+const contentSource = (): NonNullable<FieldKitAdapters["reference"]> => ({
+	search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+	fetch: vi.fn().mockResolvedValue([]),
+});
+
+const lookupSource = () => ({
+	search: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+});
+
 const ADAPTERS = {
 	none: (): FieldKitAdapters => ({}),
 	blueprintWithoutSearch: (): FieldKitAdapters => ({
@@ -57,6 +68,30 @@ const ADAPTERS = {
 	both: (): FieldKitAdapters => ({
 		blueprint: { ...blueprintWithoutSearch(), search: page },
 		textType: { get: vi.fn(), search: page },
+	}),
+	/** A Content source with no Blueprint search: the targets cannot be
+	 * picked. */
+	referenceOnly: (): FieldKitAdapters => ({ reference: contentSource() }),
+	/** A Blueprint search with no Content source: the targets can be picked,
+	 * the value cannot (#356). */
+	blueprintSearchAndReference: (): FieldKitAdapters => ({
+		blueprint: { ...blueprintWithoutSearch(), search: page },
+		reference: contentSource(),
+	}),
+	media: (): FieldKitAdapters => ({
+		media: { upload: vi.fn() },
+	}),
+	lookupEmpty: (): FieldKitAdapters => ({ lookup: {} }),
+	lookup: (): FieldKitAdapters => ({
+		lookup: { "layout:stylesheet": lookupSource() },
+	}),
+	/** Every Adapter: what blueprinthub and contenthub provide. */
+	all: (): FieldKitAdapters => ({
+		blueprint: { ...blueprintWithoutSearch(), search: page },
+		textType: { get: vi.fn(), search: page },
+		reference: contentSource(),
+		media: { upload: vi.fn(), browse: vi.fn(), resolve: vi.fn() },
+		lookup: { "layout:stylesheet": lookupSource() },
 	}),
 };
 
@@ -104,13 +139,25 @@ interface TypeCase {
 const TYPES: TypeCase[] = [
 	{
 		type: "reference",
-		unmet: ["none", "blueprintWithoutSearch", "textTypeSearch"],
-		met: "blueprintSearch",
+		unmet: [
+			"none",
+			"blueprintWithoutSearch",
+			"textTypeSearch",
+			"blueprintSearch",
+			"referenceOnly",
+		],
+		met: "blueprintSearchAndReference",
 	},
 	{
 		type: "single_reference",
-		unmet: ["none", "blueprintWithoutSearch", "textTypeSearch"],
-		met: "blueprintSearch",
+		unmet: [
+			"none",
+			"blueprintWithoutSearch",
+			"textTypeSearch",
+			"blueprintSearch",
+			"referenceOnly",
+		],
+		met: "blueprintSearchAndReference",
 	},
 	{
 		type: "fieldset",
@@ -121,6 +168,16 @@ const TYPES: TypeCase[] = [
 		type: "rich_text",
 		unmet: ["none", "textTypeWithoutSearch", "blueprintSearch"],
 		met: "textTypeSearch",
+	},
+	{
+		type: "media",
+		unmet: ["none", "blueprintSearchAndReference", "lookup"],
+		met: "media",
+	},
+	{
+		type: "lookup",
+		unmet: ["none", "lookupEmpty", "media"],
+		met: "lookup",
 	},
 ];
 
@@ -140,6 +197,22 @@ describe.each(TYPES)("the type picker and $type", ({ type, unmet, met }) => {
 		await openTypePicker();
 
 		expect(offered(type)).not.toBeNull();
+	});
+});
+
+describe("the type picker with every Adapter", () => {
+	it("offers every built-in type: blueprinthub and contenthub lose nothing", async () => {
+		renderEditor([textField], ADAPTERS.all());
+		await openTypePicker();
+
+		// Every type a root Field may be, in an editor naming no Consumer —
+		// bar the two Markers, which the toolbar inserts, never the picker.
+		for (const plugin of plugins) {
+			if (plugin.id === "section" || plugin.id === "card") continue;
+			if (!plugin.positions || plugin.positions.includes("root")) {
+				expect(offered(plugin.id), plugin.id).not.toBeNull();
+			}
+		}
 	});
 });
 
@@ -166,7 +239,7 @@ describe("TypePicker on its own", () => {
 					<TypePicker
 						plugins={[text, reference]}
 						onSelect={vi.fn()}
-						adapters={ADAPTERS.blueprintSearch()}
+						adapters={ADAPTERS.blueprintSearchAndReference()}
 					/>
 				</FieldKitProvider>
 			</ChakraProvider>,
@@ -177,7 +250,7 @@ describe("TypePicker on its own", () => {
 	it("offers it inside a provider whose adapters meet it", () => {
 		render(
 			<ChakraProvider value={defaultSystem}>
-				<FieldKitProvider plugins={plugins} adapters={ADAPTERS.both()}>
+				<FieldKitProvider plugins={plugins} adapters={ADAPTERS.all()}>
 					<TypePicker plugins={[text, reference]} onSelect={vi.fn()} />
 				</FieldKitProvider>
 			</ChakraProvider>,

@@ -8,6 +8,8 @@ import { boolean, number, section, select, text } from "../schema/builders";
 import { builtInFieldTypes } from "../schema/field-types";
 import type { FieldTypePlugin } from "../schema/plugin";
 import type { Field, Schema } from "../schema/types";
+import { createFakeLookupSource } from "../test/fake-lookup-source";
+import { createFakeReferenceAdapter } from "../test/fake-reference-adapter";
 import { SpecEditor } from "./spec-editor";
 
 /* ------------------------------------------------------------------ */
@@ -202,6 +204,21 @@ const blueprintAdapters: FieldKitAdapters = {
 		resolve: async ({ ids }) =>
 			STORY_TEXT_TYPES.filter((textType) => ids.includes(textType.id)),
 	},
+	// And a source for every value that needs one — Contents, media, one
+	// Lookup Source — or the picker would hide reference, single_reference,
+	// media and lookup (ADR-0027, amended: by value).
+	reference: createFakeReferenceAdapter(),
+	// Inline rather than the test fake, which is built on vitest's `vi`.
+	media: {
+		upload: async (file) => ({
+			id: `story-${file.name}`,
+			filename: file.name,
+			url: `https://media.example/${file.name}`,
+			mime_type: file.type,
+			size: file.size,
+		}),
+	},
+	lookup: { "layout:stylesheet": createFakeLookupSource() },
 };
 
 const failingBlueprintAdapters: FieldKitAdapters = {
@@ -294,8 +311,8 @@ function StoryWrapper({
 	plugins?: FieldTypePlugin[];
 	/** Left off by most stories — the editor needs no adapter until a Fieldset
 	 * has to be resolved for Preview. Without one, the type picker hides the
-	 * types a Consumer cannot serve: reference, single_reference, fieldset and
-	 * rich_text (ADR-0027). */
+	 * types a Consumer cannot serve: reference, single_reference, fieldset,
+	 * rich_text, media and lookup (ADR-0027, amended). */
 	adapters?: FieldKitAdapters;
 }) {
 	const [committed, setCommitted] = useState<Schema>(initialSchema);

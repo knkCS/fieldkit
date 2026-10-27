@@ -14,6 +14,16 @@ import type { FieldTypePlugin } from "../plugin";
 
 const search = async () => ({ items: [] });
 
+/** Every Adapter, each with what its capability reads: the Consumer
+ * blueprinthub and contenthub are. */
+const ALL_ADAPTERS = {
+	blueprint: { search },
+	textType: { search },
+	reference: { search },
+	media: { upload: async () => ({}) },
+	lookup: { printer: { search } },
+};
+
 const plugin = (id: string) =>
 	builtInFieldTypes.find((p) => p.id === id) as FieldTypePlugin;
 
@@ -31,6 +41,47 @@ describe("hasAdapterCapability", () => {
 		).toBe(false);
 		expect(
 			hasAdapterCapability({ textType: { search } }, "textType.search"),
+		).toBe(true);
+	});
+});
+
+describe("a capability a value needs (ADR-0027, amended: by value)", () => {
+	it("names reference.search, media and lookup among the capabilities", () => {
+		for (const capability of ["reference.search", "media", "lookup"] as const) {
+			expect(ADAPTER_CAPABILITIES).toContain(capability);
+		}
+	});
+
+	it("reference.search needs the reference Adapter AND its search", () => {
+		expect(hasAdapterCapability({}, "reference.search")).toBe(false);
+		expect(hasAdapterCapability({ reference: {} }, "reference.search")).toBe(
+			false,
+		);
+		expect(
+			hasAdapterCapability({ reference: { search } }, "reference.search"),
+		).toBe(true);
+		// A Blueprint search is no Content source.
+		expect(
+			hasAdapterCapability({ blueprint: { search } }, "reference.search"),
+		).toBe(false);
+	});
+
+	it("media needs the media Adapter's upload", () => {
+		expect(hasAdapterCapability({}, "media")).toBe(false);
+		expect(hasAdapterCapability({ media: {} }, "media")).toBe(false);
+		expect(hasAdapterCapability({ media: { upload: search } }, "media")).toBe(
+			true,
+		);
+	});
+
+	it("lookup needs at least one Source that searches", () => {
+		expect(hasAdapterCapability({}, "lookup")).toBe(false);
+		expect(hasAdapterCapability({ lookup: {} }, "lookup")).toBe(false);
+		expect(hasAdapterCapability({ lookup: { printer: {} } }, "lookup")).toBe(
+			false,
+		);
+		expect(
+			hasAdapterCapability({ lookup: { printer: { search } } }, "lookup"),
 		).toBe(true);
 	});
 });
@@ -103,28 +154,30 @@ describe("a Blueprint capability for a purpose (ADR-0027, amended)", () => {
 
 describe("the built-in types' requirements", () => {
 	it.each([
-		["reference", "blueprint.search:reference_target"],
-		["single_reference", "blueprint.search:reference_target"],
-		["fieldset", "blueprint.search:fieldset"],
-		["rich_text", "textType.search"],
-	])("%s requires %s", (id, capability) => {
-		expect(plugin(id).requiresAdapters).toEqual([capability]);
+		["reference", ["blueprint.search:reference_target", "reference.search"]],
+		[
+			"single_reference",
+			["blueprint.search:reference_target", "reference.search"],
+		],
+		["fieldset", ["blueprint.search:fieldset"]],
+		["rich_text", ["textType.search"]],
+		["media", ["media"]],
+		["lookup", ["lookup"]],
+	])("%s requires %j", (id, capabilities) => {
+		expect(plugin(id).requiresAdapters).toEqual(capabilities);
 	});
 
-	it("a minted reference type requires a Blueprint search too", () => {
+	it("a minted reference type requires a Blueprint and a Content search too", () => {
 		const minted = createReferencePlugin({ id: "related", name: "Related" });
 		expect(servedByAdapters(minted, {})).toBe(false);
-		expect(servedByAdapters(minted, { blueprint: { search } })).toBe(true);
-	});
-
-	it("every other built-in type needs nothing", () => {
-		const needing = builtInFieldTypes
-			.filter((p) => !servedByAdapters(p, {}))
-			.map((p) => p.id)
-			.sort();
-		expect(needing).toEqual(
-			["fieldset", "reference", "rich_text", "single_reference"].sort(),
-		);
+		expect(servedByAdapters(minted, { blueprint: { search } })).toBe(false);
+		expect(servedByAdapters(minted, { reference: { search } })).toBe(false);
+		expect(
+			servedByAdapters(minted, {
+				blueprint: { search },
+				reference: { search },
+			}),
+		).toBe(true);
 	});
 
 	const hiddenWith = (adapters: Parameters<typeof servedByAdapters>[1]) =>
@@ -133,37 +186,76 @@ describe("the built-in types' requirements", () => {
 			.map((p) => p.id)
 			.sort();
 
+	it("every other built-in type needs nothing", () => {
+		expect(hiddenWith({})).toEqual(
+			[
+				"fieldset",
+				"lookup",
+				"media",
+				"reference",
+				"rich_text",
+				"single_reference",
+			].sort(),
+		);
+	});
+
+	it("every Adapter serves every built-in type: blueprinthub and contenthub", () => {
+		expect(hiddenWith(ALL_ADAPTERS)).toEqual([]);
+	});
+
+	it("a Blueprint search without a reference Adapter hides the reference types", () => {
+		// What #356 found: a Consumer with `blueprint.search` and no Content
+		// source was offered a Reference nobody filling in the form could fill.
+		const { reference: _reference, ...adapters } = ALL_ADAPTERS;
+		expect(hiddenWith(adapters)).toEqual(["reference", "single_reference"]);
+	});
+
+	it("no media Adapter hides media, and no Source hides lookup", () => {
+		const { media: _media, ...noMedia } = ALL_ADAPTERS;
+		expect(hiddenWith(noMedia)).toEqual(["media"]);
+		expect(hiddenWith({ ...ALL_ADAPTERS, lookup: {} })).toEqual(["lookup"]);
+	});
+
 	it("a Blueprint search with no purposes declared serves what it always did", () => {
-		expect(hiddenWith({ blueprint: { search } })).toEqual(["rich_text"]);
+		expect(hiddenWith(ALL_ADAPTERS)).toEqual([]);
+		expect(hiddenWith({ ...ALL_ADAPTERS, blueprint: { search } })).toEqual([]);
 	});
 
 	it("a Blueprint search for reference targets only hides the Fieldset", () => {
 		expect(
-			hiddenWith({ blueprint: { search, purposes: ["reference_target"] } }),
-		).toEqual(["fieldset", "rich_text"]);
+			hiddenWith({
+				...ALL_ADAPTERS,
+				blueprint: { search, purposes: ["reference_target"] },
+			}),
+		).toEqual(["fieldset"]);
 	});
 
 	it("a Blueprint search for Fieldsets only hides the reference types", () => {
 		expect(
-			hiddenWith({ blueprint: { search, purposes: ["fieldset"] } }),
-		).toEqual(["reference", "rich_text", "single_reference"]);
+			hiddenWith({
+				...ALL_ADAPTERS,
+				blueprint: { search, purposes: ["fieldset"] },
+			}),
+		).toEqual(["reference", "single_reference"]);
 	});
 
 	it("a Blueprint search declaring no purpose at all serves none", () => {
-		expect(hiddenWith({ blueprint: { search, purposes: [] } })).toEqual(
-			["fieldset", "reference", "rich_text", "single_reference"].sort(),
-		);
+		expect(
+			hiddenWith({ ...ALL_ADAPTERS, blueprint: { search, purposes: [] } }),
+		).toEqual(["fieldset", "reference", "single_reference"].sort());
 	});
 
 	it("a minted reference type follows the reference_target purpose", () => {
 		const minted = createReferencePlugin({ id: "related", name: "Related" });
 		expect(
 			servedByAdapters(minted, {
+				reference: { search },
 				blueprint: { search, purposes: ["reference_target"] },
 			}),
 		).toBe(true);
 		expect(
 			servedByAdapters(minted, {
+				reference: { search },
 				blueprint: { search, purposes: ["fieldset"] },
 			}),
 		).toBe(false);
