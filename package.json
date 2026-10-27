@@ -1,6 +1,6 @@
 {
   "name": "@knkcs/fieldkit",
-  "version": "0.18.0-rc.7",
+  "version": "0.18.0-rc.8",
   "description": "Specification-driven field system for defining, rendering, and tabulating structured data",
   "repository": {
     "type": "git",
