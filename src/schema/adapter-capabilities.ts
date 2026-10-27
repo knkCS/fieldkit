@@ -17,22 +17,24 @@ import type { AdapterCapability, FieldTypePlugin } from "./plugin";
  * Fieldkit filters nothing itself — it has no notion of a Blueprint kind
  * (ADR-0002). The purpose is only what it tells the Consumer.
  */
-export type BlueprintPurpose = "reference_target" | "fieldset" | "row_spec";
+export type BlueprintPurpose = (typeof BLUEPRINT_PURPOSES)[number];
 
 /** Every {@link BlueprintPurpose}: what a `blueprint` Adapter that declares
- * no `purposes` serves. */
-export const BLUEPRINT_PURPOSES: readonly BlueprintPurpose[] = [
+ * no `purposes` serves. The one list the purpose types are derived from. */
+export const BLUEPRINT_PURPOSES = [
 	"reference_target",
 	"fieldset",
 	"row_spec",
-];
+] as const;
+
+/** The capability a setting choosing for one {@link BlueprintPurpose}
+ * needs. */
+export type BlueprintPurposeCapability = `blueprint.search:${BlueprintPurpose}`;
 
 /** Every Adapter capability a Field Type may require (ADR-0027, amended). */
 export const ADAPTER_CAPABILITIES: readonly AdapterCapability[] = [
 	"blueprint.search",
-	"blueprint.search:reference_target",
-	"blueprint.search:fieldset",
-	"blueprint.search:row_spec",
+	...BLUEPRINT_PURPOSES.map(blueprintSearchFor),
 	"textType.search",
 ];
 
@@ -49,9 +51,14 @@ export interface AdapterCapabilitySource {
 /** The capability a setting choosing for `purpose` needs. */
 export function blueprintSearchFor(
 	purpose: BlueprintPurpose,
-): `blueprint.search:${BlueprintPurpose}` {
+): BlueprintPurposeCapability {
 	return `blueprint.search:${purpose}`;
 }
+
+/** The purpose a purpose capability names — looked up, never parsed. */
+const PURPOSE_OF = new Map<AdapterCapability, BlueprintPurpose>(
+	BLUEPRINT_PURPOSES.map((purpose) => [blueprintSearchFor(purpose), purpose]),
+);
 
 /** Whether the `blueprint` Adapter can search, for any purpose. */
 function canSearchBlueprints(adapters: AdapterCapabilitySource): boolean {
@@ -85,23 +92,20 @@ export function hasAdapterCapability(
 	adapters: AdapterCapabilitySource,
 	capability: AdapterCapability,
 ): boolean {
+	const purpose = PURPOSE_OF.get(capability);
+	if (purpose) {
+		return (
+			canSearchBlueprints(adapters) &&
+			!declinesBlueprintPurpose(adapters, purpose)
+		);
+	}
 	switch (capability) {
 		case "blueprint.search":
 			return canSearchBlueprints(adapters);
-		case "blueprint.search:reference_target":
-		case "blueprint.search:fieldset":
-		case "blueprint.search:row_spec": {
-			const purpose = capability.slice(
-				"blueprint.search:".length,
-			) as BlueprintPurpose;
-			return (
-				canSearchBlueprints(adapters) &&
-				!declinesBlueprintPurpose(adapters, purpose)
-			);
-		}
 		case "textType.search":
 			return typeof adapters.textType?.search === "function";
 	}
+	return false;
 }
 
 /**

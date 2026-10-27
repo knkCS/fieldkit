@@ -8,6 +8,7 @@ export {
 	type AdapterCapabilitySource,
 	BLUEPRINT_PURPOSES,
 	type BlueprintPurpose,
+	type BlueprintPurposeCapability,
 	blueprintSearchFor,
 	declinesBlueprintPurpose,
 	hasAdapterCapability,

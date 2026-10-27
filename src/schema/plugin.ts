@@ -1,6 +1,8 @@
 // src/schema/plugin.ts
+
 import type { ComponentType, ReactNode } from "react";
 import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
+import type { BlueprintPurposeCapability } from "./adapter-capabilities";
 import type { Field } from "./types";
 import type { ValidationKey } from "./validations";
 
@@ -39,9 +41,7 @@ export type Consumer = "blueprint" | "task" | "form";
  */
 export type AdapterCapability =
 	| "blueprint.search"
-	| "blueprint.search:reference_target"
-	| "blueprint.search:fieldset"
-	| "blueprint.search:row_spec"
+	| BlueprintPurposeCapability
 	| "textType.search";
 
 /**

@@ -49,9 +49,10 @@ type RowSpecMode = "linked" | "embedded";
  * **Linked is offered only where the Consumer's blueprint adapter can
  * `search` for the `row_spec` purpose** — the Row Spec's Blueprint is picked
  * through it, and without it there is nothing to pick from (ADR-0027,
- * amended) — and on a Field that already links
- * one, so an adapter going missing never silently misdescribes a saved Field. Embedded needs no adapter at all,
- * which is what keeps `virtual_table` available in every context.
+ * amended) — and on a Field that already links one, so an adapter going
+ * missing never silently misdescribes a saved Field. Embedded needs no
+ * adapter at all, which is what keeps `virtual_table` available in every
+ * context.
  *
  * Adding a row Field is the ordinary type picker over the flat value types a
  * Row Spec may hold — the `row` Position each plugin declares, never retyped
