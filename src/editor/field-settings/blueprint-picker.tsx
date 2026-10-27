@@ -19,7 +19,11 @@ import type {
 } from "../../renderer/adapters";
 import { useAdapterErrorReporter } from "../../renderer/hooks/use-adapter-error-reporter";
 import { useFieldKit } from "../../renderer/provider";
-import { hasAdapterCapability } from "../../schema/adapter-capabilities";
+import {
+	blueprintSearchFor,
+	declinesBlueprintPurpose,
+	hasAdapterCapability,
+} from "../../schema/adapter-capabilities";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
 /** One choice as a picker source names it: what a setting stores, and what
@@ -46,7 +50,9 @@ export interface PickerSource {
 /**
  * The `blueprint` Adapter as a {@link PickerSource} for one setting: its
  * `search` told which `purpose` is asking, so one Adapter serves every
- * Blueprint picker in the panel. `undefined` without `search`.
+ * Blueprint picker in the panel. `undefined` without `search`, and for a
+ * purpose the Adapter's `purposes` leave out (ADR-0027, amended) — `search`
+ * is never asked for a purpose it declined.
  *
  * Called on the Adapter rather than plucked off it: a Consumer may implement
  * `search` as a method that needs its own `this`.
@@ -58,7 +64,10 @@ export function useBlueprintSource(
 	const blueprint = adapters.blueprint;
 	// The one test for "can serve", shared with the type picker, so a setting
 	// shows "no source" exactly where its type would have been hidden.
-	if (!blueprint || !hasAdapterCapability(adapters, "blueprint.search")) {
+	if (
+		!blueprint ||
+		!hasAdapterCapability(adapters, blueprintSearchFor(purpose))
+	) {
 		return undefined;
 	}
 	return {
@@ -68,6 +77,21 @@ export function useBlueprintSource(
 			? async (query) => (await blueprint.resolve?.(query)) ?? []
 			: undefined,
 	};
+}
+
+/**
+ * Whether the Consumer's `blueprint` Adapter searches but declines this
+ * purpose (its `purposes` leave it out). Such a setting is **hidden** — the
+ * Consumer chose not to serve it, as it may choose not to serve a type —
+ * rather than shown as "no source", which is what a Consumer without any
+ * Blueprint search sees. A stored value of a hidden setting is still shown,
+ * through the picker's no-source state, so it stays readable (ADR-0027,
+ * amended).
+ */
+export function useBlueprintPurposeDeclined(
+	purpose: BlueprintPurpose,
+): boolean {
+	return declinesBlueprintPurpose(useFieldKit().adapters, purpose);
 }
 
 /** react-select's option shape (anker's `BaseOption`): `id` is the value,

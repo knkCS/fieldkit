@@ -4,7 +4,11 @@ import {
 	type ReferenceBlueprint,
 	referenceBlueprints,
 } from "../../schema/reference";
-import { BlueprintPicker, useBlueprintSource } from "./blueprint-picker";
+import {
+	BlueprintPicker,
+	useBlueprintPurposeDeclined,
+	useBlueprintSource,
+} from "./blueprint-picker";
 
 export interface ReferenceBlueprintsEditorProps {
 	/** The Field being configured, for the pickers' error reports. */
@@ -42,6 +46,10 @@ export function ReferenceBlueprintsEditor({
 	// Reference as a Fieldset's is — so it asks with `fieldset` (ADR-0027).
 	const targetSource = useBlueprintSource("reference_target");
 	const specSource = useBlueprintSource("fieldset");
+	// A Consumer that declines `fieldset` (taskhub: a task type never links a
+	// released part) is not offered a linked Reference Spec at all — only an
+	// entry that already links one shows it, readable (ADR-0027, amended).
+	const specDeclined = useBlueprintPurposeDeclined("fieldset");
 	const entries = referenceBlueprints({ blueprints: value });
 
 	function setBlueprints(ids: string[]) {
@@ -77,20 +85,22 @@ export function ReferenceBlueprintsEditor({
 				testId={testId}
 				source={targetSource}
 			/>
-			{entries.map((entry) => (
-				<BlueprintPicker
-					key={entry.blueprint}
-					fieldId={fieldId}
-					settingsKey="blueprints"
-					label={`Reference Spec for ${entry.blueprint}`}
-					helperText="A blueprint release whose fields replace the Reference Spec for references to this blueprint. Leave empty to use the Reference Spec below."
-					value={entry.spec_blueprint ? [entry.spec_blueprint] : []}
-					onChange={([release]) => setLinked(entry.blueprint, release)}
-					placeholder="The Reference Spec below"
-					testId={`${testId}-spec-${entry.blueprint}`}
-					source={specSource}
-				/>
-			))}
+			{entries
+				.filter((entry) => !specDeclined || entry.spec_blueprint)
+				.map((entry) => (
+					<BlueprintPicker
+						key={entry.blueprint}
+						fieldId={fieldId}
+						settingsKey="blueprints"
+						label={`Reference Spec for ${entry.blueprint}`}
+						helperText="A blueprint release whose fields replace the Reference Spec for references to this blueprint. Leave empty to use the Reference Spec below."
+						value={entry.spec_blueprint ? [entry.spec_blueprint] : []}
+						onChange={([release]) => setLinked(entry.blueprint, release)}
+						placeholder="The Reference Spec below"
+						testId={`${testId}-spec-${entry.blueprint}`}
+						source={specSource}
+					/>
+				))}
 		</Stack>
 	);
 }

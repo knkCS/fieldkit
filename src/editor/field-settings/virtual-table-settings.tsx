@@ -11,7 +11,11 @@ import type { Field } from "../../schema/types";
 import { virtualTableRowSpecKind } from "../../schema/virtual-table-row-spec";
 import { createField } from "../draft-ops";
 import { TypePickerPopover } from "../type-picker-popover";
-import { BlueprintPicker, useBlueprintSource } from "./blueprint-picker";
+import {
+	BlueprintPicker,
+	useBlueprintPurposeDeclined,
+	useBlueprintSource,
+} from "./blueprint-picker";
 import { CapInput } from "./cap-input";
 import { SettingLockReason, useSettingLock } from "./setting-lock";
 
@@ -43,8 +47,9 @@ type RowSpecMode = "linked" | "embedded";
  * saved with both is one `validateSpec()` refuses.
  *
  * **Linked is offered only where the Consumer's blueprint adapter can
- * `search`** — the Row Spec's Blueprint is picked through it, and without it
- * there is nothing to pick from (ADR-0027) — and on a Field that already links
+ * `search` for the `row_spec` purpose** — the Row Spec's Blueprint is picked
+ * through it, and without it there is nothing to pick from (ADR-0027,
+ * amended) — and on a Field that already links
  * one, so an adapter going missing never silently misdescribes a saved Field. Embedded needs no adapter at all,
  * which is what keeps `virtual_table` available in every context.
  *
@@ -72,6 +77,10 @@ export function VirtualTableSettingsEditor({
 	// removing the row Fields an embedded one is made of (ADR-0011).
 	const modeLock = useSettingLock(BLUEPRINT_SETTINGS_KEY);
 	const rowSpecSource = useBlueprintSource("row_spec");
+	// Declined by purpose rather than missing: the Consumer has a Blueprint
+	// search and chose not to serve linked Row Specs, so there is no adapter
+	// to tell the Author about (ADR-0027, amended).
+	const rowSpecDeclined = useBlueprintPurposeDeclined("row_spec");
 
 	// CONTEXT.md is deliberate about this word: a Row Spec holds **Fields**,
 	// and a "column" is how one of them is shown. So Fields is what this editor
@@ -192,7 +201,7 @@ export function VirtualTableSettingsEditor({
 						</Radio>
 					</Stack>
 				</RadioGroup>
-				{!offersLinked && (
+				{!offersLinked && !rowSpecDeclined && (
 					<Text fontSize="xs" color="fg.muted" mt="1">
 						Linking a blueprint needs a blueprint adapter.
 					</Text>

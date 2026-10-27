@@ -6,6 +6,10 @@ export { ACCESSOR_MAX_LENGTH, accessorFromName } from "./accessor";
 export {
 	ADAPTER_CAPABILITIES,
 	type AdapterCapabilitySource,
+	BLUEPRINT_PURPOSES,
+	type BlueprintPurpose,
+	blueprintSearchFor,
+	declinesBlueprintPurpose,
 	hasAdapterCapability,
 	servedByAdapters,
 } from "./adapter-capabilities";

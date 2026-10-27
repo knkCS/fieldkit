@@ -87,7 +87,8 @@ export const fieldsetPlugin: FieldTypePlugin<FieldsetSettings> = {
 	},
 
 	consumers: ["blueprint", "task", "form"],
-	// The Blueprint is picked through the Adapter's search (ADR-0027).
-	requiresAdapters: ["blueprint.search"],
+	// The Blueprint is picked through the Adapter's search, for the purpose
+	// `fieldset` (ADR-0027, amended).
+	requiresAdapters: ["blueprint.search:fieldset"],
 	positions: ["root", "block_type"],
 };

@@ -245,9 +245,10 @@ function TypePickerInner({
 
 /**
  * The field-type picker. Offers only the Field Types the Consumer can serve
- * (ADR-0027): a type whose `requiresAdapters` the Adapters do not meet is
- * hidden — `reference`, `single_reference` and `fieldset` without
- * `blueprint.search`, `rich_text` without `textType.search`. The Adapters are
+ * (ADR-0027, amended): a type whose `requiresAdapters` the Adapters do not
+ * meet is hidden — `reference` and `single_reference` without a Blueprint
+ * search serving `reference_target`, `fieldset` without one serving
+ * `fieldset`, `rich_text` without `textType.search`. The Adapters are
  * the provider's unless `adapters` says otherwise, so every picker in the
  * editor — the canvas's, a Row Spec's, a Reference Spec's — hides the same
  * types. Hiding narrows the picker only; a stored Field of such a type stays

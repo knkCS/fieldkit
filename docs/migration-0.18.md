@@ -224,6 +224,21 @@ What a value yields to contenthub's Content Graph and to search changes too:
   application has no source for it. To keep offering these types, implement
   `search`; to drop them, implement nothing. `servedByAdapters(plugin,
   adapters)` (from `/schema`) answers the same question for your own pickers.
+- **The `blueprint` Adapter may declare the purposes it serves** (ADR-0027,
+  amended, #399). `purposes?: BlueprintPurpose[]` on `adapters.blueprint`;
+  **absent means every purpose**, so nothing changes unless you declare it.
+  The built-in types now require a purpose-specific capability —
+  `reference`, `single_reference` and `createReferencePlugin` types
+  `blueprint.search:reference_target`, `fieldset`
+  `blueprint.search:fieldset` — and a Virtual Table's linked Row Spec needs
+  `row_spec`, a reference Field's linked Reference Spec (`spec_blueprint`)
+  `fieldset`. A setting whose purpose you leave out is hidden; a stored value
+  of it stays readable. The bare `blueprint.search` capability remains for
+  your own types. New exports from `/schema`: `BlueprintPurpose` (still
+  exported from `/renderer` too), `BLUEPRINT_PURPOSES`, `blueprintSearchFor`,
+  `declinesBlueprintPurpose`. To migrate: nothing, unless your publish refuses
+  some purposes — then declare the ones it serves (taskhub:
+  `purposes: ["reference_target"]`).
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the
