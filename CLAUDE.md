@@ -225,7 +225,7 @@ Backend-dependent features (reference lookup, media upload, blueprint data, text
 
 The org's shared ground is in [docs/conventions.md](./docs/conventions.md), with fieldkit's deviations marked **This repo**. These bind every change:
 
-- **Conventional Commits, always**: `type(scope): subject`. Commit types decide the next version and the changelog; fieldkit has no `release-please` yet, so a person reads them for a `chore(release)` commit and its `vX.Y.Z` + `go/vX.Y.Z` tags (`docs/releasing.md`; `publish-fieldkit.yml` publishes to npm) — a mislabelled commit still ships a wrong version. The shared commitlint workflow (`.github/workflows/commitlint.yml`) gates it on every PR.
+- **Conventional Commits, always**: `type(scope): subject`. Commit types decide the next version and the changelog; fieldkit has no `release-please` yet, so they are read for a `chore(release)` commit and its `vX.Y.Z` + `go/vX.Y.Z` tags (`docs/releasing.md`; `publish-fieldkit.yml` publishes to npm). An agent may push a release candidate's tags (`-rc.N`, npm `next`) once `npm run release -- tags` has passed; a final release's tags are a person's — a mislabelled commit still ships a wrong version. The shared commitlint workflow (`.github/workflows/commitlint.yml`) gates it on every PR.
   - **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
   - **Scopes:** `schema`, `editor`, `renderer`, `table`, `rich-text-spec`, or omit for cross-cutting changes
   - Keep the subject line under 72 characters, in the imperative mood ("add feature" not "added feature")

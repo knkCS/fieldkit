@@ -17,9 +17,10 @@
  *     On the release commit, once it is on main: checks it is one, and PRINTS
  *     the commands that tag it and push both tags.
  *
- * This script never creates or pushes a tag. Agents are blocked from pushing
- * release tags, and a pushed tag cannot be taken back, so a person runs the
- * printed commands.
+ * This script never creates or pushes a tag: a pushed tag cannot be taken
+ * back, so the printed commands are run deliberately — a release candidate's
+ * by a person or an agent, a final release's by a person only
+ * (docs/releasing.md).
  */
 
 import { execFileSync } from "node:child_process";

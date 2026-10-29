@@ -7,8 +7,17 @@ Both embed the same Catalogue, so "does a service know everything this
 Blueprint Release uses" stays a version comparison.
 
 `npm run release` prepares and checks a release. **It never creates or pushes
-a tag.** Agents are blocked from pushing release tags, and a pushed tag cannot
-be taken back, so the script prints the commands and a person runs them.
+a tag**: a pushed tag cannot be taken back, so the script prints the commands
+and somebody runs them deliberately. Who may run them depends on the version:
+
+- **A release candidate** (`X.Y.Z-rc.N`) — a person, or an agent working
+  unattended, once `npm run release -- tags` has passed its checks on the
+  release commit. A candidate publishes under npm's `next` dist-tag, so
+  `latest` does not move, and a broken one is superseded by `-rc.N+1`, never
+  retracted. This is what lets a consumer's overnight run adopt a fieldkit
+  change without waiting for a person.
+- **A final release** (`X.Y.Z`) — a person only. It freezes the data contract
+  (`conformance/X.Y.Z/` binds every later fieldkit) and moves `latest`.
 
 ## Release notes
 
@@ -59,7 +68,7 @@ git tag -a go/v0.18.0-rc.1 <sha> -m "github.com/knkcs/fieldkit/go 0.18.0-rc.1"
 git push origin v0.18.0-rc.1 go/v0.18.0-rc.1
 ```
 
-A person runs them. The `v` tag runs `publish-fieldkit.yml`, which publishes a
+A person or an agent runs them (see above). The `v` tag runs `publish-fieldkit.yml`, which publishes a
 candidate under npm's `next` dist-tag, so `latest` does not move. Try the
 candidate in its consumers (`npm i @knkcs/fieldkit@next`,
 `go get github.com/knkcs/fieldkit/go@v0.18.0-rc.1`); cut `-rc.2` the same way
@@ -83,8 +92,8 @@ A final release also **freezes** its data contract: `prepare` copies
 `go/publishing/catalogue.json` as `catalogue.publishing.json`
 (`scripts/lib/catalogue-sections.ts`, ADR-0018). That folder is never edited or deleted, and `tags` refuses a
 release commit whose frozen folder does not match `unreleased/` and the
-Catalogue byte for byte. Then `npm run release -- tags`, and a person runs what
-it prints; the `v` tag publishes under `latest`.
+Catalogue byte for byte. Then `npm run release -- tags`, and a person — never an agent — runs
+what it prints; the `v` tag publishes under `latest`.
 
 Merge the release PR with a merge commit or a rebase, never a squash that folds
 it into other commits: the commit on `main` is the one tagged.
