@@ -199,9 +199,9 @@ function frozenCatalogues(
 /**
  * The commands that publish a release: both tags on the one release commit
  * (ADR-0018 — npm and the Go module share a version, so they share a commit
- * too), then one push. They are printed for a person to run, never run:
- * agents are blocked from pushing release tags, and a pushed tag is not taken
- * back.
+ * too), then one push. They are printed, never run here, because a pushed tag
+ * is not taken back: a release candidate's are run by a person or an agent, a
+ * final release's by a person only (docs/releasing.md).
  *
  * The `v` tag runs publish-fieldkit.yml (npm); the `go/v` tag is how the Go
  * proxy finds a version of a module that lives in the `go/` subdirectory.
