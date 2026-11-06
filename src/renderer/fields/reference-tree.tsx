@@ -75,6 +75,11 @@ import {
 	ReferenceInsertSpacer,
 	ReferenceInsertStrip,
 } from "./reference-insert-strip";
+import {
+	type ReferenceHrefFor,
+	ReferenceName,
+	referenceHref,
+} from "./reference-name";
 import { useSpringLoadedBranch } from "./use-spring-loaded-branch";
 
 /** Pixels of indentation one level of nesting is drawn at. Exported because
@@ -594,6 +599,13 @@ export interface ReferenceTreeProps {
 	value: unknown;
 	/** Resolved display names, keyed by Content id; absent falls back to the id. */
 	names: Record<string, string>;
+	/**
+	 * The reference Adapter's `hrefFor` (ADR-0031): where it answers an address
+	 * for a row's Content, the row's name is a link to it. Absent, every name
+	 * is text. A prop rather than read from the provider, so the tree still
+	 * renders without one, as it always has.
+	 */
+	hrefFor?: ReferenceHrefFor;
 	readOnly?: boolean;
 	/** Hands the whole value back; the caller writes it to the form. */
 	onChange: (next: unknown[]) => void;
@@ -673,6 +685,7 @@ export function ReferenceTree({
 	rows,
 	value,
 	names,
+	hrefFor,
 	readOnly,
 	onChange,
 	depthCeiling,
@@ -1170,6 +1183,7 @@ export function ReferenceTree({
 						<ReferenceTreeRowItem
 							row={row}
 							name={referenceDisplayName(row, names)}
+							href={referenceHref(hrefFor, row.reference.id)}
 							registerNode={registerRow}
 							revealed={row.key === revealed}
 							// The dragged row indents to where releasing would put it,
@@ -1235,6 +1249,8 @@ ReferenceTree.displayName = "ReferenceTree";
 interface ReferenceTreeRowItemProps {
 	row: ReferenceRow;
 	name: string;
+	/** Its Content's address, where the Adapter answered one (ADR-0031). */
+	href: string | null;
 	/** Hands this row's node to the tree, so a Reveal can land on it without
 	 * querying a document that may hold several trees. */
 	registerNode: (key: string, node: HTMLElement | null) => void;
@@ -1259,6 +1275,7 @@ interface ReferenceTreeRowItemProps {
 function ReferenceTreeRowItem({
 	row,
 	name,
+	href,
 	registerNode,
 	depth,
 	adopted,
@@ -1427,9 +1444,16 @@ function ReferenceTreeRowItem({
 					// carry a branch.
 					<Box width="6" flexShrink={0} />
 				)}
-				<Text fontSize="sm" data-testid="reference-row-name">
-					{name}
-				</Text>
+				{/* A link where the Adapter answers an address (ADR-0031). It sits
+				    beside the grip and the buttons, never around them, so a click
+				    on it is a navigation and nothing else: the drag listeners live
+				    on the grip alone, and no row-level handler listens for clicks. */}
+				<ReferenceName
+					name={name}
+					href={href}
+					fontSize="sm"
+					data-testid="reference-row-name"
+				/>
 			</Flex>
 			<Flex align="center" gap="1" flexShrink={0}>
 				{valuesAsked > 0 && onOpenValues && (

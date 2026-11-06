@@ -335,6 +335,25 @@ export interface FieldKitAdapters {
 		 * two model different things: a query is not a Content.
 		 */
 		getResultColumns?: () => Field[];
+		/**
+		 * The address of a referenced Content, or nothing (ADR-0031).
+		 *
+		 * **Optional.** Where it answers, a Reference's name renders as a real
+		 * link to that address — in read mode, in the form's Reference Tree and
+		 * in Single Reference — so it opens in a new tab, can be copied and is
+		 * announced as a link. Where it is absent, or answers `undefined`/`null`
+		 * or an empty string for an id, the name renders as text, as before.
+		 *
+		 * An address, not a callback: a Consumer that must intercept navigation
+		 * does it in its router, as for any other link. fieldkit passes the
+		 * Reference's id and nothing else; which page that id opens is the
+		 * Consumer's to decide.
+		 *
+		 * **Synchronous**: it is asked once per rendered Reference, so it reads
+		 * what the Consumer already holds. A Consumer that would need a request
+		 * to answer leaves it out.
+		 */
+		hrefFor?: (id: string) => string | null | undefined;
 	};
 	media?: {
 		/**
