@@ -6,6 +6,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Provider } from "@knkcs/anker/primitives";
 import {
+	act,
 	fireEvent,
 	render,
 	screen,
@@ -13,7 +14,7 @@ import {
 	within,
 } from "@testing-library/react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
 import type { Field } from "../../../schema/types";
 import { specToZodSchema } from "../../../schema/zod-builder";
@@ -138,6 +139,51 @@ function renderForm(
 		);
 	}
 	return render(<Harness />);
+}
+
+/**
+ * jsdom lays nothing out, so dnd-kit's keyboard sensor finds no direction to
+ * move in: fake a column of rows, one per 60px — as the tree's own drag tests
+ * do.
+ */
+function mockRowRects() {
+	return vi
+		.spyOn(Element.prototype, "getBoundingClientRect")
+		.mockImplementation(function (this: Element) {
+			const rows = Array.from(
+				document.querySelectorAll('[data-testid="reference-row"]'),
+			);
+			const index = rows.indexOf(this);
+			const top = index === -1 ? 0 : index * 60;
+			return {
+				top,
+				bottom: top + 50,
+				left: 0,
+				right: 200,
+				width: 200,
+				height: 50,
+				x: 0,
+				y: top,
+				toJSON() {
+					return this;
+				},
+			} as DOMRect;
+		});
+}
+
+/** A drag from the keyboard: lift on the grip, press `codes`, release. */
+async function keyboardDrag(name: string, ...codes: string[]) {
+	const grip = screen.getByRole("button", { name: `Reorder ${name}` });
+	grip.focus();
+	fireEvent.keyDown(grip, { code: "Space" });
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
+	for (const code of [...codes, "Space"]) {
+		await act(async () => {
+			fireEvent.keyDown(document.activeElement ?? document.body, { code });
+		});
+	}
 }
 
 describe("Reference links — read mode", () => {
@@ -267,6 +313,39 @@ describe("Reference links — the form", () => {
 		);
 		const drawer = await screen.findByRole("dialog");
 		expect(within(drawer).getByDisplayValue("12")).toBeInTheDocument();
+	});
+
+	it("drags a linked row by its grip", async () => {
+		const rects = mockRowRects();
+		renderForm(
+			treeField,
+			{
+				related: [
+					{ _id: "r1", id: "article-1" },
+					{ _id: "r2", id: "article-2" },
+				],
+			},
+			adapterWith(hrefFor),
+		);
+		await screen.findByRole("link", { name: "Dogs of the world" });
+
+		await keyboardDrag("Cats of the world", "ArrowDown");
+
+		await waitFor(() =>
+			expect(stored()).toEqual([
+				{ _id: "r2", id: "article-2" },
+				{ _id: "r1", id: "article-1" },
+			]),
+		);
+		expect(
+			screen
+				.getAllByRole("link")
+				.map((link) => [link.textContent, link.getAttribute("href")]),
+		).toEqual([
+			["Dogs of the world", "/contents/article-2"],
+			["Cats of the world", "/contents/article-1"],
+		]);
+		rects.mockRestore();
 	});
 
 	it("removes a linked row with its Remove control", async () => {
