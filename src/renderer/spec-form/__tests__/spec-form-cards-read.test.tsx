@@ -5,7 +5,13 @@ import { partitionSchemaBySections } from "../../../schema/partition";
 import { FieldKitProvider } from "../../provider";
 import { buildSearchIndex } from "../search-index";
 import { SpecForm } from "../spec-form";
-import { makeCard, makeField, makeSection, testPlugins } from "./helpers";
+import {
+	fieldStackClasses,
+	makeCard,
+	makeField,
+	makeSection,
+	testPlugins,
+} from "./helpers";
 
 function renderRead(ui: React.ReactElement) {
 	// No FormProvider on purpose: read mode must not require a form.
@@ -24,7 +30,7 @@ const cardedSchema = [
 ];
 
 describe("SpecForm — carded read mode", () => {
-	it("renders the same card boxes with description-list rows inside", () => {
+	it("renders the same card boxes with the form's label-above-value Fields inside", () => {
 		renderRead(
 			<SpecForm
 				schema={cardedSchema}
@@ -37,10 +43,20 @@ describe("SpecForm — carded read mode", () => {
 		expect(
 			within(surfaces[0]).getByRole("heading", { name: "Basics" }),
 		).toBeInTheDocument();
-		expect(within(surfaces[0]).getByText("Title")).toBeInTheDocument();
-		expect(within(surfaces[0]).getByText("Hello")).toBeInTheDocument();
-		expect(within(surfaces[1]).getByText("World")).toBeInTheDocument();
+		const title = within(surfaces[0]).getByRole("group", { name: "Title" });
+		expect(within(title).getByText("Hello")).toBeInTheDocument();
+		expect(
+			within(
+				within(surfaces[1]).getByRole("group", { name: "Notes" }),
+			).getByText("World"),
+		).toBeInTheDocument();
 		expect(within(surfaces[1]).queryByRole("heading")).not.toBeInTheDocument();
+	});
+
+	it("spaces the Fields inside a card with the form's rhythm", () => {
+		const { form, read } = fieldStackClasses(cardedSchema);
+		expect(read).toEqual(form);
+		expect(read).toHaveLength(2);
 	});
 
 	// Final-review fix wave (Fix 2): same trim gap as edit mode's CardedFields

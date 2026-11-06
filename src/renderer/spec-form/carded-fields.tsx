@@ -6,7 +6,7 @@ import { partitionTabByCards } from "../../schema/partition-cards";
 import type { Field } from "../../schema/types";
 import { FieldRenderer } from "../field-renderer";
 import { CardSurface } from "./card-surface";
-import { ReadTab } from "./read-tab";
+import { ReadFields } from "./read-fields";
 
 /**
  * Edit-mode body for ONE tab: stacked card frames when the tab contains
@@ -49,11 +49,12 @@ export function CardedFields({
 CardedFields.displayName = "CardedFields";
 
 /**
- * Read-mode body for ONE tab: the same card boxes as edit mode with
- * DescriptionList rows inside (via ReadTab per card group — a synthetic
- * SpecTab scoped to the group's fields), today's flat ReadTab otherwise.
- * Same implicit-untitled-card degrade for leading loose fields. Form-free:
- * ReadTab never touches react-hook-form.
+ * Read-mode body for ONE tab, laid out as CardedFields lays out the form
+ * (ADR-0030): the same card boxes, with the form's label-above-value Fields
+ * and rhythm inside (via ReadFields per card group — a synthetic SpecTab scoped
+ * to the group's fields), a flat ReadFields otherwise. Same
+ * implicit-untitled-card degrade for leading loose fields. Form-free: ReadFields
+ * never touches react-hook-form.
  */
 export function CardedReadTab({
 	tab,
@@ -70,7 +71,7 @@ export function CardedReadTab({
 	);
 
 	if (!partition.hasCards) {
-		return <ReadTab tab={tab} values={values} labels={labels} />;
+		return <ReadFields tab={tab} values={values} labels={labels} />;
 	}
 
 	return (
@@ -84,7 +85,7 @@ export function CardedReadTab({
 							: undefined
 					}
 				>
-					<ReadTab
+					<ReadFields
 						tab={{ section: tab.section, fields: group.fields }}
 						values={values}
 						labels={labels}

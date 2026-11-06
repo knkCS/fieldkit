@@ -54,7 +54,7 @@ describe("SpecForm read mode — search parity", () => {
 		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
 			target: { value: "meta" },
 		});
-		// ReadTab keeps every tab's rows permanently mounted (RHF-derived
+		// Read mode keeps every tab's rows permanently mounted (RHF-derived
 		// TabShell contract, see tab-shell.tsx) — including the SEO tab's own
 		// "Meta title" row label, which is not the search result. Scope to
 		// the results listbox so the click can't land on that row instead
@@ -76,10 +76,10 @@ describe("SpecForm read mode — search parity", () => {
 				`[data-field-row="${CSS.escape("meta.title")}"]`,
 			);
 			expect(row).not.toBeNull();
-			// Pin the div-in-p fix: the row wrapper must stay a block-display
-			// SPAN (DescriptionList.Row renders its value inside a <p>; a div
-			// child regresses to React's DOM-nesting warning).
-			expect(row?.tagName).toBe("SPAN");
+			// The highlighted row is the whole Field — label above value, as
+			// the form lays it out (ADR-0030) — not the value alone.
+			expect(row?.getAttribute("role")).toBe("group");
+			expect(row).toHaveAccessibleName("Meta title");
 			expect(row?.style.boxShadow).toContain("3px");
 		});
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalled();

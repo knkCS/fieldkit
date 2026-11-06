@@ -1,5 +1,5 @@
 import { Provider } from "@knkcs/anker/primitives";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { fieldsetPlugin } from "../../../schema/field-types/fieldset";
@@ -10,7 +10,13 @@ import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
 import type { SpecFormLabels } from "../spec-form";
 import { SpecForm } from "../spec-form";
-import { makeField, makeSection, testPlugins, Wrapper } from "./helpers";
+import {
+	fieldStackClasses,
+	makeField,
+	makeSection,
+	testPlugins,
+	Wrapper,
+} from "./helpers";
 
 function renderRead(ui: React.ReactElement) {
 	// No FormProvider on purpose: read mode must not require a form.
@@ -60,7 +66,7 @@ describe("SpecForm — read mode", () => {
 		expect(screen.getAllByRole("tab")).toHaveLength(2);
 	});
 
-	it("renders a flat DescriptionList for sectionless schemas", () => {
+	it("renders a sectionless schema flat, with no tabs", () => {
 		renderRead(
 			<SpecForm
 				schema={[makeField("a", "Alpha")]}
@@ -110,7 +116,7 @@ describe("SpecForm — read mode", () => {
 				</FieldKitProvider>
 			</Provider>,
 		);
-		// (a) per-item DescriptionLists: each item's child label + value appear.
+		// (a) per-item rows: each item's child label + value appear.
 		expect(screen.getAllByText("Name")).toHaveLength(2);
 		expect(screen.getByText("One")).toBeInTheDocument();
 		expect(screen.getByText("Two")).toBeInTheDocument();
@@ -228,6 +234,73 @@ describe("SpecForm — read mode", () => {
 			</Provider>,
 		);
 		expect(screen.getByTestId("cell").textContent).toBe("Hi!");
+	});
+});
+
+// ADR-0030: read mode lays a Tab out as the form does — only the leaf differs.
+describe("SpecForm — read mode lays a Tab out as the form does", () => {
+	it("puts each Field's label above its value, as the form does", () => {
+		renderRead(
+			<SpecForm
+				schema={[makeField("title", "Title"), makeField("meta", "Meta")]}
+				mode="read"
+				values={{ title: "Hello" }}
+			/>,
+		);
+		// Each Field is one group named by its label, label first, value after.
+		const title = screen.getByRole("group", { name: "Title" });
+		const label = within(title).getByText("Title");
+		const value = within(title).getByText("Hello");
+		expect(
+			label.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		// Above, not beside: the label is its own block, not sharing a row
+		// with the value.
+		expect(label.contains(value)).toBe(false);
+		expect(value.contains(label)).toBe(false);
+		expect(label.parentElement).toBe(title);
+		// Unset still reads as the em dash, under its own label.
+		expect(
+			within(screen.getByRole("group", { name: "Meta" })).getByText("—"),
+		).toBeInTheDocument();
+	});
+
+	it("leaves the label-left description list behind: no Field sits in a <p>", () => {
+		// The description list's row put every value inside a <p>, which no
+		// block-level read component could honestly sit in.
+		renderRead(
+			<SpecForm
+				schema={[makeField("title", "Title")]}
+				mode="read"
+				values={{ title: "Hello" }}
+			/>,
+		);
+		const group = screen.getByRole("group", { name: "Title" });
+		expect(group.closest("p")).toBeNull();
+		expect(group.tagName).toBe("DIV");
+	});
+
+	it("spaces the Fields with the form's vertical rhythm", () => {
+		const { form, read } = fieldStackClasses([
+			makeField("a", "Alpha"),
+			makeField("b", "Beta"),
+		]);
+		expect(read).toEqual(form);
+		expect(read).toHaveLength(1);
+	});
+
+	it("leaves a hidden Field out, as the form does", () => {
+		const hidden = makeField("secret", "Secret");
+		hidden.config.hidden = true;
+		renderRead(
+			<SpecForm
+				schema={[makeField("a", "Alpha"), hidden]}
+				mode="read"
+				values={{ secret: "s" }}
+			/>,
+		);
+		expect(screen.queryByText("Secret")).toBeNull();
+		expect(screen.queryByText("s")).toBeNull();
 	});
 });
 

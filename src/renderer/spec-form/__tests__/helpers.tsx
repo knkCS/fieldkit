@@ -1,10 +1,12 @@
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { z } from "zod";
 import type { FieldProps, FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
+import { SpecForm } from "../spec-form";
 
 export function makeField(accessor: string, name = accessor): Field {
 	return {
@@ -171,4 +173,32 @@ export function Wrapper({
 			</FormProvider>
 		</ChakraProvider>
 	);
+}
+
+/**
+ * The classes of each stack of Fields, the form's (`field-renderer`) and read
+ * mode's (`read-fields`), for one Spec — rendered in the same theme, so equal
+ * styles mean equal classes. Compares the two layouts' rhythm (ADR-0030).
+ */
+export function fieldStackClasses(schema: Field[]): {
+	form: string[];
+	read: string[];
+} {
+	const edit = render(
+		<Wrapper>
+			<SpecForm schema={schema} />
+		</Wrapper>,
+	);
+	const form = edit.getAllByTestId("field-renderer").map((el) => el.className);
+	edit.unmount();
+	const read = render(
+		<Wrapper>
+			<SpecForm schema={schema} mode="read" values={{}} />
+		</Wrapper>,
+	);
+	const readClasses = read
+		.getAllByTestId("read-fields")
+		.map((el) => el.className);
+	read.unmount();
+	return { form, read: readClasses };
 }

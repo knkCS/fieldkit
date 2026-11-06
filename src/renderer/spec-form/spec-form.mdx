@@ -29,7 +29,7 @@ behaves identically to `FieldRenderer`.
 | Prop       | Type                       | Default  | Description                                                        |
 |------------|----------------------------|----------|---------------------------------------------------------------------|
 | `schema`   | `Schema`                   | —        | The field specification to render.                                  |
-| `mode`     | `"edit" \| "read"`         | `"edit"` | `"read"` renders values through each plugin's `readComponent`, or its table cell, instead of inputs. |
+| `mode`     | `"edit" \| "read"`         | `"edit"` | `"read"` lays each Tab out as the form does — the same Cards, labels above values, the form's spacing — and renders each value through its plugin's `readComponent`, or its table cell, instead of an input (ADR-0030). No form needed. |
 | `readOnly` | `boolean`                  | —        | Edit-mode only; disables inputs but keeps the form interactive.      |
 | `loading`  | `boolean`                  | —        | Renders `SpecFormSkeleton` instead of the schema.                    |
 | `values`   | `Record<string, unknown>`  | `{}`     | Read-mode data source. Ignored in edit mode.                         |
@@ -93,7 +93,8 @@ and stored values are byte-identical with or without markers.
   on a violation** (normative): leading loose fields render as an implicit
   untitled card.
 - Tabs without cards render exactly as before — no wrapper element.
-- Read mode renders the same card boxes with description-list rows inside.
+- Read mode renders the same card boxes, with the form's Fields inside:
+  each label above its value, at the form's spacing (ADR-0030).
 - Field search, cross-tab jump, submit-jump-to-first-error, and tab error
   badges are unchanged — they operate on the flat field list and DOM ids;
   card markers are never search results.
