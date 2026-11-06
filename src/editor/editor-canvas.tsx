@@ -46,6 +46,7 @@ import { CardSurface } from "../renderer/spec-form/card-surface";
 import { FieldSearch } from "../renderer/spec-form/field-search";
 import { buildSearchIndex } from "../renderer/spec-form/search-index";
 import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
+import { TabShell } from "../renderer/spec-form/tab-shell";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
 import { partitionSchemaBySections } from "../schema/partition";
@@ -1246,6 +1247,115 @@ export function EditorCanvas({
 		);
 	}
 
+	// The canvas brings its own triggers — drop zones, the Section menu,
+	// renaming — and lays nothing out itself: TabShell places the Tab list
+	// and the field search for both orientations (ADR-0030).
+	const tabTriggers = partition.tabs.map((tab, i) => {
+		const accessor = tab.section?.config.api_accessor;
+		const key = accessor ?? `implicit-${i}`;
+
+		if (accessor && renaming === accessor) {
+			return (
+				<TabDropZone
+					key={key}
+					tabIndex={i}
+					highlighted={tabTarget?.tabIndex === i}
+				>
+					<Input
+						size="xs"
+						width="auto"
+						maxWidth="10rem"
+						autoFocus
+						defaultValue={tab.section?.config.name}
+						aria-label={labels.sectionNameInput}
+						onClick={(e) => e.stopPropagation()}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								// Mirror the Escape path: suppress the follow-on
+								// blur so the commit isn't applied twice.
+								skipBlurRef.current = true;
+								commitRename(accessor, e.currentTarget.value);
+							} else if (e.key === "Escape") {
+								// Stop the rename cancel from also reaching the
+								// document-level Escape/deselect listener (T12).
+								e.stopPropagation();
+								skipBlurRef.current = true;
+								setRenaming(null);
+							}
+						}}
+						onBlur={(e) => {
+							if (skipBlurRef.current) {
+								skipBlurRef.current = false;
+								return;
+							}
+							commitRename(accessor, e.currentTarget.value);
+						}}
+					/>
+				</TabDropZone>
+			);
+		}
+
+		return (
+			<TabDropZone
+				key={key}
+				tabIndex={i}
+				highlighted={tabTarget?.tabIndex === i}
+			>
+				<Flex role="presentation" align="center" gap="0.5">
+					<Tabs.Trigger value={`tab-${i}`}>
+						{tab.section?.config.name ?? labels.defaultTab}
+						{tabErrorCounts[i] > 0 && (
+							<TabErrorBadge
+								index={i}
+								count={tabErrorCounts[i]}
+								label={formatCount(
+									labels.tabErrorsOne ?? "1 invalid field",
+									labels.tabErrors ?? "{count} invalid fields",
+									tabErrorCounts[i],
+								)}
+							/>
+						)}
+					</Tabs.Trigger>
+					{tab.section && accessor && (
+						<SectionMenu
+							sectionAccessor={accessor}
+							sectionName={tab.section.config.name}
+							isFirst={i === firstSectionIndex}
+							orientation={partition.orientation}
+							onRename={(a) => startRename(a)}
+							onMove={handleMoveSection}
+							onDelete={() =>
+								handleDeleteSection(accessor, tab.section?.config.name ?? "")
+							}
+							onOrientation={handleOrientation}
+							labels={labels}
+							triggerAriaLabel={labels.sectionMenu.replace(
+								"{section}",
+								tab.section.config.name,
+							)}
+						/>
+					)}
+				</Flex>
+			</TabDropZone>
+		);
+	});
+
+	const searchNode = (
+		<FieldSearch
+			index={searchIndex}
+			placeholder={labels.searchPlaceholder}
+			noResultsLabel={labels.noResults}
+			label={labels.searchLabel ?? "Find field"}
+			// The only search on the screen it owns, so it claims "/".
+			slashShortcut
+			onJump={(r) => {
+				onActiveTabChange(r.tabIndex);
+				onSelect(r.accessor);
+			}}
+		/>
+	);
+
 	return (
 		<FormProvider {...methods}>
 			<FormMarkersProvider value={markers}>
@@ -1257,136 +1367,27 @@ export function EditorCanvas({
 					onDragEnd={handleDragEnd}
 					onDragCancel={handleDragCancel}
 				>
-					<Box ref={containerRef}>
-						<Tabs.Root
-							value={activeTab}
-							onValueChange={(e) =>
-								onActiveTabChange(Number(e.value.replace("tab-", "")))
-							}
-							orientation={orientation}
-						>
-							<Flex align="center" justify="space-between" gap="4">
-								<Tabs.List flex="1">
-									{partition.tabs.map((tab, i) => {
-										const accessor = tab.section?.config.api_accessor;
-										const key = accessor ?? `implicit-${i}`;
-
-										if (accessor && renaming === accessor) {
-											return (
-												<TabDropZone
-													key={key}
-													tabIndex={i}
-													highlighted={tabTarget?.tabIndex === i}
-												>
-													<Input
-														size="xs"
-														width="auto"
-														maxWidth="10rem"
-														autoFocus
-														defaultValue={tab.section?.config.name}
-														aria-label={labels.sectionNameInput}
-														onClick={(e) => e.stopPropagation()}
-														onKeyDown={(e) => {
-															if (e.key === "Enter") {
-																e.preventDefault();
-																// Mirror the Escape path: suppress the follow-on
-																// blur so the commit isn't applied twice.
-																skipBlurRef.current = true;
-																commitRename(accessor, e.currentTarget.value);
-															} else if (e.key === "Escape") {
-																// Stop the rename cancel from also reaching the
-																// document-level Escape/deselect listener (T12).
-																e.stopPropagation();
-																skipBlurRef.current = true;
-																setRenaming(null);
-															}
-														}}
-														onBlur={(e) => {
-															if (skipBlurRef.current) {
-																skipBlurRef.current = false;
-																return;
-															}
-															commitRename(accessor, e.currentTarget.value);
-														}}
-													/>
-												</TabDropZone>
-											);
-										}
-
-										return (
-											<TabDropZone
-												key={key}
-												tabIndex={i}
-												highlighted={tabTarget?.tabIndex === i}
-											>
-												<Flex role="presentation" align="center" gap="0.5">
-													<Tabs.Trigger value={`tab-${i}`}>
-														{tab.section?.config.name ?? labels.defaultTab}
-														{tabErrorCounts[i] > 0 && (
-															<TabErrorBadge
-																index={i}
-																count={tabErrorCounts[i]}
-																label={formatCount(
-																	labels.tabErrorsOne ?? "1 invalid field",
-																	labels.tabErrors ?? "{count} invalid fields",
-																	tabErrorCounts[i],
-																)}
-															/>
-														)}
-													</Tabs.Trigger>
-													{tab.section && accessor && (
-														<SectionMenu
-															sectionAccessor={accessor}
-															sectionName={tab.section.config.name}
-															isFirst={i === firstSectionIndex}
-															orientation={partition.orientation}
-															onRename={(a) => startRename(a)}
-															onMove={handleMoveSection}
-															onDelete={() =>
-																handleDeleteSection(
-																	accessor,
-																	tab.section?.config.name ?? "",
-																)
-															}
-															onOrientation={handleOrientation}
-															labels={labels}
-															triggerAriaLabel={labels.sectionMenu.replace(
-																"{section}",
-																tab.section.config.name,
-															)}
-														/>
-													)}
-												</Flex>
-											</TabDropZone>
-										);
-									})}
-								</Tabs.List>
-								<FieldSearch
-									index={searchIndex}
-									placeholder={labels.searchPlaceholder}
-									noResultsLabel={labels.noResults}
-									label={labels.searchLabel ?? "Find field"}
-									// The only search on the screen it owns, so it
-									// claims "/".
-									slashShortcut
-									onJump={(r) => {
-										onActiveTabChange(r.tabIndex);
-										onSelect(r.accessor);
-									}}
-								/>
-							</Flex>
-							{partition.tabs.map((tab, i) => (
-								<Tabs.Content
-									key={tab.section?.config.api_accessor ?? `implicit-${i}`}
-									value={`tab-${i}`}
-								>
-									{/* pt="5": the first field's overlay boundary reaches 20px
-								    above the shell — this padding is the space it fills. */}
-									<Box pt="5">{renderFields(tab.fields, i)}</Box>
-								</Tabs.Content>
-							))}
-						</Tabs.Root>
-					</Box>
+					<TabShell
+						orientation={orientation}
+						containerRef={containerRef}
+						activeTab={activeTab}
+						onTabChange={(value) =>
+							onActiveTabChange(Number(value.replace("tab-", "")))
+						}
+						searchNode={searchNode}
+						tabTriggers={tabTriggers}
+					>
+						{partition.tabs.map((tab, i) => (
+							<Tabs.Content
+								key={tab.section?.config.api_accessor ?? `implicit-${i}`}
+								value={`tab-${i}`}
+							>
+								{/* pt="5": the first field's overlay boundary reaches 20px
+							    above the shell — this padding is the space it fills. */}
+								<Box pt="5">{renderFields(tab.fields, i)}</Box>
+							</Tabs.Content>
+						))}
+					</TabShell>
 					<DragRemeasurer
 						activeTabIndex={activeTabIndex}
 						dragActive={dragActive}
