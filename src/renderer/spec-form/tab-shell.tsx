@@ -58,7 +58,9 @@ export function useTabShell(
 export interface TabShellProps {
 	orientation: "horizontal" | "vertical";
 	containerRef: (node: HTMLElement | null) => void;
-	rootRef: RefObject<HTMLDivElement | null>;
+	/** For a caller that queries the shell's DOM synchronously (SpecForm's
+	 * jump scoping); the editor's canvas has no need of it. */
+	rootRef?: RefObject<HTMLDivElement | null>;
 	activeTab: string;
 	onTabChange: (value: string) => void;
 	/** The FieldSearch node (or false when the schema yields no index). */
@@ -68,7 +70,12 @@ export interface TabShellProps {
 	children: ReactNode;
 }
 
-/** Presentational tab shell shared by edit and read modes. */
+/**
+ * The one presentational tab shell (ADR-0030): SpecForm's form, its read
+ * mode and the Blueprint editor's canvas all lay their Tabs out through it.
+ * Callers bring their own triggers (the canvas: drop zones, the Section
+ * menu, renaming) and panels; the placement rule lives here alone.
+ */
 export function TabShell({
 	orientation,
 	containerRef,
@@ -85,14 +92,14 @@ export function TabShell({
 	// reattach containerRef (and its ResizeObserver) on every render.
 	const setRoot = useCallback(
 		(node: HTMLDivElement | null) => {
-			rootRef.current = node;
+			if (rootRef) rootRef.current = node;
 			containerRef(node);
 		},
 		[containerRef, rootRef],
 	);
 
 	return (
-		<Box ref={setRoot}>
+		<Box ref={setRoot} data-testid="tab-shell">
 			{/* Vertical Tabs.Root is a row-flex container (nav column beside
 			    content), so the search must live OUTSIDE it to span the full
 			    width above nav+content instead of becoming a row item. */}
