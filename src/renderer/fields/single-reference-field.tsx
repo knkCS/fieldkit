@@ -16,10 +16,12 @@ import type { PinningMode, Reference } from "../../schema/reference";
 import { referenceBlueprintIds, withPin } from "../../schema/reference";
 import { useAdapterErrorReporter } from "../hooks/use-adapter-error-reporter";
 import { usePinTargets } from "../hooks/use-pin-targets";
+import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
 import { referencedContentIds, withoutExcluded } from "./exclude-referenced";
 import { NoSourceField } from "./no-source-field";
+import { ReferenceName, referenceHref } from "./reference-name";
 
 /**
  * react-select's option shape (anker's `BaseOption`): `id` is the value,
@@ -113,6 +115,14 @@ export function SingleReferenceField({
 	const rawId = value?.id;
 	const selectedId = typeof rawId === "string" && rawId !== "" ? rawId : null;
 	const pinnedId = value?.pin ?? null;
+
+	// The stored Content's address, where the Adapter answers one (ADR-0031).
+	// The select's own label cannot be the link — a click on it opens the menu —
+	// so the name is repeated as a link beside the control. Resolved only when
+	// there is an address: a Consumer without `hrefFor` gets no extra lookup and
+	// exactly the control it had.
+	const href = referenceHref(adapter?.hrefFor, selectedId);
+	const linkName = useResolvedContentName(href ? selectedId : null, accessor);
 
 	// The one-item version of the tree Field's rule: the Content already stored
 	// is not offered, so re-picking it is never proposed as a change. Read
@@ -380,6 +390,16 @@ export function SingleReferenceField({
 								}
 							/>
 						</Box>
+					)}
+					{href && selectedId && (
+						<ReferenceName
+							name={linkName ?? selectedId}
+							href={href}
+							fontSize="sm"
+							alignSelf="center"
+							flexShrink={0}
+							data-testid="single-reference-name"
+						/>
 					)}
 				</Flex>
 			)}

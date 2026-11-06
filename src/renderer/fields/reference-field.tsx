@@ -286,6 +286,7 @@ export function ReferenceField({
 							rows={rows}
 							value={entries}
 							names={names}
+							hrefFor={adapter.hrefFor}
 							readOnly={readOnly}
 							onChange={formField.onChange}
 							depthCeiling={depthCeiling}
