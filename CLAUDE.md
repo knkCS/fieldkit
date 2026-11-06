@@ -84,7 +84,7 @@ src/
 │   ├── editor-toolbar.tsx # Unified toolbar row: + Card/+ Section, mode control, Discard/Save
 │   ├── use-spec-draft.ts# Draft session (baseline = last committed content)
 │   ├── draft-ops.ts     # Pure schema mutations (insert/move/duplicate/sections/createField)
-│   ├── editor-canvas.tsx# Build-mode canvas: tabs, shells, dnd + overlay/live feedback, insertion boundaries
+│   ├── editor-canvas.tsx# Build-mode canvas: tab triggers (laid out by TabShell), shells, dnd + overlay/live feedback, insertion boundaries
 │   ├── use-spring-loaded-tab.ts # Pointer dwell before a hovered tab springs (0.12.0)
 │   ├── resolve-drop-target.ts # Pure drop resolution — end handler + live feedback single source
 │   ├── drag-previews.tsx# DragOverlay clones (shell interior / card header + field count)
@@ -103,7 +103,7 @@ src/
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
 │   ├── search-combobox.tsx     # SearchCombobox — the shared typeahead: listbox roles, keyboard model, window-capture Escape containment, opt-in "/" shortcut. Agnostic about what it lists; callers supply results and describe them
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
-│   │   └── tab-shell.tsx # useTabShell() + shared TabShell: state/DOM plumbing behind edit & read tabs, no RHF hooks
+│   │   └── tab-shell.tsx # useTabShell() + the one TabShell (ADR-0030): the Tab layout of the form, read mode and the editor canvas (which passes its own triggers in), no RHF hooks
 │   ├── field-component.tsx     # Plugin resolution + error boundary (identity-memoized)
 │   ├── provider.tsx     # FieldKitProvider (plugins + adapters + the Resolved Spec's `parts`)
 │   ├── adapters.ts      # Backend adapter interfaces
