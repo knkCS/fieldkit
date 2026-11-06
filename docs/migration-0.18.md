@@ -294,6 +294,16 @@ What a value yields to contenthub's Content Graph and to search changes too:
   shows the document's text and says it can't be edited there, where it was a
   JSON textarea. It never writes the value. Editing needs
   `@knkcs/fieldkit/rich-text` (below).
+- **Read mode lays a Tab out as the form does** (#418, ADR-0030): each Field
+  is its label above its value, inside the same Cards and at the form's
+  spacing, where it was a label-left anker `DescriptionList`. Nothing in the
+  API changes — `data-field-row` stays the field search's target, and each
+  Tab's or Card's run of Fields is `data-testid="read-fields"` — but a
+  Consumer test that queried read mode's `dl`/`dt`/`dd` rows now finds none.
+- **The Blueprint editor's canvas lays its Tabs out through the one
+  `TabShell`** (#416, ADR-0030): a vertical first Section puts its Tab list
+  in the column with the field search above it, as the form does, where the
+  canvas drew its own horizontal header. No API change.
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option
@@ -318,6 +328,11 @@ and record, the open section and the failed save it has jumped for, so a
 Consumer that unmounts it and keeps its form (a Save in the page header,
 anker ADR 0004) gets both back on a remount (#333, #334); see "A
 Consumer-owned Save across unmounting tabs" in `spec-form.mdx`.
+The `reference` Adapter's optional, synchronous `hrefFor(id)` (#417,
+ADR-0031): a Reference's name renders as a real link — in read mode, the
+form's Reference Tree and beside a Single Reference's select — wherever it
+answers an address; without it, or for `undefined`/`null`/`""`, the name stays
+text. See "Linking a reference to its content" in the README.
 
 ### `@knkcs/fieldkit/rich-text` (#278)
 
