@@ -101,6 +101,7 @@ src/
 │   └── try-it-view.tsx  # Preview: resolveSpec() on the draft, then a real SpecForm on a scratch form
 ├── renderer/            # Field renderer
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
+│   ├── field-stack.tsx  # FieldStack — the 20px rhythm between a Tab's Fields, shared by the form and read mode (ADR-0030)
 │   ├── search-combobox.tsx     # SearchCombobox — the shared typeahead: listbox roles, keyboard model, window-capture Escape containment, opt-in "/" shortcut. Agnostic about what it lists; callers supply results and describe them
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
 │   │   └── tab-shell.tsx # useTabShell() + the one TabShell (ADR-0030): the Tab layout of the form, read mode and the editor canvas (which passes its own triggers in), no RHF hooks

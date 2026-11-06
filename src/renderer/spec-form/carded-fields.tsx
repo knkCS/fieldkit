@@ -49,11 +49,12 @@ export function CardedFields({
 CardedFields.displayName = "CardedFields";
 
 /**
- * Read-mode body for ONE tab: the same card boxes as edit mode with
- * DescriptionList rows inside (via ReadTab per card group — a synthetic
- * SpecTab scoped to the group's fields), today's flat ReadTab otherwise.
- * Same implicit-untitled-card degrade for leading loose fields. Form-free:
- * ReadTab never touches react-hook-form.
+ * Read-mode body for ONE tab, laid out as CardedFields lays out the form
+ * (ADR-0030): the same card boxes, with the form's label-above-value Fields
+ * and rhythm inside (via ReadTab per card group — a synthetic SpecTab scoped
+ * to the group's fields), a flat ReadTab otherwise. Same
+ * implicit-untitled-card degrade for leading loose fields. Form-free: ReadTab
+ * never touches react-hook-form.
  */
 export function CardedReadTab({
 	tab,
