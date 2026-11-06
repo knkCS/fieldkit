@@ -49,7 +49,10 @@ import { TabErrorBadge } from "../renderer/spec-form/tab-error-badge";
 import { TabShell } from "../renderer/spec-form/tab-shell";
 import { useContainerOrientation } from "../renderer/spec-form/use-container-orientation";
 import { resolveMarkerConvention } from "../schema/marker-convention";
-import { partitionSchemaBySections } from "../schema/partition";
+import {
+	partitionSchemaBySections,
+	type SpecPartition,
+} from "../schema/partition";
 import { partitionTabByCards } from "../schema/partition-cards";
 import type {
 	Consumer,
@@ -326,6 +329,11 @@ DragRemeasurer.displayName = "DragRemeasurer";
  * (ADR-0023); compared with them, every draft edit would look like new
  * defaults and reset the scratch form, so they are left out.
  */
+/** A Tab's React key: its Section's Accessor, or its index when implicit. */
+function canvasTabKey(tab: SpecPartition["tabs"][number], i: number): string {
+	return tab.section?.config.api_accessor ?? `implicit-${i}`;
+}
+
 export function serializeDefaults(defaults: Record<string, unknown>): string {
 	return JSON.stringify(defaults, (key, value) =>
 		key === "_id" ? undefined : value,
@@ -879,7 +887,7 @@ export function EditorCanvas({
 				<MenuContent>
 					{partition.tabs.map((tab, i) => {
 						if (i === tabIndex) return null;
-						const key = tab.section?.config.api_accessor ?? `implicit-${i}`;
+						const key = canvasTabKey(tab, i);
 						return (
 							<MenuItem
 								key={key}
@@ -1252,7 +1260,7 @@ export function EditorCanvas({
 	// and the field search for both orientations (ADR-0030).
 	const tabTriggers = partition.tabs.map((tab, i) => {
 		const accessor = tab.section?.config.api_accessor;
-		const key = accessor ?? `implicit-${i}`;
+		const key = canvasTabKey(tab, i);
 
 		if (accessor && renaming === accessor) {
 			return (
@@ -1378,12 +1386,9 @@ export function EditorCanvas({
 						tabTriggers={tabTriggers}
 					>
 						{partition.tabs.map((tab, i) => (
-							<Tabs.Content
-								key={tab.section?.config.api_accessor ?? `implicit-${i}`}
-								value={`tab-${i}`}
-							>
+							<Tabs.Content key={canvasTabKey(tab, i)} value={`tab-${i}`}>
 								{/* pt="5": the first field's overlay boundary reaches 20px
-							    above the shell — this padding is the space it fills. */}
+								    above the shell — this padding is the space it fills. */}
 								<Box pt="5">{renderFields(tab.fields, i)}</Box>
 							</Tabs.Content>
 						))}

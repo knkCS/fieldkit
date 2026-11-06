@@ -5,22 +5,14 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Wrapper } from "../../renderer/spec-form/__tests__/helpers";
 import { SpecForm } from "../../renderer/spec-form/spec-form";
-import type { Field, Schema } from "../../schema/types";
+import type { Schema } from "../../schema/types";
 import { SpecEditor } from "../spec-editor";
-import { EditorWrap, makeField, testPlugins } from "./editor-helpers";
-
-function makeSection(
-	accessor: string,
-	name: string,
-	orientation?: "horizontal" | "vertical",
-): Field {
-	return {
-		field_type: "section",
-		config: { name, api_accessor: accessor, required: false, instructions: "" },
-		settings: orientation ? { orientation } : {},
-		system: false,
-	};
-}
+import {
+	EditorWrap,
+	makeField,
+	makeSection,
+	testPlugins,
+} from "./editor-helpers";
 
 const vertical: Schema = [
 	makeSection("s1", "General", "vertical"),

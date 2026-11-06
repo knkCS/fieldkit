@@ -22,11 +22,15 @@ export function makeField(accessor: string, name = accessor): Field {
 	};
 }
 
-export function makeSection(accessor: string, name = accessor): Field {
+export function makeSection(
+	accessor: string,
+	name = accessor,
+	orientation?: "horizontal" | "vertical",
+): Field {
 	return {
 		field_type: "section",
 		config: { name, api_accessor: accessor, required: false, instructions: "" },
-		settings: {},
+		settings: orientation ? { orientation } : {},
 		system: false,
 	};
 }
