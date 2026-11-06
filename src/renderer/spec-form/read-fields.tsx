@@ -1,4 +1,4 @@
-// src/renderer/spec-form/read-tab.tsx
+// src/renderer/spec-form/read-fields.tsx
 import { Box, useSlotRecipe } from "@chakra-ui/react";
 import { useId } from "react";
 import type { SpecTab } from "../../schema/partition";
@@ -13,10 +13,20 @@ import { ReadValue, type ReadValueLabels } from "../read-value";
  * Plugin's `readComponent`, where the form has its `fieldComponent`
  * (ADR-0030).
  *
+ * Raw Chakra, because anker has nothing that fits: its `*Field`s and
+ * `ControlledFormField` wrap a control (a `<label htmlFor>`, required and
+ * dirty markers, helper text), and its `DescriptionList`, even vertical, has
+ * its own label style and puts the value in a `<p>`. The `field` recipe is
+ * the one anker's form label is drawn from (`Field.Label`), so the two labels
+ * read the same.
+ *
+ * Only the name: the required marker and the instructions guide filling the
+ * form in, and there is nothing to fill in here.
+ *
  * The label is no `<label>`: there is no control to label. The pair is a
  * group named by it instead, which is what a reader's assistive technology
  * announces. `data-field-row` is the target the field search jumps to and
- * highlights.
+ * highlights — the whole Field, label and value.
  */
 function ReadField({
 	field,
@@ -53,7 +63,7 @@ ReadField.displayName = "ReadField";
  * share of it: the form's rhythm, a `ReadField` per Field the form would
  * show. Form-free: nothing here touches react-hook-form.
  */
-export function ReadTab({
+export function ReadFields({
 	tab,
 	values,
 	labels,
@@ -77,4 +87,4 @@ export function ReadTab({
 		</FieldStack>
 	);
 }
-ReadTab.displayName = "ReadTab";
+ReadFields.displayName = "ReadFields";

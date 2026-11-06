@@ -6,11 +6,11 @@ import { FieldKitProvider } from "../../provider";
 import { buildSearchIndex } from "../search-index";
 import { SpecForm } from "../spec-form";
 import {
+	fieldStackClasses,
 	makeCard,
 	makeField,
 	makeSection,
 	testPlugins,
-	Wrapper,
 } from "./helpers";
 
 function renderRead(ui: React.ReactElement) {
@@ -54,25 +54,9 @@ describe("SpecForm — carded read mode", () => {
 	});
 
 	it("spaces the Fields inside a card with the form's rhythm", () => {
-		const edit = render(
-			<Wrapper>
-				<SpecForm schema={cardedSchema} />
-			</Wrapper>,
-		);
-		const formStacks = edit
-			.getAllByTestId("field-renderer")
-			.map((el) => el.className);
-		edit.unmount();
-		// The same theme as the form above, so equal styles mean equal classes.
-		render(
-			<Wrapper>
-				<SpecForm schema={cardedSchema} mode="read" values={{}} />
-			</Wrapper>,
-		);
-		const surfaces = screen.getAllByTestId("card-surface");
-		expect(
-			surfaces.map((s) => within(s).getByTestId("read-fields").className),
-		).toEqual(formStacks);
+		const { form, read } = fieldStackClasses(cardedSchema);
+		expect(read).toEqual(form);
+		expect(read).toHaveLength(2);
 	});
 
 	// Final-review fix wave (Fix 2): same trim gap as edit mode's CardedFields

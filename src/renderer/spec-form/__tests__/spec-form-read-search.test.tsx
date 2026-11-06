@@ -54,7 +54,7 @@ describe("SpecForm read mode — search parity", () => {
 		fireEvent.change(screen.getByPlaceholderText("Find field…"), {
 			target: { value: "meta" },
 		});
-		// ReadTab keeps every tab's rows permanently mounted (RHF-derived
+		// Read mode keeps every tab's rows permanently mounted (RHF-derived
 		// TabShell contract, see tab-shell.tsx) — including the SEO tab's own
 		// "Meta title" row label, which is not the search result. Scope to
 		// the results listbox so the click can't land on that row instead

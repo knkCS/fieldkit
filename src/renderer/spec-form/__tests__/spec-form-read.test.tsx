@@ -10,7 +10,13 @@ import type { Field } from "../../../schema/types";
 import { FieldKitProvider } from "../../provider";
 import type { SpecFormLabels } from "../spec-form";
 import { SpecForm } from "../spec-form";
-import { makeField, makeSection, testPlugins, Wrapper } from "./helpers";
+import {
+	fieldStackClasses,
+	makeField,
+	makeSection,
+	testPlugins,
+	Wrapper,
+} from "./helpers";
 
 function renderRead(ui: React.ReactElement) {
 	// No FormProvider on purpose: read mode must not require a form.
@@ -275,21 +281,12 @@ describe("SpecForm — read mode lays a Tab out as the form does", () => {
 	});
 
 	it("spaces the Fields with the form's vertical rhythm", () => {
-		const schema = [makeField("a", "Alpha"), makeField("b", "Beta")];
-		const edit = render(
-			<Wrapper>
-				<SpecForm schema={schema} />
-			</Wrapper>,
-		);
-		const formStack = edit.getByTestId("field-renderer").className;
-		edit.unmount();
-		// The same theme as the form above, so equal styles mean equal classes.
-		render(
-			<Wrapper>
-				<SpecForm schema={schema} mode="read" values={{}} />
-			</Wrapper>,
-		);
-		expect(screen.getByTestId("read-fields").className).toBe(formStack);
+		const { form, read } = fieldStackClasses([
+			makeField("a", "Alpha"),
+			makeField("b", "Beta"),
+		]);
+		expect(read).toEqual(form);
+		expect(read).toHaveLength(1);
 	});
 
 	it("leaves a hidden Field out, as the form does", () => {
