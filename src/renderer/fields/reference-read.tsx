@@ -21,6 +21,11 @@ import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { EmptyReadValue } from "./empty-value";
 import { ReferenceCollapseAll } from "./reference-collapse-all";
 import { ReferenceFind } from "./reference-find";
+import {
+	ReferenceName,
+	referenceHref,
+	useReferenceHrefFor,
+} from "./reference-name";
 import { INDENT_WIDTH } from "./reference-tree";
 
 /**
@@ -75,6 +80,7 @@ export function ReferenceReadValue({
 	// well-formed as whatever produced it. Anything that is not a Reference
 	// yields no row, at any level.
 	const rows = useMemo(() => readReferenceTree(value), [value]);
+	const hrefFor = useReferenceHrefFor();
 
 	// Names, and how far they can be relied on — read mode resolves the same way
 	// the editable Field does, and its Find is entitled to say exactly as much
@@ -314,6 +320,7 @@ export function ReferenceReadValue({
 					key={row.key}
 					row={row}
 					name={referenceDisplayName(row, names)}
+					href={referenceHref(hrefFor, row.reference.id)}
 					registerNode={registerRow}
 					folded={folded.has(row.key)}
 					revealed={row.key === revealed}
@@ -345,6 +352,8 @@ interface ReferenceReadRowProps {
 	/** What the row shows for the Content it points at — the resolved name, or
 	 * the id where none resolved. */
 	name: string;
+	/** Its Content's address, where the Adapter answered one (ADR-0031). */
+	href: string | null;
 	/** Hands this row's node to the tree, so a Reveal can land on it without
 	 * querying a document that may hold several trees. */
 	registerNode: (key: string, node: HTMLElement | null) => void;
@@ -364,6 +373,7 @@ interface ReferenceReadRowProps {
 function ReferenceReadRow({
 	row,
 	name,
+	href,
 	registerNode,
 	folded,
 	revealed,
@@ -434,9 +444,13 @@ function ReferenceReadRow({
 					// reason.
 					<Box as="span" display="block" width="6" flexShrink={0} />
 				)}
-				<Text as="span" display="block" data-testid="reference-read-name">
-					{name}
-				</Text>
+				<ReferenceName
+					name={name}
+					href={href}
+					as="span"
+					display="block"
+					data-testid="reference-read-name"
+				/>
 			</Box>
 			{specFields.map((specField) => (
 				<Box

@@ -159,6 +159,28 @@ in the browser and what was rejected to get there.
 
 Read mode folds and carries the same two controls.
 
+### Linking a reference to its content
+
+fieldkit does not know where a content lives in your application, so a
+reference renders by its name, as text. Give the reference adapter an optional,
+**synchronous** `hrefFor(id)` and every name it answers an address for renders
+as a real link — in read mode, in the form's reference tree and beside a single
+reference's select — so it opens in a new tab, can be copied and is announced as
+a link ([ADR-0031](docs/adr/0031-a-reference-links-to-its-content-through-an-optional-adapter-hook.md)):
+
+```ts
+reference: {
+  search, fetch,
+  // The id is all fieldkit passes; which page it opens is yours to decide.
+  hrefFor: (id) => `/contents/${id}`,
+}
+```
+
+Without `hrefFor`, or for an id it answers nothing (`undefined`, `null` or `""`)
+for, the name stays text exactly as before. It is asked once per rendered
+reference, so it reads what you already hold — leave it out rather than make a
+request. To intercept navigation, do it in your router, as for any other link.
+
 ### Blueprint and Text Type pickers
 
 The settings that name a Blueprint or a Text Type Release — a Reference's

@@ -228,6 +228,7 @@ reference: {
   ) => Promise<PinTarget[]>;
   getSearchFilters?: () => Field[];   // optional
   getResultColumns?: () => Field[];   // optional
+  hrefFor?: (id: string) => string | null | undefined; // optional, sync (ADR-0031)
 }
 
 interface PinTarget {

@@ -1,10 +1,14 @@
 // src/renderer/fields/single-reference-read.tsx
-import { Text } from "@chakra-ui/react";
 import type { SingleReferenceSettings } from "../../schema/field-types/single-reference";
 import type { ReadProps } from "../../schema/plugin";
 import { asReference } from "../../schema/reference";
 import { useResolvedContentName } from "../hooks/use-resolved-content-name";
 import { EmptyReadValue } from "./empty-value";
+import {
+	ReferenceName,
+	referenceHref,
+	useReferenceHrefFor,
+} from "./reference-name";
 
 /**
  * A Single Reference in read mode: the referenced Content's *current* name,
@@ -21,11 +25,17 @@ export function SingleReferenceReadValue({
 	value,
 }: ReadProps<SingleReferenceSettings>) {
 	const reference = asReference(value);
+	const hrefFor = useReferenceHrefFor();
 	const name = useResolvedContentName(
 		reference?.id ?? null,
 		field.config.api_accessor,
 	);
 	if (!reference) return <EmptyReadValue />;
-	return <Text>{name ?? reference.id}</Text>;
+	return (
+		<ReferenceName
+			name={name ?? reference.id}
+			href={referenceHref(hrefFor, reference.id)}
+		/>
+	);
 }
 SingleReferenceReadValue.displayName = "SingleReferenceReadValue";
