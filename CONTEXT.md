@@ -190,6 +190,12 @@ _Avoid_: reference, relation, external reference
 One external collection a Lookup may point into, registered by the Consumer under an id its Fields name. Fieldkit knows only how to ask a Source — what is in one, where it lives and what it is called are the Consumer's alone.
 _Avoid_: catalogue (that word already means both the field-type catalogue and the catalogue browse over Contents), collection, provider, registry
 
+## Rendering
+
+**Read mode**:
+A Spec rendered to show a Content's values, with no form behind it: the same Tabs, Cards and labels as the form, each Field's value shown as its Plugin reads it — a rich-text document as the document, a Reference by its name — never as a disabled input (ADR-0030). Distinct from a read-only form, which is the form itself with editing switched off for now.
+_Avoid_: view mode, display mode, disabled form, readOnly (for read mode)
+
 ## Authoring
 
 **Author**:
