@@ -1,7 +1,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
-import { defaultEditorSettings, validate } from "@knkcms/knkeditor-vocabulary";
+import {
+	defaultEditorSettings,
+	type ResolvedTextType,
+	validate,
+} from "@knkcms/knkeditor-vocabulary";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { ReactNode } from "react";
@@ -204,5 +208,67 @@ describe("KnkRichTextField", () => {
 		expect(screen.getByText("Eins.")).toBeInTheDocument();
 		expect(onError).toHaveBeenCalledWith(expect.any(Error), "body");
 		expect(form().getValues("body")).toStrictEqual(storedDocument());
+	});
+
+	// knkeditor 2.3 / vocabulary 0.9 (knkboor/general#2067): a Text Type that
+	// enables the task list needs vocabulary 0.9, so it opens an editor — not
+	// the "newer editor" notice — and a tick is an edit the form saves.
+	it("ticks a task list under a Text Type that needs vocabulary 0.9", async () => {
+		const checklist = (): ResolvedTextType => ({
+			minimumVocabularyVersion: "0.9.0",
+			nodes: {
+				doc: { options: {} },
+				text: { options: {} },
+				textWrapper: { options: {} },
+				taskList: { options: {} },
+				taskItem: { options: {} },
+			},
+			marks: {},
+		});
+		const resolved = await resolveUnder(checklist());
+		const { container, form } = renderForm({
+			resolved,
+			body: {
+				type: "doc",
+				content: [
+					{
+						type: "taskList",
+						attrs: { id: "l" },
+						content: [
+							{
+								type: "taskItem",
+								attrs: { id: "i", checked: false },
+								content: [
+									{
+										type: "textWrapper",
+										attrs: { id: "p" },
+										content: [{ type: "text", text: "Prüfen" }],
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+		});
+		await waitFor(() =>
+			expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+		);
+		const checkbox = container.querySelector(
+			'li[data-type="taskItem"] input[type="checkbox"]',
+		) as HTMLInputElement | null;
+		expect(checkbox).not.toBeNull();
+		expect(checkbox?.disabled).toBe(false);
+		expect(form().formState.dirtyFields).toEqual({});
+
+		await act(async () => {
+			checkbox?.click();
+		});
+
+		const saved = form().getValues("body") as {
+			content: { content: { attrs: { checked: boolean } }[] }[];
+		};
+		expect(saved.content[0].content[0].attrs.checked).toBe(true);
+		expect(validate(saved, checklist())).toEqual([]);
 	});
 });

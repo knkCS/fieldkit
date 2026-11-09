@@ -340,9 +340,10 @@ A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
 `knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent:
 KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
 built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
-optional peers are `@knkcms/knkeditor-editor` `^1.8.0` and
-`@knkcms/knkeditor-vocabulary` `>=0.1.0 <0.9.0` (#346: every minor from 0.1
-to 0.8, where `^0.1.0` admitted 0.1 alone), plus the peers knkeditor-editor
+optional peers are `@knkcms/knkeditor-editor` `^1.8.0 || ^2.0.0` and
+`@knkcms/knkeditor-vocabulary` `>=0.1.0 <0.10.0` (#346: every minor from 0.1
+to 0.9, where `^0.1.0` admitted 0.1 alone; 2.x and 0.9 since rc.10, for the
+task list, knkboor/general#2067), plus the peers knkeditor-editor
 declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
 extension packages). No other subpath imports them. Details in
 [`knkeditor-reference.md`](knkeditor-reference.md).
