@@ -12,3 +12,17 @@ The `/rich-text-spec` layer (`EditorSpec`, `EditorNodePlugin`, `EditorSpecEditor
 ## Consequences
 
 - knkeditor#608 (UniqueID not registered by default, although the vocabulary requires node ids) blocks this. Without node ids, saved documents fail knkeditor's own validation.
+
+## Amended: knkeditor renders in its own scoped Chakra system, at its document's height (2026-11-10)
+
+knkeditor draws its toolbar, menus and dialogs with Chakra and is styled against **Chakra's default theme**. In the subpath it rendered inside the Consumer's theme, which is anker's for every knkCS app. There, anker's recipes restyle knkeditor's controls: toolbar buttons pick up anker's primary outline, button groups get stray underline strips, and selects render empty ("None"). Found in contenthub's Branch editor (contenthub's grilling of 2026-11-10). knkcms core met the same thing and wraps its editor in a scoped system of its own.
+
+- **`KnkDocumentEditor` renders knkeditor inside its own Chakra system**, in the edit field and the read view alike: `createSystem(defaultConfig, { preflight: false, globalCss: {}, cssVarsRoot: <a class on the wrapper> })` with a gray `colorPalette`. With `preflight` and `globalCss` off, nothing leaks out: the Consumer's page, reset and anker tokens stay as they are, and anker's recipes stop at the wrapper. The system is created once per module, not per render.
+- **knkeditor, not anker, owns the editor's look.** This is the one place in fieldkit where an anker-themed surface is deliberately not anker. Rich text looks the same in every Consumer, and the same as in core, whose editors these are.
+- **The editor grows with its document.** The `maxEditorHeight` cap (60vh) goes, so a long document no longer scrolls inside a page that scrolls too. The toolbar stays at the top of the field while you edit (`toolbarPosition="fixed"`, as core uses it). The page is as wide as the Text Type says (`page_width`, A4 by default), as in core.
+
+### Considered options
+
+- **Theme knkeditor through anker** (anker recipes for its controls). Rejected: knkeditor's controls are Chakra primitives styled for the default theme. Matching every one under anker would be a second skin to keep in step with each knkeditor release.
+- **Let each Consumer wrap the field.** Rejected: that's the drift this ADR already rejects, and each app's rich text would look different.
+- **Keep the 60vh cap.** Rejected: nested scrolling and a cramped long § in exchange for compactness only a form with several rich-text fields needs.
