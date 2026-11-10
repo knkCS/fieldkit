@@ -1,4 +1,5 @@
 import type { ResolvedTextType } from "@knkcms/knkeditor-vocabulary";
+import { Button } from "@knkcs/anker/atoms";
 import type { Meta, StoryObj } from "@storybook/react";
 import { useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -14,6 +15,10 @@ import { knkRichTextPlugin } from ".";
 // Each story resolves its Spec as a Consumer would — `resolveSpec()` with a
 // `parts.text_type` fetcher — and hands the Resolved Spec's `parts` to
 // FieldKitProvider, where the field finds its Text Type.
+//
+// knkeditor renders in its own scoped Chakra system (ADR-0026, amended): its
+// toolbar and menus look as in knkcms core, under Storybook's anker theme,
+// and the anker Submit button beside it stays anker's. The page is A4.
 
 const plugins: FieldTypePlugin[] = builtInFieldTypes.map((plugin) =>
 	plugin.id === "rich_text" ? knkRichTextPlugin : plugin,
@@ -69,15 +74,41 @@ const stored = {
 	],
 };
 
+/** The stored document followed by forty paragraphs: long enough to show
+ * the editor growing with it, the toolbar fixed at the top of the field. */
+const long = {
+	...stored,
+	content: [
+		...stored.content,
+		...Array.from({ length: 40 }, (_, i) => ({
+			type: "textWrapper",
+			attrs: { id: `long-${i}` },
+			content: [
+				{
+					type: "text",
+					text: `Paragraph ${i + 1}. The page scrolls; the editor does not scroll inside it.`,
+				},
+			],
+		})),
+	],
+};
+
 interface RichTextStoryProps {
 	textType: string;
 	mode?: "edit" | "read";
+	/** Open the long document rather than the short one. */
+	longDocument?: boolean;
 }
 
-function RichTextStory({ textType, mode = "edit" }: RichTextStoryProps) {
+function RichTextStory({
+	textType,
+	mode = "edit",
+	longDocument = false,
+}: RichTextStoryProps) {
+	const initial = longDocument ? long : stored;
 	const [resolved, setResolved] = useState<ResolvedSpec | null>(null);
 	const [submitted, setSubmitted] = useState<unknown>(null);
-	const methods = useForm({ defaultValues: { body: stored } });
+	const methods = useForm({ defaultValues: { body: initial } });
 
 	useEffect(() => {
 		resolveSpec(
@@ -94,15 +125,17 @@ function RichTextStory({ textType, mode = "edit" }: RichTextStoryProps) {
 				<SpecForm
 					schema={resolved.fields}
 					mode="read"
-					values={{ body: stored }}
+					values={{ body: initial }}
 				/>
 			) : (
 				<FormProvider {...methods}>
 					<form noValidate onSubmit={methods.handleSubmit(setSubmitted)}>
 						<SpecForm schema={resolved.fields} />
-						<button type="submit" style={{ marginTop: 16 }}>
+						{/* An anker control beside the editor: knkeditor's scoped
+						    system leaves it as anker draws it. */}
+						<Button type="submit" variant="solid" mt="4">
 							Submit
-						</button>
+						</Button>
 					</form>
 					{submitted != null && (
 						<pre style={{ marginTop: 16, fontSize: 12 }}>
@@ -128,6 +161,12 @@ type Story = StoryObj<typeof meta>;
 /** Edit a document under the Text Type the Resolved Spec's `parts` hold, and
  * submit to see what is saved. */
 export const UnderATextType: Story = { args: { textType: "article@3" } };
+
+/** A long document: the editor grows with it rather than scrolling inside the
+ * page, and the toolbar is fixed at the top of the field. */
+export const ALongDocument: Story = {
+	args: { textType: "article@3", longDocument: true },
+};
 
 /** SpecForm's read mode: the editor, read-only. */
 export const ReadMode: Story = {
