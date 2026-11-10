@@ -71,6 +71,23 @@ export interface TabShellProps {
 }
 
 /**
+ * Beside a vertical Tab list, a panel takes the width that is left. Chakra's
+ * tabs recipe gives a vertical panel `width: 100%` plus its start padding,
+ * so the panel was the whole column wide, padding on top, and ran under a
+ * rail beside the form (fieldkit#435). `flex: 1` sizes it from what the list
+ * leaves; `min-width: 0` lets it shrink below a wide field (a toolbar), which
+ * then wraps or shrinks inside the panel rather than widening it. Set here,
+ * on every panel the Root holds, so the callers' panels cannot drift.
+ */
+const verticalPanels = {
+	"& > [data-scope='tabs'][data-part='content']": {
+		flex: "1",
+		minWidth: "0",
+		width: "auto",
+	},
+} as const;
+
+/**
  * The one presentational tab shell (ADR-0030): SpecForm's form, its read
  * mode and the Blueprint editor's canvas all lay their Tabs out through it.
  * Callers bring their own triggers (the canvas: drop zones, the Section
@@ -111,6 +128,7 @@ export function TabShell({
 				onValueChange={(e) => onTabChange(e.value)}
 				orientation={orientation}
 				// NEVER pass lazyMount/unmountOnExit: RHF needs all panels in the DOM.
+				css={orientation === "vertical" ? verticalPanels : undefined}
 			>
 				{orientation === "horizontal" ? (
 					<Box

@@ -3,7 +3,10 @@
 // public components: SpecEditor (canvas and "Try it") and SpecForm.
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Wrapper } from "../../renderer/spec-form/__tests__/helpers";
+import {
+	expectPanelTakesRemainingWidth,
+	Wrapper,
+} from "../../renderer/spec-form/__tests__/helpers";
 import { SpecForm } from "../../renderer/spec-form/spec-form";
 import type { Schema } from "../../schema/types";
 import { SpecEditor } from "../spec-editor";
@@ -59,6 +62,11 @@ describe("one tab shell — the Blueprint editor's canvas", () => {
 		// The list is a direct child of Tabs.Root — a column beside the Tab's
 		// fields, not squeezed into a centered header row.
 		expect(list.parentElement).toBe(tabsRoot(list));
+	});
+
+	it("gives the active Tab panel the remaining width beside a vertical list", () => {
+		renderEditor(vertical);
+		expectPanelTakesRemainingWidth(screen.getByRole("tabpanel"));
 	});
 
 	it("keeps a horizontal Spec's Tab list across the top, the search at its end", () => {

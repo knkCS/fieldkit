@@ -2,6 +2,7 @@ import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FormProvider, useForm, useFormContext } from "react-hook-form";
+import { expect } from "vitest";
 import { z } from "zod";
 import type { FieldProps, FieldTypePlugin } from "../../../schema/plugin";
 import type { Field } from "../../../schema/types";
@@ -201,4 +202,18 @@ export function fieldStackClasses(schema: Field[]): {
 		.map((el) => el.className);
 	read.unmount();
 	return { form, read: readClasses };
+}
+
+/** jsdom can't measure, so the layout is checked through the styles that
+ * decide it: beside a vertical Tab list the panel takes the remaining width
+ * (`flex: 1`) and may shrink below its content (`min-width: 0`), instead of
+ * Chakra's `width: 100%` plus its start padding, which overflowed the
+ * column into a rail beside it (fieldkit#435). */
+export function expectPanelTakesRemainingWidth(panel: HTMLElement) {
+	const style = getComputedStyle(panel);
+	expect(style.flexGrow).toBe("1");
+	expect(style.flexShrink).toBe("1");
+	expect(style.minWidth).toBe("0");
+	// Never the recipe's `width: 100%`: the panel is sized from what is left.
+	expect(style.width).toBe("auto");
 }
