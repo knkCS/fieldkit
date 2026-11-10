@@ -251,8 +251,12 @@ What a value yields to contenthub's Content Graph and to search changes too:
   existing "… not configured" / "not registered" note, and its stored value as
   read mode shows it, with no input. The bare `blueprint.search` capability is
   kept, unchanged, for your own types. To migrate: nothing if you provide
-  every adapter (blueprinthub, contenthub); otherwise provide the adapters for
-  the types you mean to offer.
+  every adapter (contenthub); otherwise provide the adapters for the types you
+  mean to offer. **An editor whose Specs another application fills**
+  (blueprinthub, which has no Content or assets of its own) declares the value
+  capabilities that application provides instead —
+  `valuesFilledElsewhere: ["reference.search", "media"]` on its adapters
+  (#433) — and its pickers offer those types again; until rc.11 it lost them.
 - **The `select` field renders through anker's `BaseSelectField`** (#314),
   single and multiple alike, where it was a native `<select>` (anker's
   deprecated `SelectField`, and a raw `<select multiple>`). That raises the

@@ -215,7 +215,13 @@ least one Source on `adapters.lookup`). `SpecEditor`'s type picker offers a
 type only when your `FieldKitProvider`'s adapters provide them, and a Virtual
 Table offers its linked Row Spec only with `blueprint.search:row_spec` —
 embedded otherwise. To offer these types, implement the adapters (`search`
-and `resolve` on the picker ones); to hide them, implement nothing. A `blueprint.search:<purpose>` capability holds when the adapter has
+and `resolve` on the picker ones); to hide them, implement nothing. An editor
+whose Specs another application fills — blueprinthub, whose Specs contenthub
+fills — declares the **value** capabilities that application provides instead,
+`valuesFilledElsewhere: ["reference.search", "media"]` on its adapters (#433):
+its pickers offer those types, and a field without an adapter of its own still
+renders that it has no source, as in the editor's Try it. Settings
+capabilities can't be declared this way. A `blueprint.search:<purpose>` capability holds when the adapter has
 `search` and its optional `purposes` include that purpose — **absent means
 every purpose**. A Consumer serving only some declares them: with
 `purposes: ["reference_target"]` the reference types are offered with a

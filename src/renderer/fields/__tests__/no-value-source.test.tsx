@@ -146,3 +146,15 @@ describe("lookup with Sources registered, but not the one it names", () => {
 		expect(await screen.findByText("sheet-1")).toBeInTheDocument();
 	});
 });
+
+describe("a Consumer whose values another application fills (#433)", () => {
+	it("still renders a Reference with no adapter of its own as having no source", () => {
+		const stored = CASES[0].stored;
+		renderStored(stored, null, {
+			valuesFilledElsewhere: ["reference.search", "media"],
+		});
+		expect(screen.getByTestId("related-no-source")).toHaveTextContent(
+			/Reference adapter not configured/,
+		);
+	});
+});

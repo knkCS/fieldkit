@@ -1,5 +1,9 @@
 // src/schema/adapter-capabilities.ts
-import type { AdapterCapability, FieldTypePlugin } from "./plugin";
+import type {
+	AdapterCapability,
+	FieldTypePlugin,
+	ValueCapability,
+} from "./plugin";
 
 /**
  * Which setting a Blueprint picker is choosing for (ADR-0027), so one
@@ -52,6 +56,7 @@ export interface AdapterCapabilitySource {
 	reference?: { search?: unknown };
 	media?: { upload?: unknown };
 	lookup?: Record<string, { search?: unknown } | undefined>;
+	valuesFilledElsewhere?: readonly ValueCapability[];
 }
 
 /** The capability a setting choosing for `purpose` needs. */
@@ -90,6 +95,28 @@ export function declinesBlueprintPurpose(
 	);
 }
 
+/** The value capabilities a Consumer may declare as filled elsewhere: never
+ * a settings capability, which the editor searches itself. Checked at run
+ * time too, so a declaration that slipped past the types changes nothing. */
+const VALUE_CAPABILITIES: ReadonlySet<AdapterCapability> =
+	new Set<ValueCapability>(["reference.search", "media", "lookup"]);
+
+/** Whether the Consumer declares that another application fills this value
+ * capability for the Specs it authors — blueprinthub's editor, whose Specs
+ * contenthub fills (#433). Pickers then offer the type; the renderer still
+ * says it has no source of its own. */
+function filledElsewhere(
+	adapters: AdapterCapabilitySource,
+	capability: AdapterCapability,
+): boolean {
+	return (
+		VALUE_CAPABILITIES.has(capability) &&
+		(adapters.valuesFilledElsewhere ?? []).includes(
+			capability as ValueCapability,
+		)
+	);
+}
+
 /** Whether the Adapters provide this capability: the Adapter is registered,
  * offers the method and — for a purpose-specific Blueprint capability —
  * serves that purpose; for `lookup`, at least one registered Source
@@ -111,14 +138,24 @@ export function hasAdapterCapability(
 		case "textType.search":
 			return typeof adapters.textType?.search === "function";
 		// What a value needs (ADR-0027, amended: by value): something to pick
-		// from, or to upload to, for the person filling in the form.
+		// from, or to upload to, for the person filling in the form — here, or
+		// in the application that fills this Consumer's Specs
+		// (`valuesFilledElsewhere`, ADR-0027 amended again, #433).
 		case "reference.search":
-			return typeof adapters.reference?.search === "function";
+			return (
+				typeof adapters.reference?.search === "function" ||
+				filledElsewhere(adapters, capability)
+			);
 		case "media":
-			return typeof adapters.media?.upload === "function";
+			return (
+				typeof adapters.media?.upload === "function" ||
+				filledElsewhere(adapters, capability)
+			);
 		case "lookup":
-			return Object.values(adapters.lookup ?? {}).some(
-				(source) => typeof source?.search === "function",
+			return (
+				Object.values(adapters.lookup ?? {}).some(
+					(source) => typeof source?.search === "function",
+				) || filledElsewhere(adapters, capability)
 			);
 	}
 	return false;

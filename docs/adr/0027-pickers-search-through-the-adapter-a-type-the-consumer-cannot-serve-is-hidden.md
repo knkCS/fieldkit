@@ -45,3 +45,18 @@ With `purposes: ["reference_target"]` a Consumer therefore offers `reference` an
 - **One Adapter per purpose, as before this ADR.** Rejected again: it is the remount this ADR removed, and a Consumer serving reference targets only would still have to register a whole Adapter to say so.
 - **Let the Consumer's publish refuse what it cannot serve, and leave the editor alone.** Rejected: that is an Author authoring what will be refused, which is the failure this ADR exists to prevent.
 - **`purposes` defaulting to none.** Rejected: every existing Consumer would lose every Blueprint setting until it declared them, for a narrowing only taskhub needs.
+
+## Amended: a value filled elsewhere (#433)
+
+"By value" hid a type from any Consumer without the Adapter that fills its value. That is right for the Consumer whose form fills it, but a Consumer can author Specs that **another application fills**: blueprinthub's Blueprint editor has no Content and no assets, and contenthub fills every Spec it authors. Under the rule, its Authors could no longer add a Reference, a Single Reference or a Media field, including a Blueprint's TOC Field. This was found when blueprinthub had to stay on rc.5 to keep them, and so missed the one tab shell (contenthub's grilling of 2026-11-10).
+
+- **A Consumer may declare the value capabilities another application fills**: `valuesFilledElsewhere` on its Adapters, listing any of `reference.search`, `media` and `lookup`. Each one declared counts as provided, so every picker in the editor offers the type again.
+- **Only value capabilities.** A setting's picker searches in the editor itself (a Reference's targets, a Fieldset's Blueprint, a Text Type), so `blueprint.search…` and `textType.search` are never satisfied by a declaration. This is enforced at run time too, and the type admits only `ValueCapability`.
+- **Pickers only.** The renderer reads its Adapters, not the declaration. A field with no Adapter of its own still says the application has no source for it, as in the editor's Try it, which has nothing to pick from.
+
+### Considered options
+
+- **A stub Adapter in blueprinthub that finds nothing.** Rejected: it is the degraded control this ADR rules out, an empty picker in Try it pretending to be a source.
+- **blueprinthub fills the values itself, through contenthub and MediaHub.** Not rejected, but not required: it is the most complete option, and it is still open to blueprinthub as a later choice. Making it the price of keeping Reference in a Blueprint editor would be too much.
+- **Exempt the `blueprint` Consumer by name.** Rejected: whether a Consumer's Specs are filled elsewhere is a fact about the application, not about a Consumer name. A second Consumer in blueprinthub's position would need another exemption.
+

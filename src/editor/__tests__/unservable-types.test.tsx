@@ -393,3 +393,66 @@ describe("a stored Field of a hidden type", () => {
 		expect(saved[0].config.name).toBe("Related!");
 	});
 });
+
+// #433, ADR-0027 amended again: an editor whose Specs another application
+// fills — blueprinthub's, whose Specs contenthub fills — declares the value
+// capabilities it lacks, and its pickers offer those types again.
+describe("an editor whose Specs another application fills (#433)", () => {
+	/** What blueprinthub's Blueprint editor provides: Blueprint and Text Type
+	 * search and a Lookup Source, no Content or assets of its own. */
+	const blueprinthub = (
+		valuesFilledElsewhere: FieldKitAdapters["valuesFilledElsewhere"],
+	): FieldKitAdapters => ({
+		blueprint: { ...blueprintWithoutSearch(), search: page },
+		textType: { get: vi.fn(), search: page },
+		lookup: { "layout:stylesheet": lookupSource() },
+		valuesFilledElsewhere,
+	});
+
+	it("offers Reference, Single Reference and Media when it declares their value capabilities", async () => {
+		renderEditor([textField], blueprinthub(["reference.search", "media"]));
+		await openTypePicker();
+
+		for (const type of [
+			"reference",
+			"single_reference",
+			"media",
+			"fieldset",
+			"rich_text",
+			"lookup",
+		]) {
+			expect(offered(type), type).not.toBeNull();
+		}
+	});
+
+	it("hides them, as before, when it declares nothing", async () => {
+		renderEditor([textField], blueprinthub(undefined));
+		await openTypePicker();
+
+		expect(offered("reference")).toBeNull();
+		expect(offered("single_reference")).toBeNull();
+		expect(offered("media")).toBeNull();
+	});
+
+	it("still needs its own Blueprint search for a Reference's targets", async () => {
+		renderEditor([textField], {
+			valuesFilledElsewhere: ["reference.search", "media"],
+		});
+		await openTypePicker();
+
+		expect(offered("reference")).toBeNull();
+		expect(offered("media")).not.toBeNull();
+	});
+
+	it("can't declare a settings capability: a Fieldset still needs the editor's own search", async () => {
+		renderEditor([textField], {
+			valuesFilledElsewhere: [
+				"blueprint.search" as never,
+				"blueprint.search:fieldset" as never,
+			],
+		});
+		await openTypePicker();
+
+		expect(offered("fieldset")).toBeNull();
+	});
+});
