@@ -308,6 +308,11 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `TabShell`** (#416, ADR-0030): a vertical first Section puts its Tab list
   in the column with the field search above it, as the form does, where the
   canvas drew its own horizontal header. No API change.
+- **A vertical Tab panel takes the remaining width beside its list** (#435):
+  in the form, read mode and the Blueprint editor's canvas the panel is
+  `flex: 1` with `min-width: 0`, where Chakra's tabs recipe sized it
+  `width: 100%` plus its start padding and it overflowed its column into a
+  rail beside it. Fixed in rc.11; no API change.
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option
@@ -351,6 +356,14 @@ task list, knkboor/general#2067), plus the peers knkeditor-editor
 declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
 extension packages). No other subpath imports them. Details in
 [`knkeditor-reference.md`](knkeditor-reference.md).
+
+Since rc.11 (#436, ADR-0026 amended) the edit field and the read view render
+knkeditor inside its own Chakra system, Chakra's default theme scoped to a
+`fieldkit-knkeditor` wrapper, so its toolbar looks as in knkcms core instead
+of being restyled by anker's recipes; no reset, global rule or token reaches
+the Consumer's page. The editor grows with its document (no height cap), keeps
+its toolbar fixed at the top while editing, and lays out an A4 page. No API
+change.
 
 ## Go API
 
