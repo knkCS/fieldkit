@@ -45,9 +45,15 @@ export type AdapterCapability =
 	| "blueprint.search"
 	| BlueprintPurposeCapability
 	| "textType.search"
-	| "reference.search"
-	| "media"
-	| "lookup";
+	| ValueCapability;
+
+/**
+ * The capabilities a Field's *value* needs — something for the person filling
+ * in the form to pick from or upload to (ADR-0027, amended: by value), as
+ * distinct from what the Author's settings need. The only ones a Consumer may
+ * declare as filled elsewhere (`FieldKitAdapters.valuesFilledElsewhere`).
+ */
+export type ValueCapability = "reference.search" | "media" | "lookup";
 
 /**
  * Where in a Spec a Field sits, which decides the Field Types it may be

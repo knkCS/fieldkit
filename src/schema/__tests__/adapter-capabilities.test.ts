@@ -261,3 +261,52 @@ describe("the built-in types' requirements", () => {
 		).toBe(false);
 	});
 });
+
+describe("value capabilities filled elsewhere (#433)", () => {
+	it("count a declared value capability as provided", () => {
+		const adapters = {
+			valuesFilledElsewhere: ["reference.search", "media", "lookup"] as const,
+		};
+		expect(hasAdapterCapability(adapters, "reference.search")).toBe(true);
+		expect(hasAdapterCapability(adapters, "media")).toBe(true);
+		expect(hasAdapterCapability(adapters, "lookup")).toBe(true);
+	});
+
+	it("count only what is declared", () => {
+		const adapters = { valuesFilledElsewhere: ["media"] as const };
+		expect(hasAdapterCapability(adapters, "media")).toBe(true);
+		expect(hasAdapterCapability(adapters, "reference.search")).toBe(false);
+	});
+
+	it("never count a settings capability, even one slipped past the types", () => {
+		const adapters = {
+			valuesFilledElsewhere: [
+				"blueprint.search",
+				"textType.search",
+				blueprintSearchFor("fieldset"),
+			] as never,
+		};
+		expect(hasAdapterCapability(adapters, "blueprint.search")).toBe(false);
+		expect(hasAdapterCapability(adapters, "textType.search")).toBe(false);
+		expect(hasAdapterCapability(adapters, blueprintSearchFor("fieldset"))).toBe(
+			false,
+		);
+	});
+
+	it("serve a Reference type with a Blueprint search beside them", () => {
+		const reference = builtInFieldTypes.find(
+			(p) => p.id === "reference",
+		) as FieldTypePlugin;
+		expect(
+			servedByAdapters(reference, {
+				valuesFilledElsewhere: ["reference.search"],
+			}),
+		).toBe(false);
+		expect(
+			servedByAdapters(reference, {
+				blueprint: { search },
+				valuesFilledElsewhere: ["reference.search"],
+			}),
+		).toBe(true);
+	});
+});

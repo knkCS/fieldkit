@@ -168,6 +168,7 @@ export type {
 	RenderReadValue,
 	SettingsProps,
 	SettingsRuleError,
+	ValueCapability,
 	ValueContext,
 	ValueEdge,
 } from "./plugin";

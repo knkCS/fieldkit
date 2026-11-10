@@ -1,5 +1,6 @@
 // src/renderer/adapters.ts
 import type { BlueprintPurpose } from "../schema/adapter-capabilities";
+import type { ValueCapability } from "../schema/plugin";
 import type { PinningMode } from "../schema/reference";
 import type {
 	BlueprintSchemaAdapter,
@@ -284,6 +285,17 @@ export interface PickerResolveQuery {
 export type ResolvedChoice<T> = T & { archived?: boolean };
 
 export interface FieldKitAdapters {
+	/**
+	 * The value capabilities another application provides for the Specs this
+	 * Consumer authors (ADR-0027, amended, #433): blueprinthub's Blueprint
+	 * editor has no Content or assets, but contenthub fills its Specs, so it
+	 * declares `["reference.search", "media"]` and its type pickers offer
+	 * Reference, Single Reference and Media again. Only value capabilities:
+	 * a setting's picker searches here or is not offered. Pickers only — a
+	 * field without its own Adapter still renders that it has no source, as
+	 * in the editor's Try it.
+	 */
+	valuesFilledElsewhere?: readonly ValueCapability[];
 	reference?: {
 		search: (query: ReferenceSearchQuery) => Promise<ReferenceSearchResult>;
 		fetch: (ids: string[]) => Promise<ReferenceItem[]>;
