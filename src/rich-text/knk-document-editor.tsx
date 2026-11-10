@@ -6,6 +6,7 @@ import type {
 } from "@knkcms/knkeditor-vocabulary";
 import { useRef, useState } from "react";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
+import { KnkeditorScope } from "./knkeditor-scope";
 
 export interface KnkDocumentEditorProps {
 	/** The stored document; anything but an object opens an empty one. */
@@ -23,6 +24,14 @@ function documentOf(value: unknown): EditorProps["content"] {
 		? (value as EditorProps["content"])
 		: "";
 }
+
+/**
+ * The page: A4 with a 10mm margin, as knkcms core lays out a Text Type
+ * without a `page_width`. knkeditor's Text Type has no page width — it
+ * refuses any key but `nodes`, `marks` and `minimumVocabularyVersion` — so
+ * there is none to read yet.
+ */
+const PAGE = { width: 210, margin: 10 } as const;
 
 /** A document's content, for telling two copies of one document apart from
  * two documents. */
@@ -42,6 +51,11 @@ function contentOf(value: unknown): string {
  * back as a deep clone of what `onChange` got, and clones it again whenever
  * any other field changes, so an identity check would remount the editor —
  * losing cursor, selection and history — on every keystroke.
+ *
+ * It renders in knkeditor's own scoped Chakra system (ADR-0026, amended) and
+ * grows with its document: knkeditor caps a fixed-toolbar editor at
+ * `calc(100vh - 200px)` unless told otherwise, and a capped editor scrolls
+ * inside a page that scrolls too, so the cap is `none`.
  */
 export function KnkDocumentEditor({
 	value,
@@ -67,22 +81,26 @@ export function KnkDocumentEditor({
 	}
 
 	return (
-		<KnkEditor
-			key={loaded.generation}
-			content={documentOf(loaded.value)}
-			textType={textType}
-			editorSettings={editorSettings}
-			viewMode={viewMode === "compact" ? "minimal" : "default"}
-			editingMode={readOnly ? "readOnly" : "content"}
-			sections={{ devMenu: false }}
-			maxEditorHeight="60vh"
-			onUpdate={({ editor }) => {
-				const document = editor.getJSON();
-				holds.current = contentOf(document);
-				onChange?.(document);
-			}}
-			onBlur={() => onBlur?.()}
-		/>
+		<KnkeditorScope>
+			<KnkEditor
+				key={loaded.generation}
+				content={documentOf(loaded.value)}
+				textType={textType}
+				editorSettings={editorSettings}
+				viewMode={viewMode === "compact" ? "minimal" : "default"}
+				editingMode={readOnly ? "readOnly" : "content"}
+				sections={{ devMenu: false }}
+				pageOptions={PAGE}
+				toolbarPosition="fixed"
+				maxEditorHeight="none"
+				onUpdate={({ editor }) => {
+					const document = editor.getJSON();
+					holds.current = contentOf(document);
+					onChange?.(document);
+				}}
+				onBlur={() => onBlur?.()}
+			/>
+		</KnkeditorScope>
 	);
 }
 KnkDocumentEditor.displayName = "KnkDocumentEditor";
