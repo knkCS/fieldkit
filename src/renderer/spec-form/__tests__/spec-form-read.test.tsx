@@ -258,7 +258,15 @@ describe("SpecForm — read mode lays a Tab out as the form does", () => {
 		// with the value.
 		expect(label.contains(value)).toBe(false);
 		expect(value.contains(label)).toBe(false);
-		expect(label.parentElement).toBe(title);
+		// The label opens its label row, the row's first child of the group;
+		// a Field without actions leaves the row's right end empty, so its
+		// label sits where it always did.
+		const row = label.parentElement;
+		expect(row?.parentElement).toBe(title);
+		expect(row?.firstElementChild).toBe(label);
+		const actions = title.querySelector("[data-field-label-actions]");
+		expect(actions?.parentElement).toBe(row);
+		expect(actions?.childElementCount).toBe(0);
 		// Unset still reads as the em dash, under its own label.
 		expect(
 			within(screen.getByRole("group", { name: "Meta" })).getByText("—"),

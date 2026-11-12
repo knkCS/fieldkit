@@ -744,57 +744,154 @@ describe("SpecForm — read mode, Find and Reveal", () => {
 });
 
 /**
- * Collapse all in read mode (#150).
+ * Expand all and Collapse all in read mode (#150, contenthub #641).
  *
- * A read-mode tree opens folded and its Reveals accumulate, exactly as the
- * editable one's do, so it sprawls open on the same terms and wants the same
- * way back. The control is the editable tree's, placed by this renderer.
+ * Every non-empty tree carries both, at any size, as icon buttons at the right
+ * end of the Field's label row — the controls are the editable tree's, placed
+ * there by the label row rather than by this renderer.
  */
-describe("SpecForm — read mode, Collapse all", () => {
-	function collapseControl() {
-		return screen.queryByRole("button", { name: "Collapse all" });
-	}
-
-	/**
-	 * The rows the tree model says a tree of this size opens with — the answer
-	 * the control is held against, read off the shared functions rather than
-	 * off the renderer being tested.
-	 */
-	function opensWith(size: number): string[] {
-		const rows = readReferenceTree(fakeReferenceTree(size));
-		const names = catalogueNames(size);
-		return visibleReferenceRows(rows, initialReferenceFolds(rows)).map((row) =>
-			referenceDisplayName(row, names),
+describe("SpecForm — read mode, Expand all and Collapse all", () => {
+	/** The label row's actions: the right end of the row naming the Field. */
+	function labelActions(): HTMLElement {
+		const group = screen.getByRole("group", { name: /^Related articles/ });
+		const actions = group.querySelector<HTMLElement>(
+			"[data-field-label-actions]",
 		);
+		if (!actions) throw new Error("no label row actions");
+		return actions;
 	}
 
-	it("offers Collapse all on a tree that opens collapsed", async () => {
-		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+	describe.each([
+		3,
+		REFERENCE_TREE_COLLAPSE_THRESHOLD - 1,
+		REFERENCE_TREE_COLLAPSE_THRESHOLD,
+		REFERENCE_TREE_COLLAPSE_THRESHOLD + 5,
+	])("on a tree of %i References", (size) => {
+		it("offers both, named, in the label row", async () => {
+			renderReadTree(size);
+			await screen.findByText("Content 1");
 
-		expect(await screen.findByText("Content 1")).toBeInTheDocument();
-		expect(collapseControl()).toBeInTheDocument();
+			const actions = labelActions();
+			expect(
+				within(actions).getByRole("button", { name: "Expand all" }),
+			).toBeInTheDocument();
+			expect(
+				within(actions).getByRole("button", { name: "Collapse all" }),
+			).toBeInTheDocument();
+		});
+
+		it("counts every Reference at every level in the label", async () => {
+			renderReadTree(size);
+			await screen.findByText("Content 1");
+
+			expect(
+				screen.getByRole("group", { name: `Related articles · ${size}` }),
+			).toBeInTheDocument();
+		});
+
+		it("folds every branch to the top level, and opens every branch", async () => {
+			renderReadTree(size);
+			await screen.findByText("Content 1");
+			const roots = readReferenceTree(fakeReferenceTree(size)).filter(
+				(row) => row.depth === 0,
+			).length;
+
+			fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+			expect(screen.getAllByTestId("reference-read-row")).toHaveLength(roots);
+
+			fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+			expect(screen.getAllByTestId("reference-read-row")).toHaveLength(size);
+
+			// A fold still toggles on its own afterwards.
+			fireEvent.click(
+				screen.getByRole("button", { name: "Collapse Content 1" }),
+			);
+			expect(screen.getAllByTestId("reference-read-row")).toHaveLength(
+				size - 1,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Expand Content 1" }));
+			expect(screen.getAllByTestId("reference-read-row")).toHaveLength(size);
+		});
 	});
 
-	it("offers none at exactly the threshold, where the tree opens expanded", async () => {
-		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+	it("offers neither, and no count, on an empty Field", () => {
+		renderRead({ related: [] });
 
-		expect(await screen.findByText("Content 1")).toBeInTheDocument();
-		expect(collapseControl()).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Expand all" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Collapse all" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("group", { name: "Related articles" }),
+		).toBeInTheDocument();
 	});
 
-	it("offers none one Reference below the threshold", async () => {
-		renderReadTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
+	it("keeps a nested Field's controls out of its container's label row", async () => {
+		// A Reference Field inside a Group is rendered by the Group's read
+		// component: its buttons belong to it, not to the Group's label.
+		const group: Field = {
+			field_type: "group",
+			config: {
+				name: "Sources",
+				api_accessor: "sources",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children: [referenceField() as Field],
+			system: false,
+		};
+		render(
+			<Provider>
+				<FieldKitProvider
+					plugins={builtInFieldTypes}
+					adapters={{ reference: createFakeReferenceAdapter() }}
+				>
+					<SpecForm
+						schema={[group]}
+						mode="read"
+						values={{
+							sources: [
+								{
+									_id: "g1",
+									related: [
+										{
+											_id: "r1",
+											id: "article-1",
+											children: [{ _id: "r2", id: "article-2" }],
+										},
+									],
+								},
+							],
+						}}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+		await screen.findByText("Cats of the world");
 
-		expect(await screen.findByText("Content 1")).toBeInTheDocument();
-		expect(collapseControl()).not.toBeInTheDocument();
+		const sources = screen.getByRole("group", { name: "Sources" });
+		const row = sources.querySelector("[data-field-label-actions]");
+		expect(row?.childElementCount ?? 0).toBe(0);
+		// Still there, beside the nested tree rather than lost.
+		expect(
+			screen.getByRole("button", { name: "Collapse all" }),
+		).toBeInTheDocument();
 	});
 
-	it("returns the tree to exactly the rows it opened with", async () => {
+	it("still returns a tree past the threshold to the rows it opened with", async () => {
 		const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
 		renderReadTree(size);
 		await screen.findByText("Content 1");
 		const opened = readNames();
-		expect(opened).toEqual(opensWith(size));
+		const rows = readReferenceTree(fakeReferenceTree(size));
+		expect(opened).toEqual(
+			visibleReferenceRows(rows, initialReferenceFolds(rows)).map((row) =>
+				referenceDisplayName(row, catalogueNames(size)),
+			),
+		);
 
 		// One fold opened by hand and one by a Reveal — the control reaches both.
 		fireEvent.click(screen.getByRole("button", { name: "Expand Content 5" }));
@@ -815,6 +912,7 @@ describe("SpecForm — read mode, Collapse all", () => {
 		await reveal("Content 20");
 
 		fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+		fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
 
 		expect(value).toEqual(before);
 	});

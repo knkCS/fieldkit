@@ -3,6 +3,11 @@ import { Box, useSlotRecipe } from "@chakra-ui/react";
 import { type ReactNode, useId } from "react";
 import type { SpecTab } from "../../schema/partition";
 import type { Field } from "../../schema/types";
+import {
+	FieldLabelRowProvider,
+	labelWithSuffix,
+	useFieldLabelRowHost,
+} from "../field-label-row";
 import { FieldStack } from "../field-stack";
 import { ReadValue, type ReadValueLabels } from "../read-value";
 
@@ -38,6 +43,11 @@ import { ReadValue, type ReadValueLabels } from "../read-value";
  * The value is `children`, so a container's read component (a Group's rows)
  * lays its children out through this same component with whatever its
  * `renderChild` draws, rather than through a second read field.
+ *
+ * The label sits in a label row whose right end holds the Field's own actions
+ * (`FieldLabelActions`, from the value below), and whose text a value can add
+ * to (`useFieldLabelSuffix` — a Reference Field's count). A Field with neither
+ * draws the label where it always was.
  */
 export function ReadField({
 	field,
@@ -50,6 +60,7 @@ export function ReadField({
 }) {
 	const labelId = useId();
 	const styles = useSlotRecipe({ key: "field" })({ orientation: "vertical" });
+	const labelRow = useFieldLabelRowHost();
 	return (
 		<Box
 			css={styles.root}
@@ -58,10 +69,17 @@ export function ReadField({
 			aria-labelledby={labelId}
 			data-field-row={isSearchTarget ? field.config.api_accessor : undefined}
 		>
-			<Box css={{ ...styles.label, color: "fg.muted" }} id={labelId}>
-				{field.config.name}
+			<Box display="flex" alignItems="center" gap="2">
+				<Box css={{ ...styles.label, color: "fg.muted" }} id={labelId} flex="1">
+					{labelWithSuffix(field.config.name, labelRow.suffix)}
+				</Box>
+				{labelRow.slot}
 			</Box>
-			<Box>{children}</Box>
+			<Box>
+				<FieldLabelRowProvider row={labelRow.row}>
+					{children}
+				</FieldLabelRowProvider>
+			</Box>
 		</Box>
 	);
 }

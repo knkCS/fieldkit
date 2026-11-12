@@ -132,8 +132,10 @@ from `@knkcs/fieldkit/schema`.
 ### Large trees: Find and Reveal
 
 A reference field holding thousands of references opens **folded** — its roots
-only — and carries a **Find** box and a **Collapse all** control. Both appear
-only above the size where a tree stops being readable at a glance.
+only — and carries a **Find** box, which appears only above the size where a
+tree stops being readable at a glance. Every non-empty tree, at any size,
+carries **Expand all** and **Collapse all** as icon buttons at the right end of
+its field's label row, and the label counts its references ("Teile · 9").
 
 **Find** locates a reference the tree already holds, by the display name of the
 content it points at. It is deliberately not called search: the reference

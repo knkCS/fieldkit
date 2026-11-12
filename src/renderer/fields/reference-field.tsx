@@ -20,6 +20,11 @@ import {
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
 import type { ReferenceItem } from "../adapters";
+import {
+	FieldLabelRowProvider,
+	labelWithSuffix,
+	useFieldLabelRowHost,
+} from "../field-label-row";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { useStableValue } from "../hooks/use-stable-value";
 import { useFieldKit } from "../provider";
@@ -189,12 +194,20 @@ export function ReferenceField({
 	const { errors } = useFormState({ name: accessor });
 	const deepErrors = nestedErrorMessages(get(errors, accessor));
 
-	// Find appears on exactly the trees that open collapsed. One threshold, two
-	// behaviours: a tree an Author takes in at a glance is one they can reach a
-	// Reference in by looking, and a control they do not need is clutter. Read
-	// through the tree model's own predicate, which the read-mode renderer asks
-	// the same question of — the comparison is not spelled out twice.
+	// Find stays where it was, above the tree on the trees that open folded,
+	// until it moves into the label row as an icon that opens into a search
+	// (contenthub #642) — a full input on a three-item tree is the clutter that
+	// icon exists to avoid. Read through the tree model's predicate, which the
+	// read-mode renderer asks the same question of.
 	const offersFind = referenceTreeOpensFolded(rows);
+
+	// The label row the tree draws its controls into, at the label's right end;
+	// the label carries the count of References at every level ("Teile · 9").
+	const labelRow = useFieldLabelRowHost();
+	const label =
+		rows.length > 0
+			? labelWithSuffix(config.name, String(rows.length))
+			: config.name;
 
 	// What the drawer says about where this Reference is going. A strip already
 	// announced its own destination and hands it over; the Add control never
@@ -221,7 +234,10 @@ export function ReferenceField({
 	return (
 		<FormField
 			name={accessor}
-			label={config.name}
+			label={label}
+			// anker's FormField draws these at the label's right end — for a
+			// string label, which is why the count is spelled into it.
+			actions={labelRow.slot}
 			helperText={config.instructions || undefined}
 			required={config.required}
 			readOnly={readOnly}
@@ -282,26 +298,31 @@ export function ReferenceField({
 							</Flex>
 						)}
 
-						<ReferenceTree
-							rows={rows}
-							value={entries}
-							names={names}
-							hrefFor={adapter.hrefFor}
-							readOnly={readOnly}
-							onChange={formField.onChange}
-							depthCeiling={depthCeiling}
-							referenceSpec={referenceSpecOf}
-							onInsert={setInsertRequest}
-							atItemCap={atCap}
-							reveal={reveal}
-							onOpenValues={(row) =>
-								setFilling({
-									path: row.path,
-									id: row.reference.id,
-									name: names[row.reference.id] ?? row.reference.id,
-								})
-							}
-						/>
+						{/* The row reaches the tree alone: the drawers below render
+						    Fields of their own, whose controls are not this
+						    Field's. */}
+						<FieldLabelRowProvider row={labelRow.row}>
+							<ReferenceTree
+								rows={rows}
+								value={entries}
+								names={names}
+								hrefFor={adapter.hrefFor}
+								readOnly={readOnly}
+								onChange={formField.onChange}
+								depthCeiling={depthCeiling}
+								referenceSpec={referenceSpecOf}
+								onInsert={setInsertRequest}
+								atItemCap={atCap}
+								reveal={reveal}
+								onOpenValues={(row) =>
+									setFilling({
+										path: row.path,
+										id: row.reference.id,
+										name: names[row.reference.id] ?? row.reference.id,
+									})
+								}
+							/>
+						</FieldLabelRowProvider>
 
 						{/* Reported here rather than on the Field, because that is
 						    where the Schema put them — see nestedErrorMessages. */}

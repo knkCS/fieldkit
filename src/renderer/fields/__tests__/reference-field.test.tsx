@@ -1857,58 +1857,78 @@ describe("ReferenceField", () => {
 			);
 		}
 
-		describe("when the control appears", () => {
-			it("offers Collapse all on a tree that opens collapsed", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+		describe("when the controls appear", () => {
+			it.each([
+				3,
+				REFERENCE_TREE_COLLAPSE_THRESHOLD - 1,
+				REFERENCE_TREE_COLLAPSE_THRESHOLD,
+				REFERENCE_TREE_COLLAPSE_THRESHOLD + 1,
+			])("offers Expand all and Collapse all on a tree of %i, whatever it opened as", async (size) => {
+				renderTree(size);
 
 				expect(await screen.findByText("Content 1")).toBeInTheDocument();
 				expect(collapseControl()).toBeInTheDocument();
+				expect(
+					screen.getByRole("button", { name: "Expand all" }),
+				).toBeInTheDocument();
 			});
 
-			it("offers none at exactly the threshold, where the tree opens expanded", async () => {
-				// A tree that opened expanded has no state to be returned to but
-				// the one it is in, and a control named Collapse all that unfolded
-				// what an Author had folded would be lying about itself.
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+			it("offers neither on an empty Field", () => {
+				renderField();
 
-				expect(await screen.findByText("Content 1")).toBeInTheDocument();
 				expect(collapseControl()).not.toBeInTheDocument();
+				expect(
+					screen.queryByRole("button", { name: "Expand all" }),
+				).not.toBeInTheDocument();
 			});
 
-			it("offers none one Reference below the threshold", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
-
-				expect(await screen.findByText("Content 1")).toBeInTheDocument();
-				expect(collapseControl()).not.toBeInTheDocument();
-			});
-
-			it("arrives when a tree grows past the threshold, folding to what that size opens as", async () => {
+			it("folds a tree grown past the threshold to its top level", async () => {
 				const user = userEvent.setup();
-				// At the threshold this tree opened expanded and carried no
-				// control at all. One Reference later it is a tree that opens
-				// folded, and the way back is the way back for *that* tree.
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD, {
 					adapter: createFakeReferenceAdapter({
 						contents: fakeCatalogue(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
 					}),
 				});
 				await screen.findByText("Content 1");
-				expect(collapseControl()).not.toBeInTheDocument();
 
 				await openPicker(user);
 				await user.click(await screen.findByText("Content 21"));
+				await screen.findByText("Content 21");
 
-				await waitFor(() => {
-					expect(collapseControl()).toBeInTheDocument();
-				});
 				fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
-				// The set a tree of this size opens with — the rule read over the
-				// rows as they stand, rather than a state remembered from when
-				// this tree was one Reference smaller and folded nothing.
+				// Every branch folded over the rows as they stand, the one just
+				// added among them.
 				expect(shownNames()).toEqual(
 					opensWith(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
 				);
 			});
+		});
+
+		it("opens every branch with Expand all, and folds still toggle after", async () => {
+			const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
+			renderTree(size);
+			await screen.findByText("Content 1");
+			expect(shownNames().length).toBeLessThan(size);
+
+			fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+			expect(shownNames()).toHaveLength(size);
+
+			fireEvent.click(
+				screen.getByRole("button", { name: "Collapse Content 1" }),
+			);
+			expect(rowNamed("Content 2")).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Expand Content 1" }));
+			expect(rowNamed("Content 2")).not.toBeNull();
+		});
+
+		it("folds a small tree, which opened expanded, to its top level", async () => {
+			renderTree(4);
+			await screen.findByText("Content 1");
+			expect(shownNames()).toHaveLength(4);
+
+			fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+
+			expect(shownNames()).toEqual(["Content 1", "Content 3"]);
 		});
 
 		it("returns the tree to exactly the rows it opened with", async () => {
@@ -1977,9 +1997,9 @@ describe("ReferenceField", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Expand Content 5" }));
 			expect(rowNamed("Content 6")).not.toBeNull();
 
-			// Tabbed to from the control above it rather than focused outright,
+			// Tabbed to from the control beside it rather than focused outright,
 			// which a `tabindex="-1"` element would answer to just as well.
-			screen.getByRole("combobox", { name: "Find a Reference" }).focus();
+			screen.getByRole("button", { name: "Expand all" }).focus();
 			await user.tab();
 			expect(collapseControl()).toHaveFocus();
 			await user.keyboard("{Enter}");
