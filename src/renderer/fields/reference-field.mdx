@@ -25,7 +25,7 @@ A drag also shows **where** it will land and **at what level**. A line — 3px i
 
 **Everything else holds still.** No row displaces to open a gap for the one in flight — the line alone says where the drop lands, and the dragged row alone says at what level. The dragged row is therefore **lifted rather than dimmed**: opaque, raised above its neighbours and shadowed, so it reads as a card being carried over the rows. With no gap opening beneath it, it visibly overlaps the rows it passes, which is accepted deliberately. The alternative is worse: a list that both parts *and* springs a folded branch open moves twice for one gesture, and the row that moves is the one being aimed at.
 
-A Reference with children carries a chevron that folds its branch away, so one branch can be worked on without the rest in the way. A tree of more than `REFERENCE_TREE_COLLAPSE_THRESHOLD` References **opens with every parent collapsed**; at or below it, expanded. The threshold is a provisional guess and wants tuning against a real Spec. Folding is the control's own state and is never stored.
+A Reference with children carries a chevron that folds its branch away, so one branch can be worked on without the rest in the way. A tree of more than `REFERENCE_TREE_COLLAPSE_THRESHOLD` References **opens with every parent collapsed**; at or below it, expanded. That is all the threshold decides — the tree's Expand all and Collapse all are on every non-empty tree (below). The threshold is a provisional guess and wants tuning against a real Spec. Folding is the control's own state and is never stored.
 
 Folding and dragging agree on two rules. A folded Reference **stands in for its whole branch**: dropping below one lands below everything it hides, and a drop can reach a depth of "child of the folded Reference" but never deeper — a drop may only land somewhere an Author can see. And whatever a Reference lands *inside* is **unfolded on the drop**, so it is visible where it went.
 
@@ -87,7 +87,7 @@ Adoption cannot make a tree too deep. Splicing moves no other row, and a row is 
 
 ## Finding a Reference the tree already holds
 
-A Field past `REFERENCE_TREE_COLLAPSE_THRESHOLD` — the same number that decides a tree opens collapsed — carries a **Find** control above the tree. Type the display name of a Content and it lists the References *in this tree* that match, each under the path of ancestors leading to it. At or below the threshold there is no control at all: a tree an Author reads at a glance does not need one.
+A Field past `REFERENCE_TREE_COLLAPSE_THRESHOLD` carries a **Find** control above the tree — for now: it moves into the label row as an icon that opens into a search (knkCS/contenthub#642), after which it is on every non-empty tree like the fold controls. Type the display name of a Content and it lists the References *in this tree* that match, each under the path of ancestors leading to it. At or below the threshold there is no control at all: a tree an Author reads at a glance does not need one.
 
 The list is **ranked and capped**. A name that begins with the query comes first, then a name a word of which begins with it, then a name merely containing it; ties go to whichever row sits higher in the tree, so no two matches are ever tied and the list does not rearrange itself under the next keystroke. At most `REFERENCE_FIND_RESULT_CAP` are listed, above the list a count of how many were found in all — an Author reading "Showing 20 of 431 matches" knows to keep typing, where a list four hundred long would be the wall the tree already was. A search that withheld nothing says only "12 matches", with nothing left to wonder about. The cap is **provisional**, a guess on the same terms as the collapse threshold, and the count beside the list is what keeps a wrong guess honest.
 
@@ -117,9 +117,9 @@ The matching, the ranking, the cap and the ancestor paths are pure functions in 
 
 ## Collapsing the tree back
 
-A tree past that same threshold also carries a **Collapse all** control, drawn above the rows and below whatever the Field puts there. One press returns it to the fold set it *opened* in — every parent collapsed, the roots on screen — and it reaches folds a Reveal opened and folds an Author opened by hand alike. It is an ordinary button: in the tab order, operated by <kbd>Enter</kbd> or <kbd>Space</kbd>, and named by its own text.
+Every non-empty tree, at any size, carries **Expand all** and **Collapse all** at the right end of the Field's **label row**, whose label counts every Reference at every level ("Teile · 9"). Collapse all folds every branch — the roots on screen — and reaches folds a Reveal opened and folds an Author opened by hand alike; Expand all opens every branch. Each is an icon button with its name as `aria-label` and again as a tooltip: in the tab order, operated by <kbd>Enter</kbd> or <kbd>Space</kbd>. The buttons are the tree's — they act on its fold set — and `FieldLabelActions` portals them into the row the Field draws; a `ReferenceTree` rendered outside a label row draws them above its rows.
 
-That it is an explicit act is the whole point. Nothing else here folds anything back — a Reveal is not a preview, in deliberate contrast to a Spring, and a fold opened by hand is never fought — so a large tree sprawls open as it is worked, by design. This is the way back, in one action rather than a chevron per branch, and it is worth having at this size whether or not anyone used Find to get here. At or below the threshold there is no control at all: a tree that opened expanded has no folded state to return to, and one named Collapse all that undid an Author's own folds would be lying about itself.
+That it is an explicit act is the whole point. Nothing else here folds anything back — a Reveal is not a preview, in deliberate contrast to a Spring, and a fold opened by hand is never fought — so a large tree sprawls open as it is worked, by design. This is the way back, in one action rather than a chevron per branch. It used to appear only past the threshold; it is on every non-empty tree now (knkCS/contenthub#637), because a fifteen-row tree three levels deep wants it as much as one of thousands, and controls that come and go with a tree's size are never where an Author last saw them.
 
 It changes nothing that is stored — folding is control state, never the value's (ADR-0008) — and a Reveal after it opens the way down again exactly as before. The mark the last Reveal left is not cleared: it says what an Author last asked for, and folding its row away answers no question.
 
@@ -325,7 +325,7 @@ That has a blast radius, and it is intended: **a Spec whose caps were never enfo
 
 Read mode bypasses the cell and renders the tree instead: `ReferenceReadValue` resolves every Content's current name through the adapter, indents each Reference to its depth, and shows each Reference's values against it. It sits inside the renderer, so it reaches the adapter and has the height a table row does not (ADR-0008). It never touches react-hook-form, so read mode still needs no `FormProvider`.
 
-It **folds and finds on the same terms the editable tree does**. Past `REFERENCE_TREE_COLLAPSE_THRESHOLD` a read-mode tree opens with its parents collapsed and carries the Find and Collapse all controls; at or below it, expanded and without either. Folds open and close while reading, because reading a folded branch is reading, and picking a Find result Reveals the Reference exactly as it does when editing — every fold above it opens, the row scrolls to the centre, takes focus and stays marked. A read-mode tree sprawls open as Reveals accumulate for the same reason the editable one does, so Collapse all is the way back here too, returning it to the set it opened in. Nothing about any of it is written: folding and the mark are the component's own state, as folding already is on the editable side.
+It **folds and finds on the same terms the editable tree does**. Every non-empty read-mode tree carries Expand all and Collapse all in the label row, and its label counts its References. Past `REFERENCE_TREE_COLLAPSE_THRESHOLD` it opens with its parents collapsed and carries the Find control; at or below it, expanded and without Find. Folds open and close while reading, because reading a folded branch is reading, and picking a Find result Reveals the Reference exactly as it does when editing — every fold above it opens, the row scrolls to the centre, takes focus and stays marked. A read-mode tree sprawls open as Reveals accumulate for the same reason the editable one does, so Collapse all is the way back here too. Nothing about any of it is written: folding and the mark are the component's own state, as folding already is on the editable side.
 
 The two renderers stay separate components — one has grips, drags and springs, the other has none of them — but they call one implementation of the rules they share: `initialReferenceFolds`, `visibleReferenceRows` and `foldsToReveal` in `src/schema/reference-tree.ts`. That is what makes "the same tree does not behave like two different trees" a fact rather than a promise, and it narrows #88 without closing it.
 
@@ -359,7 +359,7 @@ For a control of your own around the same tree, `ReferenceTree` is exported from
 
 The insertion strips are the same bargain. Pass `onInsert` and the tree renders them; it is called with a `ReferenceInsertRequest` — where the Reference would go, at what depth, the `destination` sentence the strip just announced, and a `commit` that puts one there once your own browse has produced it. Show `destination` in whatever you open: it is what an Author already read, and re-phrasing it is how the two come to disagree. The write stays in the tree because folding has to follow it. Without `onInsert` there are no strips. `atItemCap` disables them, and should be read through `referenceItemCap(settings)` — an unset `max_items` is no cap, never a cap of zero. `readReferenceTree`, `countReferences` (every Reference at every level, what `max_items` caps), `referencesPastDepth` (where a tree breaks `max_depth`), `referenceItemCap` and `referenceDepthCeiling` all come from `@knkcs/fieldkit/schema`.
 
-Find and Collapse all divide differently, and along the same line: what a control needs decides whose it is. Find is the **Field's** — only your Adapter can resolve the names it searches — so a Consumer assembling its own builds the control and passes the tree a `reveal`. Collapse all needs nothing but the fold set, and the fold set is the tree's, so the tree draws it itself on any tree big enough to open folded; there is nothing to wire and nothing to turn off.
+Find and Collapse all divide differently, and along the same line: what a control needs decides whose it is. Find is the **Field's** — only your Adapter can resolve the names it searches — so a Consumer assembling its own builds the control and passes the tree a `reveal`. Expand all and Collapse all need nothing but the fold set, and the fold set is the tree's, so the tree draws them itself on any non-empty tree — into the label row when it is rendered under one, above its rows when not; there is nothing to wire and nothing to turn off.
 
 ## Errors
 
@@ -396,7 +396,7 @@ Drag a grip to reorder or to nest; fold a branch away with its chevron.
 
 ### Large Tree
 
-Past the node-count threshold, every parent starts collapsed — and the Find and Collapse all controls appear. Type "Content 20" to see the References that match with the path to each, and pick one to Reveal it; Collapse all puts the tree back the way it opened.
+Past the node-count threshold, every parent starts collapsed — and the Find control appears. Type "Content 20" to see the References that match with the path to each, and pick one to Reveal it; Collapse all, in the label row, folds the tree back to its roots.
 
 <Canvas of={Stories.LargeTree} />
 
@@ -456,6 +456,6 @@ The resolved tree, not the count cell: names through the adapter, nesting by ind
 
 ### Read Mode, Large Tree
 
-Past the node-count threshold, read mode opens with every parent collapsed and carries Find and Collapse all — the same threshold, the same controls and the same Reveal the editable tree has.
+Past the node-count threshold, read mode opens with every parent collapsed and carries Find — the same threshold, the same controls and the same Reveal the editable tree has.
 
 <Canvas of={Stories.ReadModeLargeTree} />

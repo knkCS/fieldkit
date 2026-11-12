@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Reference } from "../reference";
 import type { FlatReference, ReferenceRow } from "../reference-tree";
 import {
+	allReferenceFolds,
 	countReferences,
 	flattenReferences,
 	foldsToReveal,
@@ -1771,9 +1772,8 @@ describe("referenceTreeOpensFolded", () => {
 	});
 
 	it("is the same answer the initial fold set is built from", () => {
-		// One threshold, two behaviours: what decides that a tree opens folded
-		// is what decides that it is worth carrying a Find control. A renderer
-		// asking one question and the model answering the other is exactly the
+		// The threshold decides how a tree opens, and only that: a renderer
+		// asking the predicate and the model folding by another rule is the
 		// disagreement this predicate exists to prevent.
 		for (const size of [
 			REFERENCE_TREE_COLLAPSE_THRESHOLD - 1,
@@ -1785,6 +1785,39 @@ describe("referenceTreeOpensFolded", () => {
 				referenceTreeOpensFolded(rows),
 			);
 		}
+	});
+});
+
+describe("allReferenceFolds", () => {
+	it("names every Reference with a branch, at every level, whatever the size", () => {
+		const rows = readReferenceTree(foldable);
+		expect([...allReferenceFolds(rows)]).toEqual(
+			rows.filter((row) => row.height > 0).map((row) => row.key),
+		);
+		// Small trees too: Collapse all is on every non-empty tree.
+		const small = readReferenceTree(treeOfSize(3));
+		expect([...allReferenceFolds(small)]).toEqual([small[0].key]);
+	});
+
+	it("leaves only the top level on screen", () => {
+		const rows = readReferenceTree(big);
+		expect(
+			visibleReferenceRows(rows, allReferenceFolds(rows)).every(
+				(row) => row.depth === 0,
+			),
+		).toBe(true);
+	});
+
+	it("names nothing for a tree of leaves, or no tree", () => {
+		expect(allReferenceFolds(readReferenceTree([{ id: "a" }]))).toEqual(
+			new Set(),
+		);
+		expect(allReferenceFolds([])).toEqual(new Set());
+	});
+
+	it("is the set a tree past the threshold opens with", () => {
+		const rows = readReferenceTree(big);
+		expect(initialReferenceFolds(rows)).toEqual(allReferenceFolds(rows));
 	});
 });
 

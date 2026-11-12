@@ -863,7 +863,8 @@ export type FoldableRow = Pick<ReferenceRow, "depth" | "key">;
 
 /**
  * Above this many References a tree opens with its parents folded; at or
- * below it, expanded.
+ * below it, expanded. That is all it decides: the tree's controls are on every
+ * non-empty tree whatever its size (see {@link referenceTreeOpensFolded}).
  *
  * PROVISIONAL — a guess, not a measurement, and #61 says as much: the
  * threshold "wants tuning against a real Spec". Twenty rows is roughly a
@@ -885,42 +886,58 @@ export function referenceHasBranch(row: Pick<ReferenceRow, "height">): boolean {
 
 /**
  * Whether a tree is big enough to open folded — the one reading of
- * {@link REFERENCE_TREE_COLLAPSE_THRESHOLD} there is.
+ * {@link REFERENCE_TREE_COLLAPSE_THRESHOLD} there is, and the only thing that
+ * threshold decides.
  *
- * **One threshold, two behaviours**: the same answer says that a tree opens
- * with its parents collapsed and that it is worth carrying a Find control at
- * all, because both are the same judgement — that this is more tree than an
- * Author takes in at a glance. A control offered on trees that opened expanded
- * would be clutter; folds on a tree of three would be a list to expand before
- * it could be read.
+ * It used to decide two things — this, and whether a tree carried its
+ * controls at all (Find, Collapse all) — on the argument that both were one
+ * judgement. That rule is reversed (contenthub #637): a reader on a fifteen-row
+ * tree three levels deep wants Expand all and Collapse all as much as one on a
+ * thousand, and controls that come and go with a tree's size are never where an
+ * Author last saw them. So every non-empty tree carries its controls, at any
+ * size, and this answers only how a tree *opens*: folds on a tree of three
+ * would be a list to expand before it could be read.
  *
  * It answers about a *list of rows* rather than a nested tree, because that is
- * what both callers hold, and it reads nothing but the count — every Reference
- * at every level, which is the size the threshold is about.
+ * what both renderers hold, and it reads nothing but the count — every
+ * Reference at every level, which is the size the threshold is about.
  *
  * Here rather than in either renderer for the reason the rest of this section
- * is: three sites spelling the same comparison out are three sites free to
- * spell it differently, and one of them is a `>` that has to stay the opposite
- * of a `<=`.
+ * is: two sites spelling the same comparison out are two sites free to spell
+ * it differently, and one of them is a `>` that has to stay the opposite of a
+ * `<=`.
  */
 export function referenceTreeOpensFolded(rows: readonly unknown[]): boolean {
 	return rows.length > REFERENCE_TREE_COLLAPSE_THRESHOLD;
 }
 
 /**
- * The fold set a tree opens with: every Reference that has a branch, once the
- * tree is past {@link REFERENCE_TREE_COLLAPSE_THRESHOLD}, and nothing at all
- * below it.
+ * Every fold a tree can hold: each Reference that has a branch. What Collapse
+ * all folds a tree to, whatever its size — the top level on screen, every
+ * branch shut beneath it.
+ *
+ * A leaf is never named: a fold set naming one would claim a row is shut with
+ * nothing behind it.
+ */
+export function allReferenceFolds(
+	rows: readonly Pick<ReferenceRow, "key" | "height">[],
+): Set<string> {
+	return new Set(rows.filter(referenceHasBranch).map((row) => row.key));
+}
+
+/**
+ * The fold set a tree opens with: every fold it can hold
+ * ({@link allReferenceFolds}) once the tree is past
+ * {@link REFERENCE_TREE_COLLAPSE_THRESHOLD}, and nothing at all below it.
  *
  * Which leaves the roots on screen — a tree big enough to be worth folding is
- * one an Author meets a level at a time. A leaf is never named: a fold set
- * naming one would claim a row is shut with nothing behind it.
+ * one an Author meets a level at a time.
  */
 export function initialReferenceFolds(
 	rows: readonly Pick<ReferenceRow, "key" | "height">[],
 ): Set<string> {
 	if (!referenceTreeOpensFolded(rows)) return new Set();
-	return new Set(rows.filter(referenceHasBranch).map((row) => row.key));
+	return allReferenceFolds(rows);
 }
 
 /**

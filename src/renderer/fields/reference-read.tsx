@@ -8,6 +8,7 @@ import { referenceSpecFor } from "../../schema/reference";
 import { declaredReferenceFields } from "../../schema/reference-spec";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
+	allReferenceFolds,
 	foldsToReveal,
 	initialReferenceFolds,
 	readReferenceTree,
@@ -17,10 +18,11 @@ import {
 	visibleReferenceRows,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
+import { useFieldLabelSuffix } from "../field-label-row";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { EmptyReadValue } from "./empty-value";
-import { ReferenceCollapseAll } from "./reference-collapse-all";
 import { ReferenceFind } from "./reference-find";
+import { ReferenceFoldAll } from "./reference-fold-all";
 import {
 	ReferenceName,
 	referenceHref,
@@ -39,9 +41,11 @@ import { INDENT_WIDTH } from "./reference-tree";
  * every Content's current name, at the depth it sits at, with the Attribute
  * values that belong to it.
  *
- * It **folds, and it finds** (#153). A tree past
- * the tree model's collapse threshold opens with its parents collapsed
- * and carries a Find control, exactly as the editable tree does — an Author
+ * It **folds, and it finds** (#153). Every non-empty tree carries Expand all
+ * and Collapse all in the Field's label row, whose label counts its
+ * References; a tree past the tree model's collapse threshold opens with its
+ * parents collapsed and carries a Find control, exactly as the editable tree
+ * does — an Author
  * opening a record read-only with ten thousand References was previously given
  * ten thousand rows, which is the problem collapsing already solved on the
  * other side of the same Field. Folds open and close while reading, because
@@ -160,18 +164,27 @@ export function ReferenceReadValue({
 	}, []);
 
 	/**
-	 * Collapse all: back to the fold set this tree opened in, by calling the
-	 * function it opened with rather than restating what that function does.
+	 * Collapse all: every branch folded, the top level on screen — by the tree
+	 * model's rule, the one the editable tree folds by too.
 	 *
 	 * A read-mode tree sprawls on exactly the terms the editable one does —
 	 * Reveals accumulate, and a fold opened by hand stays open — so it wants the
-	 * same way back, and gets it from the same rule. The Reveal's mark is left
-	 * where it is: it says what was last asked for, and folding its row away
-	 * answers nothing.
+	 * same way back. The Reveal's mark is left where it is: it says what was
+	 * last asked for, and folding its row away answers nothing.
 	 */
 	const collapseAll = useCallback(() => {
-		setFolded(initialReferenceFolds(rows));
+		setFolded(allReferenceFolds(rows));
 	}, [rows]);
+
+	/** Expand all: every branch open, the whole structure at once. */
+	const expandAll = useCallback(() => {
+		setFolded(new Set());
+	}, []);
+
+	// The label counts every Reference at every level — "Teile · 9" — so a
+	// reader knows the Field's size before scanning it. Nothing on an empty
+	// value, which reads as the em dash.
+	useFieldLabelSuffix(rows.length > 0 ? String(rows.length) : null);
 
 	/**
 	 * The landing: focus a revealed row and put it in the middle of the
@@ -248,14 +261,13 @@ export function ReferenceReadValue({
 
 	if (rows.length === 0) return <EmptyReadValue />;
 
-	// Find and Collapse all appear on exactly the trees that open collapsed —
-	// the same threshold, read through the same function the editable Field and
-	// tree read it through, so no two of them can come to different answers
-	// about the same tree. One reading rather than two, because they are one
-	// judgement: a tree big enough to be met a level at a time is one worth
-	// carrying a way in and a way back out of.
+	// Find stays on exactly the trees that open collapsed, above the tree,
+	// until it moves into the label row as an icon (contenthub #642) — read
+	// through the same function the editable Field reads it through, so the two
+	// cannot come to different answers about the same tree. Expand all and
+	// Collapse all are on every non-empty tree, in the label row.
 	//
-	// Size is the whole test, deliberately. The editable Field offers no Find
+	// Size is the whole test for Find, deliberately. The editable Field offers no Find
 	// with no Adapter configured, but only because it replaces itself with a
 	// message and draws no tree at all; read mode draws one whatever resolves,
 	// so its screen in that case is the *same* screen a failed lookup leaves —
@@ -295,24 +307,19 @@ export function ReferenceReadValue({
 			textAlign="start"
 			data-testid="reference-read-tree"
 		>
+			<ReferenceFoldAll onExpand={expandAll} onCollapse={collapseAll} />
+
 			{opensFolded && (
 				// Above the tree and on the right, where the editable Field draws
-				// Find and the editable tree draws Collapse all under it — one
-				// condition and one order, so the pair reads the same on both
-				// sides of the Field rather than as four separate controls.
-				<>
-					<Box as="span" display="flex" justifyContent="flex-end">
-						<ReferenceFind
-							rows={rows}
-							names={names}
-							nameState={nameState}
-							onReveal={handleReveal}
-						/>
-					</Box>
-					<Box as="span" display="flex" justifyContent="flex-end">
-						<ReferenceCollapseAll onCollapse={collapseAll} />
-					</Box>
-				</>
+				// Find — one condition and one place on both sides of the Field.
+				<Box as="span" display="flex" justifyContent="flex-end">
+					<ReferenceFind
+						rows={rows}
+						names={names}
+						nameState={nameState}
+						onReveal={handleReveal}
+					/>
+				</Box>
 			)}
 
 			{shown.map((row) => (
