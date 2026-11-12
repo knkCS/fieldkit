@@ -335,13 +335,24 @@ What a value yields to contenthub's Content Graph and to search changes too:
   every level ("Teile · 9"). Collapse all now folds every branch to the top
   level, where it returned a tree to the fold set it opened in.
   `REFERENCE_TREE_COLLAPSE_THRESHOLD` (20) now decides only whether a tree
-  *opens* folded; Find still appears only past it, above the tree, until it
-  moves into the label row. A Consumer test that looked for Collapse all only
+  *opens* folded. A Consumer test that looked for Collapse all only
   past 20 References, or matched a Reference Field's label exactly, needs
   updating; read mode's label now sits in a row beside an actions slot
   (`data-field-label-actions`, empty for a Field without actions). A
   `ReferenceTree` rendered outside a label row draws both buttons above its
   rows. No API change.
+- **Find moves into the label row, on every non-empty tree**
+  (knkCS/contenthub#642): anker's `IconSearch` (anker ^5.11.1, the new floor)
+  replaces the standing Find box, first of the tree's label-row controls. It
+  opens on a click or on `/` while the Field has focus; typing Reveals the
+  first match in tree order without moving focus, and a counter ("2 of 3")
+  with previous and next steps through every match, uncapped. Escape or clear
+  empty and close it; blur closes it only while empty. A Consumer test that
+  queried the `combobox` named "Find a Reference", its option list or its
+  "N matches" lines now finds a `button` and, once open, a `searchbox` of
+  that name and a counter. `ReferenceTree`'s `reveal` takes an optional
+  `focus` (default `true`), and `ReferenceTree` gains `labelActions`, drawn
+  first in the label row.
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option

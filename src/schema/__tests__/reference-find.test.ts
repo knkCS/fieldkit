@@ -14,6 +14,7 @@ import {
 	findReferences,
 	foldReferenceText,
 	REFERENCE_FIND_RESULT_CAP,
+	referenceFindMatches,
 	referenceFindState,
 } from "../reference-find";
 import { readReferenceTree } from "../reference-tree";
@@ -842,5 +843,54 @@ describe("findReferences — what a keystroke costs", () => {
 		const folds = foldsDuring(() => find(unresolved, {}, "id"));
 
 		expect(folds).toBe(1 + unresolved.length);
+	});
+});
+
+describe("referenceFindMatches — the matches a search steps through", () => {
+	it("answers every match in tree order, top to bottom, not by rank", () => {
+		// By rank "World atlas" (its name begins with the query) would lead and
+		// the two names merely containing "world" follow; stepping walks the
+		// tree instead, the order an Author reads it in.
+		const tested = readReferenceTree([
+			{ id: "bern" },
+			{ id: "alps" },
+			{ id: "cats" },
+		]);
+		expect(referenceFindMatches(tested, names, "world")).toEqual([
+			"0",
+			"1",
+			"2",
+		]);
+		expect(keys(find(tested, names, "world"))[0]).toBe("1");
+	});
+
+	it("matches the id a row shows where no name resolved, and folds diacritics", () => {
+		expect(referenceFindMatches(rows, names, "vanish")).toEqual(["2"]);
+		expect(
+			referenceFindMatches(
+				rows,
+				{ ...names, cats: "Katzen über Bern" },
+				"uber",
+			),
+		).toEqual(["0.0.0"]);
+	});
+
+	it("lists both occurrences of one Content", () => {
+		expect(referenceFindMatches(rows, names, "shared")).toEqual(["0.1", "1.0"]);
+	});
+
+	it("is never capped", () => {
+		const many = readReferenceTree(
+			Array.from({ length: REFERENCE_FIND_RESULT_CAP + 5 }, (_, i) => ({
+				id: `item-${i}`,
+			})),
+		);
+		expect(referenceFindMatches(many, {}, "item")).toHaveLength(
+			REFERENCE_FIND_RESULT_CAP + 5,
+		);
+	});
+
+	it("answers a blank query with nothing", () => {
+		expect(referenceFindMatches(rows, names, "   ")).toEqual([]);
 	});
 });

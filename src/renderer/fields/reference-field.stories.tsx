@@ -402,7 +402,7 @@ export const ReadMode: Story = {
 
 /**
  * Read mode past the node-count threshold: the tree opens with every parent
- * collapsed and carries the same Find control the editable tree does, so
+ * collapsed and carries the same Find, in its label row, the editable tree does, so
  * reaching one Reference never means switching into an editable view.
  *
  * Both halves call the tree model's own fold and reveal functions, so the two

@@ -1,10 +1,18 @@
 // A Reference tree's controls in its Field's label row, through SpecForm in
 // edit and read mode alike (contenthub #641): Expand all and Collapse all on
 // every non-empty tree at any size, the label counting every Reference, and
-// the collapse threshold deciding only how a tree opens.
+// the collapse threshold deciding only how a tree opens — and Find, anker's
+// icon search, first among them (contenthub #642).
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Provider } from "@knkcs/anker/primitives";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 import { builtInFieldTypes } from "../../../schema/field-types";
@@ -136,10 +144,10 @@ describe.each([
 		await screen.findByText("Content 1");
 
 		// The text Field's row has nothing at its right end; only the
-		// Reference Field's carries buttons.
+		// Reference Field's carries buttons: Find, Expand all, Collapse all.
 		expect(
 			document.querySelectorAll("[data-field-label-actions] button"),
-		).toHaveLength(2);
+		).toHaveLength(3);
 	});
 
 	it("folds every branch to the top level, opens every branch, and leaves folds toggling", async () => {
@@ -168,5 +176,129 @@ describe.each([
 		renderTree(mode, REFERENCE_TREE_COLLAPSE_THRESHOLD + 2);
 		await screen.findByText("Content 1");
 		expect(rowCount(mode)).toBe((REFERENCE_TREE_COLLAPSE_THRESHOLD + 2) / 2);
+	});
+});
+
+const FIND = "Find a Reference";
+
+/** The row on screen showing `name`, whichever renderer draws it. */
+function rowNamed(mode: "edit" | "read", name: string): HTMLElement | null {
+	return (
+		screen
+			.queryAllByTestId(
+				mode === "edit" ? "reference-row" : "reference-read-row",
+			)
+			.find((row) => within(row).queryByText(name) !== null) ?? null
+	);
+}
+
+async function expectCount(expected: string) {
+	await waitFor(() => {
+		expect(screen.getByTestId("reference-find-count")).toHaveTextContent(
+			expected,
+		);
+	});
+}
+
+describe.each([
+	"edit",
+	"read",
+] as const)("SpecForm %s mode — searching a Reference tree", (mode) => {
+	it.each([
+		3, 25,
+	])("names a search icon in the label row of a tree of %i, beside Expand all and Collapse all", async (size) => {
+		renderTree(mode, size);
+		await screen.findByText("Content 1");
+
+		const actions = actionsBeside(`Related articles · ${size}`);
+		expect(
+			within(actions)
+				.getAllByRole("button")
+				.map((b) => b.getAttribute("aria-label")),
+		).toEqual([FIND, "Expand all", "Collapse all"]);
+		// The old Find, a standing combobox, is gone.
+		expect(screen.queryByRole("combobox", { name: FIND })).toBeNull();
+	});
+
+	it("opens with focus in the input on a click", async () => {
+		renderTree(mode, 3);
+		await screen.findByText("Content 1");
+
+		fireEvent.click(screen.getByRole("button", { name: FIND }));
+
+		const input = await screen.findByRole("searchbox", { name: FIND });
+		await waitFor(() => {
+			expect(input).toHaveFocus();
+		});
+	});
+
+	it("opens on / while the Field has focus", async () => {
+		renderTree(mode, 3);
+		await screen.findByText("Content 1");
+		const fold = screen.getByRole("button", { name: "Collapse Content 1" });
+		fold.focus();
+
+		fireEvent.keyDown(fold, { key: "/" });
+
+		const input = await screen.findByRole("searchbox", { name: FIND });
+		await waitFor(() => {
+			expect(input).toHaveFocus();
+		});
+	});
+
+	it("reveals a match inside a folded branch, counts and steps through the matches", async () => {
+		renderTree(mode, 25);
+		await screen.findByText("Content 1");
+		expect(rowNamed(mode, "Content 20")).toBeNull();
+
+		fireEvent.click(screen.getByRole("button", { name: FIND }));
+		const input = await screen.findByRole("searchbox", { name: FIND });
+		fireEvent.change(input, { target: { value: "Content 20" } });
+
+		await waitFor(() => {
+			expect(rowNamed(mode, "Content 20")).toHaveAttribute(
+				"data-revealed",
+				"true",
+			);
+		});
+		await expectCount("1 of 1");
+
+		// "Content 2" answers 2, 20 … 25 — seven, in tree order.
+		fireEvent.change(input, { target: { value: "Content 2" } });
+		await expectCount("1 of 7");
+		fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+		await expectCount("2 of 7");
+		await waitFor(() => {
+			expect(rowNamed(mode, "Content 20")).toHaveAttribute(
+				"data-revealed",
+				"true",
+			);
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Previous match" }));
+		await expectCount("1 of 7");
+	});
+
+	it("clears and closes on Escape, and keeps a query on blur", async () => {
+		renderTree(mode, 3);
+		await screen.findByText("Content 1");
+		fireEvent.click(screen.getByRole("button", { name: FIND }));
+		const input = await screen.findByRole("searchbox", { name: FIND });
+		fireEvent.change(input, { target: { value: "Content 2" } });
+		await expectCount("1 of 1");
+
+		act(() => {
+			screen.getByRole("button", { name: "Expand all" }).focus();
+		});
+		expect(screen.getByRole("searchbox", { name: FIND })).toHaveValue(
+			"Content 2",
+		);
+
+		act(() => {
+			input.focus();
+		});
+		fireEvent.keyDown(input, { key: "Escape" });
+		await waitFor(() => {
+			expect(screen.queryByRole("searchbox", { name: FIND })).toBeNull();
+		});
 	});
 });

@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { DrawerRoot } from "@knkcs/anker/components";
 import {
 	act,
+	createEvent,
 	fireEvent,
 	render,
 	screen,
@@ -1084,15 +1085,16 @@ describe("ReferenceField", () => {
 	});
 
 	/**
-	 * Find and Reveal, as the Field wires them (#148).
+	 * Find, as the Field wires it (#148, contenthub #642): anker's icon search
+	 * in the label row, on every non-empty tree.
 	 *
-	 * The matching and the ancestor paths are asserted in
-	 * `src/schema/__tests__/reference-find.test.ts`, and which folds a Reveal
-	 * opens in the tree model's own suite — plain assertions over data, no DOM.
-	 * What is left for here is only what a component can be wrong about: that
-	 * the control appears when it should, that picking a result opens the way
-	 * down to the row, lands on it and marks it, and that none of it touches
-	 * what is stored.
+	 * The matching is asserted in `src/schema/__tests__/reference-find.test.ts`,
+	 * and which folds a Reveal opens in the tree model's own suite — plain
+	 * assertions over data, no DOM. What is left for here is only what a
+	 * component can be wrong about: that the control is where it should be,
+	 * that typing opens the way down to a match and marks it without taking
+	 * focus out of the input, that the counter steps, that Escape stays inside
+	 * a drawer, and that none of it touches what is stored.
 	 */
 	/**
 	 * A tree past the collapse threshold, and a catalogue to name it from.
@@ -1111,16 +1113,40 @@ describe("ReferenceField", () => {
 		});
 	}
 
-	function findControl() {
-		return screen.queryByRole("combobox", { name: "Find a Reference" });
+	const FIND = "Find a Reference";
+
+	function searchButton() {
+		return screen.queryByRole("button", { name: FIND });
 	}
 
-	/** Types a query into Find and waits out anker's 300ms search debounce. */
-	async function findFor(query: string) {
-		const input = screen.getByRole("combobox", { name: "Find a Reference" });
+	function searchInput() {
+		return screen.queryByRole("searchbox", { name: FIND });
+	}
+
+	/** The search's input, opened from its icon if it is resting. */
+	async function openSearch(): Promise<HTMLElement> {
+		const open = searchInput();
+		if (open) return open;
+		const button = searchButton();
+		if (!button) throw new Error("no search icon");
+		fireEvent.click(button);
+		return screen.findByRole("searchbox", { name: FIND });
+	}
+
+	/** Types a query into Find. */
+	async function search(query: string): Promise<HTMLElement> {
+		const input = await openSearch();
 		fireEvent.change(input, { target: { value: query } });
-		await screen.findByRole("listbox");
-		return screen.queryAllByRole("option");
+		return input;
+	}
+
+	/** Waits out anker's debounce until the counter says `expected`. */
+	async function expectCount(expected: string) {
+		await waitFor(() => {
+			expect(screen.getByTestId("reference-find-count")).toHaveTextContent(
+				expected,
+			);
+		});
 	}
 
 	/** The row on screen showing `name`, or null when it is folded away. */
@@ -1132,39 +1158,46 @@ describe("ReferenceField", () => {
 		);
 	}
 
-	/** Finds `name` and picks the only result, which is a Reveal. */
+	/** Searches for `name`, which matches it alone, and waits for the Reveal. */
 	async function reveal(name: string) {
-		const options = await findFor(name);
-		expect(options).toHaveLength(1);
-		fireEvent.click(options[0]);
+		await search(name);
 		await waitFor(() => {
-			expect(rowNamed(name)).not.toBeNull();
+			expect(rowNamed(name)).toHaveAttribute("data-revealed", "true");
 		});
 	}
 
-	describe("Find and Reveal", () => {
-		describe("when the control appears", () => {
-			it("offers Find on a tree past the collapse threshold", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+	/** The Field's label row actions. */
+	function labelActions(): HTMLElement {
+		const actions = document.querySelector<HTMLElement>(
+			"[data-field-label-actions]",
+		);
+		if (!actions) throw new Error("no label row actions");
+		return actions;
+	}
 
-				expect(await screen.findByText("Content 1")).toBeInTheDocument();
-				expect(findControl()).toBeInTheDocument();
+	describe("Find", () => {
+		describe("where the control is", () => {
+			it.each([
+				3,
+				REFERENCE_TREE_COLLAPSE_THRESHOLD + 5,
+			])("offers a named search icon in the label row of a tree of %i, before Expand all and Collapse all", async (size) => {
+				renderTree(size);
+				await screen.findByText("Content 1");
+
+				const buttons = within(labelActions()).getAllByRole("button");
+				expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+					FIND,
+					"Expand all",
+					"Collapse all",
+				]);
+				expect(searchInput()).not.toBeInTheDocument();
 			});
 
-			it("offers none at exactly the threshold, where the tree opens expanded", async () => {
-				// The same number that decides a tree opens collapsed decides
-				// this: a tree an Author can read at a glance needs no Find.
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD);
+			it("offers it read-only too", async () => {
+				renderTree(3, { readOnly: true });
+				await screen.findByText("Content 1");
 
-				expect(await screen.findByText("Content 1")).toBeInTheDocument();
-				expect(findControl()).not.toBeInTheDocument();
-			});
-
-			it("offers none one Reference below the threshold", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD - 1);
-
-				expect(await screen.findByText("Content 1")).toBeInTheDocument();
-				expect(findControl()).not.toBeInTheDocument();
+				expect(searchButton()).toBeInTheDocument();
 			});
 
 			it("offers none on an empty Field", async () => {
@@ -1173,149 +1206,145 @@ describe("ReferenceField", () => {
 				expect(
 					await screen.findByText("No references yet."),
 				).toBeInTheDocument();
-				expect(findControl()).not.toBeInTheDocument();
+				expect(searchButton()).not.toBeInTheDocument();
+			});
+
+			it("draws no separate Find control any more", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 			});
 		});
 
-		describe("what Find lists", () => {
-			it("lists a match under the path of ancestors leading to it", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+		describe("opening it", () => {
+			it("opens with focus in the input on a click", async () => {
+				renderTree(3);
 				await screen.findByText("Content 1");
 
-				const options = await findFor("Content 20");
+				const input = await openSearch();
 
-				expect(options).toHaveLength(1);
-				expect(within(options[0]).getByText("Content 20")).toBeInTheDocument();
-				// The Reference it sits under — which is what tells one result
-				// from another when two Contents are named alike.
-				expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
+				await waitFor(() => {
+					expect(input).toHaveFocus();
+				});
 			});
 
-			it("finds a Reference nested inside a collapsed branch", async () => {
+			it("opens on / while the Field has focus", async () => {
+				renderTree(3);
+				await screen.findByText("Content 1");
+				const grip = screen.getByRole("button", { name: "Reorder Content 1" });
+				grip.focus();
+
+				fireEvent.keyDown(grip, { key: "/" });
+
+				const input = await screen.findByRole("searchbox", { name: FIND });
+				await waitFor(() => {
+					expect(input).toHaveFocus();
+				});
+			});
+
+			it("claims no page-wide shortcut: / outside the Field does nothing", async () => {
+				// The form's own field search claims "/" document-wide, so the
+				// Field must not register a rival listener there.
+				renderTree(3);
+				await screen.findByText("Content 1");
+
+				fireEvent.keyDown(document.body, { key: "/" });
+
+				expect(searchInput()).not.toBeInTheDocument();
+			});
+
+			it("leaves / alone in a text box", async () => {
+				renderTree(3);
+				await screen.findByText("Content 1");
+				const input = await openSearch();
+
+				// A "/" typed into the search itself is a character, not a shortcut.
+				const event = createEvent.keyDown(input, { key: "/" });
+				fireEvent(input, event);
+
+				expect(event.defaultPrevented).toBe(false);
+			});
+		});
+
+		describe("what typing does", () => {
+			it("opens every fold above a match, marks it and keeps focus in the input", async () => {
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
 				await screen.findByText("Content 1");
-				// The tree opened collapsed, so this row is not on screen at all —
-				// which is the whole problem Find exists for.
 				expect(rowNamed("Content 20")).toBeNull();
 
-				expect(await findFor("Content 20")).toHaveLength(1);
-			});
+				const input = await search("Content 20");
 
-			it("gives the same Content in two places two results, told apart by their paths", async () => {
-				renderTree(21, {
-					value: [
-						...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
-						// "Content 20" a second time, under a different parent.
-						{ id: "article-21", children: [{ id: "article-20" }] },
-					],
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
 				});
-				await screen.findByText("Content 1");
-
-				const options = await findFor("Content 20");
-
-				expect(options).toHaveLength(2);
-				expect(within(options[0]).getByText("Content 19")).toBeInTheDocument();
-				expect(within(options[1]).getByText("Content 21")).toBeInTheDocument();
-			});
-
-			/**
-			 * Big enough both to offer Find and to overflow its result cap,
-			 * whichever of the two numbers is larger — so this walks the cap
-			 * this repo currently holds rather than the one it held today.
-			 */
-			const OVER_CAP =
-				Math.max(REFERENCE_TREE_COLLAPSE_THRESHOLD, REFERENCE_FIND_RESULT_CAP) +
-				1;
-
-			it("lists a cap's worth and says how many it found in all", async () => {
-				// Every Reference in this tree is called "Content …", so the query
-				// matches all of them and the cap withholds at least one.
-				renderTree(OVER_CAP);
-				await screen.findByText("Content 1");
-
-				const options = await findFor("Content");
-
-				expect(options).toHaveLength(REFERENCE_FIND_RESULT_CAP);
-				// What is on screen, and what there was — the second is what tells
-				// an Author to keep typing.
 				expect(
-					screen.getByText(
-						`Showing ${REFERENCE_FIND_RESULT_CAP} of ${OVER_CAP} matches`,
-					),
-				).toBeInTheDocument();
+					screen.getByRole("button", { name: "Collapse Content 19" }),
+				).toHaveAttribute("aria-expanded", "true");
+				await expectCount("1 of 1");
+				expect(input).toHaveFocus();
+				expect(
+					screen
+						.queryAllByTestId("reference-row")
+						.filter((row) => row.getAttribute("data-revealed") === "true"),
+				).toHaveLength(1);
 			});
 
-			it("says plainly how many it found when it withheld nothing", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1, {
-					value: [
-						...fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD),
-						// "Content 20" a second time, under a different parent.
-						{ id: "article-21", children: [{ id: "article-20" }] },
-					],
+			it("counts the matches and steps through them in tree order, both ways", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+
+				// "Content 2" answers Content 2 (under 1), 20 (under 19) and 21.
+				await search("Content 2");
+				await expectCount("1 of 3");
+
+				fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+				await expectCount("2 of 3");
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
 				});
-				await screen.findByText("Content 1");
 
-				const options = await findFor("Content 20");
-
-				expect(options).toHaveLength(2);
-				// No "of", because nothing was held back for an Author to wonder
-				// about.
-				expect(screen.getByText("2 matches")).toBeInTheDocument();
+				fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+				await expectCount("3 of 3");
+				fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+				await expectCount("1 of 3");
+				fireEvent.click(screen.getByRole("button", { name: "Previous match" }));
+				await expectCount("3 of 3");
 			});
 
-			it("counts one match as one", async () => {
-				renderTree(OVER_CAP);
+			it("is never capped: every match can be stepped to", async () => {
+				const size =
+					Math.max(
+						REFERENCE_TREE_COLLAPSE_THRESHOLD,
+						REFERENCE_FIND_RESULT_CAP,
+					) + 1;
+				renderTree(size);
 				await screen.findByText("Content 1");
 
-				expect(await findFor("Content 19")).toHaveLength(1);
-				expect(screen.getByText("1 match")).toBeInTheDocument();
+				await search("Content");
+
+				await expectCount(`1 of ${size}`);
 			});
 
 			it("says so when nothing in the tree matches", async () => {
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
 				await screen.findByText("Content 1");
 
-				const input = screen.getByRole("combobox", {
-					name: "Find a Reference",
-				});
-				fireEvent.change(input, { target: { value: "Pyrenees" } });
+				await search("Pyrenees");
 
+				await expectCount("No matches");
 				expect(
-					await screen.findByText("No matching References"),
-				).toBeInTheDocument();
-			});
-		});
-
-		describe("what a Reveal does", () => {
-			it("opens every fold above the Reference that was picked", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-				expect(rowNamed("Content 20")).toBeNull();
-
-				await reveal("Content 20");
-
-				expect(rowNamed("Content 20")).not.toBeNull();
-				// Its parent's branch is open, said the way the row says it.
-				expect(
-					screen.getByRole("button", { name: "Collapse Content 19" }),
-				).toHaveAttribute("aria-expanded", "true");
+					screen.getByRole("button", { name: "Previous match" }),
+				).toBeDisabled();
 			});
 
-			it("lands focus on the revealed row", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-
-				await reveal("Content 20");
-
-				await waitFor(() => {
-					expect(rowNamed("Content 20")).toHaveFocus();
-				});
-			});
-
-			it("scrolls the revealed row to the centre of the viewport", async () => {
-				// jsdom implements no scrolling at all, so the row's own method is
-				// what a test can read — and it is put back afterwards, since
-				// defining it changes what every later test in this file sees.
+			it("scrolls the match to the centre of the viewport", async () => {
 				const scrollIntoView = vi.fn();
 				const had = Object.hasOwn(Element.prototype, "scrollIntoView");
 				const original = Element.prototype.scrollIntoView;
@@ -1343,116 +1372,17 @@ describe("ReferenceField", () => {
 			it("announces the Reveal, for an Author who is not watching the tree", async () => {
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
 				await screen.findByText("Content 1");
+
+				await reveal("Content 20");
+
 				expect(screen.getByTestId("reference-reveal-notice")).toHaveTextContent(
-					"",
+					"Revealed Content 20",
 				);
-
-				await reveal("Content 20");
-
-				await waitFor(() => {
-					expect(
-						screen.getByTestId("reference-reveal-notice"),
-					).toHaveTextContent("Revealed Content 20");
-				});
-			});
-
-			it("marks the revealed row, and marks only it", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-
-				await reveal("Content 20");
-
-				await waitFor(() => {
-					expect(rowNamed("Content 20")).toHaveAttribute(
-						"data-revealed",
-						"true",
-					);
-				});
-				expect(
-					screen
-						.queryAllByTestId("reference-row")
-						.filter((row) => row.getAttribute("data-revealed") === "true"),
-				).toHaveLength(1);
-			});
-
-			it("keeps the mark until the next Reveal, and moves it then", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-
-				await reveal("Content 20");
-				await waitFor(() => {
-					expect(rowNamed("Content 20")).toHaveAttribute(
-						"data-revealed",
-						"true",
-					);
-				});
-
-				await reveal("Content 18");
-
-				await waitFor(() => {
-					expect(rowNamed("Content 18")).toHaveAttribute(
-						"data-revealed",
-						"true",
-					);
-				});
-				// The row an Author asked for a moment ago is still on screen —
-				// Reveals accumulate — but it is no longer the answer.
-				expect(rowNamed("Content 20")).not.toHaveAttribute("data-revealed");
-			});
-
-			it("works the second time the same Reference is asked for", async () => {
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-
-				await reveal("Content 20");
-				await waitFor(() => {
-					expect(rowNamed("Content 20")).toHaveFocus();
-				});
-				// An Author scrolls away and looks at something else.
-				addButton().focus();
-				expect(rowNamed("Content 20")).not.toHaveFocus();
-
-				await reveal("Content 20");
-
-				// Nothing about the tree changed on the second ask, so only the
-				// token can have re-run it.
-				await waitFor(() => {
-					expect(rowNamed("Content 20")).toHaveFocus();
-				});
-			});
-
-			it("puts the row's grip, its fold control and its buttons one Tab away, in order", async () => {
-				const user = userEvent.setup();
-				// A Reference with a branch, so there is a fold control to reach.
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-
-				await reveal("Content 19");
-				await waitFor(() => {
-					expect(rowNamed("Content 19")).toHaveFocus();
-				});
-
-				await user.tab();
-				expect(
-					screen.getByRole("button", { name: "Reorder Content 19" }),
-				).toHaveFocus();
-				await user.tab();
-				// Its branch is still shut — a Reveal shows the row, and what
-				// hangs under it stays the Author's business.
-				expect(
-					screen.getByRole("button", { name: "Expand Content 19" }),
-				).toHaveFocus();
-				await user.tab();
-				expect(
-					screen.getByRole("button", { name: "Remove Content 19" }),
-				).toHaveFocus();
 			});
 		});
 
 		describe("what a Reveal leaves alone", () => {
 			it("leaves an earlier Reveal's folds open", async () => {
-				// Reveals accumulate: a Reveal is an answer, not a preview, and
-				// undoing the last one would undo work an Author just did.
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
 				await screen.findByText("Content 1");
 
@@ -1473,38 +1403,7 @@ describe("ReferenceField", () => {
 
 				await reveal("Content 20");
 
-				// The control never fights a deliberate act: nothing but the
-				// ancestors of what was asked for is touched.
 				expect(rowNamed("Content 6")).not.toBeNull();
-			});
-
-			it("keeps the mark on the Reference it revealed when an edit renames the rows", async () => {
-				// A row is keyed by where it sits, so removing a Reference above
-				// the revealed one renames it — and a mark left on the old key
-				// would silently start naming somebody else's Reference.
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
-				await screen.findByText("Content 1");
-				await reveal("Content 4");
-				await waitFor(() => {
-					expect(rowNamed("Content 4")).toHaveAttribute(
-						"data-revealed",
-						"true",
-					);
-				});
-
-				fireEvent.click(
-					screen.getByRole("button", { name: "Remove Content 1" }),
-				);
-
-				// Still exactly one row marked, and still the one that was asked
-				// for — not whichever Reference inherited its old key.
-				await waitFor(() => {
-					const marked = screen
-						.queryAllByTestId("reference-row")
-						.filter((row) => row.getAttribute("data-revealed") === "true");
-					expect(marked).toHaveLength(1);
-					expect(within(marked[0]).getByText("Content 4")).toBeInTheDocument();
-				});
 			});
 
 			it("changes nothing that is stored — order, nesting, Pins and values alike", async () => {
@@ -1523,19 +1422,27 @@ describe("ReferenceField", () => {
 
 				expect(stored()).toEqual(value);
 			});
+		});
 
-			it("claims no global keyboard shortcut", async () => {
-				// The form's own field search claims "/" on a first-mounted-wins
-				// basis, so a Find inside one must not register a rival listener.
-				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+		describe("closing it", () => {
+			it("empties and closes on Escape, focus back on the icon", async () => {
+				renderTree(3);
 				await screen.findByText("Content 1");
+				const input = await search("Content 2");
+				await expectCount("1 of 1");
 
-				fireEvent.keyDown(document.body, { key: "/" });
+				fireEvent.keyDown(input, { key: "Escape" });
 
-				expect(findControl()).not.toHaveFocus();
+				await waitFor(() => {
+					expect(searchInput()).not.toBeInTheDocument();
+				});
+				await waitFor(() => {
+					expect(searchButton()).toHaveFocus();
+				});
+				expect(await openSearch()).toHaveValue("");
 			});
 
-			it("dismisses its results on Escape without closing the drawer around it", async () => {
+			it("closes on Escape from the counter's buttons too, inside a drawer", async () => {
 				const onClose = vi.fn();
 				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1, {
 					surround: (node) => (
@@ -1545,19 +1452,76 @@ describe("ReferenceField", () => {
 					),
 				});
 				await screen.findByText("Content 1");
-				const input = screen.getByRole("combobox", {
-					name: "Find a Reference",
+				await search("Content 2");
+				await expectCount("1 of 3");
+				const next = screen.getByRole("button", { name: "Next match" });
+				next.focus();
+				fireEvent.click(next);
+				await expectCount("2 of 3");
+
+				fireEvent.keyDown(next, { key: "Escape" });
+
+				await waitFor(() => {
+					expect(searchInput()).not.toBeInTheDocument();
 				});
+				expect(onClose).not.toHaveBeenCalled();
+			});
+
+			it("answers what was typed when Enter beats the debounce", async () => {
+				renderTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1);
+				await screen.findByText("Content 1");
+				const input = await search("Content 2");
+				await expectCount("1 of 3");
+
+				// Typed and entered at once, before the search settles.
 				fireEvent.change(input, { target: { value: "Content 20" } });
-				await screen.findByRole("listbox");
+				fireEvent.keyDown(input, { key: "Enter" });
+
+				await expectCount("1 of 1");
+				expect(rowNamed("Content 20")).toHaveAttribute("data-revealed", "true");
+				// And the debounce settling on the same query changes nothing.
+				await new Promise((resolve) => setTimeout(resolve, 400));
+				expect(screen.getByTestId("reference-find-count")).toHaveTextContent(
+					"1 of 1",
+				);
+			});
+
+			it("keeps a query on blur", async () => {
+				renderTree(3);
+				await screen.findByText("Content 1");
+				await search("Content 2");
+				await expectCount("1 of 1");
+
+				act(() => {
+					addButton().focus();
+				});
+
+				expect(searchInput()).toHaveValue("Content 2");
+			});
+
+			it("closes on Escape without closing the drawer around it", async () => {
+				const onClose = vi.fn();
+				renderTree(3, {
+					surround: (node) => (
+						<DrawerRoot open onClose={onClose} title="Edit">
+							{node}
+						</DrawerRoot>
+					),
+				});
+				await screen.findByText("Content 1");
+				const input = await search("Content 2");
+				await expectCount("1 of 1");
+				await waitFor(() => {
+					expect(input).toHaveFocus();
+				});
 
 				fireEvent.keyDown(input, { key: "Escape" });
 
 				await waitFor(() => {
-					expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+					expect(searchInput()).not.toBeInTheDocument();
 				});
 				// A Reference Field is routinely rendered in a drawer, and losing
-				// an Author's edits to the press that shut a dropdown is the bug
+				// an Author's edits to the press that closed a search is the bug
 				// the containment exists for.
 				expect(onClose).not.toHaveBeenCalled();
 			});
@@ -1565,10 +1529,6 @@ describe("ReferenceField", () => {
 
 		describe("where there are no names to find by", () => {
 			it("offers no input with no Adapter configured, but reads as read mode does — Find included", async () => {
-				// The stored tree stays readable (ADR-0027, amended: by value): it is
-				// drawn by read mode's own component, whose Find matches ids exactly
-				// as it does with no Adapter there. What goes is every way to change
-				// the value.
 				renderField({
 					adapters: {},
 					value: fakeReferenceTree(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
@@ -1578,16 +1538,13 @@ describe("ReferenceField", () => {
 					screen.getByText("Reference adapter not configured"),
 				).toBeInTheDocument();
 				expect(await screen.findByText("article-1")).toBeInTheDocument();
-				expect(findControl()).toBeInTheDocument();
+				expect(searchButton()).toBeInTheDocument();
 				expect(
 					screen.queryByRole("button", { name: /add|remove/i }),
 				).not.toBeInTheDocument();
 			});
 
 			it("matches the ids the rows are left showing after a failed lookup", async () => {
-				// Find degrades exactly as the rows do (ADR-0013): with no names,
-				// an id is what is on screen, and a control that could not find
-				// what is on screen would be lying about the tree.
 				renderField({
 					adapter: createFakeReferenceAdapter({
 						contents: fakeCatalogue(REFERENCE_TREE_COLLAPSE_THRESHOLD + 1),
@@ -1599,24 +1556,15 @@ describe("ReferenceField", () => {
 				expect(await screen.findByText("article-1")).toBeInTheDocument();
 
 				await reveal("article-20");
-
-				expect(rowNamed("article-20")).not.toBeNull();
 			});
 		});
 
 		/**
-		 * No match, not yet, and not all of it (#152).
-		 *
-		 * Which of the three sentences goes with which state is decided by
-		 * `referenceFindState` and asserted as a table in the schema suite. What
-		 * is left for here is the only thing a component can be wrong about:
-		 * that the state an Author is looking at is the state the names are
-		 * actually in, and that the sentence about it is on screen and announced
-		 * rather than left to a spinner someone has to be watching.
+		 * No match, not yet, and not all of it (#152) — the counter says which
+		 * state the names are in, so a count is never read as a whole tree
+		 * searched when it was not.
 		 */
 		describe("while the names are still arriving", () => {
-			/** A tree past the threshold whose names are held in flight, so the
-			 * window an Author can type into is long enough to assert in. */
 			function renderResolving(
 				size: number = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1,
 			) {
@@ -1628,122 +1576,48 @@ describe("ReferenceField", () => {
 				});
 			}
 
-			it("says the names are still resolving rather than that nothing matched", async () => {
-				renderResolving();
-				// Rows show their ids until the names land — which is the state
-				// the tree is in, and exactly why "no matches" would be a lie
-				// about it rather than a report of it (ADR-0013).
-				await screen.findByText("article-1");
-
-				expect(await findFor("Content 20")).toHaveLength(0);
-
-				expect(screen.getByText("Still resolving names…")).toBeInTheDocument();
-				expect(
-					screen.queryByText("No matching References"),
-				).not.toBeInTheDocument();
-			});
-
-			it("announces the state instead of leaving it to be looked at", async () => {
-				// An Author who cannot see the dropdown is the one most likely to
-				// read an empty list as an answer.
+			it("says the names are still resolving rather than that nothing matched, announced", async () => {
 				renderResolving();
 				await screen.findByText("article-1");
 
-				await findFor("Content 20");
+				await search("Content 20");
 
-				expect(screen.getByText("Still resolving names…")).toHaveAttribute(
+				await expectCount("Resolving names…");
+				expect(screen.getByTestId("reference-find-count")).toHaveAttribute(
 					"role",
 					"status",
 				);
 			});
 
-			it("lists what it can already answer, and still says it is not done", async () => {
-				// A row answers on its id as well as its name (#151), so a
-				// Reference whose name has not arrived is still reachable — and
-				// the match is shown at once rather than held back until the
-				// names land. It is not a complete answer for all that: Find has
-				// no id syntax, so a name still arriving may contain what was
-				// typed, and a count reading "1 match" here would claim a whole
-				// tree was searched.
+			it("counts what it can already answer, and still says it is not done", async () => {
 				renderResolving();
 				await screen.findByText("article-1");
 
-				expect(await findFor("article-20")).toHaveLength(1);
+				await search("article-20");
 
-				expect(
-					screen.getByText("1 match — still resolving names"),
-				).toBeInTheDocument();
+				await expectCount("1 of 1 · resolving names");
 			});
 
 			it("answers again as the names land, without the Author retyping", async () => {
 				const { adapter } = renderResolving();
 				await screen.findByText("article-1");
-				expect(await findFor("Content 20")).toHaveLength(0);
-				expect(screen.getByText("Still resolving names…")).toBeInTheDocument();
+				await search("Content 20");
+				await expectCount("Resolving names…");
 
 				await act(async () => {
 					adapter.releaseFetches();
 				});
 
-				// The same query, never typed a second time: the list and the
-				// sentence about it are derived from the names as they stand, so
-				// a batch landing is a re-render rather than something an Author
-				// has to go and ask for again.
-				const options = await screen.findAllByRole("option");
-				expect(options).toHaveLength(1);
-				expect(within(options[0]).getByText("Content 20")).toBeInTheDocument();
-				expect(screen.getByText("1 match")).toBeInTheDocument();
-			});
-
-			it("says plainly that nothing matched once every name has landed", async () => {
-				const { adapter } = renderResolving();
-				await screen.findByText("article-1");
-
-				await act(async () => {
-					adapter.releaseFetches();
+				await expectCount("1 of 1");
+				await waitFor(() => {
+					expect(rowNamed("Content 20")).toHaveAttribute(
+						"data-revealed",
+						"true",
+					);
 				});
-				await screen.findByText("Content 1");
-				expect(await findFor("Pyrenees")).toHaveLength(0);
-
-				expect(screen.getByText("No matching References")).toBeInTheDocument();
-				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();
-			});
-
-			it("goes straight from unnamed to named where one call carries the whole tree", async () => {
-				// A tree this side of the batch size is resolved by a single
-				// call, so there is no half-named tree at any point and nothing
-				// partial for Find to report: every row shows an id, then every
-				// row shows a name, and the reservation lasts exactly as long as
-				// that one call. Read off the Adapter rather than assumed — it is
-				// the batching that makes it true — and note that a tree smaller
-				// still, at or below the collapse threshold, carries no Find
-				// control at all (asserted under "when the control appears").
-				const size = REFERENCE_TREE_COLLAPSE_THRESHOLD + 1;
-				const adapter = createFakeReferenceAdapter({
-					contents: fakeCatalogue(size),
-					holdFetch: true,
-				});
-				renderTree(size, { adapter });
-				await screen.findByText("article-1");
-
-				expect(adapter.fetches).toHaveLength(1);
-				expect(adapter.fetches.flat()).toHaveLength(size);
-				// Not one name among them while that call is out.
-				expect(screen.queryByText("Content 1")).not.toBeInTheDocument();
-
-				await act(async () => {
-					adapter.releaseFetches();
-				});
-
-				await screen.findByText("Content 1");
-				expect(await findFor("Pyrenees")).toHaveLength(0);
-				expect(screen.getByText("No matching References")).toBeInTheDocument();
-				expect(screen.queryByText(/still resolving/)).not.toBeInTheDocument();
 			});
 
 			describe("when some of the names never came", () => {
-				/** Two batches, the second of which fails: half the tree is named
-				 * and half of it never will be. */
 				function renderPartlyFailed() {
 					const size = REFERENCE_NAME_BATCH_SIZE + 20;
 					renderTree(size, {
@@ -1762,49 +1636,18 @@ describe("ReferenceField", () => {
 					renderPartlyFailed();
 					await screen.findByText("Content 1");
 
-					expect(await findFor("Pyrenees")).toHaveLength(0);
+					await search("Pyrenees");
 
-					expect(
-						screen.getByText(
-							"No matching References — some names could not be resolved",
-						),
-					).toBeInTheDocument();
+					await expectCount("No matches · some names unresolved");
 				});
 
-				it("says the same of a count, which is as easily read as complete", async () => {
+				it("says the same of a count", async () => {
 					renderPartlyFailed();
 					await screen.findByText("Content 1");
 
-					expect(await findFor("Content 20")).toHaveLength(1);
+					await search("Content 20");
 
-					expect(
-						screen.getByText("1 match — some names could not be resolved"),
-					).toBeInTheDocument();
-				});
-
-				it("still says it is resolving while the rest of the batches are out", async () => {
-					// A batch that failed beside batches still in flight is a tree
-					// whose names are arriving: the gap may yet close, and naming
-					// it permanent is the same lie in the other direction.
-					const size = REFERENCE_NAME_BATCH_SIZE + 20;
-					renderTree(size, {
-						adapter: createFakeReferenceAdapter({
-							contents: fakeCatalogue(size),
-							failFetchIds: [
-								`article-${String(REFERENCE_NAME_BATCH_SIZE + 1)}`,
-							],
-							failFetch: new Error("gateway down"),
-							holdFetch: true,
-						}),
-						onError: vi.fn(),
-					});
-					await screen.findByText("article-1");
-
-					expect(await findFor("Pyrenees")).toHaveLength(0);
-
-					expect(
-						screen.getByText("Still resolving names…"),
-					).toBeInTheDocument();
+					await expectCount("1 of 1 · some names unresolved");
 				});
 			});
 		});
@@ -2016,12 +1859,12 @@ describe("ReferenceField", () => {
 			expect(rowNamed("Content 20")).toBeNull();
 
 			// The same Reference again, which is the ask an Author makes by
-			// collapsing and then wanting back where they were.
-			await reveal("Content 20");
+			// collapsing and then wanting back where they were: stepping to the
+			// only match is a Reveal of it.
+			fireEvent.click(screen.getByRole("button", { name: "Next match" }));
 
-			expect(rowNamed("Content 20")).not.toBeNull();
 			await waitFor(() => {
-				expect(rowNamed("Content 20")).toHaveFocus();
+				expect(rowNamed("Content 20")).not.toBeNull();
 			});
 			expect(rowNamed("Content 20")).toHaveAttribute("data-revealed", "true");
 		});

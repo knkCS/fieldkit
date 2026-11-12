@@ -1,4 +1,4 @@
-import { Box, Button, Flex, Text } from "@chakra-ui/react";
+import { Box, Button, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -14,10 +14,7 @@ import {
 	referenceSpecFor,
 	withPin,
 } from "../../schema/reference";
-import {
-	readReferenceTree,
-	referenceTreeOpensFolded,
-} from "../../schema/reference-tree";
+import { readReferenceTree } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
 import type { ReferenceItem } from "../adapters";
 import {
@@ -32,7 +29,7 @@ import { referencedContentIds } from "./exclude-referenced";
 import { NoSourceField } from "./no-source-field";
 
 import { describeAppend } from "./reference-destination";
-import { ReferenceFind } from "./reference-find";
+import { ReferenceFind, useReferenceFindShortcut } from "./reference-find";
 import { ReferencePickerDrawer } from "./reference-picker-drawer";
 import type { ReferenceInsertRequest, ReferenceReveal } from "./reference-tree";
 import { ReferenceTree } from "./reference-tree";
@@ -194,12 +191,8 @@ export function ReferenceField({
 	const { errors } = useFormState({ name: accessor });
 	const deepErrors = nestedErrorMessages(get(errors, accessor));
 
-	// Find stays where it was, above the tree on the trees that open folded,
-	// until it moves into the label row as an icon that opens into a search
-	// (contenthub #642) — a full input on a three-item tree is the clutter that
-	// icon exists to avoid. Read through the tree model's predicate, which the
-	// read-mode renderer asks the same question of.
-	const offersFind = referenceTreeOpensFolded(rows);
+	// Find's handle, and the key that opens it while the Field has focus.
+	const find = useReferenceFindShortcut();
 
 	// The label row the tree draws its controls into, at the label's right end;
 	// the label carries the count of References at every level ("Teile · 9").
@@ -268,34 +261,11 @@ export function ReferenceField({
 				}
 
 				return (
-					<Box>
+					<Box onKeyDown={find.onKeyDown}>
 						{rows.length === 0 && (
 							<Text fontSize="sm" color="fg.muted" fontStyle="italic">
 								No references yet.
 							</Text>
-						)}
-
-						{offersFind && (
-							// Above the tree, on the right, where the Add control below
-							// it sits: the two ways into a large tree read as a pair
-							// rather than as chrome belonging to the form.
-							//
-							// It hangs on the Field rather than in the tree because the
-							// Field is what resolves the names — the tree is handed
-							// them, and Find is a question about them.
-							<Flex justify="flex-end" mb="2">
-								<ReferenceFind
-									rows={rows}
-									names={names}
-									nameState={nameState}
-									onReveal={(key) =>
-										setReveal((last) => ({
-											key,
-											token: (last?.token ?? 0) + 1,
-										}))
-									}
-								/>
-							</Flex>
 						)}
 
 						{/* The row reaches the tree alone: the drawers below render
@@ -314,6 +284,27 @@ export function ReferenceField({
 								onInsert={setInsertRequest}
 								atItemCap={atCap}
 								reveal={reveal}
+								// In the label row, first of the tree's controls, on
+								// every non-empty tree (contenthub #642). It hangs on the
+								// Field rather than in the tree because the Field is
+								// what resolves the names — the tree is handed them, and
+								// Find is a question about them. Its Reveal scrolls
+								// without focusing: the Author is still typing.
+								labelActions={
+									<ReferenceFind
+										rows={rows}
+										names={names}
+										nameState={nameState}
+										searchRef={find.searchRef}
+										onReveal={(key) =>
+											setReveal((last) => ({
+												key,
+												token: (last?.token ?? 0) + 1,
+												focus: false,
+											}))
+										}
+									/>
+								}
 								onOpenValues={(row) =>
 									setFilling({
 										path: row.path,

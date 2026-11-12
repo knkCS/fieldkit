@@ -2,6 +2,7 @@
 import { IconButton } from "@chakra-ui/react";
 import { Tooltip } from "@knkcs/anker/primitives";
 import { ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import type { ReactNode } from "react";
 import { FieldLabelActions } from "../field-label-row";
 
 export interface ReferenceFoldAllProps {
@@ -9,6 +10,13 @@ export interface ReferenceFoldAllProps {
 	onExpand: () => void;
 	/** Folds every branch, leaving the top level on screen. */
 	onCollapse: () => void;
+	/**
+	 * Drawn before the two buttons in the same row — the tree's search
+	 * (contenthub #642). One `FieldLabelActions` for all three rather than a
+	 * second beside it, because two portals into one slot draw in whichever
+	 * order they happened to mount, and the search belongs first.
+	 */
+	leading?: ReactNode;
 }
 
 /**
@@ -37,9 +45,11 @@ export interface ReferenceFoldAllProps {
 export function ReferenceFoldAll({
 	onExpand,
 	onCollapse,
+	leading,
 }: ReferenceFoldAllProps) {
 	return (
 		<FieldLabelActions>
+			{leading}
 			<Tooltip content="Expand all">
 				<IconButton
 					aria-label="Expand all"

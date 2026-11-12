@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import {
 	Fragment,
+	type ReactNode,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -590,6 +591,16 @@ export interface ReferenceReveal {
 	key: string;
 	/** Bumped by the caller on every ask. */
 	token: number;
+	/**
+	 * Whether the row takes focus when it lands. On unless set to `false`.
+	 *
+	 * Off for a search that reveals as an Author types (contenthub #642): its
+	 * input has to keep focus through every keystroke, so the row is opened to,
+	 * marked and scrolled to the centre, and the search's own counter says what
+	 * it landed on. A Reveal picked from a list is a finished question, and
+	 * landing focus on the row is what puts its controls one Tab away.
+	 */
+	focus?: boolean;
 }
 
 export interface ReferenceTreeProps {
@@ -654,6 +665,12 @@ export interface ReferenceTreeProps {
 	/** The Reference to **Reveal**, or null for a tree nobody has asked
 	 * anything of — see {@link ReferenceReveal}. */
 	reveal?: ReferenceReveal | null;
+	/**
+	 * Drawn in the label row before Expand all and Collapse all, on a non-empty
+	 * tree — the Field's Find (contenthub #642), which the Field owns because
+	 * it owns the names.
+	 */
+	labelActions?: ReactNode;
 }
 
 /**
@@ -694,6 +711,7 @@ export function ReferenceTree({
 	onInsert,
 	atItemCap,
 	reveal,
+	labelActions,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -719,7 +737,7 @@ export function ReferenceTree({
 	// A ref rather than state because it is consumed by the landing rather than
 	// rendered, and writing it must not itself schedule a render — the render
 	// that matters is the one opening the folds, which the landing waits for.
-	const pendingRevealRef = useRef<string | null>(null);
+	const pendingRevealRef = useRef<{ key: string; focus: boolean } | null>(null);
 	// Every row's node, by key. Scoped to this tree rather than found through a
 	// document query: a form may hold several Reference Fields, and a key is an
 	// index path, so the same key names a row in every one of them.
@@ -813,7 +831,10 @@ export function ReferenceTree({
 			return next;
 		});
 		setRevealed(reveal.key);
-		pendingRevealRef.current = reveal.key;
+		pendingRevealRef.current = {
+			key: reveal.key,
+			focus: reveal.focus !== false,
+		};
 	}, [reveal?.token]);
 
 	/**
@@ -831,17 +852,19 @@ export function ReferenceTree({
 	 *
 	 * Focus rather than scroll alone, because a Reveal has to be findable by
 	 * someone who is not looking at the screen — and because landing on the row
-	 * puts its grip, its fold control and its buttons one Tab away.
+	 * puts its grip, its fold control and its buttons one Tab away. A Reveal
+	 * asked with `focus: false` scrolls alone: the search that asked it is
+	 * still being typed into, and its counter is what speaks for the landing.
 	 */
 	useEffect(() => {
-		const key = pendingRevealRef.current;
-		if (key == null) return;
-		const node = rowNodes.current.get(key);
+		const pending = pendingRevealRef.current;
+		if (pending == null) return;
+		const node = rowNodes.current.get(pending.key);
 		// Not on screen yet: the folds this Reveal opened are still committing,
 		// and the next commit is when the row exists to land on.
 		if (!node) return;
 		pendingRevealRef.current = null;
-		node.focus();
+		if (pending.focus) node.focus();
 		// Optional-called: jsdom implements no scrolling, and neither does a
 		// Consumer's test renderer.
 		node.scrollIntoView?.({ block: "center", behavior: "smooth" });
@@ -1153,7 +1176,11 @@ export function ReferenceTree({
 				// is the tree's; `FieldLabelActions` moves where the buttons draw,
 				// not where their state lives. A tree drawn outside a label row
 				// keeps them above its rows.
-				<ReferenceFoldAll onExpand={expandAll} onCollapse={collapseAll} />
+				<ReferenceFoldAll
+					onExpand={expandAll}
+					onCollapse={collapseAll}
+					leading={labelActions}
+				/>
 			)}
 			<SortableContext
 				items={shown.map((row) => row.key)}
