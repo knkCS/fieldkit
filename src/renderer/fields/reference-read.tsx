@@ -8,19 +8,20 @@ import { referenceSpecFor } from "../../schema/reference";
 import { declaredReferenceFields } from "../../schema/reference-spec";
 import type { ReferenceRow } from "../../schema/reference-tree";
 import {
+	allReferenceFolds,
 	foldsToReveal,
 	initialReferenceFolds,
 	readReferenceTree,
 	referenceDisplayName,
 	referenceHasBranch,
-	referenceTreeOpensFolded,
 	visibleReferenceRows,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
+import { useFieldLabelSuffix } from "../field-label-row";
 import { useResolvedContentNames } from "../hooks/use-resolved-content-names";
 import { EmptyReadValue } from "./empty-value";
-import { ReferenceCollapseAll } from "./reference-collapse-all";
-import { ReferenceFind } from "./reference-find";
+import { ReferenceFind, useReferenceFindShortcut } from "./reference-find";
+import { ReferenceFoldAll } from "./reference-fold-all";
 import {
 	ReferenceName,
 	referenceHref,
@@ -39,9 +40,11 @@ import { INDENT_WIDTH } from "./reference-tree";
  * every Content's current name, at the depth it sits at, with the Attribute
  * values that belong to it.
  *
- * It **folds, and it finds** (#153). A tree past
- * the tree model's collapse threshold opens with its parents collapsed
- * and carries a Find control, exactly as the editable tree does — an Author
+ * It **folds, and it finds** (#153). Every non-empty tree carries Expand all
+ * and Collapse all in the Field's label row, whose label counts its
+ * References; a tree past the tree model's collapse threshold opens with its
+ * parents collapsed and carries a Find control, exactly as the editable tree
+ * does — an Author
  * opening a record read-only with ten thousand References was previously given
  * ten thousand rows, which is the problem collapsing already solved on the
  * other side of the same Field. Folds open and close while reading, because
@@ -135,7 +138,7 @@ export function ReferenceReadValue({
 	// than state because it is consumed by the landing rather than rendered, and
 	// writing it must not itself schedule a render — the render that matters is
 	// the one opening the folds, which the landing waits for.
-	const pendingRevealRef = useRef<string | null>(null);
+	const pendingRevealRef = useRef<{ key: string; focus: boolean } | null>(null);
 	// Every row's node, by key. Scoped to this tree rather than found through a
 	// document query: a record may show several Reference Fields, and a key is
 	// an index path, so the same key names a row in every one of them.
@@ -160,18 +163,30 @@ export function ReferenceReadValue({
 	}, []);
 
 	/**
-	 * Collapse all: back to the fold set this tree opened in, by calling the
-	 * function it opened with rather than restating what that function does.
+	 * Collapse all: every branch folded, the top level on screen — by the tree
+	 * model's rule, the one the editable tree folds by too.
 	 *
 	 * A read-mode tree sprawls on exactly the terms the editable one does —
 	 * Reveals accumulate, and a fold opened by hand stays open — so it wants the
-	 * same way back, and gets it from the same rule. The Reveal's mark is left
-	 * where it is: it says what was last asked for, and folding its row away
-	 * answers nothing.
+	 * same way back. The Reveal's mark is left where it is: it says what was
+	 * last asked for, and folding its row away answers nothing.
 	 */
 	const collapseAll = useCallback(() => {
-		setFolded(initialReferenceFolds(rows));
+		setFolded(allReferenceFolds(rows));
 	}, [rows]);
+
+	/** Expand all: every branch open, the whole structure at once. */
+	const expandAll = useCallback(() => {
+		setFolded(new Set());
+	}, []);
+
+	// The label counts every Reference at every level — "Teile · 9" — so a
+	// reader knows the Field's size before scanning it. Nothing on an empty
+	// value, which reads as the em dash.
+	useFieldLabelSuffix(rows.length > 0 ? String(rows.length) : null);
+
+	// Find's handle, and the key that opens it while the Field has focus.
+	const find = useReferenceFindShortcut();
 
 	/**
 	 * The landing: focus a revealed row and put it in the middle of the
@@ -181,10 +196,10 @@ export function ReferenceReadValue({
 	 * someone who is not looking at the screen. Answers whether it landed: a
 	 * row inside a branch that is still committing has no node yet.
 	 */
-	const landOn = useCallback((key: string) => {
+	const landOn = useCallback((key: string, focus: boolean) => {
 		const node = rowNodes.current.get(key);
 		if (!node) return false;
-		node.focus();
+		if (focus) node.focus();
 		// Optional-called: jsdom implements no scrolling, and neither does a
 		// Consumer's test renderer.
 		node.scrollIntoView?.({ block: "center", behavior: "smooth" });
@@ -212,7 +227,7 @@ export function ReferenceReadValue({
 	 * prop boundary, and the same key twice is the same prop.
 	 */
 	const handleReveal = useCallback(
-		(key: string) => {
+		(key: string, focus = true) => {
 			const index = rows.findIndex((row) => row.key === key);
 			// A key naming no row: nothing to reveal, and nothing to say about it.
 			if (index === -1) return;
@@ -226,7 +241,7 @@ export function ReferenceReadValue({
 				return next;
 			});
 			setRevealed(key);
-			pendingRevealRef.current = landOn(key) ? null : key;
+			pendingRevealRef.current = landOn(key, focus) ? null : { key, focus };
 		},
 		[rows, landOn],
 	);
@@ -241,28 +256,12 @@ export function ReferenceReadValue({
 	 * outstanding this is a read and a return.
 	 */
 	useEffect(() => {
-		const key = pendingRevealRef.current;
-		if (key == null) return;
-		if (landOn(key)) pendingRevealRef.current = null;
+		const pending = pendingRevealRef.current;
+		if (pending == null) return;
+		if (landOn(pending.key, pending.focus)) pendingRevealRef.current = null;
 	});
 
 	if (rows.length === 0) return <EmptyReadValue />;
-
-	// Find and Collapse all appear on exactly the trees that open collapsed —
-	// the same threshold, read through the same function the editable Field and
-	// tree read it through, so no two of them can come to different answers
-	// about the same tree. One reading rather than two, because they are one
-	// judgement: a tree big enough to be met a level at a time is one worth
-	// carrying a way in and a way back out of.
-	//
-	// Size is the whole test, deliberately. The editable Field offers no Find
-	// with no Adapter configured, but only because it replaces itself with a
-	// message and draws no tree at all; read mode draws one whatever resolves,
-	// so its screen in that case is the *same* screen a failed lookup leaves —
-	// every row showing its id — and ADR-0013 already has Find matching those.
-	// A control present on one and absent on the other would be a difference an
-	// Author can see and cannot explain.
-	const opensFolded = referenceTreeOpensFolded(rows);
 
 	// What the last Reveal landed on, named — null until one has.
 	const revealedRow =
@@ -275,13 +274,10 @@ export function ReferenceReadValue({
 		// one is invalid HTML. `DescriptionList` is div-based, so nesting one
 		// here would put divs inside that `<p>`.
 		//
-		// The rows keep that rule; the Find control below cannot. It is the
-		// shared combobox, whose input group is a `<div>` inside anker — and a
-		// second, span-only Find would be exactly the duplicate control this
-		// ticket exists to avoid. `GroupReadValue` already renders `<div>`s in
-		// the same slot, so the honest reading is that read mode's value
-		// container is a `<p>` that has outgrown one, rather than that this
-		// component is the exception.
+		// The rows keep that rule. Find, an anker `IconSearch` whose input
+		// group is a `<div>`, draws in the label row rather than here, so it is
+		// outside the value — except where no label row is drawn, and there
+		// `FieldLabelActions` keeps it in place rather than losing it.
 		<Box
 			as="span"
 			display="flex"
@@ -293,27 +289,26 @@ export function ReferenceReadValue({
 			// depth it sits at, and depth is the thing this rendering exists to
 			// show.
 			textAlign="start"
+			onKeyDown={find.onKeyDown}
 			data-testid="reference-read-tree"
 		>
-			{opensFolded && (
-				// Above the tree and on the right, where the editable Field draws
-				// Find and the editable tree draws Collapse all under it — one
-				// condition and one order, so the pair reads the same on both
-				// sides of the Field rather than as four separate controls.
-				<>
-					<Box as="span" display="flex" justifyContent="flex-end">
-						<ReferenceFind
-							rows={rows}
-							names={names}
-							nameState={nameState}
-							onReveal={handleReveal}
-						/>
-					</Box>
-					<Box as="span" display="flex" justifyContent="flex-end">
-						<ReferenceCollapseAll onCollapse={collapseAll} />
-					</Box>
-				</>
-			)}
+			{/* Find, Expand all and Collapse all, in the label row on every
+			    non-empty tree (contenthub #642) — the same three, in the same
+			    order, as the editable tree. Find's Reveal scrolls without
+			    focusing: the reader is still typing. */}
+			<ReferenceFoldAll
+				onExpand={expandAll}
+				onCollapse={collapseAll}
+				leading={
+					<ReferenceFind
+						rows={rows}
+						names={names}
+						nameState={nameState}
+						searchRef={find.searchRef}
+						onReveal={(key) => handleReveal(key, false)}
+					/>
+				}
+			/>
 
 			{shown.map((row) => (
 				<ReferenceReadRow

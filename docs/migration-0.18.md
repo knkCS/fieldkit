@@ -313,6 +313,46 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `flex: 1` with `min-width: 0`, where Chakra's tabs recipe sized it
   `width: 100%` plus its start padding and it overflowed its column into a
   rail beside it. Fixed in rc.11; no API change.
+- **Read mode lets the values lead** (contenthub#640): a read Field's label
+  keeps the form label's size and position in the muted text token; a
+  Reference's linked name — in read mode, the form's Reference Tree and beside
+  a Single Reference's select alike, one `ReferenceName` — is in the accent
+  colour, underlined on hover only, where it was body colour with a faint
+  underline. A Group's rows read like top-level Fields: each row a framed
+  block (`data-testid="group-read-row"`), each child Field its label above its
+  value through the same read field, where each row was a label-left anker
+  `DescriptionList`. Hidden children stay hidden, and a value that is not a
+  list of rows and an empty child both read as the em dash. Only top-level
+  Fields carry `data-field-row`, so the field search never lands on a Group's
+  child. No API change, but a Consumer test that queried a Group's
+  `dl`/`dt`/`dd` rows in read mode now finds none.
+- **A Field's label row carries its actions; a Reference tree's controls
+  move there** (knkCS/contenthub#641): in the form and in read mode, a Field's
+  own actions sit at the right end of its label row. The Reference Field is
+  the first user: every non-empty tree, read or editable, at any size, shows
+  **Expand all** (new) and **Collapse all** as icon buttons there, each with
+  an accessible name and a tooltip, and its label counts every Reference at
+  every level ("Teile · 9"). Collapse all now folds every branch to the top
+  level, where it returned a tree to the fold set it opened in.
+  `REFERENCE_TREE_COLLAPSE_THRESHOLD` (20) now decides only whether a tree
+  *opens* folded. A Consumer test that looked for Collapse all only
+  past 20 References, or matched a Reference Field's label exactly, needs
+  updating; read mode's label now sits in a row beside an actions slot
+  (`data-field-label-actions`, empty for a Field without actions). A
+  `ReferenceTree` rendered outside a label row draws both buttons above its
+  rows. No API change.
+- **Find moves into the label row, on every non-empty tree**
+  (knkCS/contenthub#642): anker's `IconSearch` (anker ^5.11.1, the new floor)
+  replaces the standing Find box, first of the tree's label-row controls. It
+  opens on a click or on `/` while the Field has focus; typing Reveals the
+  first match in tree order without moving focus, and a counter ("2 of 3")
+  with previous and next steps through every match, uncapped. Escape or clear
+  empty and close it; blur closes it only while empty. A Consumer test that
+  queried the `combobox` named "Find a Reference", its option list or its
+  "N matches" lines now finds a `button` and, once open, a `searchbox` of
+  that name and a counter. `ReferenceTree`'s `reveal` takes an optional
+  `focus` (default `true`), and `ReferenceTree` gains `labelActions`, drawn
+  first in the label row.
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option

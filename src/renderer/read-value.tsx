@@ -5,6 +5,7 @@
 // fields and the form rather than inside either, since both read through it.
 import { Text } from "@chakra-ui/react";
 import type { Field } from "../schema/types";
+import { FieldLabelRowProvider } from "./field-label-row";
 import { EmptyReadValue } from "./fields/empty-value";
 import { useFieldKit } from "./provider";
 
@@ -109,7 +110,11 @@ export function ReadValue({
 				field={field}
 				value={value}
 				renderChild={(child, childValue) => (
-					<ReadValue field={child} value={childValue} labels={labels} />
+					// A child's controls are the child's: whatever label row the
+					// container draws into, the child never reaches it.
+					<FieldLabelRowProvider row={null}>
+						<ReadValue field={child} value={childValue} labels={labels} />
+					</FieldLabelRowProvider>
 				)}
 			/>
 		);

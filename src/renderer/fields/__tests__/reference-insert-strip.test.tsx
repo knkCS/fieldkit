@@ -599,7 +599,12 @@ describe("reaching an insertion strip without a pointer", () => {
 		// Each strip is its own stop rather than the group sharing one: the
 		// rows' own grips and buttons are individually focusable, and a strip
 		// that behaved differently would be the one control here that did.
-		expect(await tabStops(user, 15)).toEqual([
+		// The label row's controls come first — Find, then the fold controls:
+		// they sit with the label, above the tree.
+		expect(await tabStops(user, 18)).toEqual([
+			"Find a Reference",
+			"Expand all",
+			"Collapse all",
 			"strip 0",
 			"Reorder Content 1",
 			"Collapse Content 1",
@@ -697,7 +702,10 @@ describe("reaching an insertion strip without a pointer", () => {
 		expect(strips()[0]).toHaveAccessibleName(
 			"Maximum number of References reached",
 		);
-		expect(await tabStops(user, 3)).toEqual([
+		expect(await tabStops(user, 6)).toEqual([
+			"Find a Reference",
+			"Expand all",
+			"Collapse all",
 			"Reorder Content 1",
 			"Collapse Content 1",
 			"Remove Content 1",

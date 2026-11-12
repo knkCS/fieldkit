@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import {
 	Fragment,
+	type ReactNode,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -51,6 +52,7 @@ import type {
 	ReferenceRow,
 } from "../../schema/reference-tree";
 import {
+	allReferenceFolds,
 	foldsToReveal,
 	initialReferenceFolds,
 	moveReferenceBranch,
@@ -62,15 +64,14 @@ import {
 	referenceDisplayName,
 	referenceDropTarget,
 	referenceHasBranch,
-	referenceTreeOpensFolded,
 	removeReferenceAt,
 	spliceReference,
 	visibleReferenceRows,
 	writeReferenceTree,
 } from "../../schema/reference-tree";
 import type { Field } from "../../schema/types";
-import { ReferenceCollapseAll } from "./reference-collapse-all";
 import { ReferenceDropIndicator } from "./reference-drop-indicator";
+import { ReferenceFoldAll } from "./reference-fold-all";
 import {
 	ReferenceInsertSpacer,
 	ReferenceInsertStrip,
@@ -590,6 +591,16 @@ export interface ReferenceReveal {
 	key: string;
 	/** Bumped by the caller on every ask. */
 	token: number;
+	/**
+	 * Whether the row takes focus when it lands. On unless set to `false`.
+	 *
+	 * Off for a search that reveals as an Author types (contenthub #642): its
+	 * input has to keep focus through every keystroke, so the row is opened to,
+	 * marked and scrolled to the centre, and the search's own counter says what
+	 * it landed on. A Reveal picked from a list is a finished question, and
+	 * landing focus on the row is what puts its controls one Tab away.
+	 */
+	focus?: boolean;
 }
 
 export interface ReferenceTreeProps {
@@ -654,6 +665,12 @@ export interface ReferenceTreeProps {
 	/** The Reference to **Reveal**, or null for a tree nobody has asked
 	 * anything of — see {@link ReferenceReveal}. */
 	reveal?: ReferenceReveal | null;
+	/**
+	 * Drawn in the label row before Expand all and Collapse all, on a non-empty
+	 * tree — the Field's Find (contenthub #642), which the Field owns because
+	 * it owns the names.
+	 */
+	labelActions?: ReactNode;
 }
 
 /**
@@ -694,6 +711,7 @@ export function ReferenceTree({
 	onInsert,
 	atItemCap,
 	reveal,
+	labelActions,
 }: ReferenceTreeProps) {
 	// Seeded once, from the tree as it first arrived: a threshold is about
 	// what opens on screen, so adding a Reference must not collapse the tree
@@ -719,7 +737,7 @@ export function ReferenceTree({
 	// A ref rather than state because it is consumed by the landing rather than
 	// rendered, and writing it must not itself schedule a render — the render
 	// that matters is the one opening the folds, which the landing waits for.
-	const pendingRevealRef = useRef<string | null>(null);
+	const pendingRevealRef = useRef<{ key: string; focus: boolean } | null>(null);
 	// Every row's node, by key. Scoped to this tree rather than found through a
 	// document query: a form may hold several Reference Fields, and a key is an
 	// index path, so the same key names a row in every one of them.
@@ -813,7 +831,10 @@ export function ReferenceTree({
 			return next;
 		});
 		setRevealed(reveal.key);
-		pendingRevealRef.current = reveal.key;
+		pendingRevealRef.current = {
+			key: reveal.key,
+			focus: reveal.focus !== false,
+		};
 	}, [reveal?.token]);
 
 	/**
@@ -831,17 +852,19 @@ export function ReferenceTree({
 	 *
 	 * Focus rather than scroll alone, because a Reveal has to be findable by
 	 * someone who is not looking at the screen — and because landing on the row
-	 * puts its grip, its fold control and its buttons one Tab away.
+	 * puts its grip, its fold control and its buttons one Tab away. A Reveal
+	 * asked with `focus: false` scrolls alone: the search that asked it is
+	 * still being typed into, and its counter is what speaks for the landing.
 	 */
 	useEffect(() => {
-		const key = pendingRevealRef.current;
-		if (key == null) return;
-		const node = rowNodes.current.get(key);
+		const pending = pendingRevealRef.current;
+		if (pending == null) return;
+		const node = rowNodes.current.get(pending.key);
 		// Not on screen yet: the folds this Reveal opened are still committing,
 		// and the next commit is when the row exists to land on.
 		if (!node) return;
 		pendingRevealRef.current = null;
-		node.focus();
+		if (pending.focus) node.focus();
 		// Optional-called: jsdom implements no scrolling, and neither does a
 		// Consumer's test renderer.
 		node.scrollIntoView?.({ block: "center", behavior: "smooth" });
@@ -871,15 +894,9 @@ export function ReferenceTree({
 	}
 
 	/**
-	 * Collapse all: the tree back in the fold set it opened in.
-	 *
-	 * `initialReferenceFolds` is *called* rather than restated, and over the rows
-	 * as they stand now — so this is the state this tree opens in, not the state
-	 * it opened in once and has since outgrown by a Reference or two. Anything
-	 * else here would be a second rule about how a tree of this size folds, free
-	 * to drift from the one the tree opened with; an empty set in particular
-	 * would be a *different* empty, the fully expanded tree an Author never asked
-	 * for.
+	 * Collapse all: every branch folded, the top level on screen — over the
+	 * rows as they stand now, so a branch gained since the tree opened folds
+	 * too.
 	 *
 	 * It reaches folds opened by a Reveal and folds opened by hand alike, and
 	 * that is the point rather than an oversight: neither is undone by anything
@@ -891,7 +908,12 @@ export function ReferenceTree({
 	 * is what moves it.
 	 */
 	function collapseAll() {
-		setCollapsed(initialReferenceFolds(rows));
+		setCollapsed(allReferenceFolds(rows));
+	}
+
+	/** Expand all: every branch open, the whole structure at once. */
+	function expandAll() {
+		setCollapsed(new Set());
 	}
 
 	/** The one reading of a drag, from whichever event carries it. */
@@ -1081,17 +1103,6 @@ export function ReferenceTree({
 	// has no gaps, and the Field's Add control is its way in.
 	const stripsOffered = !readOnly && onInsert !== undefined && shown.length > 0;
 
-	// Collapse all is offered on exactly the trees that open folded, read
-	// through the tree model's own predicate rather than compared to the
-	// threshold again here. Below it a tree opens fully expanded, so the set
-	// this returns to is empty — a control named Collapse all that unfolded
-	// everything an Author had folded would be lying about itself, and a tree
-	// they take in at a glance has nothing to find a way back from.
-	//
-	// Offered read-only too, on the terms the chevrons already are: folding is
-	// a way of reading, and so is unfolding it all again.
-	const opensFolded = referenceTreeOpensFolded(rows);
-
 	// What the last Reveal landed on, named — null until one has, and again if
 	// the row it landed on has since left the tree.
 	const revealedRow =
@@ -1157,21 +1168,19 @@ export function ReferenceTree({
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
-			{opensFolded && (
-				// Above the rows and on the right, under whatever the Field draws
-				// there — on a tree this size, Find — so the way into a large
-				// tree and the way back out of it read as one column of controls
-				// rather than as chrome from two places.
-				//
-				// Rendered here rather than by the Field, unlike Find: Find hangs
-				// on the Field because only the Field has the resolved names to
-				// search, while this needs nothing but the fold set, and the fold
-				// set is the tree's. A control passed down as a token to reach
-				// state one component away would be indirection bought with
-				// nothing.
-				<Flex justify="flex-end" mb="2">
-					<ReferenceCollapseAll onCollapse={collapseAll} />
-				</Flex>
+			{rows.length > 0 && (
+				// In the Field's label row, at its right end — on every non-empty
+				// tree, read-only too, on the terms the chevrons already are:
+				// folding is a way of reading. Rendered here rather than by the
+				// Field because it needs nothing but the fold set, and the fold set
+				// is the tree's; `FieldLabelActions` moves where the buttons draw,
+				// not where their state lives. A tree drawn outside a label row
+				// keeps them above its rows.
+				<ReferenceFoldAll
+					onExpand={expandAll}
+					onCollapse={collapseAll}
+					leading={labelActions}
+				/>
 			)}
 			<SortableContext
 				items={shown.map((row) => row.key)}

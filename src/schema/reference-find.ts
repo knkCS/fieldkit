@@ -442,3 +442,33 @@ export function findReferences(
 			})),
 	};
 }
+
+/**
+ * Every Reference in a tree that answers to `query`, by key, **in tree order**
+ * — what a search in the label row steps through ("2 of 3").
+ *
+ * The same match as {@link findReferences} — the shown name and the id behind
+ * it, case-insensitive and diacritic-folded — over every row, folded ones
+ * included. What differs is what the answer is for. `findReferences` ranks and
+ * caps because it fills a list an Author reads and picks from; a search that
+ * reveals matches in place has no list, and stepping through matches in rank
+ * order would jump about the tree. So: top to bottom, the direction the tree
+ * draws, and never capped — "of 431" has to be reachable, not only counted
+ * (contenthub #642).
+ *
+ * A blank query answers with nothing, as Find's does.
+ */
+export function referenceFindMatches(
+	rows: readonly ReferenceRow[],
+	names: Record<string, string>,
+	query: string,
+): string[] {
+	const needle = foldReferenceText(query.trim());
+	if (needle === "") return [];
+	const keys: string[] = [];
+	for (const row of rows) {
+		const texts = referenceMatchTexts(row, referenceDisplayName(row, names));
+		if (bestReferenceMatchRank(texts, needle) !== null) keys.push(row.key);
+	}
+	return keys;
+}

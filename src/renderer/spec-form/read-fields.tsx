@@ -1,8 +1,13 @@
 // src/renderer/spec-form/read-fields.tsx
 import { Box, useSlotRecipe } from "@chakra-ui/react";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import type { SpecTab } from "../../schema/partition";
 import type { Field } from "../../schema/types";
+import {
+	FieldLabelRowProvider,
+	labelWithSuffix,
+	useFieldLabelRowHost,
+} from "../field-label-row";
 import { FieldStack } from "../field-stack";
 import { ReadValue, type ReadValueLabels } from "../read-value";
 
@@ -23,35 +28,57 @@ import { ReadValue, type ReadValueLabels } from "../read-value";
  * Only the name: the required marker and the instructions guide filling the
  * form in, and there is nothing to fill in here.
  *
+ * The label is in the muted text token, at the recipe's size and position:
+ * in the form the input box frames the value, so the label can carry the
+ * same weight; here nothing frames it, so the label steps back and the value
+ * leads (#637).
+ *
  * The label is no `<label>`: there is no control to label. The pair is a
  * group named by it instead, which is what a reader's assistive technology
  * announces. `data-field-row` is the target the field search jumps to and
- * highlights — the whole Field, label and value.
+ * highlights — the whole Field, label and value — so only a top-level Field
+ * (`isSearchTarget`) carries it: a Group's child sharing a top-level Field's
+ * accessor must not be where the search lands.
+ *
+ * The value is `children`, so a container's read component (a Group's rows)
+ * lays its children out through this same component with whatever its
+ * `renderChild` draws, rather than through a second read field.
+ *
+ * The label sits in a label row whose right end holds the Field's own actions
+ * (`FieldLabelActions`, from the value below), and whose text a value can add
+ * to (`useFieldLabelSuffix` — a Reference Field's count). A Field with neither
+ * draws the label where it always was.
  */
-function ReadField({
+export function ReadField({
 	field,
-	value,
-	labels,
+	isSearchTarget = false,
+	children,
 }: {
 	field: Field;
-	value: unknown;
-	labels: ReadValueLabels;
+	isSearchTarget?: boolean;
+	children: ReactNode;
 }) {
 	const labelId = useId();
 	const styles = useSlotRecipe({ key: "field" })({ orientation: "vertical" });
+	const labelRow = useFieldLabelRowHost();
 	return (
 		<Box
 			css={styles.root}
 			flexDirection="column"
 			role="group"
 			aria-labelledby={labelId}
-			data-field-row={field.config.api_accessor}
+			data-field-row={isSearchTarget ? field.config.api_accessor : undefined}
 		>
-			<Box css={styles.label} id={labelId}>
-				{field.config.name}
+			<Box display="flex" alignItems="center" gap="2">
+				<Box css={{ ...styles.label, color: "fg.muted" }} id={labelId} flex="1">
+					{labelWithSuffix(field.config.name, labelRow.suffix)}
+				</Box>
+				{labelRow.slot}
 			</Box>
 			<Box>
-				<ReadValue field={field} value={value} labels={labels} />
+				<FieldLabelRowProvider row={labelRow.row}>
+					{children}
+				</FieldLabelRowProvider>
 			</Box>
 		</Box>
 	);
@@ -80,9 +107,14 @@ export function ReadFields({
 					<ReadField
 						key={field.config.api_accessor}
 						field={field}
-						value={values[field.config.api_accessor]}
-						labels={labels}
-					/>
+						isSearchTarget
+					>
+						<ReadValue
+							field={field}
+							value={values[field.config.api_accessor]}
+							labels={labels}
+						/>
+					</ReadField>
 				))}
 		</FieldStack>
 	);

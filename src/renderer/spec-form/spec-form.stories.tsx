@@ -117,6 +117,19 @@ const readSpec = defineSpec([
 	text("subtitle", { name: "Subtitle" }),
 	boolean("published", { name: "Published" }),
 	dateField("publish_date", "Publish Date"),
+	// A Group reads like the top level: framed rows, label above value.
+	{
+		field_type: "group",
+		config: {
+			name: "Authors",
+			api_accessor: "authors",
+			required: false,
+			instructions: "",
+		},
+		settings: {},
+		children: [text("name", { name: "Name" }), text("role", { name: "Role" })],
+		system: false,
+	},
 ]);
 
 const readValues: Record<string, unknown> = {
@@ -125,6 +138,11 @@ const readValues: Record<string, unknown> = {
 	// for empty values.
 	published: true,
 	publish_date: "2026-01-15",
+	authors: [
+		{ name: "Ada Lovelace", role: "Editor" },
+		// An empty child reads as the em dash, under its label.
+		{ name: "Grace Hopper", role: "" },
+	],
 };
 
 const cardedSpec = defineSpec([
