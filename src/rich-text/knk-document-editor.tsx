@@ -1,12 +1,14 @@
 // src/rich-text/knk-document-editor.tsx
-import KnkEditor, { type EditorProps } from "@knkcms/knkeditor-editor";
+import KnkEditor, {
+	type EditorProps,
+	KnkeditorScope,
+} from "@knkcms/knkeditor-editor";
 import type {
 	EditorSettings,
 	ResolvedTextType,
 } from "@knkcms/knkeditor-vocabulary";
 import { useRef, useState } from "react";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
-import { KnkeditorScope } from "./knkeditor-scope";
 
 export interface KnkDocumentEditorProps {
 	/** The stored document; anything but an object opens an empty one. */
@@ -52,10 +54,16 @@ function contentOf(value: unknown): string {
  * any other field changes, so an identity check would remount the editor —
  * losing cursor, selection and history — on every keystroke.
  *
- * It renders in knkeditor's own scoped Chakra system (ADR-0026, amended) and
- * grows with its document: knkeditor caps a fixed-toolbar editor at
+ * It renders in knkeditor's own scoped Chakra system, knkeditor's exported
+ * `KnkeditorScope` (ADR-0026, amended; contenthub#629), whose element its
+ * menus, dialogs and popovers portal into. It grows with its document: knkeditor caps a fixed-toolbar editor at
  * `calc(100vh - 200px)` unless told otherwise, and a capped editor scrolls
  * inside a page that scrolls too, so the cap is `none`.
+ *
+ * Inside an `EditorHost` it has no Inspector or view menu of its own — the
+ * page places them, and knkeditor switches the field's off itself
+ * (contenthub#628). So nothing here passes `inspector` or `viewPicker`:
+ * outside a host the field keeps its docked Inspector.
  */
 export function KnkDocumentEditor({
 	value,
@@ -87,7 +95,7 @@ export function KnkDocumentEditor({
 				content={documentOf(loaded.value)}
 				textType={textType}
 				editorSettings={editorSettings}
-				viewMode={viewMode === "compact" ? "minimal" : "default"}
+				layout={viewMode === "compact" ? "minimal" : "page"}
 				editingMode={readOnly ? "readOnly" : "content"}
 				sections={{ devMenu: false }}
 				pageOptions={PAGE}
