@@ -369,7 +369,8 @@ describe("SpecForm — read mode reads a Group like top-level Fields", () => {
 		expect(
 			label.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
-		expect(label.parentElement).toBe(name);
+		// The label sits in the label row (#641), inside the Field's own group.
+		expect(label.closest('[role="group"]')).toBe(name);
 		expect(label.contains(value)).toBe(false);
 		expect(
 			within(screen.getByRole("group", { name: "Role" })).getByText("Editor"),
