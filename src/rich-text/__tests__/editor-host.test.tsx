@@ -20,7 +20,7 @@ import { resolveSpec } from "../../schema/resolve-spec";
 import { knkRichTextPlugin } from "..";
 import { ARTICLE_TEXT_TYPE, bodyField, storedDocument } from "./fixture";
 
-// The rich-text field inside a knkeditor `EditorHost` (contenthub#632, ADR
+// The rich-text field inside a knkeditor `EditorHost` (contenthub#632, contenthub ADR
 // 0031): the page places one Inspector and one View control, and the
 // fields have none of their own — knkeditor switches them off inside a host
 // (contenthub#628), fieldkit passes nothing for it. Outside a host the field
