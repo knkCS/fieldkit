@@ -141,24 +141,92 @@ describe("KnkRichTextField", () => {
 		expect(committedFixture(expected)).toStrictEqual(expected);
 	});
 
-	it("reads the document in the editor, read-only, in SpecForm's read mode", async () => {
+	// The read view draws the page the editable field draws, without the
+	// toolbar (contenthub#637, #643): knkeditor's read-only frame, reached
+	// through knkeditor's own markers, as nothing else names the box and page.
+	describe("in SpecForm's read mode", () => {
+		function renderRead(options: {
+			resolved?: ResolvedSpec;
+			schema?: Field[];
+			body: unknown;
+		}) {
+			return render(
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={plugins} parts={options.resolved?.parts}>
+						<SpecForm
+							schema={options.resolved?.fields ?? options.schema ?? []}
+							mode="read"
+							values={{ body: options.body }}
+						/>
+					</FieldKitProvider>
+				</ChakraProvider>,
+			);
+		}
+
+		it("reads the document on the Branch's page, read-only and without a toolbar", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const { container } = renderRead({ resolved, body: storedDocument() });
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			expect(editorIn(container).isEditable).toBe(false);
+			const frame = container.querySelector("[data-knk-field-frame]");
+			const page = frame?.querySelector("[data-knk-page-frame]");
+			expect(page?.querySelector(".ProseMirror")).toHaveTextContent("Eins.");
+			expect(screen.queryByRole("toolbar")).toBeNull();
+		});
+
+		it("reads a compact Field in the box, without a page", async () => {
+			const compact: Field = {
+				...bodyField(),
+				settings: { ...bodyField().settings, view_mode: "compact" },
+			};
+			const resolved = await resolveSpec(
+				[compact],
+				{ parts: { text_type: async () => ARTICLE_TEXT_TYPE() } },
+				{ plugins },
+			);
+			const { container } = renderRead({ resolved, body: storedDocument() });
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const frame = container.querySelector("[data-knk-field-frame]");
+			expect(frame?.querySelector(".ProseMirror")).toHaveTextContent("Eins.");
+			expect(container.querySelector("[data-knk-page-frame]")).toBeNull();
+			expect(screen.queryByRole("toolbar")).toBeNull();
+		});
+
+		it("reads the text of a value that isn't a document", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const { container } = renderRead({ resolved, body: "Legacy text" });
+			expect(await screen.findByText("Legacy text")).toBeInTheDocument();
+			expect(container.querySelector(".ProseMirror")).toBeNull();
+			expect(container.querySelector("[data-knk-field-frame]")).toBeNull();
+		});
+
+		it("reads the text of a document whose Text Type can't be loaded", async () => {
+			const { container } = renderRead({
+				schema: [bodyField()],
+				body: storedDocument(),
+			});
+			expect(await screen.findByText("Eins.")).toBeInTheDocument();
+			expect(container.querySelector(".ProseMirror")).toBeNull();
+			expect(container.querySelector("[data-knk-field-frame]")).toBeNull();
+		});
+	});
+
+	it("edits on the same page, under a toolbar", async () => {
 		const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
-		const { container } = render(
-			<ChakraProvider value={defaultSystem}>
-				<FieldKitProvider plugins={plugins} parts={resolved.parts}>
-					<SpecForm
-						schema={resolved.fields}
-						mode="read"
-						values={{ body: storedDocument() }}
-					/>
-				</FieldKitProvider>
-			</ChakraProvider>,
-		);
+		const { container } = renderForm({ resolved });
 		await waitFor(() =>
 			expect(container.querySelector(".ProseMirror")).not.toBeNull(),
 		);
-		expect(editorIn(container).isEditable).toBe(false);
-		expect(container.querySelector(".ProseMirror")).toHaveTextContent("Eins.");
+		expect(editorIn(container).isEditable).toBe(true);
+		const frame = container.querySelector("[data-knk-field-frame]");
+		expect(
+			frame?.querySelector("[data-knk-page-frame] .ProseMirror"),
+		).not.toBeNull();
+		expect(screen.getByRole("toolbar")).toBeInTheDocument();
 	});
 
 	it("falls back to the textType adapter for a Pin the parts don't hold, and fetches each once", async () => {
