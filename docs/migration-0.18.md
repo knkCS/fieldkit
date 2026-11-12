@@ -389,8 +389,8 @@ A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
 `knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent:
 KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
 built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
-optional peers are `@knkcms/knkeditor-editor` `^3.0.0`,
-`@knkcms/knkeditor-vocabulary` `>=0.10.0 <0.11.0` and
+optional peers are `@knkcms/knkeditor-editor` `^3.2.0`,
+`@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` and
 `@knkcms/knkeditor-extension-text-block` `>=0.3.0 <1.0.0` (see "knkeditor 3"
 below), plus the peers knkeditor-editor
 declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
@@ -406,11 +406,11 @@ its toolbar fixed at the top while editing, and lays out an A4 page. No API
 change.
 
 **knkeditor 3** (contenthub#632, **breaking for a Consumer's install**): the
-peers move to `@knkcms/knkeditor-editor` `^3.0.0` and
-`@knkcms/knkeditor-vocabulary` `>=0.10.0 <0.11.0` — editor 3.0.0 depends on
-vocabulary 0.10, and an older copy beside it would judge Text Types
+peers move to `@knkcms/knkeditor-editor` `^3.2.0` and
+`@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` — editor 3.2.0 depends on
+vocabulary 0.10.1, and an older copy beside it would judge Text Types
 differently — and gain `@knkcms/knkeditor-extension-text-block`. Install
-knkeditor 3.0.0 with the fieldkit release that carries this; fieldkit's own
+knkeditor 3.2.0 with the fieldkit release that carries this; fieldkit's own
 API is unchanged.
 
 - The scoped Chakra system is knkeditor's exported `KnkeditorScope`: its
@@ -424,9 +424,13 @@ API is unchanged.
   field (contenthub#628, contenthub ADR 0031). Outside a host nothing
   changes: the field keeps its docked Inspector. fieldkit passes nothing for
   either.
-- Editor 3.0.0 drops `TextBlock` from its default extensions (knkeditor#907);
-  documents imported into Content may hold `textBlock` nodes, which the field
-  is to keep loading by registering it **(open: knkCS/contenthub#632)**.
+- Editor 3 drops `TextBlock` from its default extensions (knkeditor#907);
+  documents imported into Content may hold `textBlock` nodes, so the field
+  registers it (`[...defaultExtensions, TextBlock]`) and they keep loading,
+  in the edit field and the read view. A text block is valid inside an
+  Absatz (`paragraph > paragraphContent > textBlock`); directly under `doc`
+  the vocabulary refuses it. Whether imported Content holds top-level text
+  blocks is tracked as knkCS/contenthub#647.
 
 ## Go API
 

@@ -1,8 +1,10 @@
 // src/rich-text/knk-document-editor.tsx
 import KnkEditor, {
+	defaultExtensions,
 	type EditorProps,
 	KnkeditorScope,
 } from "@knkcms/knkeditor-editor";
+import TextBlock from "@knkcms/knkeditor-extension-text-block";
 import type {
 	EditorSettings,
 	ResolvedTextType,
@@ -34,6 +36,15 @@ function documentOf(value: unknown): EditorProps["content"] {
  * there is none to read yet.
  */
 const PAGE = { width: 210, margin: 10 } as const;
+
+/**
+ * knkeditor's default extensions and the text block. Editor 3 dropped
+ * `TextBlock` from its defaults (knkeditor#907): it is legacy content, and
+ * Content imported from core may hold `textBlock` nodes, which an editor
+ * without it would drop on load — and the next save with them. Built once:
+ * knkeditor memoises the editor's extensions on this array's identity.
+ */
+const EXTENSIONS: EditorProps["extensions"] = [...defaultExtensions, TextBlock];
 
 /** A document's content, for telling two copies of one document apart from
  * two documents. */
@@ -93,6 +104,7 @@ export function KnkDocumentEditor({
 			<KnkEditor
 				key={loaded.generation}
 				content={documentOf(loaded.value)}
+				extensions={EXTENSIONS}
 				textType={textType}
 				editorSettings={editorSettings}
 				layout={viewMode === "compact" ? "minimal" : "page"}
