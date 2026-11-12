@@ -43,6 +43,9 @@ interface ReferenceNameProps extends Omit<TextProps, "children"> {
  * written once. A real `<a href>`, never a click handler: it opens in a new
  * tab, can be copied and is announced as a link, and a Consumer that
  * intercepts navigation does it in its router.
+ *
+ * In the accent colour, underlined on hover only (#637): it reads as a link at
+ * a glance, and a tree of them stays calm until the pointer is on one.
  */
 export function ReferenceName({
 	name,
@@ -52,7 +55,7 @@ export function ReferenceName({
 	if (!href) return <Text {...textProps}>{name}</Text>;
 	return (
 		<Text {...textProps}>
-			<Link href={href} variant="underline">
+			<Link href={href} variant="plain" color="accent">
 				{name}
 			</Link>
 		</Text>

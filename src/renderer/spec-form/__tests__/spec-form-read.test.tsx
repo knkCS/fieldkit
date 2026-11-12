@@ -312,6 +312,115 @@ describe("SpecForm — read mode lays a Tab out as the form does", () => {
 	});
 });
 
+// #640: a Group's rows read like top-level Fields — label above value, the
+// form's rhythm — each row framed as the form frames a Group row, replacing
+// the label-left description list ADR-0030 removed at the top level.
+describe("SpecForm — read mode reads a Group like top-level Fields", () => {
+	function groupOf(children: Field[]): Field {
+		return {
+			field_type: "group",
+			config: {
+				name: "Authors",
+				api_accessor: "authors",
+				required: false,
+				instructions: "",
+			},
+			settings: null,
+			children,
+			system: false,
+		};
+	}
+
+	function renderGroup(children: Field[], value: unknown) {
+		render(
+			<Provider>
+				<FieldKitProvider plugins={[...testPlugins, groupPlugin]}>
+					<SpecForm
+						schema={[groupOf(children)]}
+						mode="read"
+						values={{ authors: value }}
+					/>
+				</FieldKitProvider>
+			</Provider>,
+		);
+	}
+
+	it("frames each row as a block of its own", () => {
+		renderGroup(
+			[makeField("name", "Name")],
+			[{ name: "One" }, { name: "Two" }],
+		);
+		const rows = within(
+			screen.getByRole("group", { name: "Authors" }),
+		).getAllByTestId("group-read-row");
+		expect(rows).toHaveLength(2);
+		expect(within(rows[0]).getByText("One")).toBeInTheDocument();
+		expect(within(rows[1]).getByText("Two")).toBeInTheDocument();
+	});
+
+	it("lays each child out as a labelled group, label above value", () => {
+		renderGroup(
+			[makeField("name", "Name"), makeField("role", "Role")],
+			[{ name: "One", role: "Editor" }],
+		);
+		const name = screen.getByRole("group", { name: "Name" });
+		const label = within(name).getByText("Name");
+		const value = within(name).getByText("One");
+		expect(
+			label.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		// The label sits in the label row (#641), inside the Field's own group.
+		expect(label.closest('[role="group"]')).toBe(name);
+		expect(label.contains(value)).toBe(false);
+		expect(
+			within(screen.getByRole("group", { name: "Role" })).getByText("Editor"),
+		).toBeInTheDocument();
+		// The description list is gone: no child sits in a <p> or a <dl>.
+		expect(name.closest("p")).toBeNull();
+		expect(name.closest("dl")).toBeNull();
+	});
+
+	it("reads an empty child value as the em dash, under its label", () => {
+		renderGroup(
+			[makeField("name", "Name"), makeField("role", "Role")],
+			[{ name: "One", role: "" }],
+		);
+		expect(
+			within(screen.getByRole("group", { name: "Role" })).getByText("—"),
+		).toBeInTheDocument();
+	});
+
+	it("leaves hidden children out of every row", () => {
+		const secret = makeField("secret", "Secret");
+		secret.config.hidden = true;
+		renderGroup(
+			[makeField("name", "Name"), secret],
+			[{ name: "One", secret: "s1" }],
+		);
+		expect(screen.queryByRole("group", { name: "Secret" })).toBeNull();
+		expect(screen.queryByText("s1")).toBeNull();
+	});
+
+	it("reads a value that is not a list of rows as empty", () => {
+		renderGroup([makeField("name", "Name")], "not rows");
+		const group = screen.getByRole("group", { name: "Authors" });
+		expect(within(group).getByText("—")).toBeInTheDocument();
+		expect(within(group).queryByTestId("group-read-row")).toBeNull();
+	});
+
+	it("keeps the field search's targets to top-level Fields", () => {
+		// A child sharing a top-level Field's accessor must not be where the
+		// search jumps to.
+		renderGroup([makeField("name", "Name")], [{ name: "One" }]);
+		expect(
+			screen.getByRole("group", { name: "Authors" }).dataset.fieldRow,
+		).toBe("authors");
+		expect(
+			screen.getByRole("group", { name: "Name" }).dataset.fieldRow,
+		).toBeUndefined();
+	});
+});
+
 // A plugin with NO cellComponent: read mode must fall back to
 // type-aware formatting, not raw String(value).
 const rawPlugin: FieldTypePlugin = {
