@@ -1,5 +1,8 @@
 import { ChakraProvider } from "@chakra-ui/react";
-import type { EditorProps } from "@knkcms/knkeditor-editor";
+import {
+	type EditorProps,
+	KNKEDITOR_SCOPE_CLASS,
+} from "@knkcms/knkeditor-editor";
 import { Button } from "@knkcs/anker/atoms";
 import system from "@knkcs/anker/theme";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -15,9 +18,10 @@ import { resolveSpec } from "../../schema/resolve-spec";
 import { knkRichTextPlugin } from "..";
 import { ARTICLE_TEXT_TYPE, bodyField, storedDocument } from "./fixture";
 
-// knkeditor in its own scoped Chakra system, growing with its document
-// (ADR-0026, amended): through the subpath's public field, under anker's
-// theme as every knkCS Consumer renders it.
+// knkeditor in its own scoped Chakra system — knkeditor's exported
+// `KnkeditorScope` (contenthub#629) — growing with its document (ADR-0026,
+// amended): through the subpath's public field, under anker's theme as every
+// knkCS Consumer renders it.
 
 // The real editor, with the props each mount got recorded.
 const editorProps = vi.hoisted(() => [] as Record<string, unknown>[]);
@@ -32,7 +36,7 @@ vi.mock("@knkcms/knkeditor-editor", async (importOriginal) => {
 	return { ...actual, default: Recorded };
 });
 
-const SCOPE = ".fieldkit-knkeditor";
+const SCOPE = `.${KNKEDITOR_SCOPE_CLASS}`;
 
 const plugins: FieldTypePlugin[] = builtInFieldTypes.map((plugin) =>
 	plugin.id === "rich_text" ? knkRichTextPlugin : plugin,
@@ -164,6 +168,20 @@ describe("knkeditor's scoped system", () => {
 		expect(scope?.querySelector(".ProseMirror")).not.toBeNull();
 		// The toolbar, which anker's recipes restyled, is inside it too.
 		expect(scope?.querySelector('[role="toolbar"], button')).not.toBeNull();
+	});
+
+	it("clips nothing around the scope: knkeditor's overlays portal into it", async () => {
+		// knkeditor mounts its menus, dialogs and popovers inside the scope
+		// element (knkeditor#833), so a fieldkit wrapper between the field and
+		// the scope that hid its overflow would cut them off.
+		const { container } = await editField(ARTICLE_TEXT_TYPE());
+		const scope = container.querySelector(SCOPE);
+		expect(scope).not.toBeNull();
+		for (let e = scope; e && e !== container; e = e.parentElement) {
+			const { overflow, overflowX, overflowY } = getComputedStyle(e);
+			expect([overflow, overflowX, overflowY]).not.toContain("hidden");
+			expect([overflow, overflowX, overflowY]).not.toContain("clip");
+		}
 	});
 
 	it("renders the read view inside the scope", async () => {

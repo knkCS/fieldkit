@@ -271,4 +271,97 @@ describe("KnkRichTextField", () => {
 		expect(saved.content[0].content[0].attrs.checked).toBe(true);
 		expect(validate(saved, checklist())).toEqual([]);
 	});
+	// Editor 3 dropped the text block from its default extensions
+	// (knkeditor#907); Content imported from core may hold one, so the field
+	// registers it. Its valid place is inside an Absatz.
+	describe("a legacy text block", () => {
+		const legacy = (): ResolvedTextType => ({
+			minimumVocabularyVersion: "0.1.0",
+			nodes: {
+				doc: { options: {} },
+				paragraph: { options: {} },
+				paragraphContent: { options: {} },
+				textBlock: { options: {} },
+				textWrapper: { options: {} },
+				text: { options: {} },
+			},
+			marks: {},
+		});
+		const withTextBlock = () => ({
+			type: "doc",
+			content: [
+				{
+					type: "paragraph",
+					attrs: { id: "p" },
+					content: [
+						{
+							type: "paragraphContent",
+							attrs: { id: "c" },
+							content: [
+								{
+									type: "textBlock",
+									attrs: { id: "t" },
+									content: [
+										{
+											type: "textWrapper",
+											attrs: { id: "w" },
+											content: [{ type: "text", text: "Alter Fließtext." }],
+										},
+									],
+								},
+							],
+						},
+					],
+				},
+			],
+		});
+		/** The text of every text block in the editor's document. */
+		const textBlocks = (editor: TiptapEditor) => {
+			const texts: string[] = [];
+			editor.state.doc.descendants((node) => {
+				if (node.type.name === "textBlock") texts.push(node.textContent);
+			});
+			return texts;
+		};
+
+		it("is a valid document under its Text Type", () => {
+			expect(validate(withTextBlock(), legacy())).toEqual([]);
+		});
+
+		it("loads in the edit field, and opening it is no edit", async () => {
+			const resolved = await resolveUnder(legacy());
+			const { container, form } = renderForm({
+				resolved,
+				body: withTextBlock(),
+			});
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const editor = editorIn(container);
+			expect(textBlocks(editor)).toEqual(["Alter Fließtext."]);
+			expect(form().formState.dirtyFields).toEqual({});
+			expect(form().getValues("body")).toStrictEqual(withTextBlock());
+		});
+
+		it("loads in the read view", async () => {
+			const resolved = await resolveUnder(legacy());
+			const { container } = render(
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={plugins} parts={resolved.parts}>
+						<SpecForm
+							schema={resolved.fields}
+							mode="read"
+							values={{ body: withTextBlock() }}
+						/>
+					</FieldKitProvider>
+				</ChakraProvider>,
+			);
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const editor = editorIn(container);
+			expect(editor.isEditable).toBe(false);
+			expect(textBlocks(editor)).toEqual(["Alter Fließtext."]);
+		});
+	});
 });

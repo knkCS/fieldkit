@@ -300,10 +300,11 @@ Consuming projects must install:
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
-- `@knkcms/knkeditor-editor` ^1.8.0 || ^2.0.0 and `@knkcms/knkeditor-vocabulary` >=0.1.0 <0.10.0,
-  plus the peers knkeditor-editor declares itself (TipTap 3, i18next,
-  react-i18next, react-icons, emotion, its extension packages). Both are
-  devDependencies here, for that subpath's tests and stories
+- `@knkcms/knkeditor-editor` ^3.2.0, `@knkcms/knkeditor-vocabulary` >=0.10.1 <0.11.0
+  and `@knkcms/knkeditor-extension-text-block` >=0.3.0 <1.0.0, plus the peers
+  knkeditor-editor declares itself (TipTap 3, i18next, react-i18next,
+  react-icons, emotion, its extension packages). All are devDependencies
+  here, for that subpath's tests and stories
 
 Note: `react-grid-layout` is NOT needed — since anker 3.0.0 it is only
 resolved by consumers importing `@knkcs/anker/dashboard`.
