@@ -3,6 +3,11 @@ import { Box, useSlotRecipe } from "@chakra-ui/react";
 import { useId } from "react";
 import type { SpecTab } from "../../schema/partition";
 import type { Field } from "../../schema/types";
+import {
+	FieldLabelRowProvider,
+	labelWithSuffix,
+	useFieldLabelRowHost,
+} from "../field-label-row";
 import { FieldStack } from "../field-stack";
 import { ReadValue, type ReadValueLabels } from "../read-value";
 
@@ -27,6 +32,11 @@ import { ReadValue, type ReadValueLabels } from "../read-value";
  * group named by it instead, which is what a reader's assistive technology
  * announces. `data-field-row` is the target the field search jumps to and
  * highlights — the whole Field, label and value.
+ *
+ * The label sits in a label row whose right end holds the Field's own actions
+ * (`FieldLabelActions`, from the value below), and whose text a value can add
+ * to (`useFieldLabelSuffix` — a Reference Field's count). A Field with neither
+ * draws the label where it always was.
  */
 function ReadField({
 	field,
@@ -39,6 +49,7 @@ function ReadField({
 }) {
 	const labelId = useId();
 	const styles = useSlotRecipe({ key: "field" })({ orientation: "vertical" });
+	const labelRow = useFieldLabelRowHost();
 	return (
 		<Box
 			css={styles.root}
@@ -47,11 +58,16 @@ function ReadField({
 			aria-labelledby={labelId}
 			data-field-row={field.config.api_accessor}
 		>
-			<Box css={styles.label} id={labelId}>
-				{field.config.name}
+			<Box display="flex" alignItems="center" gap="2">
+				<Box css={styles.label} id={labelId} flex="1">
+					{labelWithSuffix(field.config.name, labelRow.suffix)}
+				</Box>
+				{labelRow.slot}
 			</Box>
 			<Box>
-				<ReadValue field={field} value={value} labels={labels} />
+				<FieldLabelRowProvider row={labelRow.row}>
+					<ReadValue field={field} value={value} labels={labels} />
+				</FieldLabelRowProvider>
 			</Box>
 		</Box>
 	);

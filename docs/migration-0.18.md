@@ -313,6 +313,22 @@ What a value yields to contenthub's Content Graph and to search changes too:
   `flex: 1` with `min-width: 0`, where Chakra's tabs recipe sized it
   `width: 100%` plus its start padding and it overflowed its column into a
   rail beside it. Fixed in rc.11; no API change.
+- **A Field's label row carries its actions; a Reference tree's controls
+  move there** (knkCS/contenthub#641): in the form and in read mode, a Field's
+  own actions sit at the right end of its label row. The Reference Field is
+  the first user: every non-empty tree, read or editable, at any size, shows
+  **Expand all** (new) and **Collapse all** as icon buttons there, each with
+  an accessible name and a tooltip, and its label counts every Reference at
+  every level ("Teile · 9"). Collapse all now folds every branch to the top
+  level, where it returned a tree to the fold set it opened in.
+  `REFERENCE_TREE_COLLAPSE_THRESHOLD` (20) now decides only whether a tree
+  *opens* folded; Find still appears only past it, above the tree, until it
+  moves into the label row. A Consumer test that looked for Collapse all only
+  past 20 References, or matched a Reference Field's label exactly, needs
+  updating; read mode's label now sits in a row beside an actions slot
+  (`data-field-label-actions`, empty for a Field without actions). A
+  `ReferenceTree` rendered outside a label row draws both buttons above its
+  rows. No API change.
 
 **Additive:** `validateValue` from `/schema` (#210); `specPins`,
 `RESOLVE_CAPS`, `CATALOGUE_VERSION` and `validateSpec`'s `resolved` option

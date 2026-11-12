@@ -59,7 +59,7 @@ src/
 │   ├── locked-settings.ts # findLockedSetting() / restoreLockedSettings() — reading FieldConfig.locked_settings and honouring it on a write (ADR-0011)
 │   ├── reference.ts     # The Reference value — _id, id, pin, values, children (ADR-0008, amended) — its settings (`blueprints` entries, `spec`, `pin_mode`), referenceSpecFor() (the one Reference Spec per target: embedded, or replaced by a linked one), normalizeReference() (legacy values on load), referenceTreeSchema and withPin
 │   ├── reference-plugin.ts # What `reference`, `single_reference` and every createReferencePlugin type share: the settings schema, heldSpecs and settingsRules, the tree Zod array (tree-wide `_id`s, caps), mintIds, edges and records
-│   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, initialReferenceFolds + the collapse threshold). Drag and fold maths live here, never in a component — two renderers draw this tree
+│   ├── reference-tree.ts # The tree model as pure functions: flatten/nest, projectDropDepth + projectInsertDepth (both answer with `adopted`), moveReferenceBranch, spliceReference, countReferences, and the fold rules (visibleReferenceRows, referenceAncestorKeys, foldsToReveal, allReferenceFolds (Collapse all), initialReferenceFolds + the collapse threshold, which decides only how a tree opens). Drag and fold maths live here, never in a component — two renderers draw this tree
 │   ├── reference-find.ts # Find: which References in a tree match a typed query, ranked and capped, and the ancestor path placing each one. Matches client-side (ADR-0013) against both the name a row shows and the id behind it, case-insensitively and with diacritics folded (foldReferenceText — ß spelled out in its own right); one answer carries the list, the total and which of Find's three states (referenceFindState — matches, nothing, or names still arriving) the names behind it were in, so neither the count nor the empty line can claim a whole tree was searched when it was not; knows nothing about a dropdown
 │   ├── reference-spec.ts # Composes a Reference Spec into each Reference's `values` (ADR-0007's boundary); validateSpec walks it as the `reference_spec` Position
 │   ├── blueprint-link.ts # linkedBlueprintId() — the Blueprint Release a Fieldset or a linked Virtual Table pins, read in ONE place so the validator, the resolver and the renderer cannot disagree; BLUEPRINT_PIN, the Catalogue's record of that key; pinnedRelease(), how every Pin setting is read
@@ -101,6 +101,7 @@ src/
 │   └── try-it-view.tsx  # Preview: resolveSpec() on the draft, then a real SpecForm on a scratch form
 ├── renderer/            # Field renderer
 │   ├── field-renderer.tsx      # Flat field list (20px rhythm); used inside groups
+│   ├── field-label-row.tsx # A Field's label row: FieldLabelActions portals a value's controls to the label's right end (ReadField, and a Field drawing its own FormField, host the row), useFieldLabelSuffix adds text after the label ("Teile · 9")
 │   ├── field-stack.tsx  # FieldStack — the 20px rhythm between a Tab's Fields, shared by the form and read mode (ADR-0030)
 │   ├── search-combobox.tsx     # SearchCombobox — the shared typeahead: listbox roles, keyboard model, window-capture Escape containment, opt-in "/" shortcut. Agnostic about what it lists; callers supply results and describe them
 │   ├── spec-form/       # SpecForm: section tabs, field search, read mode, skeletons
@@ -114,7 +115,7 @@ src/
 │   │   └── batch-ids.ts # The batching rule as a pure function, plus the PROVISIONAL batch size — no Adapter is ever handed a whole tree's ids in one call
 │   └── fields/          # Built-in field components
 │       ├── reference-find.tsx        # Find over the shared SearchCombobox: the Field's control, since the Field owns the resolved names. Never claims "/"
-│       └── reference-collapse-all.tsx # Collapse all — shared by both renderers, offered on exactly the trees that open folded
+│       └── reference-fold-all.tsx # Expand all and Collapse all as icon buttons in the label row — shared by both renderers, on every non-empty tree
 ├── table/               # Spec-driven data table
 │   ├── spec-data-table.tsx
 │   ├── edit-drawer.tsx  # Renders through SpecForm
