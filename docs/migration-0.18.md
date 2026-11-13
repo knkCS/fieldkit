@@ -389,7 +389,7 @@ A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
 `knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent:
 KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
 built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
-optional peers are `@knkcms/knkeditor-editor` `^3.2.0`,
+optional peers are `@knkcms/knkeditor-editor` `^3.3.0`,
 `@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` and
 `@knkcms/knkeditor-extension-text-block` `>=0.3.0 <1.0.0` (see "knkeditor 3"
 below), plus the peers knkeditor-editor
@@ -424,6 +424,13 @@ API is unchanged.
   field (contenthub#628, contenthub ADR 0031). Outside a host nothing
   changes: the field keeps its docked Inspector. fieldkit passes nothing for
   either.
+- Since rc.13 (contenthub#677, contenthub ADR 0033) the peer floor is
+  `@knkcms/knkeditor-editor` `^3.3.0`, and inside an `EditorHost` each
+  rich-text field carries its own view at the right end of its label row
+  (knkeditor's `FieldView`), in the edit field and the read view. The view
+  key is the Field's accessor — its form path — so a host seeds each Field's
+  view with `initialView` and remembers it from `onViewChange` by that key.
+  The page-level `ViewControl` still sets every field's view at once.
 - Editor 3 drops `TextBlock` from its default extensions (knkeditor#907);
   documents imported into Content may hold `textBlock` nodes, so the field
   registers it (`[...defaultExtensions, TextBlock]`) and they keep loading,

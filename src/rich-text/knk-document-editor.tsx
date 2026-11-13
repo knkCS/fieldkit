@@ -18,6 +18,9 @@ export interface KnkDocumentEditorProps {
 	textType?: ResolvedTextType;
 	editorSettings?: EditorSettings;
 	viewMode?: RichTextSettings["view_mode"];
+	/** The editor's view key in an `EditorHost` (knkeditor ADR 0011): what
+	 * the label row's Field view is bound to. Ignored outside a host. */
+	viewKey?: string;
 	readOnly?: boolean;
 	onChange?: (document: Record<string, unknown>) => void;
 	onBlur?: () => void;
@@ -81,6 +84,7 @@ export function KnkDocumentEditor({
 	textType,
 	editorSettings,
 	viewMode,
+	viewKey,
 	readOnly,
 	onChange,
 	onBlur,
@@ -108,6 +112,7 @@ export function KnkDocumentEditor({
 				textType={textType}
 				editorSettings={editorSettings}
 				layout={viewMode === "compact" ? "minimal" : "page"}
+				viewKey={viewKey}
 				editingMode={readOnly ? "readOnly" : "content"}
 				sections={{ devMenu: false }}
 				pageOptions={PAGE}

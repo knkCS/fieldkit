@@ -2,11 +2,16 @@
 import { Skeleton, Text } from "@chakra-ui/react";
 import { FormField } from "@knkcs/anker/forms";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import {
+	FieldLabelRowProvider,
+	useFieldLabelRowHost,
+} from "../renderer/field-label-row";
 import { RichTextFallback } from "../renderer/fields/rich-text-field";
 import { richTextPreview } from "../renderer/fields/rich-text-preview";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
 import type { FieldProps, ReadProps } from "../schema/plugin";
 import { KnkDocumentEditor } from "./knk-document-editor";
+import { RichTextFieldView, useRichTextViewKey } from "./rich-text-field-view";
 import { useRichTextSetup } from "./use-rich-text-setup";
 
 const NOT_A_DOCUMENT =
@@ -34,6 +39,9 @@ function isDocumentOrNone(value: unknown): boolean {
  * deploy and must be reloaded. A Text Type that cannot be loaded at all opens
  * no editor either, and the failure goes to `onError`. Both show the document
  * read-only as the core renderer does, and never change the value.
+ *
+ * Inside an `EditorHost` its label row carries the Field's view (contenthub
+ * ADR 0033), keyed by the Field's form path; see `RichTextFieldView`.
  */
 export function KnkRichTextField({
 	field,
@@ -43,6 +51,10 @@ export function KnkRichTextField({
 	const setup = useRichTextSetup(field);
 	const { config } = field;
 	const value = useWatch({ name: config.api_accessor });
+	// The label row the view draws into, as the Reference Field's tree does.
+	const labelRow = useFieldLabelRowHost();
+	// A form path (`rows.0.body` in a Group): unique among the form's Fields.
+	const viewKey = config.api_accessor;
 
 	if (setup.status === "unavailable") {
 		return <RichTextFallback field={field} notice={setup.reason} />;
@@ -57,6 +69,7 @@ export function KnkRichTextField({
 		<FormField
 			name={config.api_accessor}
 			label={config.name}
+			actions={labelRow.slot}
 			helperText={config.instructions || undefined}
 			required={config.required}
 			readOnly={readOnly}
@@ -72,15 +85,23 @@ export function KnkRichTextField({
 						name={config.api_accessor}
 						control={control}
 						render={({ field: formField }) => (
-							<KnkDocumentEditor
-								value={formField.value}
-								textType={setup.textType}
-								editorSettings={setup.editorSettings}
-								viewMode={field.settings?.view_mode}
-								readOnly={readOnly}
-								onChange={formField.onChange}
-								onBlur={formField.onBlur}
-							/>
+							<FieldLabelRowProvider row={labelRow.row}>
+								<RichTextFieldView
+									viewKey={viewKey}
+									label={config.name}
+									readOnly={readOnly === true}
+								/>
+								<KnkDocumentEditor
+									value={formField.value}
+									textType={setup.textType}
+									editorSettings={setup.editorSettings}
+									viewMode={field.settings?.view_mode}
+									viewKey={viewKey}
+									readOnly={readOnly}
+									onChange={formField.onChange}
+									onBlur={formField.onBlur}
+								/>
+							</FieldLabelRowProvider>
 						)}
 					/>
 				)
@@ -94,9 +115,13 @@ KnkRichTextField.displayName = "KnkRichTextField";
  * The knkeditor-backed `rich_text` read view: the document in knkeditor's
  * editor, read-only, under the Field's Text Type — SpecForm's read mode.
  * Read mode renders an em dash for an empty value before it gets here.
+ *
+ * Inside an `EditorHost` the Field's view sits in its label row, as in the
+ * form, its middle preset reading "Structure".
  */
 export function KnkRichTextRead({ field, value }: ReadProps<RichTextSettings>) {
 	const setup = useRichTextSetup(field);
+	const viewKey = useRichTextViewKey(field.config.api_accessor);
 	if (setup.status === "loading") {
 		return <Skeleton height="16" />;
 	}
@@ -107,13 +132,17 @@ export function KnkRichTextRead({ field, value }: ReadProps<RichTextSettings>) {
 		return <Text whiteSpace="pre-wrap">{richTextPreview(value)}</Text>;
 	}
 	return (
-		<KnkDocumentEditor
-			value={value}
-			textType={setup.textType}
-			editorSettings={setup.editorSettings}
-			viewMode={field.settings?.view_mode}
-			readOnly
-		/>
+		<>
+			<RichTextFieldView viewKey={viewKey} label={field.config.name} readOnly />
+			<KnkDocumentEditor
+				value={value}
+				textType={setup.textType}
+				editorSettings={setup.editorSettings}
+				viewMode={field.settings?.view_mode}
+				viewKey={viewKey}
+				readOnly
+			/>
+		</>
 	);
 }
 KnkRichTextRead.displayName = "KnkRichTextRead";
