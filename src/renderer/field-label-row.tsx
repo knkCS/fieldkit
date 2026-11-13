@@ -126,6 +126,12 @@ export function FieldLabelActions({ children }: { children: ReactNode }) {
 }
 FieldLabelActions.displayName = "FieldLabelActions";
 
+/** Whether a label row is drawn for the value calling it: false outside
+ * one, and for a value a container renders for its children. */
+export function useInFieldLabelRow(): boolean {
+	return useContext(FieldLabelRowContext) !== null;
+}
+
 /**
  * Says something after the label's text — a Reference Field's count. A string
  * rather than a node, so the label stays one readable name ("Teile · 9") for

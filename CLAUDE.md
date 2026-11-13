@@ -122,7 +122,7 @@ src/
 │   ├── get-cell-for-type.tsx
 │   └── cells/           # Built-in cell components
 ├── publishing/          # The opt-in publishing package (@knkcs/fieldkit/publishing): publishingFieldTypes, one file per type in field-types/, and in fields/ the stopgap UI of a type no built-in component can stand in for (outline_tree's read-only node count and cell; UnportedField, the value read-only as JSON, which manipulation_tree uses) — its Catalogue section is go/publishing/catalogue.json
-├── rich-text/           # The opt-in knkeditor-backed rich_text field (@knkcs/fieldkit/rich-text, ADR-0026): knkRichTextPlugin, KnkRichTextField/KnkRichTextRead, use-rich-text-setup.ts (the Text Type from `parts` or the textType adapter, Editor Settings, needsNewerVocabulary); the only code importing knkeditor. The core renderer's fallback is renderer/fields/rich-text-field.tsx
+├── rich-text/           # The opt-in knkeditor-backed rich_text field (@knkcs/fieldkit/rich-text, ADR-0026): knkRichTextPlugin, KnkRichTextField/KnkRichTextRead, rich-text-field-view.tsx (knkeditor's FieldView in the label row inside an EditorHost, keyed by the Field's accessor; contenthub ADR 0033), use-rich-text-setup.ts (the Text Type from `parts` or the textType adapter, Editor Settings, needsNewerVocabulary); the only code importing knkeditor. The core renderer's fallback is renderer/fields/rich-text-field.tsx
 └── rich-text-spec/      # Rich text editor specification — deprecated, removed in 0.19 (ADR-0026, docs/migration-0.18.md)
     ├── types.ts         # EditorSpec, EditorNodePlugin
     ├── editor-spec-editor.tsx
@@ -300,7 +300,7 @@ Consuming projects must install:
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
-- `@knkcms/knkeditor-editor` ^3.2.0, `@knkcms/knkeditor-vocabulary` >=0.10.1 <0.11.0
+- `@knkcms/knkeditor-editor` ^3.3.0, `@knkcms/knkeditor-vocabulary` >=0.10.1 <0.11.0
   and `@knkcms/knkeditor-extension-text-block` >=0.3.0 <1.0.0, plus the peers
   knkeditor-editor declares itself (TipTap 3, i18next, react-i18next,
   react-icons, emotion, its extension packages). All are devDependencies

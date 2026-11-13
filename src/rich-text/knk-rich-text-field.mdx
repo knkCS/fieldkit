@@ -28,7 +28,7 @@ const resolved = await resolveSpec(spec, {
 </FieldKitProvider>;
 ```
 
-`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`. Its peers are `@knkcms/knkeditor-editor` (^3.2.0), `@knkcms/knkeditor-vocabulary` (>=0.10.1 <0.11.0) and `@knkcms/knkeditor-extension-text-block` (>=0.3.0 <1.0.0), plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next, react-icons, emotion and its extension packages). No other subpath imports any of them — `npm run verify-peers` checks the built `dist`.
+`knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }`. Its peers are `@knkcms/knkeditor-editor` (`^3.3.0`), `@knkcms/knkeditor-vocabulary` (`>=0.10.1 <0.11.0`) and `@knkcms/knkeditor-extension-text-block` (`>=0.3.0 <1.0.0`), plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next, react-icons, emotion and its extension packages). No other subpath imports any of them — `npm run verify-peers` checks the built `dist`.
 
 ## Where its configuration comes from
 
@@ -49,6 +49,15 @@ The field never edits under a Text Type it cannot trust, and never changes the v
 
 `KnkRichTextRead` renders the document in the editor, read-only, under the same Text Type.
 
+## Its view, in the label row
+
+Inside knkeditor's `EditorHost`, each rich-text Field carries its own view at the right end of its label row, where the Reference Field puts Find and Expand/Collapse all (contenthub ADR 0033): knkeditor's `FieldView`, the view presets as a segmented control and "Layers", which opens each layer with what it draws. It is there in the form and in read mode, where the middle preset reads "Structure". Under 560px of row width it shows icons and the layers' count alone.
+
+- **Each Field's view is its own.** The field passes its editor a view key, and binds the label row's view to the same key: the Field's accessor, which in a form is its path (`sections.0.body` in a Group). A control changes only its own Field; with more than one rich-text Field in the host, "Layers" offers "Apply to all rich-text fields". A value read mode draws without a label row of its own (a Group's rows) gets a key of its own.
+- **The host keeps the views.** It seeds each by key with `initialView` and observes it with `onViewChange` — say to remember each Field's view — so the key is what a Consumer remembers a Field's view by.
+- **Outside an `EditorHost` there is none.** The editor keeps its own view and its own view menu in its toolbar, as before.
+- **The label row keeps its height**: the controls are as tall as the Reference Field's buttons (24px).
+
 ## Examples
 
 ### Under a Text Type
@@ -58,6 +67,14 @@ The field never edits under a Text Type it cannot trust, and never changes the v
 ### Read mode
 
 <Canvas of={Stories.ReadMode} />
+
+### In an EditorHost
+
+<Canvas of={Stories.InAnEditorHost} />
+
+### Read mode in an EditorHost
+
+<Canvas of={Stories.ReadModeInAnEditorHost} />
 
 ### Needs a newer editor
 

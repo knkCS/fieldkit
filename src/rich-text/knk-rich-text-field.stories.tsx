@@ -1,3 +1,4 @@
+import { EditorHost } from "@knkcms/knkeditor-editor";
 import type { ResolvedTextType } from "@knkcms/knkeditor-vocabulary";
 import { Button } from "@knkcs/anker/atoms";
 import type { Meta, StoryObj } from "@storybook/react";
@@ -54,6 +55,19 @@ const body = (textType: string): Field => ({
 	system: false,
 });
 
+/** A second rich-text Field, for a page whose Fields each keep a view. */
+const summary = (textType: string): Field => ({
+	field_type: "rich_text",
+	config: {
+		name: "Summary",
+		api_accessor: "summary",
+		required: false,
+		instructions: "",
+	},
+	settings: { text_type: textType, view_mode: "compact" },
+	system: false,
+});
+
 const stored = {
 	type: "doc",
 	content: [
@@ -98,34 +112,42 @@ interface RichTextStoryProps {
 	mode?: "edit" | "read";
 	/** Open the long document rather than the short one. */
 	longDocument?: boolean;
+	/** Inside knkeditor's `EditorHost`, with a second rich-text Field: each
+	 * Field carries its own view in its label row. */
+	inEditorHost?: boolean;
 }
 
 function RichTextStory({
 	textType,
 	mode = "edit",
 	longDocument = false,
+	inEditorHost = false,
 }: RichTextStoryProps) {
 	const initial = longDocument ? long : stored;
 	const [resolved, setResolved] = useState<ResolvedSpec | null>(null);
 	const [submitted, setSubmitted] = useState<unknown>(null);
-	const methods = useForm({ defaultValues: { body: initial } });
+	const methods = useForm({
+		defaultValues: inEditorHost
+			? { body: initial, summary: stored }
+			: { body: initial },
+	});
 
 	useEffect(() => {
 		resolveSpec(
-			[body(textType)],
+			inEditorHost ? [body(textType), summary(textType)] : [body(textType)],
 			{ parts: { text_type: async (release) => TEXT_TYPES[release] } },
 			{ plugins },
 		).then(setResolved);
-	}, [textType]);
+	}, [textType, inEditorHost]);
 
 	if (!resolved) return null;
-	return (
+	const fields = (
 		<FieldKitProvider plugins={plugins} parts={resolved.parts}>
 			{mode === "read" ? (
 				<SpecForm
 					schema={resolved.fields}
 					mode="read"
-					values={{ body: initial }}
+					values={{ body: initial, summary: stored }}
 				/>
 			) : (
 				<FormProvider {...methods}>
@@ -146,6 +168,7 @@ function RichTextStory({
 			)}
 		</FieldKitProvider>
 	);
+	return inEditorHost ? <EditorHost>{fields}</EditorHost> : fields;
 }
 RichTextStory.displayName = "RichTextStory";
 
@@ -166,6 +189,19 @@ export const UnderATextType: Story = { args: { textType: "article@3" } };
  * page, and the toolbar is fixed at the top of the field. */
 export const ALongDocument: Story = {
 	args: { textType: "article@3", longDocument: true },
+};
+
+/** Inside knkeditor's `EditorHost`: each rich-text Field carries its own view
+ * at the right end of its label row — the presets and Layers — and changing
+ * one Field's view leaves the other's as it was. */
+export const InAnEditorHost: Story = {
+	args: { textType: "article@3", inEditorHost: true },
+};
+
+/** Read mode inside an `EditorHost`: the view in each label row, its middle
+ * preset reading "Structure". */
+export const ReadModeInAnEditorHost: Story = {
+	args: { textType: "article@3", mode: "read", inEditorHost: true },
 };
 
 /** SpecForm's read mode: the editor, read-only. */
