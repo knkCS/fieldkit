@@ -8,8 +8,14 @@ import type {
 	EditorSettings,
 	ResolvedTextType,
 } from "@knkcms/knkeditor-vocabulary";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
+import {
+	commentHighlight,
+	createCommentBridge,
+	type RichTextComments,
+	resolvedKey,
+} from "./comments";
 
 export interface KnkDocumentEditorProps {
 	/** The stored document; anything but an object opens an empty one. */
@@ -21,6 +27,12 @@ export interface KnkDocumentEditorProps {
 	 * the label row's Field view is bound to. Ignored outside a host. */
 	viewKey?: string;
 	readOnly?: boolean;
+	/** The host's Comments when the value is a working document's (a
+	 * Branch's; `RichTextCommentsProvider`): the comment extension is
+	 * registered only then. */
+	comments?: RichTextComments | null;
+	/** The Field's form path, which the Comment callbacks name. */
+	fieldPath?: string;
 	onChange?: (document: Record<string, unknown>) => void;
 	onBlur?: () => void;
 }
@@ -87,6 +99,8 @@ export function KnkDocumentEditor({
 	viewMode,
 	viewKey,
 	readOnly,
+	comments = null,
+	fieldPath = "",
 	onChange,
 	onBlur,
 }: KnkDocumentEditorProps) {
@@ -104,12 +118,38 @@ export function KnkDocumentEditor({
 		});
 	}
 
+	// Comments (a Branch's value): one bridge per editor mounted, reading the
+	// host's latest callbacks, so new ones each render remount nothing.
+	const latest = useRef({ comments, fieldPath });
+	latest.current = { comments, fieldPath };
+	const withComments = comments !== null;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: each editor mounted — a remount over an outside value too — needs a bridge of its own
+	const bridge = useMemo(
+		() => (withComments ? createCommentBridge(() => latest.current) : null),
+		[withComments, loaded.generation],
+	);
+	const extensions = useMemo<EditorProps["extensions"]>(
+		() => (bridge ? [...defaultExtensions, bridge.extension] : EXTENSIONS),
+		[bridge],
+	);
+	// The resolved threads, by contents: a new list applies at once.
+	const resolved = resolvedKey(comments);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `resolved` is what changed; the bridge reads the list itself
+	useEffect(() => {
+		bridge?.syncResolved();
+	}, [bridge, resolved]);
+	const highlight = useMemo(
+		() =>
+			bridge ? commentHighlight(JSON.parse(resolved) as string[]) : undefined,
+		[bridge, resolved],
+	);
+
 	return (
-		<KnkeditorScope>
+		<KnkeditorScope css={highlight}>
 			<KnkEditor
-				key={loaded.generation}
+				key={`${loaded.generation}${bridge ? ":comments" : ""}`}
 				content={documentOf(loaded.value)}
-				extensions={EXTENSIONS}
+				extensions={extensions}
 				textType={textType}
 				editorSettings={editorSettings}
 				layout={viewMode === "compact" ? "minimal" : "page"}

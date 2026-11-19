@@ -11,6 +11,7 @@ A `rich_text` Field pins a **Text Type Release** in `settings.text_type` (ADR-00
 | Package | Version fieldkit needs | Used by | Purpose |
 |---|---|---|---|
 | `@knkcms/knkeditor-editor` | `^4.0.0` (4.0.0 here) | `/rich-text` | The React editor (`Editor`, default export), `defaultExtensions`, `KnkeditorScope`, the scoped Chakra system it renders in (contenthub#629), and `FieldView`, the view a Field places in its label row. 4.0.0 is the floor: its `defaultExtensions` load the whole vocabulary, the legacy text block among them (knkboor/general#2213), and register the kind model's `semanticMark`, whose kinds come from the Text Type (knkboor/general#2212, #2214), so the field passes them unchanged (knkboor/general#2215); it depends on `@knkcms/knkeditor-extension-text-block` itself, which is therefore no peer of fieldkit's. 3.3.0 keeps a view per editor in an `EditorHost`, keyed by the editor's `viewKey`, and exports `FieldView` (knkeditor ADR 0011; contenthub#677). Before it, 3.0.0 exports the scope and, inside an `EditorHost`, switches a field's own Inspector and view menu off (contenthub#628); 3.2.0 exports `defaultExtensions`, which the field added `TextBlock` to until 4.0 (contenthub#645), and depends on vocabulary 0.10.1, under which an empty document opens under a Text Type (contenthub#646). Earlier floors: 1.8.0 registers `UniqueID` on every editor it builds (knkeditor#608), 2.x changed the stored table (knkeditor's ADR 0005), 2.3.0 brought the task list (knkboor/general#2067) |
+| `@knkcms/knkeditor-extension-comment` | `^0.1.0` (0.1.0 here) | `/rich-text` | The comment extension (`Comment`), registered only for a working document's value — inside a `RichTextCommentsProvider` (knkboor/general#2224; knkeditor ADR 0006). 0.1.0 is the floor: it hides the anchors of given threads (`hiddenThreadIds`, `setHiddenCommentThreads`) without changing the document (knkcms/knkeditor#994). Not a dependency of knkeditor-editor 4's published package, so fieldkit declares it |
 | `@knkcms/knkeditor-vocabulary` | `>=0.10.1 <0.11.0` (0.10.1 here) | `/rich-text` | `ResolvedTextType`, `EditorSettings`, `needsNewerVocabulary`; the tests also use its `validate` and its review-state names (`review-state.ts`), which pin `src/schema/annotations.ts`'s. Written as a range because on 0.x a caret covers one minor; the floor is the vocabulary editor 3.2.0 depends on (`>=0.10.1`), so that `needsNewerVocabulary` here answers as the editor's own does — an older copy beside it would call a Text Type pinning 0.10.0 too new. The Go module needs 0.8.0, whose review-state mode it uses |
 | `github.com/knkcms/knkeditor/go` | `go/go.mod` | fieldkit's Go module | Validation, edges, text, Compare, Merge (below) |
 
@@ -27,6 +28,8 @@ All of them live in GitHub Packages (`@knkcms:registry=https://npm.pkg.github.co
 | `knkRichTextPlugin` | `{ ...richTextPlugin, fieldComponent: KnkRichTextField, readComponent: KnkRichTextRead }` — pass it in place of the built-in `rich_text` plugin |
 | `KnkRichTextField` | The form field: knkeditor's editor over the form value (`FieldProps`) |
 | `KnkRichTextRead` | SpecForm's read mode: the editor, read-only (`ReadProps`) |
+| `RichTextCommentsProvider` | Says the values inside are a working document's (a Branch's): their rich-text Fields take Comments. See [Comments in a working document](#comments-in-a-working-document) |
+| `RichTextComments`, `AddCommentRequest`, `CommentClick` | Its types |
 
 ```tsx
 import { builtInFieldTypes, resolveSpec } from "@knkcs/fieldkit/schema";
@@ -68,6 +71,42 @@ The editor tells its own edits from a value set from outside **by content**, not
 
 In read mode the same cases show the document's text.
 
+### Comments in a working document
+
+knkeditor's comment extension stores a Comment's anchor in the document — a `commentMark` with an opaque `threadId` on text, a `commentThreadIds` attribute on a node — and the thread itself lives in the host. Such review state belongs in a working document only, never in a released one (knkeditor ADR 0006), and whether a value is a working one is the host's call. So the field registers the extension only when the host says so, by placing a **`RichTextCommentsProvider`** around the form (contenthub: a Branch's form, contenthub ADR 0034). Outside one no comment extension is registered, and nothing about Comments shows.
+
+```tsx
+import { RichTextCommentsProvider, type RichTextComments } from "@knkcs/fieldkit/rich-text";
+
+const comments: RichTextComments = {
+  // The Comment button: create the thread, then anchor it.
+  onAddComment: async ({ fieldPath, text, anchor }) => {
+    const threadId = await createThread({ fieldPath, quote: text }); // the host's
+    if (!anchor(threadId)) {
+      // the selected text is gone, or a newer request replaced this one
+    }
+  },
+  onCommentClick: ({ fieldPath, threadIds }) => openThreads(threadIds),
+  resolvedThreadIds, // updated at runtime: a new list applies at once
+};
+
+<FieldKitProvider plugins={plugins} adapters={adapters} parts={resolved.parts}>
+  <RichTextCommentsProvider comments={comments}>
+    <SpecForm schema={resolved.fields} />
+  </RichTextCommentsProvider>
+</FieldKitProvider>;
+```
+
+- **Data-agnostic.** fieldkit knows thread ids and nothing else: no message, author, conversation or resolved state of its own. `fieldPath` is the Field's form path (`body`, `rows.0.body`).
+- **Adding.** knkeditor's Comment button (its text menu offers it once the extension is registered) calls `onAddComment` with the selection's text and an `anchor(threadId)`. The host creates its thread — awaiting its own save is fine — and calls `anchor`: the anchor lands on the text that was selected, followed through every edit since, and reaches the form value like any edit. `anchor` answers false and anchors nothing when the selected text was deleted, the editor is gone, a newer request replaced this one (one pending request per editor), or it was already answered. Abandoning a request needs no call.
+- **Clicking.** A click on an anchor calls `onCommentClick` with the threads anchored there, resolved ones left out.
+- **Resolved threads.** `resolvedThreadIds`' anchors stay in the document but are neither highlighted nor offered on click. A new list applies to the mounted editors through knkeditor's `setHiddenCommentThreads`: no document change, no history entry, no remount, and the form stays clean. Only its contents count, not its identity; nor do new callbacks remount anything — they are read when called.
+- **Read view too.** SpecForm's read mode registers the extension in a Branch as well, so a document holding anchors loads with them, and clicks reach the host.
+- **Highlight.** knkeditor leaves comment styling to the host, and fieldkit is the editor's host, so the field styles the anchors inside its scope, in the colours of knkeditor's opt-in `default.css` (hovered and selected darker); knkeditor's Review layer switched off still wins and draws none. A resolved text anchor's highlight is dropped by its thread id rather than by `default.css`'s `:has([data-comment-hidden])`, because jsdom's selector engine throws on `:has()` beside React's ids — which would break every jsdom test of a host. Don't inject `default.css` as well: its `:has()` rules bring that back.
+- Placing or removing the provider remounts the editors, since an editor's extensions are fixed when it mounts.
+
+`knk-rich-text-field.test.tsx` covers all of it ("Comments").
+
 ## The core renderer's `rich_text` field
 
 Without `/rich-text`, `rich_text` renders `RichTextField` from `/renderer`: the document's text read-only, with a line saying it can't be edited here. It only watches the value, never registers or writes it, so a form keeps a document exactly as it came. It replaced a JSON textarea that let anyone write documents knkeditor refuses. The table cell (`RichTextCell`) shows the same text preview (`rich-text-preview.ts`).
@@ -92,7 +131,7 @@ editorSettings?: {
 
 ## knkeditor's editor, as `/rich-text` uses it
 
-`EditorProps` (knkeditor-editor 4.0) that fieldkit sets: `content`, `textType` (a `ResolvedTextType`: the editor configures its extensions with it — `configureForTextType` — and normalises what is pasted, inserted or created to it — `textTypeNormalisation` — while `content` loads as it is), `editorSettings`, `layout` (`"page"`, or `"minimal"` for a `compact` Field), `editingMode` (`"content" | "readOnly"`), `sections: { devMenu: false }`, `pageOptions` (`{ width: 210, margin: 10 }`: A4, as core lays out a Text Type without a `page_width` — knkeditor's `ResolvedTextType` has no page width, and refuses any key but `nodes`, `marks` and `minimumVocabularyVersion`), `toolbarPosition: "fixed"`, `maxEditorHeight: "none"` (a fixed-toolbar editor is otherwise capped at `calc(100vh - 200px)` and scrolls inside the page), `onUpdate`, `onBlur`, and `extensions`: knkeditor's `defaultExtensions`, unchanged, which the Text Type configures — the legacy text block and the kind model's `semanticMark` among them (`knk-rich-text-field.test.tsx` opens a value holding each). It passes nothing about the Inspector or the view menu: outside an `EditorHost` the field has its own docked Inspector and view menu; inside one, knkeditor switches both off and the page places one `Inspector` and one `ViewControl` that follow the focused editor (contenthub#628, contenthub ADR 0031). `editor-host.test.tsx` checks both, for the edit field and the read view.
+`EditorProps` (knkeditor-editor 4.0) that fieldkit sets: `content`, `textType` (a `ResolvedTextType`: the editor configures its extensions with it — `configureForTextType` — and normalises what is pasted, inserted or created to it — `textTypeNormalisation` — while `content` loads as it is), `editorSettings`, `layout` (`"page"`, or `"minimal"` for a `compact` Field), `editingMode` (`"content" | "readOnly"`), `sections: { devMenu: false }`, `pageOptions` (`{ width: 210, margin: 10 }`: A4, as core lays out a Text Type without a `page_width` — knkeditor's `ResolvedTextType` has no page width, and refuses any key but `nodes`, `marks` and `minimumVocabularyVersion`), `toolbarPosition: "fixed"`, `maxEditorHeight: "none"` (a fixed-toolbar editor is otherwise capped at `calc(100vh - 200px)` and scrolls inside the page), `onUpdate`, `onBlur`, and `extensions`: knkeditor's `defaultExtensions`, unchanged, which the Text Type configures — the legacy text block and the kind model's `semanticMark` among them (`knk-rich-text-field.test.tsx` opens a value holding each); in a working document's form, inside a `RichTextCommentsProvider`, the comment extension after them ([Comments in a working document](#comments-in-a-working-document)). It passes nothing about the Inspector or the view menu: outside an `EditorHost` the field has its own docked Inspector and view menu; inside one, knkeditor switches both off and the page places one `Inspector` and one `ViewControl` that follow the focused editor (contenthub#628, contenthub ADR 0031). `editor-host.test.tsx` checks both, for the edit field and the read view.
 
 The editor renders inside knkeditor's own scoped Chakra system, its exported `KnkeditorScope` (ADR-0026, amended; contenthub#629), in the edit field and the read view alike: Chakra's default theme with a gray `colorPalette`, its tokens set on the `knkeditor-scope` element (`KNKEDITOR_SCOPE_CLASS`), built from a copy of `defaultConfig` with `preflight` off and the `light` and `dark` conditions scoped to that element. Until knkeditor 3 fieldkit kept a private copy of it (`fieldkit-knkeditor`); knkeditor's is the same system and also mounts knkeditor's overlays — menus, dialogs, tooltips, popovers — inside the scope element rather than on `document.body` (knkeditor#833), so they stay in its tokens. So no reset, global rule or token reaches the Consumer's page; `knkeditor-scope.test.tsx` checks that the rules reaching a sibling anker control are the same with and without a rich-text field, in both themes, and that nothing between the field and the scope hides its overflow, which would clip those overlays. What it does not scope: the default theme's `@keyframes` (global by nature, and named as anker's).
 

@@ -8,9 +8,9 @@ import {
 } from "@knkcms/knkeditor-vocabulary";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { FormProvider, type UseFormReturn, useForm } from "react-hook-form";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { FieldKitAdapters } from "../../renderer/adapters";
 import { FieldRenderer } from "../../renderer/field-renderer";
 import { FieldKitProvider } from "../../renderer/provider";
@@ -19,7 +19,12 @@ import { builtInFieldTypes } from "../../schema/field-types";
 import type { FieldTypePlugin } from "../../schema/plugin";
 import { type ResolvedSpec, resolveSpec } from "../../schema/resolve-spec";
 import type { Field } from "../../schema/types";
-import { knkRichTextPlugin } from "..";
+import {
+	type AddCommentRequest,
+	knkRichTextPlugin,
+	type RichTextComments,
+	RichTextCommentsProvider,
+} from "..";
 import {
 	ARTICLE,
 	ARTICLE_TEXT_TYPE,
@@ -537,6 +542,249 @@ describe("KnkRichTextField", () => {
 			const editor = editorIn(container);
 			expect(editor.isEditable).toBe(false);
 			expect(textBlocks(editor)).toEqual(["Alter Fließtext."]);
+		});
+	});
+
+	// Comments in a working document (knkboor/general#2224; knkeditor ADR
+	// 0006, contenthub ADR 0034): only inside a RichTextCommentsProvider.
+	describe("Comments", () => {
+		// A text selection opens knkeditor's text menu, which places itself
+		// by the selection's rectangles: jsdom's Range has none.
+		const rangeRects = {
+			getClientRects: Range.prototype.getClientRects,
+			getBoundingClientRect: Range.prototype.getBoundingClientRect,
+		};
+		beforeAll(() => {
+			Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+			Range.prototype.getBoundingClientRect = () => new DOMRect();
+		});
+		afterAll(() => {
+			Object.assign(Range.prototype, rangeRects);
+		});
+
+		/** Two sentences, the second anchoring thread `t1`, a third `t2`. */
+		const anchoredDocument = () => ({
+			type: "doc",
+			content: [
+				{
+					type: "textWrapper",
+					attrs: { id: "a" },
+					content: [
+						{ type: "text", text: "Eins. " },
+						{
+							type: "text",
+							text: "Zwei.",
+							marks: [{ type: "commentMark", attrs: { threadId: "t1" } }],
+						},
+						{ type: "text", text: " " },
+						{
+							type: "text",
+							text: "Drei.",
+							marks: [{ type: "commentMark", attrs: { threadId: "t2" } }],
+						},
+					],
+				},
+			],
+		});
+
+		/** The form inside a Branch's provider, whose resolved threads the
+		 * test changes as a host would. */
+		function renderBranch(options: {
+			resolved: ResolvedSpec;
+			comments: RichTextComments;
+			body: unknown;
+		}) {
+			let methods: UseFormReturn | undefined;
+			let resolve: (ids: string[]) => void = () => {};
+			function Host() {
+				const [resolvedThreadIds, setResolved] = useState(
+					options.comments.resolvedThreadIds ?? [],
+				);
+				resolve = setResolved as (ids: string[]) => void;
+				methods = useForm({ defaultValues: { body: options.body } });
+				return (
+					<RichTextCommentsProvider
+						comments={{ ...options.comments, resolvedThreadIds }}
+					>
+						<FormProvider {...methods}>
+							<FieldRenderer schema={options.resolved.fields} />
+						</FormProvider>
+					</RichTextCommentsProvider>
+				);
+			}
+			const view = render(
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={plugins} parts={options.resolved.parts}>
+						<Host />
+					</FieldKitProvider>
+				</ChakraProvider>,
+			);
+			return {
+				...view,
+				form: () => methods as UseFormReturn,
+				resolve: (ids: string[]) => act(() => resolve(ids)),
+			};
+		}
+
+		/** The anchors' elements per thread, from the rendered DOM. */
+		function anchorOf(container: HTMLElement, threadId: string) {
+			const anchor = container.querySelector(
+				`.comment-thread[data-thread-id="${threadId}"]`,
+			);
+			if (!anchor) throw new Error(`no anchor for ${threadId}`);
+			return anchor;
+		}
+		/** Whether a text anchor is hidden: knkeditor's marker inside it, and
+		 * no highlight on it. */
+		const hidden = (anchor: Element) => {
+			const marked =
+				anchor.querySelector('[data-comment-hidden="text"]') !== null;
+			const highlighted =
+				getComputedStyle(anchor).backgroundColor.includes("254, 240, 138");
+			if (marked === highlighted) {
+				throw new Error(
+					`anchor ${anchor.getAttribute("data-thread-id")}: hidden marker ${marked}, highlighted ${highlighted}`,
+				);
+			}
+			return marked;
+		};
+
+		/** A click on the anchor at `pos`, through the editor's click props. */
+		function clickAt(editor: TiptapEditor, pos: number) {
+			const event = new MouseEvent("click");
+			Object.defineProperty(event, "target", {
+				value: editor.view.domAtPos(pos).node.parentElement,
+			});
+			editor.view.someProp("handleClick", (handle) =>
+				handle(editor.view, pos, event),
+			);
+		}
+
+		it("registers the comment extension in a Branch and hands both callbacks to the host", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const requests: AddCommentRequest[] = [];
+			const onCommentClick = vi.fn();
+			const { container, form } = renderBranch({
+				resolved,
+				body: anchoredDocument(),
+				comments: {
+					onAddComment: (request) => requests.push(request),
+					onCommentClick,
+				},
+			});
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const editor = editorIn(container);
+			expect(editor.extensionManager.extensions.map((e) => e.name)).toContain(
+				"comment",
+			);
+			// The stored anchors load, and loading them is no edit.
+			expect(form().formState.dirtyFields).toEqual({});
+			expect(anchorOf(container, "t1")).toHaveTextContent("Zwei.");
+
+			// Clicking an anchor names its thread and the Field.
+			const zwei = editor.getText().indexOf("Zwei.") + 2;
+			act(() => clickAt(editor, zwei));
+			expect(onCommentClick).toHaveBeenCalledWith({
+				fieldPath: "body",
+				threadIds: ["t1"],
+			});
+
+			// The Comment button asks the host, with the selection's text…
+			act(() => {
+				editor.commands.setTextSelection({ from: 1, to: 5 });
+				editor.commands.requestAddComment();
+			});
+			expect(requests).toHaveLength(1);
+			expect(requests[0]).toMatchObject({ fieldPath: "body", text: "Eins" });
+
+			// …and the host anchors its thread once it exists, on the text
+			// that was selected, whatever was edited meanwhile.
+			act(() => {
+				editor.commands.insertContentAt(1, "Null. ");
+			});
+			let anchored = false;
+			act(() => {
+				anchored = requests[0].anchor("t3");
+			});
+			expect(anchored).toBe(true);
+			expect(anchorOf(container, "t3")).toHaveTextContent("Eins");
+			const saved = JSON.stringify(form().getValues("body"));
+			expect(saved).toContain('"threadId":"t3"');
+			// A request is answered once.
+			expect(requests[0].anchor("t4")).toBe(false);
+		});
+
+		it("hides the anchors of the resolved threads, and follows the host's list without an edit", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const onCommentClick = vi.fn();
+			const view = renderBranch({
+				resolved,
+				body: anchoredDocument(),
+				comments: {
+					onAddComment: () => {},
+					onCommentClick,
+					resolvedThreadIds: ["t1"],
+				},
+			});
+			const { container } = view;
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const editor = editorIn(container);
+			expect(hidden(anchorOf(container, "t1"))).toBe(true);
+			expect(hidden(anchorOf(container, "t2"))).toBe(false);
+			// A resolved thread is not offered on click.
+			const zwei = editor.getText().indexOf("Zwei.") + 2;
+			act(() => clickAt(editor, zwei));
+			expect(onCommentClick).not.toHaveBeenCalled();
+
+			view.resolve(["t2"]);
+			await waitFor(() => expect(hidden(anchorOf(container, "t2"))).toBe(true));
+			expect(hidden(anchorOf(container, "t1"))).toBe(false);
+			// The same editor, the document untouched.
+			expect(editorIn(container)).toBe(editor);
+			expect(view.form().formState.dirtyFields).toEqual({});
+			expect(view.form().getValues("body")).toStrictEqual(anchoredDocument());
+		});
+
+		it("registers no comment extension outside a Branch", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const { container } = renderForm({ resolved });
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			const editor = editorIn(container);
+			const names = editor.extensionManager.extensions.map((e) => e.name);
+			expect(names).not.toContain("comment");
+			expect(names).not.toContain("commentMark");
+			expect(editor.schema.marks.commentMark).toBeUndefined();
+		});
+
+		it("registers it in the read view of a Branch too, so the anchors load", async () => {
+			const resolved = await resolveUnder(ARTICLE_TEXT_TYPE());
+			const { container } = render(
+				<ChakraProvider value={defaultSystem}>
+					<FieldKitProvider plugins={plugins} parts={resolved.parts}>
+						<RichTextCommentsProvider
+							comments={{ onAddComment: () => {}, resolvedThreadIds: ["t2"] }}
+						>
+							<SpecForm
+								schema={resolved.fields}
+								mode="read"
+								values={{ body: anchoredDocument() }}
+							/>
+						</RichTextCommentsProvider>
+					</FieldKitProvider>
+				</ChakraProvider>,
+			);
+			await waitFor(() =>
+				expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+			);
+			expect(editorIn(container).isEditable).toBe(false);
+			expect(hidden(anchorOf(container, "t1"))).toBe(false);
+			expect(hidden(anchorOf(container, "t2"))).toBe(true);
 		});
 	});
 });

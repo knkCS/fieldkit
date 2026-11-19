@@ -16,6 +16,12 @@ import { richTextPlugin } from "../schema/field-types/rich-text";
 import type { FieldTypePlugin } from "../schema/plugin";
 import { KnkRichTextField, KnkRichTextRead } from "./knk-rich-text-field";
 
+export {
+	type AddCommentRequest,
+	type CommentClick,
+	type RichTextComments,
+	RichTextCommentsProvider,
+} from "./comments";
 export { KnkRichTextField, KnkRichTextRead } from "./knk-rich-text-field";
 
 /** The built-in `rich_text` plugin with the knkeditor-backed field and read
