@@ -389,10 +389,9 @@ A new, opt-in subpath (ADR-0026): the knkeditor-backed `rich_text` field.
 `knkRichTextPlugin` is `{ ...richTextPlugin, fieldComponent:
 KnkRichTextField, readComponent: KnkRichTextRead }`; pass it in place of the
 built-in plugin and hand `resolveSpec(...).parts` to `FieldKitProvider`. Its
-optional peers are `@knkcms/knkeditor-editor` `^3.3.0`,
-`@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` and
-`@knkcms/knkeditor-extension-text-block` `>=0.3.0 <1.0.0` (see "knkeditor 3"
-below), plus the peers knkeditor-editor
+optional peers are `@knkcms/knkeditor-editor` `^4.0.0` and
+`@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` (see "knkeditor 3" and
+"knkeditor 4" below), plus the peers knkeditor-editor
 declares (TipTap 3, i18next, react-i18next, react-icons, emotion, its
 extension packages). No other subpath imports them. Details in
 [`knkeditor-reference.md`](knkeditor-reference.md).
@@ -437,7 +436,32 @@ API is unchanged.
   in the edit field and the read view. A text block is valid inside an
   Absatz (`paragraph > paragraphContent > textBlock`); directly under `doc`
   the vocabulary refuses it. Whether imported Content holds top-level text
-  blocks is tracked as knkCS/contenthub#647.
+  blocks is tracked as knkCS/contenthub#647. (Superseded by knkeditor 4,
+  below: the editor's defaults bring the text block themselves.)
+
+**knkeditor 4** (knkboor/general#2215, knkCS/fieldkit#457, **breaking for a
+Consumer's install**): the peer moves to `@knkcms/knkeditor-editor` `^4.0.0`,
+and `@knkcms/knkeditor-extension-text-block` is **no longer a peer** — the
+editor depends on it itself. Install knkeditor-editor 4 with the fieldkit
+release that carries this, and drop the text-block package from your own
+dependencies unless you use it yourself. fieldkit's own API is unchanged.
+
+- The field passes knkeditor's `defaultExtensions` unchanged; it no longer
+  adds `TextBlock`. Editor 4's defaults load the whole vocabulary, the legacy
+  text block among them, so a document holding one still opens in the edit
+  field and the read view; it is offered in the menus only under a Text Type
+  that enables it.
+- A value holding a semantic mark of the kind model — `semanticMark` with
+  `attrs.kind` — now opens and shows its text: the defaults register the kind
+  model's mark, which takes its kinds (`marks.semanticMark.options.kinds`) from
+  the field's Text Type. Per-key marks (`semanticMark_<key>`) no longer load;
+  a Consumer whose stored values still hold them stays on a fieldkit release
+  with knkeditor 3 until its content is converted.
+- A Field without a `text_type` Pin opens an editor with no Text Type, and
+  there editor 4 offers more: margin numbers, margin notes, page breaks,
+  buttons and the collapsible heading, and the document takes blocks (a list,
+  a table) at its top level. Pin a Text Type to offer less. A Field whose Pin
+  cannot be loaded still shows its document read-only, as before.
 
 ## Go API
 

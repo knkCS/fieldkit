@@ -339,9 +339,116 @@ describe("KnkRichTextField", () => {
 		expect(saved.content[0].content[0].attrs.checked).toBe(true);
 		expect(validate(saved, checklist())).toEqual([]);
 	});
-	// Editor 3 dropped the text block from its default extensions
-	// (knkeditor#907); Content imported from core may hold one, so the field
-	// registers it. Its valid place is inside an Absatz.
+	// knkeditor-editor 4 (knkboor/general#2215): the field passes knkeditor's
+	// defaults unchanged, whose `semanticMark` is the kind model (ADR 0012 in
+	// knkeditor) and takes its kinds from the Text Type. A value holding one
+	// opens and shows its text; with the 3.x list plus the field's own text
+	// block it did not open, and on 4.x that list registers the text block twice.
+	describe("a semantic mark under a Text Type with kinds", () => {
+		const withKinds = (): ResolvedTextType => ({
+			minimumVocabularyVersion: "0.1.0",
+			nodes: {
+				doc: { options: {} },
+				textWrapper: { options: {} },
+				text: { options: {} },
+			},
+			marks: {
+				semanticMark: {
+					options: {
+						kinds: [
+							{
+								kind: "begriff",
+								label: "Legaldefinition",
+								style: [],
+								html_attributes: {},
+								attributes: [],
+							},
+							{
+								kind: "gesperrt",
+								label: "Sperrdruck",
+								style: [],
+								html_attributes: {},
+								attributes: [],
+							},
+						],
+					},
+				},
+			},
+		});
+		const withSemanticMark = () => ({
+			type: "doc",
+			content: [
+				{
+					type: "textWrapper",
+					attrs: { id: "w" },
+					content: [
+						{
+							type: "text",
+							text: "Öffentliche Stellen",
+							marks: [
+								{
+									type: "semanticMark",
+									attrs: { kind: "begriff", attributes: {} },
+								},
+							],
+						},
+					],
+				},
+			],
+		});
+		/** Every semantic mark's kind and the text it marks. */
+		const semanticMarks = (editor: TiptapEditor) => {
+			const marked: { kind: unknown; text: string }[] = [];
+			editor.state.doc.descendants((node) => {
+				for (const mark of node.marks) {
+					if (mark.type.name === "semanticMark") {
+						marked.push({ kind: mark.attrs.kind, text: node.text ?? "" });
+					}
+				}
+			});
+			return marked;
+		};
+
+		it("is a valid document under its Text Type", () => {
+			expect(validate(withSemanticMark(), withKinds())).toEqual([]);
+		});
+
+		it("opens in the edit field, shows its text, and opening it is no edit", async () => {
+			const warn = vi.spyOn(console, "warn");
+			try {
+				const resolved = await resolveUnder(withKinds());
+				const { container, form } = renderForm({
+					resolved,
+					body: withSemanticMark(),
+				});
+				await waitFor(() =>
+					expect(container.querySelector(".ProseMirror")).not.toBeNull(),
+				);
+				const editor = editorIn(container);
+				expect(container.querySelector(".ProseMirror")).toHaveTextContent(
+					"Öffentliche Stellen",
+				);
+				expect(semanticMarks(editor)).toEqual([
+					{ kind: "begriff", text: "Öffentliche Stellen" },
+				]);
+				expect(form().formState.dirtyFields).toEqual({});
+				expect(form().getValues("body")).toStrictEqual(withSemanticMark());
+				// The defaults, unchanged: no extension registered twice.
+				expect(
+					warn.mock.calls.filter((call) =>
+						String(call[0]).includes("Duplicate extension names"),
+					),
+				).toEqual([]);
+			} finally {
+				warn.mockRestore();
+			}
+		});
+	});
+
+	// The legacy text block is in knkeditor-editor 4's defaults
+	// (knkboor/general#2213): Content imported from core may hold one, and it
+	// opens without the field adding anything. Its valid place is inside an
+	// Absatz.
 	describe("a legacy text block", () => {
 		const legacy = (): ResolvedTextType => ({
 			minimumVocabularyVersion: "0.1.0",

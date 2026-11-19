@@ -300,9 +300,8 @@ Consuming projects must install:
 - `react-router-dom` ^6.0.0 || ^7.0.0
 
 Optional — only for `@knkcs/fieldkit/rich-text` (ADR-0026):
-- `@knkcms/knkeditor-editor` ^3.3.0, `@knkcms/knkeditor-vocabulary` >=0.10.1 <0.11.0
-  and `@knkcms/knkeditor-extension-text-block` >=0.3.0 <1.0.0, plus the peers
-  knkeditor-editor declares itself (TipTap 3, i18next, react-i18next,
+- `@knkcms/knkeditor-editor` ^4.0.0 and `@knkcms/knkeditor-vocabulary`
+  >=0.10.1 <0.11.0, plus the peers knkeditor-editor declares itself (TipTap 3, i18next, react-i18next,
   react-icons, emotion, its extension packages). All are devDependencies
   here, for that subpath's tests and stories
 

@@ -4,7 +4,6 @@ import KnkEditor, {
 	type EditorProps,
 	KnkeditorScope,
 } from "@knkcms/knkeditor-editor";
-import TextBlock from "@knkcms/knkeditor-extension-text-block";
 import type {
 	EditorSettings,
 	ResolvedTextType,
@@ -41,13 +40,15 @@ function documentOf(value: unknown): EditorProps["content"] {
 const PAGE = { width: 210, margin: 10 } as const;
 
 /**
- * knkeditor's default extensions and the text block. Editor 3 dropped
- * `TextBlock` from its defaults (knkeditor#907): it is legacy content, and
- * Content imported from core may hold `textBlock` nodes, which an editor
- * without it would drop on load — and the next save with them. Built once:
- * knkeditor memoises the editor's extensions on this array's identity.
+ * knkeditor's default extensions, unchanged. From knkeditor-editor 4 they
+ * load the whole vocabulary (knkboor/general#2213) — the legacy text block
+ * among them, which Content imported from core may hold — and register the
+ * kind model's `semanticMark`, which takes its kinds from the Text Type
+ * (knkboor/general#2212, #2214). Adding `TextBlock` again would register
+ * it twice. Passed as the module's one array: knkeditor memoises the editor's
+ * extensions on its identity.
  */
-const EXTENSIONS: EditorProps["extensions"] = [...defaultExtensions, TextBlock];
+const EXTENSIONS: EditorProps["extensions"] = defaultExtensions;
 
 /** A document's content, for telling two copies of one document apart from
  * two documents. */
