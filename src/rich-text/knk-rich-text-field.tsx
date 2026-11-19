@@ -10,6 +10,7 @@ import { RichTextFallback } from "../renderer/fields/rich-text-field";
 import { richTextPreview } from "../renderer/fields/rich-text-preview";
 import type { RichTextSettings } from "../schema/field-types/rich-text";
 import type { FieldProps, ReadProps } from "../schema/plugin";
+import { useRichTextComments } from "./comments";
 import { KnkDocumentEditor } from "./knk-document-editor";
 import { RichTextFieldView, useRichTextViewKey } from "./rich-text-field-view";
 import { useRichTextSetup } from "./use-rich-text-setup";
@@ -42,6 +43,10 @@ function isDocumentOrNone(value: unknown): boolean {
  *
  * Inside an `EditorHost` its label row carries the Field's view (contenthub
  * ADR 0033), keyed by the Field's form path; see `RichTextFieldView`.
+ *
+ * Inside a `RichTextCommentsProvider` — the value is a working document's, a
+ * Branch's — it registers knkeditor's comment extension and hands the
+ * Comments to the host; see `RichTextComments`.
  */
 export function KnkRichTextField({
 	field,
@@ -51,6 +56,8 @@ export function KnkRichTextField({
 	const setup = useRichTextSetup(field);
 	const { config } = field;
 	const value = useWatch({ name: config.api_accessor });
+	// A working document's (a Branch's) Comments, when the host says so.
+	const comments = useRichTextComments();
 	// The label row the view draws into, as the Reference Field's tree does.
 	const labelRow = useFieldLabelRowHost();
 	// A form path (`rows.0.body` in a Group): unique among the form's Fields.
@@ -98,6 +105,8 @@ export function KnkRichTextField({
 									viewMode={field.settings?.view_mode}
 									viewKey={viewKey}
 									readOnly={readOnly}
+									comments={comments}
+									fieldPath={viewKey}
 									onChange={formField.onChange}
 									onBlur={formField.onBlur}
 								/>
@@ -122,6 +131,7 @@ KnkRichTextField.displayName = "KnkRichTextField";
 export function KnkRichTextRead({ field, value }: ReadProps<RichTextSettings>) {
 	const setup = useRichTextSetup(field);
 	const viewKey = useRichTextViewKey(field.config.api_accessor);
+	const comments = useRichTextComments();
 	if (setup.status === "loading") {
 		return <Skeleton height="16" />;
 	}
@@ -141,6 +151,8 @@ export function KnkRichTextRead({ field, value }: ReadProps<RichTextSettings>) {
 				viewMode={field.settings?.view_mode}
 				viewKey={viewKey}
 				readOnly
+				comments={comments}
+				fieldPath={field.config.api_accessor}
 			/>
 		</>
 	);

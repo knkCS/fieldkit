@@ -81,6 +81,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^3.0.0",
     "@knkcms/knkeditor-editor": "^4.0.0",
+    "@knkcms/knkeditor-extension-comment": "^0.1.0",
     "@knkcms/knkeditor-vocabulary": ">=0.10.1 <0.11.0",
     "@knkcs/anker": "^5.11.1",
     "@tanstack/react-table": "^8.0.0",
@@ -92,6 +93,9 @@
   },
   "peerDependenciesMeta": {
     "@knkcms/knkeditor-editor": {
+      "optional": true
+    },
+    "@knkcms/knkeditor-extension-comment": {
       "optional": true
     },
     "@knkcms/knkeditor-vocabulary": {
@@ -107,6 +111,7 @@
     "@emotion/react": "^11.14.0",
     "@hookform/resolvers": "^3.9.0",
     "@knkcms/knkeditor-editor": "^4.0.0",
+    "@knkcms/knkeditor-extension-comment": "^0.1.0",
     "@knkcms/knkeditor-vocabulary": "^0.10.1",
     "@knkcs/anker": "^5.11.1",
     "@storybook/addon-a11y": "^8.4.0",

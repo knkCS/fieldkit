@@ -404,6 +404,21 @@ the Consumer's page. The editor grows with its document (no height cap), keeps
 its toolbar fixed at the top while editing, and lays out an A4 page. No API
 change.
 
+**Comments in a working document** (knkboor/general#2224,
+knkCS/fieldkit#458): a new optional peer, `@knkcms/knkeditor-extension-comment`
+`^0.1.0` — **install it** beside knkeditor-editor: `/rich-text` imports it,
+whether or not a form takes Comments. New
+exports `RichTextCommentsProvider` and its types `RichTextComments`,
+`AddCommentRequest` and `CommentClick`. Wrap a working document's form — a
+contenthub Branch's — in `<RichTextCommentsProvider comments={…}>`: its
+rich-text Fields register knkeditor's comment extension, call
+`onAddComment({ fieldPath, text, anchor })` from the Comment button — create
+the thread, then `anchor(threadId)` — and `onCommentClick({ fieldPath,
+threadIds })`, and hide the anchors of `resolvedThreadIds`, which may change
+at runtime without remounting. Outside the provider nothing changes and no
+comment extension is registered. Details in
+[`knkeditor-reference.md`](knkeditor-reference.md#comments-in-a-working-document).
+
 **knkeditor 3** (contenthub#632, **breaking for a Consumer's install**): the
 peers move to `@knkcms/knkeditor-editor` `^3.2.0` and
 `@knkcms/knkeditor-vocabulary` `>=0.10.1 <0.11.0` — editor 3.2.0 depends on
